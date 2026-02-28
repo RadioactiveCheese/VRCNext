@@ -122,7 +122,8 @@ function saveSettings() {
             chatboxAutoStart: document.getElementById('setCbAutoStart').checked,
             sfAutoStart: document.getElementById('setSfAutoStart').checked,
             imgCacheEnabled: document.getElementById('setImgCacheEnabled').checked,
-            imgCacheLimitGb: parseInt(document.getElementById('setImgCacheLimit').value) || 5
+            imgCacheLimitGb: parseInt(document.getElementById('setImgCacheLimit').value) || 5,
+            ffcEnabled: document.getElementById('setFfcEnabled').checked
         }
     };
     sendToCS(payload);
@@ -245,6 +246,12 @@ function loadSettingsToUI(s) {
     document.getElementById('setImgCacheLimit').value = imgCacheLimitGb;
     document.getElementById('imgCacheLimitVal').textContent = imgCacheLimitGb + ' GB';
     updateImgCacheUi();
+
+    // Fast Fetch Cache
+    document.getElementById('setFfcEnabled').checked = s.FfcEnabled ?? s.ffcEnabled ?? true;
+
+    // Sync custom dropdowns to reflect programmatically set values
+    document.querySelectorAll('select').forEach(s => s._vnRefresh && s._vnRefresh());
 
     // Setup autosave listeners after UI is populated
     setTimeout(initAutoSave, 100);

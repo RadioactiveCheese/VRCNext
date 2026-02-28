@@ -1,4 +1,5 @@
 /* === Init === */
+initAllVnSelects();
 renderWebhookCards([{}, {}, {}, {}]);
 renderThemeChips();
 renderDashboard();

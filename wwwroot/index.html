@@ -330,7 +330,16 @@
                     <div class="sf-card">
                         <div class="sf-card-header"><span class="msi">bug_report</span> Debugging</div>
                         <div class="set-desc" style="margin-bottom:12px;">Use these options if something isn't working correctly or you want to reconfigure VRCNext from scratch.</div>
-                        <button class="btn-f" onclick="sendToCS({action:'resetSetup'})"><span class="msi" style="font-size:16px;">restart_alt</span> Redo Setup Wizard</button>
+                        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                            <button class="btn-f" onclick="sendToCS({action:'resetSetup'})"><span class="msi" style="font-size:16px;">restart_alt</span> Redo Setup Wizard</button>
+                            <button class="btn-f" id="btnForceFfc" onclick="forceFfcAll()"><span class="msi" style="font-size:16px;">cloud_download</span> Force FFC All</button>
+                        </div>
+                        <div id="ffcProgressWrap" style="display:none;margin-top:12px;">
+                            <div style="font-size:12px;color:var(--tx2);margin-bottom:6px;" id="ffcProgressLabel">Caching...</div>
+                            <div style="background:var(--brd);border-radius:4px;height:6px;overflow:hidden;">
+                                <div id="ffcProgressBar" style="height:100%;background:var(--accent);width:0%;transition:width .3s;border-radius:4px;"></div>
+                            </div>
+                        </div>
                     </div>
 
                     <!-- IMAGE CACHE -->
@@ -349,6 +358,18 @@
                             </div>
                             <div style="font-size:10px;color:var(--tx3);margin-top:6px;">When the limit is reached, the oldest ~2 GB of cached images are removed automatically.</div>
                         </div>
+                        <button class="btn-f" style="margin-top:12px;" onclick="sendToCS({action:'clearImgCache'})"><span class="msi" style="font-size:16px;">delete_sweep</span> Clear Image Cache</button>
+                    </div>
+
+                    <!-- FAST FETCH CACHE -->
+                    <div class="sf-card">
+                        <div class="sf-card-header"><span class="msi">bolt</span> Fast Fetch Cache</div>
+                        <div class="set-desc">Fast Fetch Cache stores user profiles, worlds, groups, and avatars locally to improve load times. When enabled, VRCNext instantly shows cached content (descriptions, texts, images) while silently refreshing it in the background. When disabled, all data is freshly downloaded on every request — no cache is stored or used.</div>
+                        <div class="sf-toggle-row">
+                            <span>Enable FFC</span>
+                            <label class="toggle"><input type="checkbox" id="setFfcEnabled" checked onchange="autoSave()"><div class="toggle-track"><div class="toggle-knob"></div></div></label>
+                        </div>
+                        <button class="btn-f" style="margin-top:12px;" onclick="sendToCS({action:'clearFfcCache'})"><span class="msi" style="font-size:16px;">delete_sweep</span> Clear FFC Cache</button>
                     </div>
 
                 </div>

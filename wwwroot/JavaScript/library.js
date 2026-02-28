@@ -285,6 +285,7 @@ function updateFolderFilterOptions(fs) {
         s.innerHTML += `<option value="${esc(f)}">${esc(n)}</option>`;
     });
     s.value = c || '__all__';
+    if (s._vnRefresh) s._vnRefresh();
 }
 
 function openPhotoDetail(idx) {

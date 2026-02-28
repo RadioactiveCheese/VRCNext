@@ -412,3 +412,131 @@ function esc(s) {
 function jsq(s) {
     return String(s || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/\r/g, '\\r').replace(/\n/g, '\\n');
 }
+
+/* ── Custom Dropdown (vn-select) ─────────────────────────────────────────── */
+function initVnSelect(el) {
+    if (!el || el._vnSelect) return;
+    el._vnSelect = true;
+
+    // Build wrapper, copying the select's class for layout (flex etc.) and inline style
+    const wrap = document.createElement('div');
+    wrap.className = (el.className ? el.className + ' ' : '') + 'vn-select';
+    if (el.style.cssText) wrap.style.cssText = el.style.cssText;
+
+    // Trigger (the visible "button")
+    const trigger = document.createElement('div');
+    trigger.className = 'vn-select-trigger';
+    const label = document.createElement('span');
+    label.className = 'vn-select-label';
+    const arrow = document.createElement('span');
+    arrow.className = 'msi vn-select-arrow';
+    arrow.textContent = 'expand_more';
+    trigger.append(label, arrow);
+
+    // Panel (the open list)
+    const panel = document.createElement('div');
+    panel.className = 'vn-select-panel';
+
+    wrap.append(trigger, panel);
+    el.parentNode.insertBefore(wrap, el);
+    el.style.display = 'none';
+    wrap.appendChild(el); // keep hidden select inside for form compat
+
+    function isVrcPlus(value, text) {
+        return /vrcplus/i.test(value) || /vrc\+/i.test(text);
+    }
+
+    function buildPanel() {
+        panel.innerHTML = '';
+        for (let i = 0; i < el.options.length; i++) {
+            const opt = el.options[i];
+            const item = document.createElement('div');
+            item.className = 'vn-select-option' + (i === el.selectedIndex ? ' vn-active' : '');
+
+            const span = document.createElement('span');
+            span.textContent = opt.text;
+            item.appendChild(span);
+
+            if (isVrcPlus(opt.value, opt.text)) {
+                const badge = document.createElement('span');
+                badge.className = 'vn-vrc-badge';
+                badge.textContent = 'VRC+';
+                item.appendChild(badge);
+            }
+
+            item.addEventListener('click', () => {
+                el.selectedIndex = i;
+                el.dispatchEvent(new Event('change', { bubbles: true }));
+                syncLabel();
+                close();
+            });
+            panel.appendChild(item);
+        }
+    }
+
+    function syncLabel() {
+        const opt = el.options[el.selectedIndex];
+        label.textContent = opt ? opt.text : '';
+        panel.querySelectorAll('.vn-select-option').forEach((item, i) => {
+            item.classList.toggle('vn-active', i === el.selectedIndex);
+        });
+    }
+
+    function open() {
+        buildPanel();
+        syncLabel();
+        wrap.classList.add('vn-open');
+        // Flip above if near bottom of viewport
+        const rect = wrap.getBoundingClientRect();
+        const below = rect.bottom + 270 < window.innerHeight;
+        panel.style.top    = below ? 'calc(100% + 4px)' : 'auto';
+        panel.style.bottom = below ? 'auto' : 'calc(100% + 4px)';
+        setTimeout(() => document.addEventListener('click', onOutside, { once: true }), 0);
+    }
+
+    function close() { wrap.classList.remove('vn-open'); }
+
+    function onOutside(e) {
+        if (wrap.contains(e.target)) document.addEventListener('click', onOutside, { once: true });
+        else close();
+    }
+
+    trigger.addEventListener('click', e => {
+        e.stopPropagation();
+        wrap.classList.contains('vn-open') ? close() : open();
+    });
+
+    // Expose refresh for callers that update options programmatically
+    el._vnRefresh = () => { buildPanel(); syncLabel(); };
+
+    // Initial render
+    buildPanel();
+    syncLabel();
+}
+
+function initAllVnSelects() {
+    document.querySelectorAll('select:not([data-no-vn])').forEach(initVnSelect);
+}
+
+// === Force FFC All ===
+function forceFfcAll() {
+    const btn = document.getElementById('btnForceFfc');
+    if (btn) btn.disabled = true;
+    sendToCS({ action: 'forceFfcAll' });
+}
+
+function handleFfcProgress(d) {
+    const wrap = document.getElementById('ffcProgressWrap');
+    const bar  = document.getElementById('ffcProgressBar');
+    const lbl  = document.getElementById('ffcProgressLabel');
+    const btn  = document.getElementById('btnForceFfc');
+    if (d.done) {
+        if (wrap) wrap.style.display = 'none';
+        if (btn)  btn.disabled = false;
+        return;
+    }
+    if (wrap) wrap.style.display = '';
+    if (bar)  bar.style.width  = (d.progress || 0) + '%';
+    if (lbl)  lbl.textContent  = d.label || ('Caching... ' + (d.progress || 0) + '%');
+    if (btn)  btn.disabled = true;
+}

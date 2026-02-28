@@ -43,6 +43,7 @@ function renderFavWorlds(payload) {
         const stillValid = groups.some(g => g.name === prev);
         favWorldGroupFilter = stillValid ? prev : '';
         sel.value = favWorldGroupFilter;
+        if (sel._vnRefresh) sel._vnRefresh();
     }
     updateFavWorldGroupHeader();
     filterFavWorlds();

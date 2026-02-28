@@ -94,6 +94,18 @@ public class ImageCacheService
         catch { }
     }
 
+    /// <summary>Deletes all cached image files.</summary>
+    public void ClearAll()
+    {
+        if (!Directory.Exists(_dir)) return;
+        try
+        {
+            foreach (var f in new DirectoryInfo(_dir).GetFiles("*", SearchOption.TopDirectoryOnly))
+                try { f.Delete(); } catch { }
+        }
+        catch { }
+    }
+
     private async Task DownloadAsync(string url, string filePath)
     {
         lock (_inFlight)

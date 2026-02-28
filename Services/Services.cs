@@ -230,6 +230,9 @@ public class AppSettings
     public bool ImgCacheEnabled { get; set; } = true;
     public int ImgCacheLimitGb { get; set; } = 5;
 
+    // Fast Fetch Cache
+    public bool FfcEnabled { get; set; } = true;
+
     public bool SetupComplete { get; set; }
 
     public class WebhookSlot

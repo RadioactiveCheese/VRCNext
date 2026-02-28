@@ -5410,3 +5410,99 @@ body {
     z-index: 2;
     pointer-events: none;
 }
+
+/* ── Custom Dropdown (vn-select) ─────────────────────────────────────────── */
+
+/* Wrapper — transparent, just provides position context + flex passthrough */
+div.vn-select {
+    position: relative;
+    display: inline-flex;
+    flex-direction: column;
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+    outline: none !important;
+    cursor: default !important;
+    font-size: inherit;
+}
+
+/* Trigger button */
+.vn-select-trigger {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    background: var(--bg-btn);
+    color: var(--tx1);
+    padding: 6px 10px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 12px;
+    font-family: inherit;
+    user-select: none;
+    transition: background .15s, color .15s;
+    white-space: nowrap;
+    min-width: 0;
+}
+.vn-select-trigger:hover,
+.vn-select.vn-open .vn-select-trigger {
+    background: var(--bg-btn-h);
+    color: var(--tx0);
+}
+
+.vn-select-label { flex: 1; overflow: hidden; text-overflow: ellipsis; }
+
+.vn-select-arrow {
+    font-size: 16px;
+    line-height: 1;
+    flex-shrink: 0;
+    transition: transform .2s;
+}
+.vn-select.vn-open .vn-select-arrow { transform: rotate(180deg); }
+
+/* Dropdown panel */
+.vn-select-panel {
+    display: none;
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0;
+    min-width: 100%;
+    background: var(--bg-card);
+    border-radius: 8px;
+    box-shadow: 0 8px 28px rgba(0,0,0,.45);
+    z-index: 1200;
+    overflow: hidden;
+    max-height: 260px;
+    overflow-y: auto;
+}
+.vn-select.vn-open .vn-select-panel { display: block; }
+
+/* Option rows */
+.vn-select-option {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 12px;
+    cursor: pointer;
+    font-size: 12px;
+    font-family: inherit;
+    color: var(--tx1);
+    transition: background .1s, color .1s;
+    white-space: nowrap;
+}
+.vn-select-option:hover { background: var(--bg-hover); color: var(--tx0); }
+.vn-select-option.vn-active { color: var(--accent); }
+.vn-select-option.vn-active:hover { background: var(--bg-hover); }
+
+/* VRC+ badge inside options */
+.vn-vrc-badge {
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: .4px;
+    color: var(--warn);
+    background: color-mix(in srgb, var(--warn) 18%, transparent);
+    padding: 1px 5px;
+    border-radius: 4px;
+    flex-shrink: 0;
+}

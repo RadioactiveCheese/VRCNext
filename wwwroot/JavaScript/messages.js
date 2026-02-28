@@ -7,6 +7,7 @@ if (window.chrome?.webview) {
             case 'relayState': setRelayState(payload.running, payload.streams); break;
             case 'log': addLog(payload.msg, payload.color); break;
             case 'vcState': handleVcState(payload); break;
+            case 'ffcProgress': handleFfcProgress(payload); break;
             case 'stats':
                 if (payload.files !== undefined) document.getElementById('statFiles').textContent = payload.files;
                 if (payload.size !== undefined) document.getElementById('statSize').textContent = payload.size;

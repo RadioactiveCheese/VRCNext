@@ -29,6 +29,7 @@ public class MainForm : Form
     // Favorite friends: userId -> fvrt_xxx id
     private readonly Dictionary<string, string> _favoriteFriends = new();
     private ImageCacheService? _imgCache;
+    private readonly CacheHandler _cache = new();
     private static readonly System.Text.RegularExpressions.Regex _vrcImgUrlRegex = new(
         @"""(https://(?:api\.vrchat\.cloud|assets\.vrchat\.com|files\.vrchat\.cloud)[^""]+)""",
         System.Text.RegularExpressions.RegexOptions.Compiled);
@@ -240,6 +241,27 @@ public class MainForm : Form
                         if (File.Exists(setupHtml))
                             _webView.CoreWebView2.Navigate(new Uri(setupHtml).AbsoluteUri);
                     });
+                    break;
+
+                case "clearImgCache":
+                    _ = Task.Run(() =>
+                    {
+                        _imgCache?.ClearAll();
+                        Invoke(() => SendToJS("log", new { msg = "🗑 Image cache cleared.", color = "sec" }));
+                    });
+                    break;
+
+                case "clearFfcCache":
+                    _ = Task.Run(() =>
+                    {
+                        _cache.ClearAll();
+                        _userDetailCache.Clear();
+                        Invoke(() => SendToJS("log", new { msg = "🗑 FFC cache cleared.", color = "sec" }));
+                    });
+                    break;
+
+                case "forceFfcAll":
+                    _ = Task.Run(ForceFfcAllAsync);
                     break;
 
                 case "setupSaveVrcPath":
@@ -801,39 +823,45 @@ public class MainForm : Form
                 // Avatars - list and switch
                 case "vrcGetAvatars":
                     var avatarFilterType = msg["filter"]?.ToString() ?? "own";
-                    _ = Task.Run(async () =>
+                    if (avatarFilterType == "own")
                     {
-                        try
+                        if (_settings.FfcEnabled)
                         {
-                            List<JObject> avatars;
-                            if (avatarFilterType == "favorites")
-                                avatars = await _vrcApi.GetFavoriteAvatarsAsync();
-                            else
-                                avatars = await _vrcApi.GetOwnAvatarsAsync();
-
-                            var list = avatars.Select(a => new
-                            {
-                                id = a["id"]?.ToString() ?? "",
-                                name = a["name"]?.ToString() ?? "",
-                                imageUrl = a["imageUrl"]?.ToString() ?? "",
-                                thumbnailImageUrl = a["thumbnailImageUrl"]?.ToString() ?? "",
-                                authorName = a["authorName"]?.ToString() ?? "",
-                                releaseStatus = a["releaseStatus"]?.ToString() ?? "private",
-                                description = a["description"]?.ToString() ?? "",
-                            }).ToList();
-
-                            Invoke(() => SendToJS("vrcAvatars", new
-                            {
-                                filter = avatarFilterType,
-                                avatars = list,
-                                currentAvatarId = _vrcApi.CurrentAvatarId ?? ""
-                            }));
+                            var cachedAvt = _cache.LoadRaw(CacheHandler.KeyAvatars);
+                            if (cachedAvt != null) Invoke(() => SendToJS("vrcAvatars", cachedAvt));
                         }
-                        catch (Exception ex)
+                        _ = Task.Run(FetchAndCacheAvatarsAsync);
+                    }
+                    else
+                    {
+                        _ = Task.Run(async () =>
                         {
-                            Invoke(() => SendToJS("log", new { msg = $"Avatar load error: {ex.Message}", color = "err" }));
-                        }
-                    });
+                            try
+                            {
+                                var avatars = await _vrcApi.GetFavoriteAvatarsAsync();
+                                var list = avatars.Select(a => new
+                                {
+                                    id = a["id"]?.ToString() ?? "",
+                                    name = a["name"]?.ToString() ?? "",
+                                    imageUrl = a["imageUrl"]?.ToString() ?? "",
+                                    thumbnailImageUrl = a["thumbnailImageUrl"]?.ToString() ?? "",
+                                    authorName = a["authorName"]?.ToString() ?? "",
+                                    releaseStatus = a["releaseStatus"]?.ToString() ?? "private",
+                                    description = a["description"]?.ToString() ?? "",
+                                }).ToList();
+                                Invoke(() => SendToJS("vrcAvatars", new
+                                {
+                                    filter = "favorites",
+                                    avatars = list,
+                                    currentAvatarId = _vrcApi.CurrentAvatarId ?? ""
+                                }));
+                            }
+                            catch (Exception ex)
+                            {
+                                Invoke(() => SendToJS("log", new { msg = $"Avatar load error: {ex.Message}", color = "err" }));
+                            }
+                        });
+                    }
                     break;
 
                 case "vrcSelectAvatar":
@@ -1013,82 +1041,12 @@ public class MainForm : Form
                 case "vrcGetFavoriteWorlds":
                     _ = Task.Run(async () =>
                     {
-                        try
+                        if (_settings.FfcEnabled)
                         {
-                            // ── 1. Send disk cache immediately so UI shows instantly ──────────
-                            if (File.Exists(FavWorldsCachePath))
-                            {
-                                try
-                                {
-                                    var cached = JsonConvert.DeserializeObject(File.ReadAllText(FavWorldsCachePath));
-                                    Invoke(() => SendToJS("vrcFavoriteWorlds", cached));
-                                }
-                                catch { /* corrupt cache – ignore, fresh data comes next */ }
-                            }
-
-                            // ── 2. Fetch groups ───────────────────────────────────────────────
-                            var groups = await _vrcApi.GetFavoriteGroupsAsync();
-                            var worldTypes = new HashSet<string> { "world", "vrcPlusWorld" };
-                            var groupList = groups
-                                .Where(g => worldTypes.Contains(g["type"]?.ToString() ?? ""))
-                                .Select(g => new WFavGroup {
-                                    name        = g["name"]?.ToString() ?? "",
-                                    displayName = g["displayName"]?.ToString() ?? "",
-                                    type        = g["type"]?.ToString() ?? "world"
-                                })
-                                .Where(g => !string.IsNullOrEmpty(g.name))
-                                .ToList();
-                            groupList = FillMissingWorldSlots(groupList);
-
-                            // ── 3. Fetch all groups in parallel (max 4 concurrent) ────────────
-                            var sem = new SemaphoreSlim(4, 4);
-                            var perGroup = new System.Collections.Concurrent.ConcurrentDictionary<string, List<JObject>>();
-                            await Task.WhenAll(groupList.Select(async g =>
-                            {
-                                await sem.WaitAsync();
-                                try { perGroup[g.name] = await _vrcApi.GetFavoriteWorldsByGroupAsync(g.name, 100); }
-                                finally { sem.Release(); }
-                            }));
-
-                            // ── 4. Build world list (sequential – safe tracker access) ────────
-                            var allWorlds = new List<object>();
-                            foreach (var g in groupList)
-                            {
-                                if (!perGroup.TryGetValue(g.name, out var groupWorlds)) continue;
-                                foreach (var w in groupWorlds)
-                                {
-                                    var wid = w["id"]?.ToString() ?? "";
-                                    var stats = _worldTimeTracker.GetWorldStats(wid);
-                                    allWorlds.Add(new
-                                    {
-                                        id                = wid,
-                                        name              = w["name"]?.ToString() ?? "",
-                                        imageUrl          = w["imageUrl"]?.ToString() ?? "",
-                                        thumbnailImageUrl = w["thumbnailImageUrl"]?.ToString() ?? "",
-                                        authorName        = w["authorName"]?.ToString() ?? "",
-                                        occupants         = w["occupants"]?.Value<int>()  ?? 0,
-                                        capacity          = w["capacity"]?.Value<int>()   ?? 0,
-                                        favorites         = w["favorites"]?.Value<int>()  ?? 0,
-                                        visits            = w["visits"]?.Value<int>()     ?? 0,
-                                        tags              = w["tags"]?.ToObject<List<string>>() ?? new List<string>(),
-                                        favoriteGroup     = g.name,
-                                        favoriteId        = w["favoriteId"]?.ToString() ?? "",
-                                        worldTimeSeconds  = stats.totalSeconds,
-                                        worldVisitCount   = stats.visitCount,
-                                    });
-                                }
-                            }
-
-                            // ── 5. Save fresh data to cache & send to JS ──────────────────────
-                            var payload = new { worlds = allWorlds, groups = groupList };
-                            try { File.WriteAllText(FavWorldsCachePath, JsonConvert.SerializeObject(payload)); }
-                            catch { /* non-critical */ }
-                            Invoke(() => SendToJS("vrcFavoriteWorlds", payload));
+                            var cachedFavWorlds = _cache.LoadRaw(CacheHandler.KeyFavWorlds);
+                            if (cachedFavWorlds != null) Invoke(() => SendToJS("vrcFavoriteWorlds", cachedFavWorlds));
                         }
-                        catch (Exception ex)
-                        {
-                            Invoke(() => SendToJS("log", new { msg = $"Favorite worlds error: {ex.Message}", color = "err" }));
-                        }
+                        await FetchAndCacheFavWorldsAsync();
                     });
                     break;
 
@@ -1148,56 +1106,14 @@ public class MainForm : Form
                 }
 
                 case "vrcGetMyGroups":
-                    _ = Task.Run(async () =>
                     {
-                        // Step 1: get group IDs from list endpoint (fast, no permissions here)
-                        var groups = await _vrcApi.GetUserGroupsAsync();
-                        var ids = groups.Cast<JObject>()
-                            .Select(g => g["groupId"]?.ToString() ?? g["id"]?.ToString() ?? "")
-                            .Where(id => !string.IsNullOrEmpty(id))
-                            .Distinct()
-                            .ToList();
-
-                        // Step 2: fetch each group's full data in parallel
-                        // GET /groups/{groupId} includes myMember.permissions — the list endpoint does NOT
-                        var fullGroups = await Task.WhenAll(ids.Select(id => _vrcApi.GetGroupAsync(id)));
-
-                        var enriched = new List<object>();
-                        for (int i = 0; i < ids.Count; i++)
+                        if (_settings.FfcEnabled)
                         {
-                            var full = fullGroups[i];
-                            if (full == null) continue;
-
-                            var myMember = full["myMember"] as JObject;
-                            var perms = myMember?["permissions"]?.ToObject<List<string>>();
-                            var name = full["name"]?.ToString() ?? "";
-                            if (string.IsNullOrEmpty(name)) continue;
-
-                            // "*" = owner/admin; actual create strings confirmed from live API:
-                            var canCreate = perms == null
-                                || perms.Contains("*")
-                                || perms.Contains("group-instance-open-create")
-                                || perms.Contains("group-instance-plus-create")
-                                || perms.Contains("group-instance-public-create")
-                                || perms.Contains("group-instance-restricted-create");
-
-                            enriched.Add(new {
-                                id = full["id"]?.ToString() ?? ids[i],
-                                name,
-                                shortCode = full["shortCode"]?.ToString() ?? "",
-                                description = full["description"]?.ToString() ?? "",
-                                iconUrl = full["iconUrl"]?.ToString() ?? "",
-                                bannerUrl = full["bannerUrl"]?.ToString() ?? "",
-                                memberCount = full["memberCount"]?.Value<int>() ?? 0,
-                                privacy = full["privacy"]?.ToString() ?? "",
-                                canCreateInstance = canCreate,
-                            });
+                            var cachedGrps = _cache.LoadRaw(CacheHandler.KeyGroups);
+                            if (cachedGrps != null) Invoke(() => SendToJS("vrcMyGroups", cachedGrps));
                         }
-                        Invoke(() => {
-                            SendToJS("log", new { msg = $"[GROUPS] {enriched.Count} loaded", color = "sec" });
-                            SendToJS("vrcMyGroups", enriched);
-                        });
-                    });
+                        _ = Task.Run(FetchAndCacheGroupsAsync);
+                    }
                     break;
 
                 case "vrcGetGroup":
@@ -2198,6 +2114,253 @@ public class MainForm : Form
             .ToList();
     }
 
+    // ── Cache fetch helpers ───────────────────────────────────────────────────
+
+    private async Task FetchAndCacheFavWorldsAsync()
+    {
+        try
+        {
+            var groups = await _vrcApi.GetFavoriteGroupsAsync();
+            var worldTypes = new HashSet<string> { "world", "vrcPlusWorld" };
+            var groupList = groups
+                .Where(g => worldTypes.Contains(g["type"]?.ToString() ?? ""))
+                .Select(g => new WFavGroup {
+                    name        = g["name"]?.ToString() ?? "",
+                    displayName = g["displayName"]?.ToString() ?? "",
+                    type        = g["type"]?.ToString() ?? "world"
+                })
+                .Where(g => !string.IsNullOrEmpty(g.name))
+                .ToList();
+            groupList = FillMissingWorldSlots(groupList);
+
+            var sem = new SemaphoreSlim(4, 4);
+            var perGroup = new System.Collections.Concurrent.ConcurrentDictionary<string, List<JObject>>();
+            await Task.WhenAll(groupList.Select(async g =>
+            {
+                await sem.WaitAsync();
+                try { perGroup[g.name] = await _vrcApi.GetFavoriteWorldsByGroupAsync(g.name, 100); }
+                finally { sem.Release(); }
+            }));
+
+            var allWorlds = new List<object>();
+            foreach (var g in groupList)
+            {
+                if (!perGroup.TryGetValue(g.name, out var groupWorlds)) continue;
+                foreach (var w in groupWorlds)
+                {
+                    var wid = w["id"]?.ToString() ?? "";
+                    var stats = _worldTimeTracker.GetWorldStats(wid);
+                    allWorlds.Add(new
+                    {
+                        id                = wid,
+                        name              = w["name"]?.ToString() ?? "",
+                        imageUrl          = w["imageUrl"]?.ToString() ?? "",
+                        thumbnailImageUrl = w["thumbnailImageUrl"]?.ToString() ?? "",
+                        authorName        = w["authorName"]?.ToString() ?? "",
+                        occupants         = w["occupants"]?.Value<int>()  ?? 0,
+                        capacity          = w["capacity"]?.Value<int>()   ?? 0,
+                        favorites         = w["favorites"]?.Value<int>()  ?? 0,
+                        visits            = w["visits"]?.Value<int>()     ?? 0,
+                        tags              = w["tags"]?.ToObject<List<string>>() ?? new List<string>(),
+                        favoriteGroup     = g.name,
+                        favoriteId        = w["favoriteId"]?.ToString() ?? "",
+                        worldTimeSeconds  = stats.totalSeconds,
+                        worldVisitCount   = stats.visitCount,
+                    });
+                }
+            }
+
+            var payload = new { worlds = allWorlds, groups = groupList };
+            if (_settings.FfcEnabled) _cache.Save(CacheHandler.KeyFavWorlds, payload);
+            Invoke(() => SendToJS("vrcFavoriteWorlds", payload));
+        }
+        catch (Exception ex)
+        {
+            Invoke(() => SendToJS("log", new { msg = $"Favorite worlds error: {ex.Message}", color = "err" }));
+        }
+    }
+
+    private async Task FetchAndCacheAvatarsAsync()
+    {
+        try
+        {
+            var avatars = await _vrcApi.GetOwnAvatarsAsync();
+            var list = avatars.Select(a => new
+            {
+                id                = a["id"]?.ToString() ?? "",
+                name              = a["name"]?.ToString() ?? "",
+                imageUrl          = a["imageUrl"]?.ToString() ?? "",
+                thumbnailImageUrl = a["thumbnailImageUrl"]?.ToString() ?? "",
+                authorName        = a["authorName"]?.ToString() ?? "",
+                releaseStatus     = a["releaseStatus"]?.ToString() ?? "private",
+                description       = a["description"]?.ToString() ?? "",
+            }).ToList();
+            var payload = new { filter = "own", avatars = list, currentAvatarId = _vrcApi.CurrentAvatarId ?? "" };
+            if (_settings.FfcEnabled) _cache.Save(CacheHandler.KeyAvatars, payload);
+            Invoke(() => SendToJS("vrcAvatars", payload));
+        }
+        catch (Exception ex)
+        {
+            Invoke(() => SendToJS("log", new { msg = $"Avatar load error: {ex.Message}", color = "err" }));
+        }
+    }
+
+    private async Task FetchAndCacheGroupsAsync()
+    {
+        try
+        {
+            var groups = await _vrcApi.GetUserGroupsAsync();
+            var ids = groups.Cast<JObject>()
+                .Select(g => g["groupId"]?.ToString() ?? g["id"]?.ToString() ?? "")
+                .Where(id => !string.IsNullOrEmpty(id))
+                .Distinct()
+                .ToList();
+
+            var fullGroups = await Task.WhenAll(ids.Select(id => _vrcApi.GetGroupAsync(id)));
+
+            var enriched = new List<object>();
+            for (int i = 0; i < ids.Count; i++)
+            {
+                var full = fullGroups[i];
+                if (full == null) continue;
+
+                var myMember = full["myMember"] as JObject;
+                var perms = myMember?["permissions"]?.ToObject<List<string>>();
+                var name = full["name"]?.ToString() ?? "";
+                if (string.IsNullOrEmpty(name)) continue;
+
+                var canCreate = perms == null
+                    || perms.Contains("*")
+                    || perms.Contains("group-instance-open-create")
+                    || perms.Contains("group-instance-plus-create")
+                    || perms.Contains("group-instance-public-create")
+                    || perms.Contains("group-instance-restricted-create");
+
+                enriched.Add(new {
+                    id = full["id"]?.ToString() ?? ids[i],
+                    name,
+                    shortCode    = full["shortCode"]?.ToString() ?? "",
+                    description  = full["description"]?.ToString() ?? "",
+                    iconUrl      = full["iconUrl"]?.ToString() ?? "",
+                    bannerUrl    = full["bannerUrl"]?.ToString() ?? "",
+                    memberCount  = full["memberCount"]?.Value<int>() ?? 0,
+                    privacy      = full["privacy"]?.ToString() ?? "",
+                    canCreateInstance = canCreate,
+                });
+            }
+            if (_settings.FfcEnabled) _cache.Save(CacheHandler.KeyGroups, enriched);
+            Invoke(() => {
+                SendToJS("log", new { msg = $"[GROUPS] {enriched.Count} loaded", color = "sec" });
+                SendToJS("vrcMyGroups", enriched);
+            });
+        }
+        catch (Exception ex)
+        {
+            Invoke(() => SendToJS("log", new { msg = $"Groups load error: {ex.Message}", color = "err" }));
+        }
+    }
+
+    /// <summary>
+    /// Sends all available disk-cached data to JS immediately (called on startup before API refresh).
+    /// </summary>
+    private void SendAllCachedData()
+    {
+        if (!_settings.FfcEnabled) return;
+
+        // Friends are NOT sent from cache — status/location must always be live.
+        // VrcRefreshFriendsAsync() fills the friends list with fresh data on startup.
+
+        var avatars = _cache.LoadRaw(CacheHandler.KeyAvatars);
+        if (avatars != null) SendToJS("vrcAvatars", avatars);
+
+        var groups = _cache.LoadRaw(CacheHandler.KeyGroups);
+        if (groups != null) SendToJS("vrcMyGroups", groups);
+
+        var favWorlds = _cache.LoadRaw(CacheHandler.KeyFavWorlds);
+        if (favWorlds != null) SendToJS("vrcFavoriteWorlds", favWorlds);
+    }
+
+    /// <summary>
+    /// Kicks off background refresh of avatars, groups, and favorite worlds after login.
+    /// Friends are already refreshed by VrcRefreshFriendsAsync.
+    /// </summary>
+    private async Task TriggerStartupBackgroundRefreshAsync()
+    {
+        if (!_vrcApi.IsLoggedIn) return;
+        _ = Task.Run(FetchAndCacheAvatarsAsync);
+        _ = Task.Run(FetchAndCacheGroupsAsync);
+        _ = Task.Run(FetchAndCacheFavWorldsAsync);
+        await Task.CompletedTask;
+    }
+
+    /// <summary>
+    /// Bulk-caches all friend profiles, avatars, groups, and favorite worlds.
+    /// Sends ffcProgress updates to the UI. Always saves to cache regardless of FfcEnabled.
+    /// </summary>
+    private async Task ForceFfcAllAsync()
+    {
+        if (!_vrcApi.IsLoggedIn) return;
+
+        void Progress(int current, int total, string label) =>
+            Invoke(() => SendToJS("ffcProgress", new {
+                progress = total > 0 ? (int)((double)current / total * 100) : 0,
+                label,
+                done = false
+            }));
+
+        try
+        {
+            var friendIds = _friendNameImg.Keys.ToList();
+            int total = friendIds.Count + 3; // +3 for avatars, groups, worlds
+            int completed = 0;
+
+            Progress(completed, total, "Caching avatars...");
+            await FetchAndCacheAvatarsAsync();
+            Progress(++completed, total, "Caching groups...");
+            await FetchAndCacheGroupsAsync();
+            Progress(++completed, total, "Caching worlds...");
+            await FetchAndCacheFavWorldsAsync();
+
+            // Cache friend profiles one at a time with a delay between each.
+            // BuildUserDetailPayloadAsync already fires ~8 parallel calls per profile,
+            // so concurrency > 1 would easily trigger VRChat rate limits.
+            var semaphore = new SemaphoreSlim(1, 1);
+            var tasks = friendIds.Select(async uid =>
+            {
+                await semaphore.WaitAsync();
+                try
+                {
+                    var payload = await BuildUserDetailPayloadAsync(uid);
+                    if (payload != null)
+                    {
+                        _userDetailCache[uid] = (payload, DateTime.UtcNow);
+                        _cache.Save(CacheHandler.KeyUserProfile(uid), payload);
+                    }
+                    await Task.Delay(500); // rate-limit gap before next profile
+                }
+                catch { }
+                finally
+                {
+                    semaphore.Release();
+                    int c = Interlocked.Increment(ref completed);
+                    Progress(c, total, $"Caching profiles... ({c - 3}/{friendIds.Count})");
+                }
+            });
+
+            await Task.WhenAll(tasks);
+
+            Invoke(() =>
+            {
+                SendToJS("ffcProgress", new { progress = 100, label = $"Done! {friendIds.Count} profiles cached.", done = true });
+                SendToJS("log", new { msg = $"FFC: {friendIds.Count} profiles + avatars + groups + worlds cached.", color = "ok" });
+            });
+        }
+        catch (Exception ex)
+        {
+            Invoke(() => SendToJS("ffcProgress", new { progress = 0, label = "Error: " + ex.Message, done = true }));
+        }
+    }
+
     // C# to JS messaging
     private void SendToJS(string type, object? payload = null)
     {
@@ -2247,11 +2410,6 @@ public class MainForm : Form
         SendToJS("relayState", new { running = false, streams = 0 });
         SendToJS("log", new { msg = "Relay stopped", color = "warn" });
     }
-
-    // Favorite worlds disk cache
-    private static readonly string FavWorldsCachePath = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-        "VRCNext", "fav_worlds_cache.json");
 
     // VRCVideoCacher
     private static readonly string VcExePath = Path.Combine(
@@ -2452,8 +2610,10 @@ public class MainForm : Form
             {
                 SendVrcUserData(result.User);
                 SendToJS("log", new { msg = $"VRChat: Reconnected as {result.User["displayName"]}", color = "ok" });
+                SendAllCachedData();
                 StartWebSocket();
                 await VrcRefreshFriendsAsync();
+                _ = TriggerStartupBackgroundRefreshAsync();
                 return;
             }
 
@@ -2498,6 +2658,7 @@ public class MainForm : Form
             SendToJS("log", new { msg = $"VRChat: Logged in as {result.User["displayName"]}", color = "ok" });
             StartWebSocket();
             await VrcRefreshFriendsAsync();
+            _ = TriggerStartupBackgroundRefreshAsync();
         }
         else
         {
@@ -2519,6 +2680,7 @@ public class MainForm : Form
             SendToJS("log", new { msg = $"VRChat: Logged in as {result.User["displayName"]}", color = "ok" });
             StartWebSocket();
             await VrcRefreshFriendsAsync();
+            _ = TriggerStartupBackgroundRefreshAsync();
         }
         else
         {
@@ -2745,7 +2907,7 @@ public class MainForm : Form
 
             Invoke(() =>
             {
-                SendToJS("log", new { msg = $"✅ Instance: {worldName} — {nUsers} total, {users.Count} tracked ({playerSource})", color = "ok" });
+                SendToJS("log", new { msg = $"Instance: {worldName} — {nUsers} total, {users.Count} tracked ({playerSource})", color = "ok" });
                 SendToJS("vrcCurrentInstance", new {
                     location = loc, worldId = parsed.worldId,
                     worldName, worldThumb,
@@ -3052,6 +3214,7 @@ public class MainForm : Form
                 }
             }
 
+            if (_settings.FfcEnabled) _cache.Save(CacheHandler.KeyFriends, new { friends = friendList, counts });
             Invoke(() =>
             {
                 SendToJS("vrcFriends", new { friends = friendList, counts });
@@ -3149,12 +3312,10 @@ public class MainForm : Form
     {
         if (!_vrcApi.IsLoggedIn) return;
 
-        // Serve from cache immediately if fresh; gives instant open like VRCX.
-        // Stale-while-revalidate: always serve from cache instantly, always refresh in background.
-        // First open blocks once to populate cache; every subsequent open is instant.
-        if (_userDetailCache.TryGetValue(userId, out var cached))
+        // Helper: send a payload, then silently refresh & re-cache in background
+        void ServeAndRefresh(object immediatePayload)
         {
-            SendToJS("vrcFriendDetail", cached.payload);
+            SendToJS("vrcFriendDetail", immediatePayload);
             _ = Task.Run(async () =>
             {
                 try
@@ -3164,15 +3325,46 @@ public class MainForm : Form
                     Invoke(() =>
                     {
                         _userDetailCache[userId] = (fresh, DateTime.UtcNow);
+                        if (_settings.FfcEnabled) _cache.Save(CacheHandler.KeyUserProfile(userId), fresh);
                         SendToJS("vrcFriendDetail", fresh);
                     });
                 }
                 catch { }
             });
+        }
+
+        // 1. In-memory cache → instant (only when FFC enabled)
+        if (_settings.FfcEnabled && _userDetailCache.TryGetValue(userId, out var cached))
+        {
+            ServeAndRefresh(cached.payload);
             return;
         }
 
-        // No cache yet; fetch once, all future opens are instant
+        // 2. Disk cache → instant (also populates in-memory for this session)
+        var diskCached = _settings.FfcEnabled ? _cache.LoadRaw(CacheHandler.KeyUserProfile(userId)) : null;
+        if (diskCached is JObject diskProfile)
+        {
+            // Strip live fields — status/location must always come from the fresh API response.
+            // The background refresh (in ServeAndRefresh) will fill these in ~1s later.
+            diskProfile["status"]              = "offline";
+            diskProfile["statusDescription"]   = "";
+            diskProfile["location"]            = "";
+            diskProfile["worldName"]           = "";
+            diskProfile["worldThumb"]          = "";
+            diskProfile["instanceType"]        = "";
+            diskProfile["userCount"]           = 0;
+            diskProfile["worldCapacity"]       = 0;
+            diskProfile["canJoin"]             = false;
+            diskProfile["canRequestInvite"]    = false;
+            diskProfile["inSameInstance"]      = false;
+            diskProfile["travelingToLocation"] = "";
+            diskProfile["state"]               = "";
+            _userDetailCache[userId] = (diskProfile, DateTime.UtcNow);
+            ServeAndRefresh(diskProfile);
+            return;
+        }
+
+        // 3. Cold fetch → block once, then every future open is instant
         try
         {
             var payload = await BuildUserDetailPayloadAsync(userId);
@@ -3182,6 +3374,7 @@ public class MainForm : Form
                 return;
             }
             _userDetailCache[userId] = (payload, DateTime.UtcNow);
+            if (_settings.FfcEnabled) _cache.Save(CacheHandler.KeyUserProfile(userId), payload);
             SendToJS("vrcFriendDetail", payload);
         }
         catch (Exception ex)
@@ -3198,26 +3391,35 @@ public class MainForm : Form
 
         var location = user["location"]?.ToString() ?? "private";
         var (worldId, instanceId, instanceType) = VRChatApiService.ParseLocation(location);
+        bool hasWorld = !string.IsNullOrEmpty(worldId) && worldId.StartsWith("wrld_");
 
-        string worldName = "";
-        string worldThumb = "";
-        int userCount = 0;
-        int worldCapacity = 0;
+        // Launch all secondary fetches in parallel after GetUser completes
+        var worldTask   = hasWorld ? _vrcApi.GetWorldAsync(worldId)    : Task.FromResult<JObject?>(null);
+        var instTask    = hasWorld ? _vrcApi.GetInstanceAsync(location) : Task.FromResult<JObject?>(null);
+        var noteTask    = _vrcApi.GetUserNoteAsync(userId);
+        var repGrpTask  = _vrcApi.GetUserRepresentedGroupAsync(userId);
+        var grpsTask    = _vrcApi.GetUserGroupsByIdAsync(userId);
+        var worldsTask  = _vrcApi.GetUserWorldsAsync(userId);
+        var mutualsTask = _vrcApi.GetUserMutualsAsync(userId);
 
-        if (!string.IsNullOrEmpty(worldId) && worldId.StartsWith("wrld_"))
-        {
-            var world = await _vrcApi.GetWorldAsync(worldId);
-            if (world != null)
-            {
-                worldName = world["name"]?.ToString() ?? "";
-                worldThumb = world["thumbnailImageUrl"]?.ToString() ?? "";
-                worldCapacity = world["capacity"]?.Value<int>() ?? 0;
-            }
+        // Wait for all; ContinueWith swallows individual task exceptions
+        await Task.WhenAll(new Task[] { worldTask, instTask, noteTask, repGrpTask, grpsTask, worldsTask, mutualsTask }
+            .Select(t => t.ContinueWith(_ => { })));
 
-            var instance = await _vrcApi.GetInstanceAsync(location);
-            if (instance != null)
-                userCount = instance["n_users"]?.Value<int>() ?? instance["userCount"]?.Value<int>() ?? 0;
-        }
+        var world    = worldTask.IsCompletedSuccessfully   ? worldTask.Result   : null;
+        var inst     = instTask.IsCompletedSuccessfully    ? instTask.Result    : null;
+        var noteObj  = noteTask.IsCompletedSuccessfully    ? noteTask.Result    : null;
+        var repGroup = repGrpTask.IsCompletedSuccessfully  ? repGrpTask.Result  : null;
+        var groups   = grpsTask.IsCompletedSuccessfully    ? grpsTask.Result    : new JArray();
+        var worlds   = worldsTask.IsCompletedSuccessfully  ? worldsTask.Result  : new JArray();
+        var (mutualsArr, mutualsOptedOut) = mutualsTask.IsCompletedSuccessfully
+            ? mutualsTask.Result : (new JArray(), false);
+
+        string worldName     = world?["name"]?.ToString() ?? "";
+        string worldThumb    = world?["thumbnailImageUrl"]?.ToString() ?? "";
+        int    worldCapacity = world?["capacity"]?.Value<int>() ?? 0;
+        int    userCount     = inst?["n_users"]?.Value<int>() ?? inst?["userCount"]?.Value<int>() ?? 0;
+        string userNote      = noteObj?["note"]?.ToString() ?? "";
 
         bool canJoin = instanceType == "public" || instanceType == "friends" || instanceType == "friends+"
                     || instanceType == "hidden"
@@ -3226,102 +3428,76 @@ public class MainForm : Form
         bool canRequestInvite = instanceType == "private";
         bool isInWorld = !string.IsNullOrEmpty(worldId) && location != "private" && location != "offline" && location != "traveling";
 
-        string userNote = "";
-        try
-        {
-            var noteObj = await _vrcApi.GetUserNoteAsync(userId);
-            if (noteObj != null) userNote = noteObj["note"]?.ToString() ?? "";
-        }
-        catch { }
-
         object? representedGroup = null;
-        List<object> userGroups = new();
-        try
+        if (repGroup != null && !string.IsNullOrEmpty(repGroup["id"]?.ToString()))
         {
-            var repGroup = await _vrcApi.GetUserRepresentedGroupAsync(userId);
-            if (repGroup != null && !string.IsNullOrEmpty(repGroup["id"]?.ToString()))
+            representedGroup = new
             {
-                representedGroup = new
-                {
-                    id = repGroup["id"]?.ToString() ?? "",
-                    name = repGroup["name"]?.ToString() ?? "",
-                    shortCode = repGroup["shortCode"]?.ToString() ?? "",
-                    discriminator = repGroup["discriminator"]?.ToString() ?? "",
-                    iconUrl = repGroup["iconUrl"]?.ToString() ?? "",
-                    bannerUrl = repGroup["bannerUrl"]?.ToString() ?? "",
-                    memberCount = repGroup["memberCount"]?.Value<int>() ?? 0,
-                };
-            }
-
-            var groups = await _vrcApi.GetUserGroupsByIdAsync(userId);
-            foreach (var g in groups)
-            {
-                var gid = g["groupId"]?.ToString() ?? g["id"]?.ToString() ?? "";
-                if (string.IsNullOrEmpty(gid)) continue;
-                userGroups.Add(new
-                {
-                    id = gid,
-                    name = g["name"]?.ToString() ?? "",
-                    shortCode = g["shortCode"]?.ToString() ?? "",
-                    discriminator = g["discriminator"]?.ToString() ?? "",
-                    iconUrl = g["iconUrl"]?.ToString() ?? g["iconId"]?.ToString() ?? "",
-                    bannerUrl = g["bannerUrl"]?.ToString() ?? "",
-                    memberCount = g["memberCount"]?.Value<int>() ?? 0,
-                    isRepresenting = g["isRepresenting"]?.Value<bool>() ?? false,
-                });
-            }
+                id            = repGroup["id"]?.ToString() ?? "",
+                name          = repGroup["name"]?.ToString() ?? "",
+                shortCode     = repGroup["shortCode"]?.ToString() ?? "",
+                discriminator = repGroup["discriminator"]?.ToString() ?? "",
+                iconUrl       = repGroup["iconUrl"]?.ToString() ?? "",
+                bannerUrl     = repGroup["bannerUrl"]?.ToString() ?? "",
+                memberCount   = repGroup["memberCount"]?.Value<int>() ?? 0,
+            };
         }
-        catch { }
+
+        List<object> userGroups = new();
+        foreach (var g in groups)
+        {
+            var gid = g["groupId"]?.ToString() ?? g["id"]?.ToString() ?? "";
+            if (string.IsNullOrEmpty(gid)) continue;
+            userGroups.Add(new
+            {
+                id            = gid,
+                name          = g["name"]?.ToString() ?? "",
+                shortCode     = g["shortCode"]?.ToString() ?? "",
+                discriminator = g["discriminator"]?.ToString() ?? "",
+                iconUrl       = g["iconUrl"]?.ToString() ?? g["iconId"]?.ToString() ?? "",
+                bannerUrl     = g["bannerUrl"]?.ToString() ?? "",
+                memberCount   = g["memberCount"]?.Value<int>() ?? 0,
+                isRepresenting = g["isRepresenting"]?.Value<bool>() ?? false,
+            });
+        }
 
         List<object> userWorlds = new();
-        try
+        foreach (var w in worlds)
         {
-            var worlds = await _vrcApi.GetUserWorldsAsync(userId);
-            foreach (var w in worlds)
+            var wObj = w as JObject;
+            if (wObj == null) continue;
+            userWorlds.Add(new
             {
-                var wObj = w as Newtonsoft.Json.Linq.JObject;
-                if (wObj == null) continue;
-                userWorlds.Add(new
-                {
-                    id = wObj["id"]?.ToString() ?? "",
-                    name = wObj["name"]?.ToString() ?? "",
-                    thumbnailImageUrl = wObj["thumbnailImageUrl"]?.ToString() ?? "",
-                    occupants = wObj["occupants"]?.Value<int>() ?? 0,
-                    favorites = wObj["favorites"]?.Value<int>() ?? 0,
-                    visits = wObj["visits"]?.Value<int>() ?? 0,
-                });
-            }
+                id                = wObj["id"]?.ToString() ?? "",
+                name              = wObj["name"]?.ToString() ?? "",
+                thumbnailImageUrl = wObj["thumbnailImageUrl"]?.ToString() ?? "",
+                occupants         = wObj["occupants"]?.Value<int>() ?? 0,
+                favorites         = wObj["favorites"]?.Value<int>() ?? 0,
+                visits            = wObj["visits"]?.Value<int>() ?? 0,
+            });
         }
-        catch { }
 
         List<object> mutualsList = new();
-        bool mutualsOptedOut = false;
-        try
+        foreach (var mu in mutualsArr)
         {
-            var (mutualsArr, optedOut) = await _vrcApi.GetUserMutualsAsync(userId);
-            mutualsOptedOut = optedOut;
-            foreach (var mu in mutualsArr)
+            var muObj = mu as JObject;
+            if (muObj == null) continue;
+            var muImage    = VRChatApiService.GetUserImage(muObj);
+            var muLocation = muObj["location"]?.ToString() ?? "";
+            var muStatus   = muObj["status"]?.ToString() ?? "offline";
+            bool muIsInGame  = !string.IsNullOrEmpty(muLocation)
+                && muLocation != "offline" && muLocation != "private" && muLocation != "traveling";
+            bool muIsOffline = muStatus == "offline" || muLocation == "offline";
+            mutualsList.Add(new
             {
-                var muObj = mu as Newtonsoft.Json.Linq.JObject;
-                if (muObj == null) continue;
-                var muImage = VRChatApiService.GetUserImage(muObj);
-                var muLocation = muObj["location"]?.ToString() ?? "";
-                var muStatus = muObj["status"]?.ToString() ?? "offline";
-                bool muIsInGame = !string.IsNullOrEmpty(muLocation)
-                    && muLocation != "offline" && muLocation != "private" && muLocation != "traveling";
-                bool muIsOffline = muStatus == "offline" || muLocation == "offline";
-                mutualsList.Add(new
-                {
-                    id = muObj["id"]?.ToString() ?? "",
-                    displayName = muObj["displayName"]?.ToString() ?? "",
-                    image = muImage,
-                    status = muStatus,
-                    statusDescription = muObj["statusDescription"]?.ToString() ?? "",
-                    presence = muIsOffline ? "offline" : muIsInGame ? "game" : "web",
-                });
-            }
+                id                = muObj["id"]?.ToString() ?? "",
+                displayName       = muObj["displayName"]?.ToString() ?? "",
+                image             = muImage,
+                status            = muStatus,
+                statusDescription = muObj["statusDescription"]?.ToString() ?? "",
+                presence          = muIsOffline ? "offline" : muIsInGame ? "game" : "web",
+            });
         }
-        catch { }
 
         var (totalSeconds, lastSeenLocal) = _timeTracker.GetUserStats(userId);
         var lastLogin = user["last_login"]?.ToString() ?? "";
@@ -4319,6 +4495,9 @@ public class MainForm : Form
                 if (_settings.ImgCacheEnabled && _imgCache.LimitBytes > 0)
                     _ = Task.Run(() => _imgCache.TrimIfNeeded(_imgCache.LimitBytes));
             }
+
+            // Fast Fetch Cache
+            _settings.FfcEnabled = data["ffcEnabled"]?.Value<bool>() ?? true;
 
             _settings.Save();
             if (_settings.LastSaveError != null)

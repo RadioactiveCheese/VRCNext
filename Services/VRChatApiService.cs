@@ -842,38 +842,54 @@ public class VRChatApiService
         try
         {
             // /users/{id}/mutuals returns only counts; /users/{id}/mutuals/friends returns the actual user objects
-            var resp = await _http.GetAsync($"{BASE}/users/{userId}/mutuals/friends");
-            var body = await resp.Content.ReadAsStringAsync();
-            Log($"GetUserMutuals/friends({userId}): status={(int)resp.StatusCode}, bodyLen={body.Length}, preview={body.Substring(0, Math.Min(300, body.Length))}");
-
-            if (resp.IsSuccessStatusCode)
+            // Paginate with n=100 until all mutuals are fetched
+            const int pageSize = 100;
+            var all = new JArray();
+            int offset = 0;
+            while (true)
             {
-                var token = Newtonsoft.Json.Linq.JToken.Parse(body);
-                JArray arr;
-                if (token is JArray a)
-                    arr = a;
-                else if (token is JObject obj)
+                var resp = await _http.GetAsync($"{BASE}/users/{userId}/mutuals/friends?n={pageSize}&offset={offset}");
+                var body = await resp.Content.ReadAsStringAsync();
+                Log($"GetUserMutuals/friends({userId}): offset={offset}, status={(int)resp.StatusCode}, bodyLen={body.Length}");
+
+                if (resp.IsSuccessStatusCode)
                 {
-                    arr = obj["friends"] as JArray
-                       ?? obj["mutuals"] as JArray
-                       ?? obj["users"] as JArray
-                       ?? obj["data"] as JArray
-                       ?? new JArray();
-                    if (arr.Count == 0)
-                        Log($"GetUserMutuals/friends({userId}): object keys={string.Join(", ", obj.Properties().Select(p => p.Name))}");
+                    var token = Newtonsoft.Json.Linq.JToken.Parse(body);
+                    JArray page;
+                    if (token is JArray a)
+                        page = a;
+                    else if (token is JObject obj)
+                    {
+                        page = obj["friends"] as JArray
+                            ?? obj["mutuals"] as JArray
+                            ?? obj["users"] as JArray
+                            ?? obj["data"] as JArray
+                            ?? new JArray();
+                        if (page.Count == 0)
+                            Log($"GetUserMutuals/friends({userId}): object keys={string.Join(", ", obj.Properties().Select(p => p.Name))}");
+                    }
+                    else
+                        page = new JArray();
+
+                    foreach (var item in page) all.Add(item);
+                    Log($"GetUserMutuals/friends({userId}): page {page.Count}, total so far {all.Count}");
+
+                    // If fewer results than requested, we've reached the end
+                    if (page.Count < pageSize) break;
+                    offset += pageSize;
+                }
+                else if ((int)resp.StatusCode == 403)
+                {
+                    Log($"GetUserMutuals/friends({userId}): 403 – user opted out. Body: {body.Substring(0, Math.Min(200, body.Length))}");
+                    return (new JArray(), true);
                 }
                 else
-                    arr = new JArray();
-
-                Log($"GetUserMutuals/friends({userId}): parsed {arr.Count} mutual friends");
-                return (arr, false);
+                {
+                    Log($"GetUserMutuals/friends({userId}): unexpected status {(int)resp.StatusCode}");
+                    break;
+                }
             }
-            if ((int)resp.StatusCode == 403)
-            {
-                Log($"GetUserMutuals/friends({userId}): 403 – user opted out. Body: {body.Substring(0, Math.Min(200, body.Length))}");
-                return (new JArray(), true);
-            }
-            Log($"GetUserMutuals/friends({userId}): unexpected status {(int)resp.StatusCode}");
+            return (all, false);
         }
         catch (Exception ex) { Log($"GetUserMutuals/friends({userId}) exception: {ex.Message}"); }
         return (new JArray(), false);

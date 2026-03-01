@@ -1831,14 +1831,14 @@ public class MainForm : Form
                             // Import any existing photos from PhotoPlayersStore not yet in timeline
                             await BootstrapPhotoTimeline();
 
-                            var events = _timeline.GetEvents();
+                            var (events, hasMore) = _timeline.GetEventsPaged(100, 0);
                             var payload = events.Select(e => BuildTimelinePayload(e)).ToList();
-                            Invoke(() => SendToJS("timelineData", payload));
+                            Invoke(() => SendToJS("timelineData", new { events = payload, hasMore, offset = 0 }));
 
                             if (!_vrcApi.IsLoggedIn) return;
                             bool anyResolved = false;
 
-                            // 1) Resolve missing world names
+                            // 1) Resolve missing world names (first page only)
                             var unknownWorlds = events
                                 .Where(e => !string.IsNullOrEmpty(e.WorldId) && string.IsNullOrEmpty(e.WorldName))
                                 .Select(e => e.WorldId).Distinct().Take(20).ToList();
@@ -1852,10 +1852,12 @@ public class MainForm : Form
                                     {
                                         var wName  = w["name"]?.ToString()              ?? "";
                                         var wThumb = w["thumbnailImageUrl"]?.ToString() ?? "";
-                                        foreach (var ev in _timeline.GetEvents()
+                                        foreach (var ev in events
                                             .Where(e => e.WorldId == wid && string.IsNullOrEmpty(e.WorldName)))
                                         {
                                             _timeline.UpdateEvent(ev.Id, e => { e.WorldName = wName; e.WorldThumb = wThumb; });
+                                            ev.WorldName  = wName;
+                                            ev.WorldThumb = wThumb;
                                             anyResolved = true;
                                         }
                                     }
@@ -1863,13 +1865,12 @@ public class MainForm : Form
                                 catch { }
                             }
 
-                            // 2) Resolve missing user / player images
-                            // Collect unique userIds that have no image stored yet
+                            // 2) Resolve missing user / player images (first page only)
                             var fetchedImgs   = new Dictionary<string, string>(); // userId -> imageUrl
                             var playerRefs    = new List<(string evId, string userId)>();
                             var userEventRefs = new List<(string evId, string userId)>();
 
-                            foreach (var ev in _timeline.GetEvents())
+                            foreach (var ev in events)
                             {
                                 if (ev.Type == "instance_join")
                                 {
@@ -1900,7 +1901,6 @@ public class MainForm : Form
                                     await sem.WaitAsync();
                                     try
                                     {
-                                        // Try local cache first
                                         if (_playerImageCache.TryGetValue(uid, out var c) && !string.IsNullOrEmpty(c.image))
                                         {
                                             fetchedImgs[uid] = c.image;
@@ -1922,7 +1922,6 @@ public class MainForm : Form
                                 });
                                 await Task.WhenAll(imgTasks);
 
-                                // Apply fetched images to instance_join player lists
                                 foreach (var (evId, uid) in playerRefs)
                                 {
                                     if (!fetchedImgs.TryGetValue(uid, out var img) || string.IsNullOrEmpty(img)) continue;
@@ -1932,9 +1931,14 @@ public class MainForm : Form
                                         var p = ev.Players.FirstOrDefault(x => x.UserId == localUid);
                                         if (p != null && string.IsNullOrEmpty(p.Image)) p.Image = localImg;
                                     });
+                                    var localEv = events.FirstOrDefault(e => e.Id == evId);
+                                    if (localEv != null)
+                                    {
+                                        var p = localEv.Players.FirstOrDefault(x => x.UserId == uid);
+                                        if (p != null && string.IsNullOrEmpty(p.Image)) p.Image = img;
+                                    }
                                     anyResolved = true;
                                 }
-                                // Apply fetched images to first_meet / meet_again events
                                 foreach (var (evId, uid) in userEventRefs)
                                 {
                                     if (!fetchedImgs.TryGetValue(uid, out var img) || string.IsNullOrEmpty(img)) continue;
@@ -1943,14 +1947,16 @@ public class MainForm : Form
                                     {
                                         if (string.IsNullOrEmpty(ev.UserImage)) ev.UserImage = localImg;
                                     });
+                                    var localEv = events.FirstOrDefault(e => e.Id == evId);
+                                    if (localEv != null && string.IsNullOrEmpty(localEv.UserImage)) localEv.UserImage = img;
                                     anyResolved = true;
                                 }
                             }
 
                             if (anyResolved)
                             {
-                                var updated = _timeline.GetEvents().Select(e => BuildTimelinePayload(e)).ToList();
-                                Invoke(() => SendToJS("timelineData", updated));
+                                var updated = events.Select(e => BuildTimelinePayload(e)).ToList();
+                                Invoke(() => SendToJS("timelineData", new { events = updated, hasMore, offset = 0 }));
                             }
                         }
                         catch (Exception ex)
@@ -1960,18 +1966,33 @@ public class MainForm : Form
                     });
                     break;
 
+                case "getTimelinePage":
+                    _ = Task.Run(() =>
+                    {
+                        try
+                        {
+                            var pageOffset = msg["offset"]?.Value<int>() ?? 0;
+                            var (events, hasMore) = _timeline.GetEventsPaged(100, pageOffset);
+                            var payload = events.Select(e => BuildTimelinePayload(e)).ToList();
+                            Invoke(() => SendToJS("timelineData", new { events = payload, hasMore, offset = pageOffset }));
+                        }
+                        catch { }
+                    });
+                    break;
+
                 case "getFriendTimeline":
                     _ = Task.Run(async () =>
                     {
                         try
                         {
-                            var fevents = _timeline.GetFriendEvents();
+                            var typeFilter = msg["type"]?.ToString() ?? "";
+                            var (fevents, hasMore) = _timeline.GetFriendEventsPaged(100, 0, typeFilter);
                             var fpayload = fevents.Select(e => BuildFriendTimelinePayload(e)).ToList();
-                            Invoke(() => SendToJS("friendTimelineData", fpayload));
+                            Invoke(() => SendToJS("friendTimelineData", new { events = fpayload, hasMore, offset = 0 }));
 
                             if (!_vrcApi.IsLoggedIn) return;
 
-                            // Resolve world names for GPS events that have worldId but no worldName
+                            // Resolve world names for GPS events that have worldId but no worldName (first page only)
                             var unknownGpsWorlds = fevents
                                 .Where(e => e.Type == "friend_gps" && !string.IsNullOrEmpty(e.WorldId) && string.IsNullOrEmpty(e.WorldName))
                                 .Select(e => e.WorldId).Distinct().Take(20).ToList();
@@ -1984,13 +2005,13 @@ public class MainForm : Form
                                     if (w == null) continue;
                                     var wName  = w["name"]?.ToString()              ?? "";
                                     var wThumb = w["thumbnailImageUrl"]?.ToString() ?? "";
-                                    foreach (var ev in _timeline.GetFriendEvents()
-                                        .Where(e => e.WorldId == wid && string.IsNullOrEmpty(e.WorldName)))
+                                    foreach (var ev in fevents.Where(e => e.WorldId == wid && string.IsNullOrEmpty(e.WorldName)))
                                     {
                                         _timeline.UpdateFriendEventWorld(ev.Id, wName, wThumb);
-                                        var updated = _timeline.GetFriendEvents().FirstOrDefault(x => x.Id == ev.Id);
-                                        if (updated != null)
-                                            Invoke(() => SendToJS("friendTimelineEvent", BuildFriendTimelinePayload(updated)));
+                                        ev.WorldName  = wName;
+                                        ev.WorldThumb = wThumb;
+                                        var evCopy = ev;
+                                        Invoke(() => SendToJS("friendTimelineEvent", BuildFriendTimelinePayload(evCopy)));
                                     }
                                 }
                                 catch { }
@@ -2000,6 +2021,54 @@ public class MainForm : Form
                         {
                             Invoke(() => SendToJS("log", new { msg = $"[FRIEND TIMELINE] Load error: {ex.Message}", color = "err" }));
                         }
+                    });
+                    break;
+
+                case "getFriendTimelinePage":
+                    _ = Task.Run(() =>
+                    {
+                        try
+                        {
+                            var pageOffset = msg["offset"]?.Value<int>() ?? 0;
+                            var typeFilter = msg["type"]?.ToString() ?? "";
+                            var (fevents, hasMore) = _timeline.GetFriendEventsPaged(100, pageOffset, typeFilter);
+                            var fpayload = fevents.Select(e => BuildFriendTimelinePayload(e)).ToList();
+                            Invoke(() => SendToJS("friendTimelineData", new { events = fpayload, hasMore, offset = pageOffset }));
+                        }
+                        catch { }
+                    });
+                    break;
+
+                case "getTimelineByDate":
+                    _ = Task.Run(() =>
+                    {
+                        try
+                        {
+                            var dateStr = msg["date"]?.ToString() ?? "";
+                            if (!DateTime.TryParse(dateStr, out var localDate)) return;
+                            localDate = DateTime.SpecifyKind(localDate, DateTimeKind.Local);
+                            var events  = _timeline.GetEventsByDate(localDate);
+                            var payload = events.Select(e => BuildTimelinePayload(e)).ToList();
+                            Invoke(() => SendToJS("timelineData", new { events = payload, hasMore = false, offset = 0 }));
+                        }
+                        catch { }
+                    });
+                    break;
+
+                case "getFriendTimelineByDate":
+                    _ = Task.Run(() =>
+                    {
+                        try
+                        {
+                            var dateStr    = msg["date"]?.ToString() ?? "";
+                            var typeFilter = msg["type"]?.ToString() ?? "";
+                            if (!DateTime.TryParse(dateStr, out var localDate)) return;
+                            localDate = DateTime.SpecifyKind(localDate, DateTimeKind.Local);
+                            var fevents  = _timeline.GetFriendEventsByDate(localDate, typeFilter);
+                            var fpayload = fevents.Select(e => BuildFriendTimelinePayload(e)).ToList();
+                            Invoke(() => SendToJS("friendTimelineData", new { events = fpayload, hasMore = false, offset = 0 }));
+                        }
+                        catch { }
                     });
                     break;
 

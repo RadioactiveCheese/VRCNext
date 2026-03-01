@@ -356,6 +356,163 @@ public class TimelineService : IDisposable
             return _events.OrderByDescending(e => e.Timestamp).ToList();
     }
 
+    /// <summary>Returns a page of personal timeline events directly from DB (newest first). HasMore=true if more exist beyond this page.</summary>
+    public (List<TimelineEvent> Events, bool HasMore) GetEventsPaged(int limit, int offset)
+    {
+        var ids = new List<string>();
+        try
+        {
+            using var cmd = _db.CreateCommand();
+            cmd.CommandText = "SELECT id FROM events ORDER BY timestamp DESC LIMIT $limit OFFSET $offset";
+            cmd.Parameters.AddWithValue("$limit",  limit + 1);
+            cmd.Parameters.AddWithValue("$offset", offset);
+            using var r = cmd.ExecuteReader();
+            while (r.Read()) ids.Add(r.GetString(0));
+        }
+        catch { return (new List<TimelineEvent>(), false); }
+
+        var hasMore = ids.Count > limit;
+        if (hasMore) ids.RemoveAt(ids.Count - 1);
+        if (ids.Count == 0) return (new List<TimelineEvent>(), hasMore);
+
+        var playerMap = new Dictionary<string, List<PlayerSnap>>();
+        try
+        {
+            var inP = string.Join(",", ids.Select((_, i) => $"$p{i}"));
+            using var pcmd = _db.CreateCommand();
+            pcmd.CommandText = $"SELECT event_id,user_id,display_name,image FROM event_players WHERE event_id IN ({inP})";
+            for (int i = 0; i < ids.Count; i++) pcmd.Parameters.AddWithValue($"$p{i}", ids[i]);
+            using var pr = pcmd.ExecuteReader();
+            while (pr.Read())
+            {
+                var eid = pr.GetString(0);
+                if (!playerMap.TryGetValue(eid, out var list)) playerMap[eid] = list = new();
+                list.Add(new PlayerSnap { UserId = pr.GetString(1), DisplayName = pr.GetString(2), Image = pr.GetString(3) });
+            }
+        }
+        catch { }
+
+        var result = new List<TimelineEvent>();
+        try
+        {
+            var inE = string.Join(",", ids.Select((_, i) => $"$e{i}"));
+            using var cmd = _db.CreateCommand();
+            cmd.CommandText = $@"SELECT id,type,timestamp,world_id,world_name,world_thumb,
+                location,photo_path,photo_url,user_id,user_name,user_image,
+                notif_id,notif_type,sender_name,sender_id,sender_image,message
+                FROM events WHERE id IN ({inE}) ORDER BY timestamp DESC";
+            for (int i = 0; i < ids.Count; i++) cmd.Parameters.AddWithValue($"$e{i}", ids[i]);
+            using var r = cmd.ExecuteReader();
+            while (r.Read())
+            {
+                var id = r.GetString(0);
+                result.Add(new TimelineEvent
+                {
+                    Id          = id,
+                    Type        = r.GetString(1),
+                    Timestamp   = r.GetString(2),
+                    WorldId     = r.GetString(3),
+                    WorldName   = r.GetString(4),
+                    WorldThumb  = r.GetString(5),
+                    Location    = r.GetString(6),
+                    PhotoPath   = r.GetString(7),
+                    PhotoUrl    = r.GetString(8),
+                    UserId      = r.GetString(9),
+                    UserName    = r.GetString(10),
+                    UserImage   = r.GetString(11),
+                    NotifId     = r.GetString(12),
+                    NotifType   = r.GetString(13),
+                    SenderName  = r.GetString(14),
+                    SenderId    = r.GetString(15),
+                    SenderImage = r.GetString(16),
+                    Message     = r.GetString(17),
+                    Players     = playerMap.TryGetValue(id, out var pl) ? pl : new(),
+                });
+            }
+        }
+        catch { }
+        return (result, hasMore);
+    }
+
+    /// <summary>Returns all personal timeline events for a specific local calendar date.</summary>
+    public List<TimelineEvent> GetEventsByDate(DateTime localDate)
+    {
+        var utcStart = localDate.ToUniversalTime().ToString("o");
+        var utcEnd   = localDate.AddDays(1).ToUniversalTime().ToString("o");
+
+        var ids = new List<string>();
+        try
+        {
+            using var cmd = _db.CreateCommand();
+            cmd.CommandText = "SELECT id FROM events WHERE timestamp >= $s AND timestamp < $e ORDER BY timestamp DESC";
+            cmd.Parameters.AddWithValue("$s", utcStart);
+            cmd.Parameters.AddWithValue("$e", utcEnd);
+            using var r = cmd.ExecuteReader();
+            while (r.Read()) ids.Add(r.GetString(0));
+        }
+        catch { return new List<TimelineEvent>(); }
+
+        if (ids.Count == 0) return new List<TimelineEvent>();
+
+        var playerMap = new Dictionary<string, List<PlayerSnap>>();
+        try
+        {
+            var inP = string.Join(",", ids.Select((_, i) => $"$p{i}"));
+            using var pcmd = _db.CreateCommand();
+            pcmd.CommandText = $"SELECT event_id,user_id,display_name,image FROM event_players WHERE event_id IN ({inP})";
+            for (int i = 0; i < ids.Count; i++) pcmd.Parameters.AddWithValue($"$p{i}", ids[i]);
+            using var pr = pcmd.ExecuteReader();
+            while (pr.Read())
+            {
+                var eid = pr.GetString(0);
+                if (!playerMap.TryGetValue(eid, out var list)) playerMap[eid] = list = new();
+                list.Add(new PlayerSnap { UserId = pr.GetString(1), DisplayName = pr.GetString(2), Image = pr.GetString(3) });
+            }
+        }
+        catch { }
+
+        var result = new List<TimelineEvent>();
+        try
+        {
+            var inE = string.Join(",", ids.Select((_, i) => $"$e{i}"));
+            using var cmd = _db.CreateCommand();
+            cmd.CommandText = $@"SELECT id,type,timestamp,world_id,world_name,world_thumb,
+                location,photo_path,photo_url,user_id,user_name,user_image,
+                notif_id,notif_type,sender_name,sender_id,sender_image,message
+                FROM events WHERE id IN ({inE}) ORDER BY timestamp DESC";
+            for (int i = 0; i < ids.Count; i++) cmd.Parameters.AddWithValue($"$e{i}", ids[i]);
+            using var r = cmd.ExecuteReader();
+            while (r.Read())
+            {
+                var id = r.GetString(0);
+                result.Add(new TimelineEvent
+                {
+                    Id          = id,
+                    Type        = r.GetString(1),
+                    Timestamp   = r.GetString(2),
+                    WorldId     = r.GetString(3),
+                    WorldName   = r.GetString(4),
+                    WorldThumb  = r.GetString(5),
+                    Location    = r.GetString(6),
+                    PhotoPath   = r.GetString(7),
+                    PhotoUrl    = r.GetString(8),
+                    UserId      = r.GetString(9),
+                    UserName    = r.GetString(10),
+                    UserImage   = r.GetString(11),
+                    NotifId     = r.GetString(12),
+                    NotifType   = r.GetString(13),
+                    SenderName  = r.GetString(14),
+                    SenderId    = r.GetString(15),
+                    SenderImage = r.GetString(16),
+                    Message     = r.GetString(17),
+                    Players     = playerMap.TryGetValue(id, out var pl) ? pl : new(),
+                });
+            }
+        }
+        catch { }
+        return result;
+    }
+
     // Friend timeline events
 
     public void AddFriendEvent(FriendTimelineEvent ev)
@@ -371,6 +528,95 @@ public class TimelineService : IDisposable
     {
         lock (_lock)
             return _friendEvents.OrderByDescending(e => e.Timestamp).ToList();
+    }
+
+    /// <summary>Returns a page of friend events directly from DB (newest first). HasMore=true if more exist beyond this page.</summary>
+    public (List<FriendTimelineEvent> Events, bool HasMore) GetFriendEventsPaged(
+        int limit, int offset, string? type = null)
+    {
+        var result = new List<FriendTimelineEvent>();
+        try
+        {
+            using var cmd = _db.CreateCommand();
+            var hasType = !string.IsNullOrEmpty(type) && type != "all";
+            cmd.CommandText = hasType
+                ? @"SELECT id,type,timestamp,friend_id,friend_name,friend_image,
+                       world_id,world_name,world_thumb,location,old_value,new_value
+                       FROM friend_events WHERE type=$type
+                       ORDER BY timestamp DESC LIMIT $limit OFFSET $offset"
+                : @"SELECT id,type,timestamp,friend_id,friend_name,friend_image,
+                       world_id,world_name,world_thumb,location,old_value,new_value
+                       FROM friend_events
+                       ORDER BY timestamp DESC LIMIT $limit OFFSET $offset";
+            cmd.Parameters.AddWithValue("$limit",  limit + 1);
+            cmd.Parameters.AddWithValue("$offset", offset);
+            if (hasType) cmd.Parameters.AddWithValue("$type", type);
+            using var r = cmd.ExecuteReader();
+            while (r.Read())
+                result.Add(new FriendTimelineEvent
+                {
+                    Id          = r.GetString(0),
+                    Type        = r.GetString(1),
+                    Timestamp   = r.GetString(2),
+                    FriendId    = r.GetString(3),
+                    FriendName  = r.GetString(4),
+                    FriendImage = r.GetString(5),
+                    WorldId     = r.GetString(6),
+                    WorldName   = r.GetString(7),
+                    WorldThumb  = r.GetString(8),
+                    Location    = r.GetString(9),
+                    OldValue    = r.GetString(10),
+                    NewValue    = r.GetString(11),
+                });
+        }
+        catch { }
+        var hasMore = result.Count > limit;
+        if (hasMore) result.RemoveAt(result.Count - 1);
+        return (result, hasMore);
+    }
+
+    /// <summary>Returns all friend timeline events for a specific local calendar date, with optional type filter.</summary>
+    public List<FriendTimelineEvent> GetFriendEventsByDate(DateTime localDate, string? type = null)
+    {
+        var utcStart = localDate.ToUniversalTime().ToString("o");
+        var utcEnd   = localDate.AddDays(1).ToUniversalTime().ToString("o");
+        var result   = new List<FriendTimelineEvent>();
+        try
+        {
+            using var cmd = _db.CreateCommand();
+            var hasType = !string.IsNullOrEmpty(type) && type != "all";
+            cmd.CommandText = hasType
+                ? @"SELECT id,type,timestamp,friend_id,friend_name,friend_image,
+                       world_id,world_name,world_thumb,location,old_value,new_value
+                       FROM friend_events WHERE type=$type AND timestamp >= $s AND timestamp < $e
+                       ORDER BY timestamp DESC"
+                : @"SELECT id,type,timestamp,friend_id,friend_name,friend_image,
+                       world_id,world_name,world_thumb,location,old_value,new_value
+                       FROM friend_events WHERE timestamp >= $s AND timestamp < $e
+                       ORDER BY timestamp DESC";
+            cmd.Parameters.AddWithValue("$s", utcStart);
+            cmd.Parameters.AddWithValue("$e", utcEnd);
+            if (hasType) cmd.Parameters.AddWithValue("$type", type);
+            using var r = cmd.ExecuteReader();
+            while (r.Read())
+                result.Add(new FriendTimelineEvent
+                {
+                    Id          = r.GetString(0),
+                    Type        = r.GetString(1),
+                    Timestamp   = r.GetString(2),
+                    FriendId    = r.GetString(3),
+                    FriendName  = r.GetString(4),
+                    FriendImage = r.GetString(5),
+                    WorldId     = r.GetString(6),
+                    WorldName   = r.GetString(7),
+                    WorldThumb  = r.GetString(8),
+                    Location    = r.GetString(9),
+                    OldValue    = r.GetString(10),
+                    NewValue    = r.GetString(11),
+                });
+        }
+        catch { }
+        return result;
     }
 
     public void UpdateFriendEventWorld(string id, string worldName, string worldThumb)

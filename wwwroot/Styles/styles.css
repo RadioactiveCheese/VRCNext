@@ -4065,10 +4065,14 @@ body {
 }
 
 .wd-create-select {
-    background: var(--bg-input);
+    -webkit-appearance: none;
+    appearance: none;
+    background: var(--bg-input) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24'%3E%3Cpath fill='%23888888' d='M7 10l5 5 5-5z'/%3E%3C/svg%3E") no-repeat right 10px center;
     border: none;
     border-radius: 8px;
-    padding: 6px 10px;
+    padding: 0 32px 0 10px;
+    height: 38px;
+    box-sizing: border-box;
     color: var(--tx1);
     font-size: 12px;
     font-family: inherit;
@@ -5146,9 +5150,107 @@ body {
 .tl-topbar {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 8px;
     padding: 14px 20px 8px;
     flex-shrink: 0;
+}
+/* Unified search-row heights (Worlds / Groups / Avatars tabs) */
+.search-bar-row .search-input { height: 38px; box-sizing: border-box; padding-top: 0; padding-bottom: 0; }
+.search-bar-row .btn-f        { height: 38px; box-sizing: border-box; padding-top: 0; padding-bottom: 0; }
+#favWorldsRefreshBtn, #ownAvatarsRefreshBtn, #favAvatarsRefreshBtn { height: 38px; box-sizing: border-box; }
+.wd-create-select.vn-select .vn-select-trigger { height: 38px; box-sizing: border-box; }
+.wd-create-row .wd-create-select.vn-select,
+.wd-create-row .wd-create-select.vn-select .vn-select-trigger { height: auto; }
+
+/* Timeline topbar overrides (keeps its tighter 34px height) */
+.tl-topbar .search-input { height: 34px; padding-top: 0; padding-bottom: 0; }
+.tl-datebtn { height: 34px; padding: 0 10px; }
+#tlDateBtn.dp-active { background: color-mix(in srgb, var(--accent) 18%, transparent); color: var(--accent-lt); }
+
+/* ── Custom date picker ────────────────────────────────────────────── */
+.tl-date-picker {
+    position: fixed;
+    z-index: 9999;
+    background: var(--bg-card);
+    border: 1px solid var(--brd-lt);
+    border-radius: 14px;
+    padding: 14px;
+    box-shadow: 0 8px 36px rgba(0,0,0,.65);
+    width: 254px;
+    user-select: none;
+}
+.tl-dp-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 10px;
+}
+.tl-dp-nav {
+    background: var(--bg-btn);
+    border: none;
+    border-radius: 7px;
+    color: var(--tx2);
+    width: 30px;
+    height: 30px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: inherit;
+    transition: background .15s, color .15s;
+    flex-shrink: 0;
+}
+.tl-dp-nav:hover { background: var(--bg-btn-h); color: var(--tx1); }
+.tl-dp-month-label {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--tx1);
+    letter-spacing: .02em;
+}
+.tl-dp-weekdays {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    margin-bottom: 4px;
+}
+.tl-dp-wd {
+    text-align: center;
+    font-size: 10px;
+    color: var(--tx3);
+    font-weight: 700;
+    padding: 4px 0;
+    letter-spacing: .04em;
+}
+.tl-dp-days {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 2px;
+}
+.tl-dp-day {
+    aspect-ratio: 1;
+    border-radius: 7px;
+    border: none;
+    background: transparent;
+    color: var(--tx2);
+    font-size: 12px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: inherit;
+    transition: background .12s, color .12s;
+}
+.tl-dp-day:hover { background: var(--bg-btn-h); color: var(--tx1); }
+.tl-dp-day.other-month { color: var(--tx3); opacity: .5; }
+.tl-dp-day.today { color: var(--accent-lt); font-weight: 700; }
+.tl-dp-day.selected { background: var(--accent); color: #fff; font-weight: 700; }
+.tl-dp-day.selected:hover { background: var(--accent); }
+.tl-dp-day.today.selected { background: var(--accent); color: #fff; }
+.tl-dp-footer {
+    display: flex;
+    gap: 6px;
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px solid var(--brd);
 }
 
 /* ── Filter row ───────────────────────────────────────────────────── */

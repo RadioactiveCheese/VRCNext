@@ -4,6 +4,16 @@
 // Pending scroll-to target: consumed by filterTimeline() after DOM is built
 let _tlScrollTarget = null;
 
+// Personal Timeline pagination state
+let tlOffset = 0, tlLoading = false, tlHasMore = false, tlObserver = null;
+
+// Friends Timeline pagination state
+let ftlOffset = 0, ftlLoading = false, ftlHasMore = false, ftlObserver = null;
+
+// Active date filter (ISO string like "2026-03-01", empty = no filter)
+let tlDateFilter = '';
+let tlTabInited  = false;
+
 // Filter button map
 const TL_FILTER_IDS = {
     all:           'tlFAll',
@@ -57,21 +67,43 @@ function setTlMode(mode) {
 
 function refreshTimeline() {
     if (tlMode === 'friends') { refreshFriendTimeline(); return; }
+    if (!tlTabInited) {
+        tlTabInited = true;
+        const t = new Date();
+        applyTlDateFilter(`${t.getFullYear()}-${String(t.getMonth()+1).padStart(2,'0')}-${String(t.getDate()).padStart(2,'0')}`);
+        return;
+    }
     // If we're navigating to a specific event and already have data, skip re-fetching
     // and render directly so _tlScrollTarget is consumed synchronously
     if (_tlScrollTarget && timelineEvents.length > 0) {
         filterTimeline();
         return;
     }
+    timelineEvents = [];
+    tlOffset  = 0;
+    tlHasMore = false;
+    tlLoading = false;
+    disconnectTlObserver();
     const c = document.getElementById('tlContainer');
     if (c) c.innerHTML = '<div class="tl-loading"><div class="tl-sk-line"></div><div class="tl-sk-line tl-sk-short"></div><div class="tl-sk-line"></div><div class="tl-sk-line tl-sk-short"></div><div class="tl-sk-line"></div></div>';
-    sendToCS({ action: 'getTimeline' });
+    if (tlDateFilter) sendToCS({ action: 'getTimelineByDate', date: tlDateFilter });
+    else              sendToCS({ action: 'getTimeline' });
 }
 
-function renderTimeline(events) {
-    timelineEvents = Array.isArray(events) ? events : [];
+function renderTimeline(payload) {
+    const events  = Array.isArray(payload) ? payload : (payload?.events  ?? []);
+    const hasMore = Array.isArray(payload) ? false   : (payload?.hasMore ?? false);
+    const offset  = Array.isArray(payload) ? 0       : (payload?.offset  ?? 0);
+
+    if (offset === 0) {
+        timelineEvents = events;
+    } else {
+        timelineEvents = timelineEvents.concat(events);
+    }
+    tlOffset  = offset + events.length;
+    tlHasMore = hasMore;
+    tlLoading = false;
     filterTimeline();
-    // Update friend-detail preview if it's currently open
     if (typeof updateFdTlPreview === 'function') updateFdTlPreview();
 }
 
@@ -109,17 +141,26 @@ function filterTimeline() {
     const c = document.getElementById('tlContainer');
     if (!c) return;
 
-    if (!filtered.length) {
+    if (!filtered.length && !tlLoading) {
         c.innerHTML = '<div class="empty-msg">No timeline events match your filter.</div>';
         return;
     }
 
-    c.innerHTML = buildTimelineHtml(filtered);
+    const prevScrollTop = c.scrollTop;
+    let html = buildTimelineHtml(filtered);
+
+    if (tlHasMore && !search) {
+        html += '<div id="tlSentinel" style="height:40px;display:flex;align-items:center;justify-content:center;">'
+              + '<span style="font-size:11px;color:var(--tx3);">Loading more…</span></div>';
+    }
+
+    c.innerHTML = html;
+    if (prevScrollTop > 0) c.scrollTop = prevScrollTop;
+
+    if (tlHasMore && !search) setupTlObserver(c);
 
     // Scroll to and highlight a specific card if requested (e.g. from friend detail preview).
-    // Only consume _tlScrollTarget if the card is actually in the newly-built DOM — if a
-    // spurious handleTimelineEvent fires before getTimeline returns, the target card won't
-    // be there yet. In that case keep _tlScrollTarget so the next filterTimeline retries.
+    // Only consume _tlScrollTarget if the card is actually in the newly-built DOM.
     if (_tlScrollTarget) {
         const probe = c.querySelector('[data-tlid="' + _tlScrollTarget + '"]');
         if (probe) {
@@ -135,6 +176,185 @@ function filterTimeline() {
             }, 50);
         }
     }
+}
+
+// Personal Timeline pagination helpers
+
+function loadMoreTimeline() {
+    if (tlLoading || !tlHasMore) return;
+    tlLoading = true;
+    sendToCS({ action: 'getTimelinePage', offset: tlOffset });
+}
+
+function setupTlObserver(container) {
+    disconnectTlObserver();
+    const sentinel = document.getElementById('tlSentinel');
+    if (!sentinel) return;
+    tlObserver = new IntersectionObserver(entries => {
+        if (entries[0].isIntersecting && !tlLoading && tlHasMore) loadMoreTimeline();
+    }, { root: container, threshold: 0.1 });
+    tlObserver.observe(sentinel);
+}
+
+function disconnectTlObserver() {
+    if (tlObserver) { tlObserver.disconnect(); tlObserver = null; }
+}
+
+// Date filter
+
+let _dpYear = 0, _dpMonth = 0; // currently rendered calendar month
+
+function toggleTlDatePicker() {
+    const picker = document.getElementById('tlDatePicker');
+    if (!picker) return;
+    if (picker.style.display !== 'none') { picker.style.display = 'none'; return; }
+
+    const btn = document.getElementById('tlDateBtn');
+    const rect = btn.getBoundingClientRect();
+
+    // Init calendar to selected date or today
+    const base = tlDateFilter ? new Date(tlDateFilter + 'T00:00:00') : new Date();
+    _dpYear  = base.getFullYear();
+    _dpMonth = base.getMonth();
+    renderDatePickerCalendar();
+
+    picker.style.display = '';
+    // Position below (or above if not enough room)
+    const ph = picker.offsetHeight || 290;
+    const top = rect.bottom + 6 + ph > window.innerHeight ? rect.top - ph - 6 : rect.bottom + 6;
+    picker.style.top  = Math.max(6, top) + 'px';
+    picker.style.left = Math.min(rect.left, window.innerWidth - 268) + 'px';
+
+    // Close on outside click
+    setTimeout(() => document.addEventListener('click', _closeDpOutside), 0);
+}
+
+function _closeDpOutside(e) {
+    const picker = document.getElementById('tlDatePicker');
+    const btn    = document.getElementById('tlDateBtn');
+    if (!picker) return;
+    if (!picker.contains(e.target) && e.target !== btn && !btn.contains(e.target)) {
+        picker.style.display = 'none';
+        document.removeEventListener('click', _closeDpOutside);
+    } else {
+        // Re-attach for next click
+        setTimeout(() => document.addEventListener('click', _closeDpOutside), 0);
+    }
+}
+
+function renderDatePickerCalendar() {
+    const monthNames = ['January','February','March','April','May','June',
+                        'July','August','September','October','November','December'];
+    const label = document.getElementById('tlDpMonthLabel');
+    const grid  = document.getElementById('tlDpDaysGrid');
+    if (!label || !grid) return;
+
+    label.textContent = monthNames[_dpMonth] + ' ' + _dpYear;
+
+    const today    = new Date();
+    const todayStr = _dpFmt(today.getFullYear(), today.getMonth(), today.getDate());
+    const selStr   = tlDateFilter || '';
+
+    const firstDow      = new Date(_dpYear, _dpMonth, 1).getDay();     // 0=Sun
+    const daysInMonth   = new Date(_dpYear, _dpMonth + 1, 0).getDate();
+    const daysInPrevMo  = new Date(_dpYear, _dpMonth, 0).getDate();
+
+    let html = '';
+    // Leading prev-month days
+    for (let i = firstDow - 1; i >= 0; i--) {
+        const d   = daysInPrevMo - i;
+        const ds  = _dpFmt(_dpYear, _dpMonth - 1, d);
+        html += `<button class="tl-dp-day other-month${ds === selStr ? ' selected' : ''}" onclick="selectDpDate('${ds}')">${d}</button>`;
+    }
+    // Current month
+    for (let d = 1; d <= daysInMonth; d++) {
+        const ds  = _dpFmt(_dpYear, _dpMonth, d);
+        const cls = (ds === todayStr ? ' today' : '') + (ds === selStr ? ' selected' : '');
+        html += `<button class="tl-dp-day${cls}" onclick="selectDpDate('${ds}')">${d}</button>`;
+    }
+    // Trailing next-month days
+    const used      = firstDow + daysInMonth;
+    const remaining = used % 7 === 0 ? 0 : 7 - (used % 7);
+    for (let d = 1; d <= remaining; d++) {
+        const ds  = _dpFmt(_dpYear, _dpMonth + 1, d);
+        html += `<button class="tl-dp-day other-month${ds === selStr ? ' selected' : ''}" onclick="selectDpDate('${ds}')">${d}</button>`;
+    }
+    grid.innerHTML = html;
+}
+
+function _dpFmt(year, month, day) {
+    const d = new Date(year, month, day);
+    return d.getFullYear() + '-'
+        + String(d.getMonth() + 1).padStart(2, '0') + '-'
+        + String(d.getDate()).padStart(2, '0');
+}
+
+function dpNavMonth(dir) {
+    _dpMonth += dir;
+    if (_dpMonth < 0)  { _dpMonth = 11; _dpYear--; }
+    if (_dpMonth > 11) { _dpMonth = 0;  _dpYear++; }
+    renderDatePickerCalendar();
+}
+
+function selectDpDate(dateStr) {
+    document.getElementById('tlDatePicker').style.display = 'none';
+    document.removeEventListener('click', _closeDpOutside);
+    applyTlDateFilter(dateStr);
+}
+
+function dpSelectToday() {
+    const t = new Date();
+    selectDpDate(_dpFmt(t.getFullYear(), t.getMonth(), t.getDate()));
+}
+
+function dpClear() {
+    document.getElementById('tlDatePicker').style.display = 'none';
+    document.removeEventListener('click', _closeDpOutside);
+    clearTlDateFilter();
+}
+
+function applyTlDateFilter(dateStr) {
+    if (!dateStr) { clearTlDateFilter(); return; }
+    tlDateFilter = dateStr;
+
+    const label = document.getElementById('tlDateLabel');
+    const clear = document.getElementById('tlDateClear');
+    const btn   = document.getElementById('tlDateBtn');
+    if (label) {
+        const d = new Date(dateStr + 'T00:00:00');
+        label.textContent = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+        label.style.display = '';
+    }
+    if (clear) clear.style.display = '';
+    if (btn)   btn.classList.add('dp-active');
+
+    // Reset state and reload for current mode
+    if (tlMode === 'friends') {
+        friendTimelineEvents = [];
+        ftlOffset = 0; ftlHasMore = false; ftlLoading = false;
+        disconnectFtlObserver();
+        const c = document.getElementById('tlContainer');
+        if (c) c.innerHTML = '<div class="tl-loading"><div class="tl-sk-line"></div><div class="tl-sk-line tl-sk-short"></div><div class="tl-sk-line"></div><div class="tl-sk-line tl-sk-short"></div><div class="tl-sk-line"></div></div>';
+        sendToCS({ action: 'getFriendTimelineByDate', date: dateStr, type: ftFilter === 'all' ? '' : ftFilter });
+    } else {
+        timelineEvents = [];
+        tlOffset = 0; tlHasMore = false; tlLoading = false;
+        disconnectTlObserver();
+        const c = document.getElementById('tlContainer');
+        if (c) c.innerHTML = '<div class="tl-loading"><div class="tl-sk-line"></div><div class="tl-sk-line tl-sk-short"></div><div class="tl-sk-line"></div><div class="tl-sk-line tl-sk-short"></div><div class="tl-sk-line"></div></div>';
+        sendToCS({ action: 'getTimelineByDate', date: dateStr });
+    }
+}
+
+function clearTlDateFilter() {
+    tlDateFilter = '';
+    const label = document.getElementById('tlDateLabel');
+    const clear = document.getElementById('tlDateClear');
+    const btn   = document.getElementById('tlDateBtn');
+    if (label) { label.textContent = ''; label.style.display = 'none'; }
+    if (clear) clear.style.display = 'none';
+    if (btn)   btn.classList.remove('dp-active');
+    refreshTimeline();
 }
 
 // Rendering helpers
@@ -557,13 +777,30 @@ function statusCssClass(s) {
 // Public API
 
 function refreshFriendTimeline() {
+    friendTimelineEvents = [];
+    ftlOffset  = 0;
+    ftlHasMore = false;
+    ftlLoading = false;
+    disconnectFtlObserver();
     const c = document.getElementById('tlContainer');
     if (c) c.innerHTML = '<div class="tl-loading"><div class="tl-sk-line"></div><div class="tl-sk-line tl-sk-short"></div><div class="tl-sk-line"></div><div class="tl-sk-line tl-sk-short"></div><div class="tl-sk-line"></div></div>';
-    sendToCS({ action: 'getFriendTimeline' });
+    if (tlDateFilter) sendToCS({ action: 'getFriendTimelineByDate', date: tlDateFilter, type: ftFilter === 'all' ? '' : ftFilter });
+    else              sendToCS({ action: 'getFriendTimeline', type: ftFilter === 'all' ? '' : ftFilter });
 }
 
-function renderFriendTimeline(events) {
-    friendTimelineEvents = Array.isArray(events) ? events : [];
+function renderFriendTimeline(payload) {
+    const events  = Array.isArray(payload) ? payload : (payload?.events  ?? []);
+    const hasMore = Array.isArray(payload) ? false   : (payload?.hasMore ?? false);
+    const offset  = Array.isArray(payload) ? 0       : (payload?.offset  ?? 0);
+
+    if (offset === 0) {
+        friendTimelineEvents = events;
+    } else {
+        friendTimelineEvents = friendTimelineEvents.concat(events);
+    }
+    ftlOffset  = offset + events.length;
+    ftlHasMore = hasMore;
+    ftlLoading = false;
     filterFriendTimeline();
 }
 
@@ -581,15 +818,24 @@ function setFtFilter(f) {
     document.querySelectorAll('#tlFriendsFilters .avatar-filter-btn').forEach(b => b.classList.remove('active'));
     const btn = document.getElementById(FT_FILTER_IDS[f]);
     if (btn) btn.classList.add('active');
-    filterFriendTimeline();
+    // Reset pagination and reload from server with new type filter
+    friendTimelineEvents = [];
+    ftlOffset  = 0;
+    ftlHasMore = false;
+    ftlLoading = false;
+    disconnectFtlObserver();
+    const c = document.getElementById('tlContainer');
+    if (c) c.innerHTML = '<div class="tl-loading"><div class="tl-sk-line"></div><div class="tl-sk-line tl-sk-short"></div><div class="tl-sk-line"></div><div class="tl-sk-line tl-sk-short"></div><div class="tl-sk-line"></div></div>';
+    if (tlDateFilter) sendToCS({ action: 'getFriendTimelineByDate', date: tlDateFilter, type: f === 'all' ? '' : f });
+    else              sendToCS({ action: 'getFriendTimeline', type: f === 'all' ? '' : f });
 }
 
 function filterFriendTimeline() {
     const search = (document.getElementById('tlSearchInput')?.value ?? '').toLowerCase().trim();
-    let filtered = friendTimelineEvents;
-
-    if (ftFilter !== 'all')
-        filtered = filtered.filter(e => e.type === ftFilter);
+    // Type filter is server-side for paginated loads; client-side filter still applied on loaded set
+    let filtered = ftFilter === 'all'
+        ? friendTimelineEvents
+        : friendTimelineEvents.filter(e => e.type === ftFilter);
 
     if (search)
         filtered = filtered.filter(e => ftSearchable(e).includes(search));
@@ -597,17 +843,50 @@ function filterFriendTimeline() {
     const c = document.getElementById('tlContainer');
     if (!c) return;
 
-    if (!filtered.length) {
+    if (!filtered.length && !ftlLoading) {
         c.innerHTML = '<div class="empty-msg">No friend activity logged yet. Events appear here as friends move, change status, etc.</div>';
         return;
     }
 
-    c.innerHTML = buildFriendTimelineHtml(filtered);
+    const prevScrollTop = c.scrollTop;
+    let html = buildFriendTimelineHtml(filtered);
+
+    if (ftlHasMore && !search) {
+        html += '<div id="ftlSentinel" style="height:40px;display:flex;align-items:center;justify-content:center;">'
+              + '<span style="font-size:11px;color:var(--tx3);">Loading more…</span></div>';
+    }
+
+    c.innerHTML = html;
+    if (prevScrollTop > 0) c.scrollTop = prevScrollTop;
+
+    if (ftlHasMore && !search) setupFtlObserver(c);
 }
 
 function ftSearchable(e) {
     return [e.friendName, e.worldName, e.newValue, e.oldValue, e.location]
         .filter(Boolean).join(' ').toLowerCase();
+}
+
+// Friends Timeline pagination helpers
+
+function loadMoreFriendTimeline() {
+    if (ftlLoading || !ftlHasMore) return;
+    ftlLoading = true;
+    sendToCS({ action: 'getFriendTimelinePage', offset: ftlOffset, type: ftFilter === 'all' ? '' : ftFilter });
+}
+
+function setupFtlObserver(container) {
+    disconnectFtlObserver();
+    const sentinel = document.getElementById('ftlSentinel');
+    if (!sentinel) return;
+    ftlObserver = new IntersectionObserver(entries => {
+        if (entries[0].isIntersecting && !ftlLoading && ftlHasMore) loadMoreFriendTimeline();
+    }, { root: container, threshold: 0.1 });
+    ftlObserver.observe(sentinel);
+}
+
+function disconnectFtlObserver() {
+    if (ftlObserver) { ftlObserver.disconnect(); ftlObserver = null; }
 }
 
 // Rendering

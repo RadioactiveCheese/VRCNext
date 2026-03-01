@@ -1016,12 +1016,13 @@ function setPeopleFilter(filter) {
     document.getElementById('peopleSearchArea').style.display  = filter === 'search'    ? '' : 'none';
     document.getElementById('peopleBlockedArea').style.display = filter === 'blocked'   ? '' : 'none';
     document.getElementById('peopleMutedArea').style.display   = filter === 'muted'     ? '' : 'none';
-    if (filter === 'favorites' && favFriendsData.length === 0)
-        sendToCS({ action: 'vrcGetFavoriteFriends' });
-    if (filter === 'blocked' && blockedData === null)
-        sendToCS({ action: 'vrcGetBlocked' });
-    if (filter === 'muted' && mutedData === null)
-        sendToCS({ action: 'vrcGetMuted' });
+    refreshPeopleTab();
+}
+
+function refreshPeopleTab() {
+    if (peopleFilter === 'favorites') sendToCS({ action: 'vrcGetFavoriteFriends' });
+    if (peopleFilter === 'blocked')   sendToCS({ action: 'vrcGetBlocked' });
+    if (peopleFilter === 'muted')     sendToCS({ action: 'vrcGetMuted' });
 }
 
 function renderModList(containerId, list, actionType) {

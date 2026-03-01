@@ -120,7 +120,7 @@
                             <option value="">All Favorites</option>
                         </select>
                         <div class="search-bar-row" style="margin-bottom:0;flex:1;min-width:140px;"><span class="msi search-ico">search</span><input type="text" id="favWorldSearchInput" class="search-input" placeholder="Filter favorite worlds..." oninput="filterFavWorlds()"></div>
-                        <button id="favWorldsRefreshBtn" class="myp-edit-btn" onclick="refreshFavWorlds()" title="Refresh favorites"><span class="msi" style="font-size:16px;">refresh</span></button>
+                        <button id="favWorldsRefreshBtn" class="btn-f" onclick="refreshFavWorlds()" title="Refresh favorites"><span class="msi" style="font-size:16px;">refresh</span> Refresh</button>
                     </div>
                     <div id="favWorldsGrid" class="search-grid"><div class="empty-msg">Loading favorite worlds...</div></div>
                 </div>
@@ -140,6 +140,7 @@
                     <button class="btn-fav avatar-filter-btn" id="peopleFilterSearch" onclick="setPeopleFilter('search')"><span class="msi" style="font-size:16px;">search</span> Search</button>
                     <button class="btn-fav avatar-filter-btn" id="peopleFilterBlocked" onclick="setPeopleFilter('blocked')"><span class="msi" style="font-size:16px;">block</span> Blocked</button>
                     <button class="btn-fav avatar-filter-btn" id="peopleFilterMuted" onclick="setPeopleFilter('muted')"><span class="msi" style="font-size:16px;">volume_off</span> Muted</button>
+                    <button class="btn-f" id="peopleRefreshBtn" onclick="refreshPeopleTab()" title="Refresh" style="margin-left:auto;"><span class="msi" style="font-size:16px;">refresh</span> Refresh</button>
                 </div>
                 <div id="peopleFavArea">
                     <div class="search-bar-row" style="margin-bottom:12px;"><span class="msi search-ico">search</span><input type="text" id="favFriendSearchInput" class="search-input" placeholder="Filter favorite friends..." oninput="filterFavFriends()"></div>
@@ -170,7 +171,7 @@
                 <div id="avatarOwnArea">
                     <div style="display:flex;gap:8px;align-items:center;margin-bottom:12px;flex-wrap:wrap;">
                         <div class="search-bar-row" style="margin-bottom:0;flex:1;min-width:140px;"><span class="msi search-ico">search</span><input type="text" id="ownAvatarSearchInput" class="search-input" placeholder="Filter my avatars..." oninput="filterOwnAvatars()"></div>
-                        <button id="ownAvatarsRefreshBtn" class="myp-edit-btn" onclick="refreshAvatars()" title="Refresh"><span class="msi" style="font-size:16px;">refresh</span></button>
+                        <button id="ownAvatarsRefreshBtn" class="btn-f" onclick="refreshAvatars()" title="Refresh"><span class="msi" style="font-size:16px;">refresh</span> Refresh</button>
                     </div>
                     <div id="avatarGrid" class="avatar-grid"><div class="empty-msg">Login to VRChat to see your avatars</div></div>
                 </div>
@@ -191,7 +192,7 @@
                             <option value="">All Favorites</option>
                         </select>
                         <div class="search-bar-row" style="margin-bottom:0;flex:1;min-width:140px;"><span class="msi search-ico">search</span><input type="text" id="favAvatarSearchInput" class="search-input" placeholder="Filter favorite avatars..." oninput="filterFavAvatars()"></div>
-                        <button id="favAvatarsRefreshBtn" class="myp-edit-btn" onclick="refreshFavAvatars()" title="Refresh favorites"><span class="msi" style="font-size:16px;">refresh</span></button>
+                        <button id="favAvatarsRefreshBtn" class="btn-f" onclick="refreshFavAvatars()" title="Refresh"><span class="msi" style="font-size:16px;">refresh</span> Refresh</button>
                     </div>
                     <div id="favAvatarsGrid" class="avatar-grid"><div class="empty-msg">Loading favorite avatars...</div></div>
                 </div>
@@ -534,7 +535,32 @@
                         <span class="msi search-ico">search</span>
                         <input type="text" id="tlSearchInput" class="search-input" placeholder="Search timeline..." oninput="tlMode==='friends'?filterFriendTimeline():filterTimeline()">
                     </div>
-                    <button class="btn-f" onclick="refreshTimeline()"><span class="msi" style="font-size:16px;">refresh</span> Refresh</button>
+                    <button class="btn-f tl-datebtn" id="tlDateBtn" onclick="toggleTlDatePicker()" title="Filter by date">
+                        <span class="msi" style="font-size:15px;">calendar_today</span>
+                        <span id="tlDateLabel" style="display:none;color:var(--accent-lt);font-size:11px;max-width:72px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"></span>
+                    </button>
+                    <button class="btn-f tl-datebtn" id="tlDateClear" onclick="clearTlDateFilter()" title="Clear date filter" style="display:none;">
+                        <span class="msi" style="font-size:14px;">close</span>
+                    </button>
+                    <button class="btn-f tl-datebtn" onclick="refreshTimeline()" title="Refresh">
+                        <span class="msi" style="font-size:16px;">refresh</span>
+                    </button>
+                </div>
+                <div id="tlDatePicker" class="tl-date-picker" style="display:none;">
+                    <div class="tl-dp-header">
+                        <button class="tl-dp-nav" onclick="dpNavMonth(-1)"><span class="msi" style="font-size:16px;">chevron_left</span></button>
+                        <span id="tlDpMonthLabel" class="tl-dp-month-label"></span>
+                        <button class="tl-dp-nav" onclick="dpNavMonth(1)"><span class="msi" style="font-size:16px;">chevron_right</span></button>
+                    </div>
+                    <div class="tl-dp-weekdays">
+                        <div class="tl-dp-wd">Su</div><div class="tl-dp-wd">Mo</div><div class="tl-dp-wd">Tu</div>
+                        <div class="tl-dp-wd">We</div><div class="tl-dp-wd">Th</div><div class="tl-dp-wd">Fr</div><div class="tl-dp-wd">Sa</div>
+                    </div>
+                    <div id="tlDpDaysGrid" class="tl-dp-days"></div>
+                    <div class="tl-dp-footer">
+                        <button class="btn-f" style="flex:1;justify-content:center;font-size:11px;" onclick="dpSelectToday()">Today</button>
+                        <button class="btn-f" style="flex:1;justify-content:center;font-size:11px;" onclick="dpClear()">Clear</button>
+                    </div>
                 </div>
                 <div class="tl-filter-row" id="tlPersonalFilters">
                     <button class="btn-fav avatar-filter-btn active" id="tlFAll" onclick="setTlFilter('all')">All</button>

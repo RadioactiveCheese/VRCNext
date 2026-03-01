@@ -810,6 +810,7 @@ body {
 .log-msg-relay    { color: #6DBF82; } /* sage green   — [RELAY] / Relay */
 .log-msg-chatbox  { color: #4EADE5; } /* sky blue     — [CHATBOX]  */
 .log-msg-sf       { color: #4EADE5; } /* sky blue     — [SF]       */
+.log-msg-ws       { color: #3FA7D6; } /* cyan-blue    — [WS]       */
 
 .file-list-header {
     margin-top: 24px;

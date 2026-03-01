@@ -311,6 +311,7 @@ function addLog(m, c) {
         'RELAY':      'log-msg-relay',
         'CHATBOX':    'log-msg-chatbox',
         'SF':         'log-msg-sf',
+        'WS':         'log-msg-ws',
     };
     // Content-pattern fallback map (for messages without brackets)
     const _contentMap = [

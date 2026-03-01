@@ -6,6 +6,14 @@ if (window.chrome?.webview) {
             case 'loadSettings': loadSettingsToUI(payload); break;
             case 'relayState': setRelayState(payload.running, payload.streams); break;
             case 'log': addLog(payload.msg, payload.color); break;
+            case 'wsStatus': {
+                const badge = document.getElementById('wsBadge');
+                if (badge) {
+                    badge.className = 'mini-badge ' + (payload.connected ? 'online' : 'offline');
+                    badge.querySelector('.mini-badge-icon').textContent = payload.connected ? 'wifi' : 'wifi_off';
+                }
+                break;
+            }
             case 'vcState': handleVcState(payload); break;
             case 'ffcProgress': handleFfcProgress(payload); break;
             case 'stats':

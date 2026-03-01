@@ -13,6 +13,7 @@ public class FriendEventArgs : EventArgs
     public JObject? User    { get; init; }
     public string  Location { get; init; } = "";
     public string  WorldId  { get; init; } = "";
+    public string  Platform { get; init; } = "";
 }
 
 /// <summary>
@@ -23,8 +24,11 @@ internal sealed class VRChatWebSocketService : IDisposable
 {
     // Public events
 
-    /// <summary>One or more friends changed state. Triggers a friends refresh.</summary>
+    /// <summary>Friend state changed (status/location/bio). Update store from WS data — no REST needed.</summary>
     public event EventHandler? FriendsChanged;
+
+    /// <summary>Friend was added or removed. Requires a full REST refresh of the friend list.</summary>
+    public event EventHandler? FriendListChanged;
 
     /// <summary>A new notification arrived. Triggers a notification fetch.</summary>
     public event EventHandler? NotificationArrived;
@@ -267,20 +271,19 @@ internal sealed class VRChatWebSocketService : IDisposable
                     break;
 
                 case "friend-online":
-                    DebounceFriendsRefresh();
                     try
                     {
                         var c = JObject.Parse(contentStr);
                         var uid = c["userId"]?.Value<string>() ?? "";
                         var loc = c["location"]?.Value<string>() ?? "";
+                        var plt = c["platform"]?.Value<string>() ?? "";
                         var usr = c["user"] as JObject;
-                        FriendWentOnline?.Invoke(this, new FriendEventArgs { UserId = uid, User = usr, Location = loc });
+                        FriendWentOnline?.Invoke(this, new FriendEventArgs { UserId = uid, User = usr, Location = loc, Platform = plt });
                     }
                     catch { }
                     break;
 
                 case "friend-update":
-                    DebounceFriendsRefresh();
                     try
                     {
                         var c = JObject.Parse(contentStr);
@@ -292,9 +295,21 @@ internal sealed class VRChatWebSocketService : IDisposable
                     break;
 
                 case "friend-active":
+                    try
+                    {
+                        var c = JObject.Parse(contentStr);
+                        // VRChat uses lowercase "userid" in friend-active (unlike other events)
+                        var uid = c["userid"]?.Value<string>() ?? c["userId"]?.Value<string>() ?? "";
+                        var plt = c["platform"]?.Value<string>() ?? "";
+                        var usr = c["user"] as JObject;
+                        FriendWentOnline?.Invoke(this, new FriendEventArgs { UserId = uid, User = usr, Platform = plt });
+                    }
+                    catch { }
+                    break;
+
                 case "friend-add":
                 case "friend-delete":
-                    DebounceFriendsRefresh();
+                    FriendListChanged?.Invoke(this, EventArgs.Empty);
                     break;
 
                 case "notification":

@@ -9,7 +9,7 @@
 </head>
 <body>
     <div class="sidebar" id="sidebarEl">
-        <div class="logo"><div class="logo-icon" id="logoIcon">V</div><div class="logo-txt"><div class="logo-text-row"><div class="logo-text">VRCNext</div><span class="logo-beta-badge">BETA</span></div><div class="logo-sub">v2026.1.1</div></div><button class="sb-toggle" onclick="toggleSidebar()" title="Toggle sidebar"><span class="msi" id="sbIcon">menu_open</span></button></div>
+        <div class="logo"><div class="logo-icon" id="logoIcon">V</div><div class="logo-txt"><div class="logo-text-row"><div class="logo-text">VRCNext</div><span class="logo-beta-badge">BETA</span></div><div class="logo-sub">v2026.1.2</div></div><button class="sb-toggle" onclick="toggleSidebar()" title="Toggle sidebar"><span class="msi" id="sbIcon">menu_open</span></button></div>
         <div class="nav">
             <button class="nav-btn active" onclick="showTab(0)"><span class="ni msi">dashboard</span><span class="nl">Dashboard</span></button>
             <button class="nav-btn" onclick="showTab(1)"><span class="ni msi">travel_explore</span><span class="nl">Worlds</span></button>
@@ -319,7 +319,13 @@
             </div>
             <!-- Tab 8: Activity Log -->
             <div class="tab" id="tab8">
-                <div class="log-header" style="margin-top:0;">Activity Log</div>
+                <div class="log-header" style="margin-top:0;display:flex;align-items:center;justify-content:space-between;">
+                    <span>Activity Log</span>
+                    <div class="mini-badge offline" id="wsBadge">
+                        <span class="mini-badge-icon msi">wifi_off</span>
+                        <span class="mini-badge-label">WebSocket</span>
+                    </div>
+                </div>
                 <div class="log-area" id="logArea" style="height:calc(100vh - 252px);"></div>
                 <div style="display:flex;gap:8px;margin-top:8px;">
                     <button class="btn-f" onclick="exportLog()" style="flex:1;justify-content:center;"><span class="msi" style="font-size:16px;">download</span> Export Logs</button>
@@ -539,12 +545,13 @@
                     <button class="btn-fav avatar-filter-btn" id="tlFNotif" onclick="setTlFilter('notification')"><span class="msi" style="font-size:14px;">notifications</span> Notifications</button>
                 </div>
                 <div class="tl-filter-row" id="tlFriendsFilters" style="display:none;">
-                    <button class="btn-fav avatar-filter-btn active" id="ftFAll"     onclick="setFtFilter('all')">All</button>
-                    <button class="btn-fav avatar-filter-btn" id="ftFGps"     onclick="setFtFilter('friend_gps')"><span class="msi" style="font-size:14px;">location_on</span> Location</button>
-                    <button class="btn-fav avatar-filter-btn" id="ftFStatus"  onclick="setFtFilter('friend_status')"><span class="msi" style="font-size:14px;">circle</span> Status</button>
-                    <button class="btn-fav avatar-filter-btn" id="ftFOnline"  onclick="setFtFilter('friend_online')"><span class="msi" style="font-size:14px;">login</span> Online</button>
-                    <button class="btn-fav avatar-filter-btn" id="ftFOffline" onclick="setFtFilter('friend_offline')"><span class="msi" style="font-size:14px;">power_settings_new</span> Offline</button>
-                    <button class="btn-fav avatar-filter-btn" id="ftFBio"     onclick="setFtFilter('friend_bio')"><span class="msi" style="font-size:14px;">edit_note</span> Bio</button>
+                    <button class="btn-fav avatar-filter-btn active" id="ftFAll"        onclick="setFtFilter('all')">All</button>
+                    <button class="btn-fav avatar-filter-btn" id="ftFGps"        onclick="setFtFilter('friend_gps')"><span class="msi" style="font-size:14px;">location_on</span> Location</button>
+                    <button class="btn-fav avatar-filter-btn" id="ftFStatus"     onclick="setFtFilter('friend_status')"><span class="msi" style="font-size:14px;">circle</span> Status</button>
+                    <button class="btn-fav avatar-filter-btn" id="ftFStatusDesc" onclick="setFtFilter('friend_statusdesc')"><span class="msi" style="font-size:14px;">chat_bubble_outline</span> Status Text</button>
+                    <button class="btn-fav avatar-filter-btn" id="ftFOnline"     onclick="setFtFilter('friend_online')"><span class="msi" style="font-size:14px;">login</span> Online</button>
+                    <button class="btn-fav avatar-filter-btn" id="ftFOffline"    onclick="setFtFilter('friend_offline')"><span class="msi" style="font-size:14px;">power_settings_new</span> Offline</button>
+                    <button class="btn-fav avatar-filter-btn" id="ftFBio"        onclick="setFtFilter('friend_bio')"><span class="msi" style="font-size:14px;">edit_note</span> Bio</button>
                 </div>
                 <div class="tl-container" id="tlContainer">
                     <div class="empty-msg">No timeline events yet. VRChat activity will appear here.</div>

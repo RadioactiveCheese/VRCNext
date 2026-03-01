@@ -66,10 +66,14 @@ public class MainForm : Form
     private bool                       _logWatcherBootstrapped;
     private string                     _currentVrcUserId = "";
 
+    // Live friend store — seeded by REST on startup, kept fresh by WebSocket events
+    private readonly Dictionary<string, JObject>             _friendStore      = new(); // userId -> latest user JObject
+
     // Friends Timeline: per-friend state for change detection
-    private readonly Dictionary<string, string>              _friendLastLoc    = new(); // userId -> location
-    private readonly Dictionary<string, string>              _friendLastStatus = new(); // userId -> status
-    private readonly Dictionary<string, string>              _friendLastBio    = new(); // userId -> bio
+    private readonly Dictionary<string, string>              _friendLastLoc        = new(); // userId -> location
+    private readonly Dictionary<string, string>              _friendLastStatus     = new(); // userId -> status
+    private readonly Dictionary<string, string>              _friendLastStatusDesc = new(); // userId -> statusDescription
+    private readonly Dictionary<string, string>              _friendLastBio        = new(); // userId -> bio
     private readonly Dictionary<string, (string name, string image)> _friendNameImg = new(); // userId -> name+image
     private bool                                             _friendStateSeeded = false;
 
@@ -2605,10 +2609,8 @@ var list = avatars.Select(a => new
             Progress(++completed, total, "Caching worlds...");
             await FetchAndCacheFavWorldsAsync();
 
-            // Cache friend profiles one at a time with a delay between each.
-            // BuildUserDetailPayloadAsync already fires ~8 parallel calls per profile,
-            // so concurrency > 1 would easily trigger VRChat rate limits.
-            var semaphore = new SemaphoreSlim(1, 1);
+            // Cache friend profiles 4 at a time.
+            var semaphore = new SemaphoreSlim(4, 4);
             var tasks = friendIds.Select(async uid =>
             {
                 await semaphore.WaitAsync();
@@ -2620,7 +2622,7 @@ var list = avatars.Select(a => new
                         _userDetailCache[uid] = (payload, DateTime.UtcNow);
                         _cache.Save(CacheHandler.KeyUserProfile(uid), payload);
                     }
-                    await Task.Delay(500); // rate-limit gap before next profile
+                    await Task.Delay(250); // rate-limit gap before next profile
                 }
                 catch { }
                 finally
@@ -3222,7 +3224,15 @@ var list = avatars.Select(a => new
         _wsService?.Dispose();
         _wsService = new VRChatWebSocketService();
 
+        // friend-active: state changed but we have no user object — just push store as-is
         _wsService.FriendsChanged += (_, _) =>
+        {
+            if (_vrcApi.IsLoggedIn && _friendStateSeeded)
+                PushFriendsFromStore();
+        };
+
+        // friend-add / friend-delete: list membership changed — need authoritative REST data
+        _wsService.FriendListChanged += (_, _) =>
         {
             if (_vrcApi.IsLoggedIn)
                 _ = VrcRefreshFriendsAsync(true);
@@ -3244,7 +3254,11 @@ var list = avatars.Select(a => new
         // All log calls must use Invoke(); these fire on the WebSocket background thread
         _wsService.Connected += (_, _) =>
         {
-            Invoke(() => SendToJS("log", new { msg = "VRChat: WebSocket connected", color = "ok" }));
+            Invoke(() =>
+            {
+                SendToJS("wsStatus", new { connected = true });
+                SendToJS("log", new { msg = "[WS] Connected to pipeline.vrchat.cloud", color = "ok" });
+            });
             // Refresh on reconnect; may have missed events during the disconnect window
             if (_vrcApi.IsLoggedIn)
             {
@@ -3254,10 +3268,14 @@ var list = avatars.Select(a => new
         };
 
         _wsService.Disconnected += (_, _) =>
-            Invoke(() => SendToJS("log", new { msg = "VRChat: WebSocket reconnecting...", color = "warn" }));
+            Invoke(() =>
+            {
+                SendToJS("wsStatus", new { connected = false });
+                SendToJS("log", new { msg = "[WS] Disconnected — reconnecting...", color = "warn" });
+            });
 
         _wsService.ConnectError += (_, err) =>
-            Invoke(() => SendToJS("log", new { msg = $"VRChat: WebSocket error — {err}", color = "err" }));
+            Invoke(() => SendToJS("log", new { msg = $"[WS] Error: {err}", color = "err" }));
 
         // Friends Timeline: typed WebSocket events
         _wsService.FriendLocationChanged += OnWsFriendLocation;
@@ -3272,16 +3290,16 @@ var list = avatars.Select(a => new
             return (a ?? "", t ?? "");
         });
 
-        // Fallback: refresh every 30 s in case a WebSocket event was missed or the
-        // connection is temporarily down between the watchdog cycles.
+        // Fallback: safety-net refresh every 5 min in case a WebSocket event was missed.
+        // WS events now update the live store directly, so REST is only a last resort.
         _wsFallbackTimer?.Dispose();
-        var jitter = TimeSpan.FromSeconds(Random.Shared.Next(0, 15));
+        var jitter = TimeSpan.FromSeconds(Random.Shared.Next(0, 30));
         _wsFallbackTimer = new System.Threading.Timer(_ =>
         {
             if (!_vrcApi.IsLoggedIn) return;
             _ = VrcRefreshFriendsAsync(true);
             _ = VrcGetNotificationsAsync();
-        }, null, TimeSpan.FromSeconds(30) + jitter, TimeSpan.FromSeconds(30));
+        }, null, TimeSpan.FromMinutes(5) + jitter, TimeSpan.FromMinutes(5));
     }
 
     // Favorite Friends
@@ -3371,8 +3389,8 @@ var list = avatars.Select(a => new
             pronouns = user["pronouns"]?.ToString() ?? "",
             bioLinks = user["bioLinks"]?.ToObject<List<string>>() ?? new List<string>(),
             tags = user["tags"]?.ToObject<List<string>>() ?? new List<string>(),
-            profilePicOverride = user["profilePicOverride"]?.ToString() ?? "",
-            currentAvatarImageUrl = user["currentAvatarImageUrl"]?.ToString() ?? "",
+            profilePicOverride    = _imgCache?.Get(user["profilePicOverride"]?.ToString() ?? "") ?? user["profilePicOverride"]?.ToString() ?? "",
+            currentAvatarImageUrl = _imgCache?.Get(user["currentAvatarImageUrl"]?.ToString() ?? "") ?? user["currentAvatarImageUrl"]?.ToString() ?? "",
         });
     }
 
@@ -3383,6 +3401,29 @@ var list = avatars.Select(a => new
         {
             var online = await _vrcApi.GetOnlineFriendsAsync();
             var offline = await _vrcApi.GetOfflineFriendsAsync();
+
+            // Seed live friend store from authoritative REST data.
+            // onlineIds dedup: some web-active friends appear in BOTH online and offline REST lists.
+            // Without dedup the offline loop overwrites the correct online entry with location="offline".
+            lock (_friendStore)
+            {
+                var onlineIds = new HashSet<string>(
+                    online.Select(f => f["id"]?.ToString() ?? "").Where(id => !string.IsNullOrEmpty(id)));
+                foreach (var f in online)
+                {
+                    var uid = f["id"]?.ToString() ?? "";
+                    if (!string.IsNullOrEmpty(uid)) _friendStore[uid] = f;
+                }
+                foreach (var f in offline)
+                {
+                    var uid = f["id"]?.ToString() ?? "";
+                    if (string.IsNullOrEmpty(uid) || onlineIds.Contains(uid)) continue;
+                    var copy = (JObject)f.DeepClone();
+                    copy["location"] = "offline";
+                    copy["status"]   = "offline";
+                    _friendStore[uid] = copy;
+                }
+            }
 
             // Track IDs already seen from online list to avoid duplicates
             var seenIds = new HashSet<string>();
@@ -3470,19 +3511,21 @@ var list = avatars.Select(a => new
                 {
                     var uid = f["id"]?.ToString() ?? "";
                     if (string.IsNullOrEmpty(uid)) continue;
-                    _friendLastLoc[uid]    = f["location"]?.ToString() ?? "";
-                    _friendLastStatus[uid] = f["status"]?.ToString() ?? "";
-                    _friendLastBio[uid]    = (f["bio"]?.ToString() ?? "").Trim();
-                    _friendNameImg[uid]    = (f["displayName"]?.ToString() ?? "", VRChatApiService.GetUserImage(f));
+                    _friendLastLoc[uid]        = f["location"]?.ToString() ?? "";
+                    _friendLastStatus[uid]     = f["status"]?.ToString() ?? "";
+                    _friendLastStatusDesc[uid] = (f["statusDescription"]?.ToString() ?? "").Trim();
+                    _friendLastBio[uid]        = (f["bio"]?.ToString() ?? "").Trim();
+                    _friendNameImg[uid]        = (f["displayName"]?.ToString() ?? "", VRChatApiService.GetUserImage(f));
                 }
                 foreach (var f in offline)
                 {
                     var uid = f["id"]?.ToString() ?? "";
                     if (string.IsNullOrEmpty(uid)) continue;
-                    _friendLastLoc[uid]    = "offline";
-                    _friendLastStatus[uid] = "offline";
-                    _friendLastBio[uid]    = (f["bio"]?.ToString() ?? "").Trim();
-                    _friendNameImg[uid]    = (f["displayName"]?.ToString() ?? "", VRChatApiService.GetUserImage(f));
+                    _friendLastLoc[uid]        = "offline";
+                    _friendLastStatus[uid]     = "offline";
+                    _friendLastStatusDesc[uid] = (f["statusDescription"]?.ToString() ?? "").Trim();
+                    _friendLastBio[uid]        = (f["bio"]?.ToString() ?? "").Trim();
+                    _friendNameImg[uid]        = (f["displayName"]?.ToString() ?? "", VRChatApiService.GetUserImage(f));
                 }
                 _friendStateSeeded = true;
             }
@@ -3606,6 +3649,87 @@ var list = avatars.Select(a => new
         await Task.WhenAll(tasks);
     }
 
+    // ── Live Friend Store helpers ─────────────────────────────────────────────
+
+    /// <summary>
+    /// Merges a WebSocket user object (and optional location/platform) into the live friend store.
+    /// Call from WS event handlers instead of triggering a REST friends refresh.
+    /// </summary>
+    private void MergeFriendStore(string userId, JObject? userObj,
+                                   string? location = null, string? platform = null,
+                                   bool wentOffline = false)
+    {
+        if (string.IsNullOrEmpty(userId)) return;
+        lock (_friendStore)
+        {
+            if (!_friendStore.TryGetValue(userId, out var entry))
+            { entry = new JObject(); _friendStore[userId] = entry; }
+            if (userObj != null)
+                foreach (var prop in userObj.Properties()) entry[prop.Name] = prop.Value;
+            if (location != null)  entry["location"]      = location;
+            if (platform != null)  entry["last_platform"] = platform;
+            if (wentOffline)
+            {
+                entry["location"] = "offline";
+                entry["status"]   = "offline";
+            }
+        }
+    }
+
+    /// <summary>
+    /// Builds the vrcFriends payload from the live store and pushes it to JS.
+    /// Same shape as VrcRefreshFriendsAsync — no REST calls.
+    /// </summary>
+    private void PushFriendsFromStore()
+    {
+        List<JObject> snapshot;
+        lock (_friendStore) snapshot = _friendStore.Values.ToList();
+
+        var list = snapshot.Select(f =>
+        {
+            var location  = f["location"]?.ToString() ?? "";
+            var platform  = f["platform"]?.ToString() ?? f["last_platform"]?.ToString() ?? "";
+            bool isWebPlatform = platform.Equals("web", StringComparison.OrdinalIgnoreCase);
+            bool isInGame = !string.IsNullOrEmpty(location)
+                && location != "offline"
+                && location != ""
+                && !isWebPlatform;
+            var status = f["status"]?.ToString() ?? "offline";
+            var presence = (location == "offline" && status == "offline") ? "offline"
+                         : isInGame ? "game" : "web";
+            return new
+            {
+                id                = f["id"]?.ToString() ?? "",
+                displayName       = f["displayName"]?.ToString() ?? "",
+                image             = VRChatApiService.GetUserImage(f),
+                status,
+                statusDescription = f["statusDescription"]?.ToString() ?? "",
+                location,
+                platform,
+                presence,
+                tags              = f["tags"]?.ToObject<List<string>>() ?? new List<string>(),
+            };
+        })
+        .OrderBy(f => f.presence switch { "game" => 0, "web" => 1, _ => 2 })
+        .ThenBy(f => f.status switch
+        {
+            "join me" => 0, "active" => 1, "ask me" => 2, "busy" => 3, _ => 4
+        })
+        .ThenBy(f => f.displayName)
+        .ToList();
+
+        var counts = new
+        {
+            game    = list.Count(f => f.presence == "game"),
+            web     = list.Count(f => f.presence == "web"),
+            offline = list.Count(f => f.presence == "offline"),
+        };
+
+        Invoke(() => SendToJS("vrcFriends", new { friends = list, counts }));
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+
     private async Task VrcGetFriendDetailAsync(string userId)
     {
         if (!_vrcApi.IsLoggedIn) return;
@@ -3642,11 +3766,13 @@ var list = avatars.Select(a => new
         var diskCached = _settings.FfcEnabled ? _cache.LoadRaw(CacheHandler.KeyUserProfile(userId)) : null;
         if (diskCached is JObject diskProfile)
         {
-            // Strip live fields — status/location must always come from the fresh API response.
-            // The background refresh (in ServeAndRefresh) will fill these in ~1s later.
-            diskProfile["status"]              = "offline";
-            diskProfile["statusDescription"]   = "";
-            diskProfile["location"]            = "";
+            // Overlay live fields from the friend store (kept fresh by WebSocket).
+            // Falls back to safe defaults if the store has no entry yet.
+            JObject? live;
+            lock (_friendStore) _friendStore.TryGetValue(userId, out live);
+            diskProfile["status"]              = live?["status"]?.ToString() ?? "offline";
+            diskProfile["statusDescription"]   = live?["statusDescription"]?.ToString() ?? "";
+            diskProfile["location"]            = live?["location"]?.ToString() ?? "";
             diskProfile["worldName"]           = "";
             diskProfile["worldThumb"]          = "";
             diskProfile["instanceType"]        = "";
@@ -3684,8 +3810,15 @@ var list = avatars.Select(a => new
 
     private async Task<object?> BuildUserDetailPayloadAsync(string userId)
     {
-        var user = await _vrcApi.GetUserAsync(userId);
-        if (user == null) return null;
+        // Use live store data if available (already up-to-date from WebSocket events).
+        // Fall back to REST only for non-friends or when the store has no entry yet.
+        JObject? user;
+        lock (_friendStore) _friendStore.TryGetValue(userId, out user);
+        if (user == null)
+        {
+            user = await _vrcApi.GetUserAsync(userId);
+            if (user == null) return null;
+        }
 
         var location = user["location"]?.ToString() ?? "private";
         var (worldId, instanceId, instanceType) = VRChatApiService.ParseLocation(location);
@@ -3839,8 +3972,8 @@ var list = avatars.Select(a => new
             canJoin = isInWorld && canJoin,
             canRequestInvite = canRequestInvite,
             canInvite = true,
-            currentAvatarImageUrl = user["currentAvatarImageUrl"]?.ToString() ?? "",
-            profilePicOverride = user["profilePicOverride"]?.ToString() ?? "",
+            currentAvatarImageUrl = _imgCache?.Get(user["currentAvatarImageUrl"]?.ToString() ?? "") ?? user["currentAvatarImageUrl"]?.ToString() ?? "",
+            profilePicOverride    = _imgCache?.Get(user["profilePicOverride"]?.ToString() ?? "") ?? user["profilePicOverride"]?.ToString() ?? "",
             tags = user["tags"]?.ToObject<List<string>>() ?? new(),
             note = user["note"]?.ToString() ?? "",
             friendKey = user["friendKey"]?.ToString() ?? "",
@@ -4095,6 +4228,10 @@ var list = avatars.Select(a => new
     {
         if (string.IsNullOrEmpty(e.UserId) || !_friendStateSeeded) return;
 
+        // Update live store and push to JS — no REST call needed
+        MergeFriendStore(e.UserId, e.User, location: e.Location);
+        PushFriendsFromStore();
+
         // Update name/image cache
         if (e.User != null)
             _friendNameImg[e.UserId] = (
@@ -4163,6 +4300,10 @@ var list = avatars.Select(a => new
     {
         if (string.IsNullOrEmpty(e.UserId) || !_friendStateSeeded) return;
 
+        // Mark offline in store and push — friend-offline has no user object
+        MergeFriendStore(e.UserId, null, wentOffline: true);
+        PushFriendsFromStore();
+
         var (fname, fimg) = _friendNameImg.GetValueOrDefault(e.UserId, ("", ""));
         if (e.User != null)
         {
@@ -4188,6 +4329,13 @@ var list = avatars.Select(a => new
     private void OnWsFriendOnline(object? sender, FriendEventArgs e)
     {
         if (string.IsNullOrEmpty(e.UserId) || !_friendStateSeeded) return;
+
+        // Update store with online user data and push — no REST call needed
+        // Pass "" (not null) when no location: clears any previous "offline" location in the store
+        MergeFriendStore(e.UserId, e.User,
+            location: string.IsNullOrEmpty(e.Location) ? "" : e.Location,
+            platform: string.IsNullOrEmpty(e.Platform) ? null : e.Platform);
+        PushFriendsFromStore();
 
         var fname = "";
         var fimg  = "";
@@ -4224,13 +4372,18 @@ var list = avatars.Select(a => new
     {
         if (e.User == null || string.IsNullOrEmpty(e.UserId) || !_friendStateSeeded) return;
 
+        // Update store with fresh user data and push — no REST call needed
+        MergeFriendStore(e.UserId, e.User);
+        PushFriendsFromStore();
+
         var fname  = e.User["displayName"]?.ToString() ?? _friendNameImg.GetValueOrDefault(e.UserId).name ?? "";
         var fimg   = VRChatApiService.GetUserImage(e.User);
         if (fimg.Length == 0) fimg = _friendNameImg.GetValueOrDefault(e.UserId).image ?? "";
         _friendNameImg[e.UserId] = (fname, fimg);
 
-        var newStatus = e.User["status"]?.ToString() ?? "";
-        var newBio    = (e.User["bio"]?.ToString() ?? "").Trim();
+        var newStatus     = e.User["status"]?.ToString() ?? "";
+        var newStatusDesc = (e.User["statusDescription"]?.ToString() ?? "").Trim();
+        var newBio        = (e.User["bio"]?.ToString() ?? "").Trim();
 
         // Status change
         if (!string.IsNullOrEmpty(newStatus))
@@ -4252,6 +4405,24 @@ var list = avatars.Select(a => new
             }
             _friendLastStatus[e.UserId] = newStatus;
         }
+
+        // Status text change
+        var oldStatusDesc = _friendLastStatusDesc.GetValueOrDefault(e.UserId, "");
+        if (oldStatusDesc != newStatusDesc && !string.IsNullOrEmpty(oldStatusDesc))
+        {
+            var fev = new TimelineService.FriendTimelineEvent
+            {
+                Type        = "friend_statusdesc",
+                FriendId    = e.UserId,
+                FriendName  = fname,
+                FriendImage = fimg,
+                OldValue    = oldStatusDesc,
+                NewValue    = newStatusDesc,
+            };
+            _timeline.AddFriendEvent(fev);
+            Invoke(() => SendToJS("friendTimelineEvent", BuildFriendTimelinePayload(fev)));
+        }
+        _friendLastStatusDesc[e.UserId] = newStatusDesc;
 
         // Bio change
         var oldBio = _friendLastBio.GetValueOrDefault(e.UserId, "");

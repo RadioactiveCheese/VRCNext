@@ -515,28 +515,31 @@ function renderTlDetailNotif(ev, el) {
 // === Friends Timeline ===
 
 const FT_FILTER_IDS = {
-    all:            'ftFAll',
-    friend_gps:     'ftFGps',
-    friend_status:  'ftFStatus',
-    friend_online:  'ftFOnline',
-    friend_offline: 'ftFOffline',
-    friend_bio:     'ftFBio',
+    all:               'ftFAll',
+    friend_gps:        'ftFGps',
+    friend_status:     'ftFStatus',
+    friend_statusdesc: 'ftFStatusDesc',
+    friend_online:     'ftFOnline',
+    friend_offline:    'ftFOffline',
+    friend_bio:        'ftFBio',
 };
 
 const FT_TYPE_COLOR = {
-    friend_gps:     'var(--accent)',
-    friend_status:  'var(--cyan)',
-    friend_online:  'var(--ok)',
-    friend_offline: 'var(--tx3)',
-    friend_bio:     '#AB47BC',
+    friend_gps:        'var(--accent)',
+    friend_status:     'var(--cyan)',
+    friend_statusdesc: 'var(--cyan)',
+    friend_online:     'var(--ok)',
+    friend_offline:    'var(--tx3)',
+    friend_bio:        '#AB47BC',
 };
 
 const FT_TYPE_META = {
-    friend_gps:     { icon: 'location_on',       label: 'Location'   },
-    friend_status:  { icon: 'circle',             label: 'Status'     },
-    friend_online:  { icon: 'login',              label: 'Online'     },
-    friend_offline: { icon: 'power_settings_new', label: 'Offline'    },
-    friend_bio:     { icon: 'edit_note',          label: 'Bio Change' },
+    friend_gps:        { icon: 'location_on',       label: 'Location'    },
+    friend_status:     { icon: 'circle',             label: 'Status'      },
+    friend_statusdesc: { icon: 'chat_bubble_outline', label: 'Status Text' },
+    friend_online:     { icon: 'login',              label: 'Online'      },
+    friend_offline:    { icon: 'power_settings_new', label: 'Offline'     },
+    friend_bio:        { icon: 'edit_note',          label: 'Bio Change'  },
 };
 
 const STATUS_COLORS = {
@@ -667,11 +670,12 @@ function renderFtCard(ev) {
 
     let body = '';
     switch (ev.type) {
-        case 'friend_gps':     body = renderFtGpsBody(ev);     break;
-        case 'friend_status':  body = renderFtStatusBody(ev);  break;
-        case 'friend_online':  body = renderFtOnlineBody(ev);  break;
-        case 'friend_offline': body = renderFtOfflineBody(ev); break;
-        case 'friend_bio':     body = renderFtBioBody(ev);     break;
+        case 'friend_gps':        body = renderFtGpsBody(ev);        break;
+        case 'friend_status':     body = renderFtStatusBody(ev);     break;
+        case 'friend_statusdesc': body = renderFtStatusDescBody(ev); break;
+        case 'friend_online':     body = renderFtOnlineBody(ev);     break;
+        case 'friend_offline':    body = renderFtOfflineBody(ev);    break;
+        case 'friend_bio':        body = renderFtBioBody(ev);        break;
     }
 
     // GPS cards open the dashboard world modal directly — no intermediate detail modal
@@ -732,6 +736,16 @@ function renderFtOfflineBody(ev) {
     </div></div>`;
 }
 
+function renderFtStatusDescBody(ev) {
+    const av      = ftFriendAv(ev, 'tl-av');
+    const preview = (ev.newValue || '').slice(0, 60);
+    const ellipsis = (ev.newValue || '').length > 60 ? '...' : '';
+    return `<div class="tl-card-body">${av}<div class="tl-card-info">
+        <div class="tl-main-label">${esc(ev.friendName || 'Unknown')}</div>
+        <div class="tl-sub-label">${esc(preview)}${ellipsis}</div>
+    </div></div>`;
+}
+
 function renderFtBioBody(ev) {
     const av      = ftFriendAv(ev, 'tl-av');
     const preview = (ev.newValue || '').slice(0, 60);
@@ -751,11 +765,12 @@ function openFtDetail(id) {
     if (!el) return;
 
     switch (ev.type) {
-        case 'friend_gps':     renderFtDetailGps(ev, el);     break;
-        case 'friend_status':  renderFtDetailStatus(ev, el);  break;
-        case 'friend_online':  renderFtDetailOnline(ev, el);  break;
-        case 'friend_offline': renderFtDetailOffline(ev, el); break;
-        case 'friend_bio':     renderFtDetailBio(ev, el);     break;
+        case 'friend_gps':        renderFtDetailGps(ev, el);        break;
+        case 'friend_status':     renderFtDetailStatus(ev, el);     break;
+        case 'friend_statusdesc': renderFtDetailStatusDesc(ev, el); break;
+        case 'friend_online':     renderFtDetailOnline(ev, el);     break;
+        case 'friend_offline':    renderFtDetailOffline(ev, el);    break;
+        case 'friend_bio':        renderFtDetailBio(ev, el);        break;
     }
 
     document.getElementById('modalDetail').style.display = 'flex';
@@ -861,6 +876,24 @@ function renderFtDetailOffline(ev, el) {
             <div class="fd-meta-row"><span class="fd-meta-label">Time</span><span>${esc(timeStr)}</span></div>
             <div class="fd-meta-row"><span class="fd-meta-label">Event</span><span style="color:var(--tx3);">Went offline</span></div>
         </div>
+        <div style="margin-top:14px;display:flex;gap:8px;justify-content:flex-end;">
+            ${ftDetailViewProfile(ev)}${ftDetailClose()}
+        </div>
+    </div>`;
+}
+
+function renderFtDetailStatusDesc(ev, el) {
+    const { dateStr, timeStr } = ftDetailDatetime(ev);
+    el.innerHTML = `<div class="fd-content" style="padding:20px;">
+        ${ftDetailAvRow(ev)}
+        <div class="fd-meta">
+            <div class="fd-meta-row"><span class="fd-meta-label">Date</span><span>${esc(dateStr)}</span></div>
+            <div class="fd-meta-row"><span class="fd-meta-label">Time</span><span>${esc(timeStr)}</span></div>
+        </div>
+        ${ev.oldValue ? `<div style="margin-top:12px;"><div style="font-size:10px;color:var(--tx3);margin-bottom:4px;">PREVIOUS STATUS TEXT</div>
+            <div style="font-size:12px;color:var(--tx2);background:var(--bg2);padding:8px 10px;border-radius:6px;">${esc(ev.oldValue)}</div></div>` : ''}
+        ${ev.newValue !== undefined ? `<div style="margin-top:10px;"><div style="font-size:10px;color:var(--tx3);margin-bottom:4px;">NEW STATUS TEXT</div>
+            <div style="font-size:12px;color:var(--tx1);background:var(--bg2);padding:8px 10px;border-radius:6px;">${esc(ev.newValue) || '<em style="color:var(--tx3)">cleared</em>'}</div></div>` : ''}
         <div style="margin-top:14px;display:flex;gap:8px;justify-content:flex-end;">
             ${ftDetailViewProfile(ev)}${ftDetailClose()}
         </div>

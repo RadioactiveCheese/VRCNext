@@ -246,6 +246,9 @@ if (window.chrome?.webview) {
             case 'vrcNotifications':
                 renderNotifications(payload);
                 break;
+            case 'updateAvailable':   showUpdateAvailable(payload.version); break;
+            case 'updateProgress':    onUpdateProgress(payload); break;
+            case 'updateReady':       onUpdateReady(); break;
             case 'vrcRefreshNotifs':
                 refreshNotifications();
                 break;

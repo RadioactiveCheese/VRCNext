@@ -46,6 +46,7 @@ public class MainForm : Form
     private readonly WorldTimeTracker _worldTimeTracker;
     private readonly PhotoPlayersStore _photoPlayersStore;
     private readonly TimelineService _timeline;
+    private readonly UpdateService _updateService = new();
     private string _lastTrackedWorldId = "";
     private FileSystemWatcher? _vrcPhotoWatcher;
 
@@ -197,6 +198,13 @@ public class MainForm : Form
                     SendToJS("favoritesLoaded", _settings.Favorites);
                     if (_settings.AutoStart) StartRelay();
                     _ = VrcTryResumeAsync();
+                    _ = Task.Run(async () =>
+                    {
+                        await Task.Delay(3000); // wait for UI to settle
+                        var version = await _updateService.CheckAsync();
+                        if (version != null)
+                            Invoke(() => SendToJS("updateAvailable", new { version }));
+                    });
                     break;
 
                 // Setup Wizard
@@ -1661,6 +1669,27 @@ public class MainForm : Form
                 // Notifications
                 case "vrcGetNotifications":
                     _ = VrcGetNotificationsAsync();
+                    break;
+
+                // App updates
+                case "checkUpdate":
+                    _ = Task.Run(async () =>
+                    {
+                        var version = await _updateService.CheckAsync();
+                        if (version != null)
+                            Invoke(() => SendToJS("updateAvailable", new { version }));
+                    });
+                    break;
+
+                case "installUpdate":
+                    _ = Task.Run(async () =>
+                    {
+                        await _updateService.DownloadAsync(p =>
+                            Invoke(() => SendToJS("updateProgress", p)));
+                        Invoke(() => SendToJS("updateReady", null));
+                        await Task.Delay(800);
+                        Invoke(() => _updateService.ApplyAndRestart());
+                    });
                     break;
 
                 case "vrcAcceptNotification":

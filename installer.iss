@@ -3,7 +3,7 @@
 #define MyAppPublisher "VRCNext"
 #define MyAppURL       "https://vrcnext.app"
 #define MyAppExeName   "VRCNext.exe"
-#define MyAppSourceDir "bin\Release\net8.0-windows10.0.22621.0\win-x64\publish"
+#define MyAppSourceDir "bin\Release\net10.0-windows10.0.22621.0\win-x64\publish"
 
 [Setup]
 AppId={{A1B2C3D4-E5F6-7890-ABCD-EF1234567890}

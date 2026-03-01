@@ -37,6 +37,7 @@ desktop.ini
 # SCR
 *.env
 secrets.json
+secrets.bat
 appsettings.Local.json
 
 # Build

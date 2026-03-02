@@ -131,17 +131,6 @@ function declineNotif(notifId, btn) {
     setTimeout(() => renderNotifications(notifications), 300);
 }
 
-function showNotifToast(type, sender, message) {
-    const area = document.getElementById('notifToastArea');
-    const icon = type === 'invite' ? 'mail' : type === 'friendRequest' ? 'person_add' : 'notifications';
-    const label = type === 'invite' ? 'Invite' : type === 'friendRequest' ? 'Friend Request' : type;
-    const toast = document.createElement('div');
-    toast.className = 'notif-toast';
-    toast.innerHTML = `<span class="msi" style="font-size:18px;color:var(--accent);">${icon}</span><div><strong>${esc(label)}</strong><div style="font-size:11px;color:var(--tx3);">from ${esc(sender)}${message ? ': '+esc(message) : ''}</div></div>`;
-    area.appendChild(toast);
-    setTimeout(() => toast.classList.add('notif-toast-show'), 10);
-    setTimeout(() => { toast.classList.remove('notif-toast-show'); setTimeout(() => toast.remove(), 300); }, 5000);
-}
 
 /* === Current Instance (sidebar) === */
 function renderCurrentInstance(data) {

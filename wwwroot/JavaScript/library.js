@@ -419,12 +419,12 @@ async function copyToClipboard(url, path, type) {
             const resp = await fetch(url);
             const blob = await resp.blob();
             await navigator.clipboard.write([new ClipboardItem({ [blob.type]: blob })]);
-            showMypToast(true, 'Image copied to clipboard');
+            showToast(true, 'Image copied to clipboard');
         } else {
             await navigator.clipboard.writeText(path);
-            showMypToast(true, 'Path copied to clipboard');
+            showToast(true, 'Path copied to clipboard');
         }
     } catch {
-        showMypToast(false, 'Clipboard copy failed');
+        showToast(false, 'Clipboard copy failed');
     }
 }

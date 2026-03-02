@@ -2264,29 +2264,7 @@ body {
     font-size: 13px;
 }
 
-.fd-toast {
-    position: absolute;
-    bottom: 16px;
-    left: 50%;
-    transform: translateX(-50%);
-    padding: 8px 18px;
-    border-radius: 8px;
-    font-size: 12px;
-    font-weight: 600;
-    animation: fadeUp .2s ease;
-    z-index: 2;
-    white-space: nowrap;
-}
 
-.fd-toast.success {
-    background: rgba(45,212,140,.15);
-    color: var(--ok);
-}
-
-.fd-toast.error {
-    background: rgba(255,75,85,.15);
-    color: var(--err);
-}
 
 /* === FRIEND DETAIL: BIO LINKS === */
 .fd-bio-links {
@@ -3826,7 +3804,7 @@ body {
     position: fixed;
     top: 16px;
     right: 16px;
-    z-index: 9999;
+    z-index: 99999;
     display: flex;
     flex-direction: column;
     gap: 8px;
@@ -4905,16 +4883,7 @@ body {
     transition: background .15s;
 }
 .myp-add-lang-btn:hover { background: var(--bg-hover); }
-.myp-toast {
-    margin-top: 12px;
-    padding: 8px 14px;
-    border-radius: 8px;
-    font-size: 12px;
-    font-weight: 600;
-    text-align: center;
-}
-.myp-toast.ok { background: rgba(43,207,92,.15); color: var(--ok); }
-.myp-toast.err { background: rgba(255,80,80,.12); color: var(--err); }
+
 
 /* === Instance Card — Invite Bar === */
 .inst-invite-bar {

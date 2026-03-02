@@ -116,17 +116,20 @@ if (window.chrome?.webview) {
                 document.getElementById('friendDetailContent').innerHTML = `<div class="fd-loading" style="color:var(--err);">${esc(payload.error || 'Error loading profile')}</div><div style="margin-top:10px;text-align:right;"><button class="fd-btn" onclick="closeFriendDetail()">Close</button></div>`;
                 break;
             case 'vrcActionResult':
-                if (payload.action === 'createGroupPost' || payload.action === 'acceptNotif' || payload.action === 'join')
-                    showInvToast(payload.success, payload.message);
-                else showFriendActionToast(payload.success, payload.message);
+                showToast(payload.success, payload.message);
+                // Re-enable friend action buttons if open
+                if (!['createGroupPost', 'acceptNotif', 'join'].includes(payload.action)) {
+                    const fdActions = document.querySelector('#friendDetailContent .fd-actions');
+                    if (fdActions) fdActions.querySelectorAll('button').forEach(b => b.disabled = false);
+                }
                 break;
             case 'vrcProfileUpdated':
                 if (payload.success) {
                     renderMyProfileContent();
-                    showMypToast(true, 'Saved!');
+                    showToast(true, 'Saved!');
                 } else {
                     document.querySelectorAll('#mypBox .myp-save-btn').forEach(b => b.disabled = false);
-                    showMypToast(false, payload.error || 'Update failed');
+                    showToast(false, payload.error || 'Update failed');
                 }
                 break;
             case 'vrcNoteUpdated':

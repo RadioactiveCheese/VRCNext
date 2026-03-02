@@ -328,17 +328,6 @@ function removeMyLanguage(tag) {
     if (sel) sel.insertAdjacentHTML('beforeend', `<option value="${tag}">${esc(LANG_MAP[tag]||tag.replace('language_','').toUpperCase())}</option>`);
 }
 
-function showMypToast(success, msg) {
-    const box = document.getElementById('mypBox');
-    if (!box) return;
-    const ex = box.querySelector('.myp-toast');
-    if (ex) ex.remove();
-    const t = document.createElement('div');
-    t.className = 'myp-toast ' + (success ? 'ok' : 'err');
-    t.textContent = msg;
-    box.appendChild(t);
-    setTimeout(() => { if (t.parentNode) t.remove(); }, 3000);
-}
 
 function renderVrcFriends(friends, counts) {
     const el = document.getElementById('vrcFriendsList');
@@ -963,18 +952,6 @@ function confirmUnfriend(userId, displayName) {
     }
 }
 
-function showFriendActionToast(success, message) {
-    const c = document.getElementById('friendDetailContent');
-    const existing = c.querySelector('.fd-toast');
-    if (existing) existing.remove();
-    const t = document.createElement('div');
-    t.className = 'fd-toast ' + (success ? 'success' : 'error');
-    t.textContent = message;
-    c.appendChild(t);
-    setTimeout(() => t.remove(), 3000);
-    const btnContainer = c.querySelector('.fd-actions');
-    if (btnContainer) btnContainer.querySelectorAll('button').forEach(b => b.disabled = false);
-}
 
 // Favorite Friends
 
@@ -1262,7 +1239,7 @@ function handleVrcInviteMessageUpdateFailed(payload) {
         _invModalRenderMsgs();
     }
     const cd = payload.cooldown || 60;
-    showInvToast(false, `Cooldown: ${cd} min remaining`);
+    showToast(false, `Cooldown: ${cd} min remaining`);
 }
 
 function _invModalSelectMsg(idx) {

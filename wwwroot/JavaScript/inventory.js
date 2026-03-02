@@ -372,13 +372,3 @@ function formatFileSize(bytes) {
     return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
 }
 
-function showInvToast(ok, msg) {
-    const area = document.getElementById('notifToastArea');
-    if (!area) return;
-    const t = document.createElement('div');
-    t.className = 'notif-toast';
-    t.innerHTML = `<span class="msi" style="font-size:18px;color:${ok ? 'var(--ok)' : 'var(--err)'};">${ok ? 'check_circle' : 'error'}</span><div style="font-size:13px;">${esc(msg)}</div>`;
-    area.appendChild(t);
-    setTimeout(() => t.classList.add('notif-toast-show'), 10);
-    setTimeout(() => { t.classList.remove('notif-toast-show'); setTimeout(() => t.remove(), 300); }, 3000);
-}

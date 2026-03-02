@@ -5,7 +5,7 @@ let _inviteSending = false;
 function openInviteModal() {
     if (!currentVrcUser) return;
     if (!currentInstanceData || currentInstanceData.empty || currentInstanceData.error || !currentInstanceData.worldId) {
-        showMypToast(false, 'You must be in an instance to invite friends.');
+        showToast(false, 'You must be in an instance to invite friends.');
         return;
     }
     const m = document.getElementById('modalInvite');

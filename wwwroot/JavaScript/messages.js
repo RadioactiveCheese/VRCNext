@@ -282,6 +282,7 @@ if (window.chrome?.webview) {
                 break;
             case 'vrcNotifications':
                 renderNotifications(payload);
+                showNotificationToasts(payload);
                 break;
             case 'vrcLaunchNeeded':
                 showLaunchModal(payload.location, payload.steamVr);

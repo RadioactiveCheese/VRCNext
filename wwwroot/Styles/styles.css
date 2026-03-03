@@ -1224,11 +1224,38 @@ body {
 }
 
 /* === LIBRARY === */
+.lib-wrap {
+    position: relative;
+}
+/* Sticky top-fade — fades in after 160px scroll */
+.lib-top-fade {
+    position: sticky;
+    top: 0;
+    height: 72px;
+    margin-bottom: -72px;
+    background: linear-gradient(to bottom, var(--bg-base) 0%, transparent 100%);
+    pointer-events: none;
+    z-index: 5;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+.lib-top-fade.visible { opacity: 1; }
+
+/* Sticky bottom-fade — stays at viewport bottom while .content scrolls */
+.lib-wrap::after {
+    content: '';
+    position: sticky;
+    display: block;
+    bottom: -28px; /* cancel out .content padding-bottom so it reaches the true edge */
+    height: 80px;
+    margin-top: -80px;
+    background: linear-gradient(to bottom, transparent, var(--bg-base));
+    pointer-events: none;
+    z-index: 2;
+}
 .lib-grid {
     display: block;
-    max-height: calc(100vh - 180px);
-    overflow-y: auto;
-    padding-bottom: 20px;
+    padding-bottom: 28px;
 }
 .lib-date-group-cards {
     display: grid;
@@ -1617,8 +1644,10 @@ body {
     animation: fadeIn .12s ease;
     backdrop-filter: blur(4px);
 }
-/* Status modal must stack above profile/invite/detail modals */
-#modalStatus { z-index: 10001; }
+/* Friend detail stacks above group/world detail modal */
+#modalFriendDetail { z-index: 10001; }
+/* Status modal must stack above everything */
+#modalStatus { z-index: 10002; }
 
 .modal-box {
     background: var(--bg-card);

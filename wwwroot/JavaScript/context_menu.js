@@ -228,7 +228,7 @@
             if (id) return buildWorldItems(id);
         }
 
-        const friendCard = el.closest('.vrc-friend-card');
+        const friendCard = el.closest('.vrc-friend-card, .fd-mutual-card, .wd-friend-row, .inst-user-row');
         if (friendCard) {
             const id = extractId(friendCard, /openFriendDetail\('([^']+)'\)/);
             if (id) return buildFriendItems(id);
@@ -305,28 +305,29 @@
             if (actionItems.length) { items.push('sep'); actionItems.forEach(i => items.push(i)); }
         }
 
-        // Favorite / Unfavorite
-        const isFav   = Array.isArray(favFriendsData) && favFriendsData.some(x => x.favoriteId === id);
-        const favEntry = isFav ? favFriendsData.find(x => x.favoriteId === id) : null;
-        items.push('sep');
-        items.push(isFav
-            ? { icon: 'star_border', label: 'Unfavorite', action: () => sendToCS({ action: 'vrcRemoveFavoriteFriend', userId: id, fvrtId: favEntry?.fvrtId || '' }) }
-            : { icon: 'star',        label: 'Favorite',   action: () => sendToCS({ action: 'vrcAddFavoriteFriend',    userId: id }) }
-        );
+        if (f) {
+            // Favorite / Unfavorite
+            const isFav    = Array.isArray(favFriendsData) && favFriendsData.some(x => x.favoriteId === id);
+            const favEntry = isFav ? favFriendsData.find(x => x.favoriteId === id) : null;
+            items.push('sep');
+            items.push(isFav
+                ? { icon: 'star_border', label: 'Unfavorite', action: () => sendToCS({ action: 'vrcRemoveFavoriteFriend', userId: id, fvrtId: favEntry?.fvrtId || '' }) }
+                : { icon: 'star',        label: 'Favorite',   action: () => sendToCS({ action: 'vrcAddFavoriteFriend',    userId: id }) }
+            );
 
-        // Mute / Block / Unfriend
-        const isMuted   = Array.isArray(mutedData)   && mutedData.some(x => x.targetUserId === id);
-        const isBlocked = Array.isArray(blockedData)  && blockedData.some(x => x.targetUserId === id);
-        items.push('sep');
-        items.push(isMuted
-            ? { icon: 'mic',    label: 'Unmute', action: () => sendToCS({ action: 'vrcUnmute', userId: id }) }
-            : { icon: 'mic_off', label: 'Mute',  action: () => sendToCS({ action: 'vrcMute',   userId: id }) }
-        );
-        items.push(isBlocked
-            ? { icon: 'shield', label: 'Unblock', action: () => sendToCS({ action: 'vrcUnblock', userId: id }) }
-            : { icon: 'block',  label: 'Block',   action: () => sendToCS({ action: 'vrcBlock',   userId: id }) }
-        );
-        items.push({ icon: 'person_remove', label: 'Unfriend', action: () => sendToCS({ action: 'vrcUnfriend', userId: id }), danger: true, confirm: true });
+            // Mute / Unfriend
+            const isMuted = Array.isArray(mutedData) && mutedData.some(x => x.targetUserId === id);
+            items.push('sep');
+            items.push(isMuted
+                ? { icon: 'mic',     label: 'Unmute', action: () => sendToCS({ action: 'vrcUnmute', userId: id }) }
+                : { icon: 'mic_off', label: 'Mute',   action: () => sendToCS({ action: 'vrcMute',   userId: id }) }
+            );
+            items.push({ icon: 'person_remove', label: 'Unfriend', action: () => sendToCS({ action: 'vrcUnfriend', userId: id }), danger: true, confirm: true });
+        } else {
+            // Not a friend — offer to add
+            items.push('sep');
+            items.push({ icon: 'person_add', label: 'Send Friend Request', action: () => sendToCS({ action: 'vrcSendFriendRequest', userId: id }) });
+        }
         return items;
     }
 

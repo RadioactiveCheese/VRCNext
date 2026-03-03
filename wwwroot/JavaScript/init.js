@@ -92,3 +92,18 @@ sendToCS({ action: 'getTimeline' });
     document.documentElement.addEventListener('themechange', applyTopbarBg);
     document.documentElement.addEventListener('tabchange', applyTopbarBg);
 }());
+
+/* === Library top-fade === */
+(function () {
+    const content = document.querySelector('.content');
+    if (!content) return;
+    const tab7 = document.getElementById('tab7');
+    function applyLibFade() {
+        const fade = document.getElementById('libTopFade');
+        if (!fade || !tab7) return;
+        const visible = tab7.classList.contains('active') && content.scrollTop > 160;
+        fade.classList.toggle('visible', visible);
+    }
+    content.addEventListener('scroll', applyLibFade, { passive: true });
+    document.documentElement.addEventListener('tabchange', applyLibFade);
+}());

@@ -455,24 +455,30 @@ function filterFriendsList() {
     const favSec  = document.getElementById('favoritesFriendsSection');
     const favLabel = favSec?.previousElementSibling;
 
+    const sectionMap = {
+        ingame:  document.getElementById('ingameFriendsSection'),
+        web:     document.getElementById('webFriendsSection'),
+        offline: document.getElementById('offlineFriendsSection'),
+    };
+
     if (!q) {
-        // Reset: show all, restore collapsed states
+        // Reset: show all cards, restore all collapsed states
         cards.forEach(c => c.style.display = '');
         sections.forEach(s => s.style.display = '');
-        const offSec = document.getElementById('offlineFriendsSection');
-        if (offSec) offSec.style.display = friendSectionCollapsed.offline ? 'none' : '';
-        if (favSec)   favSec.style.display   = friendSectionCollapsed.favorites ? 'none' : '';
-        if (favLabel) favLabel.style.display  = '';
+        Object.entries(sectionMap).forEach(([key, el]) => {
+            if (el) el.style.display = friendSectionCollapsed[key] ? 'none' : '';
+        });
+        if (favSec)   favSec.style.display  = friendSectionCollapsed.favorites ? 'none' : '';
+        if (favLabel) favLabel.style.display = '';
         return;
     }
 
     // Hide favorites section while searching (prevents duplicates)
-    if (favSec)   favSec.style.display   = 'none';
-    if (favLabel) favLabel.style.display  = 'none';
+    if (favSec)   favSec.style.display  = 'none';
+    if (favLabel) favLabel.style.display = 'none';
 
-    // Show offline section while searching
-    const offSec = document.getElementById('offlineFriendsSection');
-    if (offSec) offSec.style.display = '';
+    // Force-expand all other sections so collapsed cards are still searchable
+    Object.values(sectionMap).forEach(el => { if (el) el.style.display = ''; });
 
     cards.forEach(c => {
         const name = (c.querySelector('.vrc-friend-name')?.textContent || '').toLowerCase();

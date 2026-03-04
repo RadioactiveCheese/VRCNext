@@ -1317,6 +1317,49 @@ public class VRChatApiService
         catch (Exception ex) { Log($"DeleteGroupPost exception: {ex.Message}"); return false; }
     }
 
+    public async Task<bool> DeleteGroupEventAsync(string groupId, string eventId)
+    {
+        if (!IsLoggedIn) return false;
+        try
+        {
+            var resp = await _http.DeleteAsync($"{BASE}/calendar/{groupId}/{eventId}");
+            Log($"DeleteGroupEvent({groupId}/{eventId}): {(int)resp.StatusCode}");
+            if (!resp.IsSuccessStatusCode)
+                Log($"DeleteGroupEvent body: {await resp.Content.ReadAsStringAsync()}");
+            return resp.IsSuccessStatusCode;
+        }
+        catch (Exception ex) { Log($"DeleteGroupEvent exception: {ex.Message}"); return false; }
+    }
+
+    /// <summary>Create a group calendar event via POST /calendar/{groupId}/event. Returns the created event JObject or null on failure.</summary>
+    public async Task<JObject?> CreateGroupEventAsync(string groupId, string title, string description, string startsAt, string endsAt, string category, string accessType, bool sendCreationNotification, string? imageId)
+    {
+        if (!IsLoggedIn) return null;
+        try
+        {
+            var body = new JObject
+            {
+                ["title"]                    = title,
+                ["description"]              = description,
+                ["startsAt"]                 = startsAt,
+                ["endsAt"]                   = endsAt,
+                ["category"]                 = category,
+                ["accessType"]               = accessType,
+                ["sendCreationNotification"] = sendCreationNotification,
+                ["isDraft"]                  = false,
+            };
+            if (!string.IsNullOrEmpty(imageId)) body["imageId"] = imageId;
+            var resp = await _http.PostAsync($"{BASE}/calendar/{groupId}/event",
+                new StringContent(body.ToString(Newtonsoft.Json.Formatting.None), Encoding.UTF8, "application/json"));
+            var respBody = await resp.Content.ReadAsStringAsync();
+            var retryAfter = resp.Headers.TryGetValues("Retry-After", out var ra) ? string.Join(",", ra) : null;
+            Log($"CreateGroupEvent({groupId}): {(int)resp.StatusCode}{(retryAfter != null ? $" retry-after={retryAfter}s" : "")}");
+            if (!resp.IsSuccessStatusCode) { Log($"CreateGroupEvent body: {respBody}"); return null; }
+            return JObject.Parse(respBody);
+        }
+        catch (Exception ex) { Log($"CreateGroupEvent exception: {ex.Message}"); return null; }
+    }
+
     /// <summary>Upload an image to VRChat via POST /file/image multipart. Returns fileId or null on failure.</summary>
     public async Task<string?> UploadImageAsync(byte[] imageBytes, string mimeType = "image/png", string ext = ".png")
     {

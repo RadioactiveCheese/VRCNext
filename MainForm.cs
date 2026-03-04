@@ -229,7 +229,9 @@ public class MainForm : Form
     {
         try
         {
-            var msg = JObject.Parse(e.WebMessageAsJson);
+            JObject msg;
+            using (var _jr = new Newtonsoft.Json.JsonTextReader(new System.IO.StringReader(e.WebMessageAsJson)) { DateParseHandling = Newtonsoft.Json.DateParseHandling.None })
+                msg = JObject.Load(_jr);
             var action = msg["action"]?.ToString() ?? "";
 
             switch (action)
@@ -1625,6 +1627,77 @@ public class MainForm : Form
                         {
                             var ok = await _vrcApi.DeleteGroupPostAsync(dgpGroupId, dgpPostId);
                             Invoke(() => SendToJS("vrcActionResult", new { action = "deleteGroupPost", success = ok, postId = dgpPostId }));
+                        });
+                    }
+                    break;
+                }
+
+                case "vrcDeleteGroupEvent":
+                {
+                    var dgeGroupId  = msg["groupId"]?.ToString() ?? "";
+                    var dgeEventId  = msg["eventId"]?.ToString() ?? "";
+                    if (!string.IsNullOrEmpty(dgeGroupId) && !string.IsNullOrEmpty(dgeEventId))
+                    {
+                        _ = Task.Run(async () =>
+                        {
+                            var ok = await _vrcApi.DeleteGroupEventAsync(dgeGroupId, dgeEventId);
+                            Invoke(() => SendToJS("vrcActionResult", new { action = "deleteGroupEvent", success = ok, eventId = dgeEventId }));
+                        });
+                    }
+                    break;
+                }
+
+                case "vrcCreateGroupEvent":
+                {
+                    var ceGroupId   = msg["groupId"]?.ToString() ?? "";
+                    var ceTitle     = msg["title"]?.ToString() ?? "";
+                    var ceDesc      = msg["description"]?.ToString() ?? "";
+                    var ceStartsAt  = msg["startsAt"]?.ToString() ?? "";
+                    var ceEndsAt    = msg["endsAt"]?.ToString() ?? "";
+                    var ceCategory  = msg["category"]?.ToString() ?? "other";
+                    var ceAccess    = msg["accessType"]?.ToString() ?? "group";
+                    var ceNotify    = msg["sendCreationNotification"]?.Value<bool>() ?? false;
+                    var ceImageB64  = msg["imageBase64"]?.ToString();
+                    var ceImageFileId = msg["imageFileId"]?.ToString();
+                    if (!string.IsNullOrEmpty(ceGroupId) && !string.IsNullOrEmpty(ceTitle) && !string.IsNullOrEmpty(ceStartsAt))
+                    {
+                        _ = Task.Run(async () =>
+                        {
+                            string? imageId = null;
+                            if (!string.IsNullOrEmpty(ceImageFileId))
+                            {
+                                imageId = ceImageFileId;
+                            }
+                            else if (!string.IsNullOrEmpty(ceImageB64))
+                            {
+                                try
+                                {
+                                    var b64 = ceImageB64;
+                                    string imgMime = "image/png", imgExt = ".png";
+                                    if (b64.StartsWith("data:"))
+                                    {
+                                        var semi = b64.IndexOf(';');
+                                        if (semi > 5) imgMime = b64[5..semi];
+                                        imgExt = imgMime switch { "image/jpeg" => ".jpg", "image/gif" => ".gif", "image/webp" => ".webp", _ => ".png" };
+                                    }
+                                    var commaIdx = b64.IndexOf(',');
+                                    if (commaIdx >= 0) b64 = b64[(commaIdx + 1)..];
+                                    var imgBytes = Convert.FromBase64String(b64);
+                                    Invoke(() => SendToJS("log", new { msg = $"[GroupEvent] Uploading image {imgMime} {imgBytes.Length / 1024} KB", color = "sec" }));
+                                    imageId = await _vrcApi.UploadImageAsync(imgBytes, imgMime, imgExt);
+                                    if (imageId == null)
+                                        Invoke(() => SendToJS("log", new { msg = "[GroupEvent] Image upload failed, creating event without image", color = "warn" }));
+                                }
+                                catch (Exception ex) { Invoke(() => SendToJS("log", new { msg = $"[GroupEvent] Image error: {ex.Message}", color = "err" })); }
+                            }
+                            var result = await _vrcApi.CreateGroupEventAsync(ceGroupId, ceTitle, ceDesc, ceStartsAt, ceEndsAt, ceCategory, ceAccess, ceNotify, imageId);
+                            var ok = result != null;
+                            Invoke(() => SendToJS("vrcActionResult", new
+                            {
+                                action = "createGroupEvent",
+                                success = ok,
+                                message = ok ? "Event created!" : "Failed to create event"
+                            }));
                         });
                     }
                     break;

@@ -116,7 +116,22 @@ if (window.chrome?.webview) {
                 document.getElementById('friendDetailContent').innerHTML = `<div class="fd-loading" style="color:var(--err);">${esc(payload.error || 'Error loading profile')}</div><div style="margin-top:10px;text-align:right;"><button class="fd-btn" onclick="closeFriendDetail()">Close</button></div>`;
                 break;
             case 'vrcActionResult':
-                if (payload.action === 'deleteGroupPost') {
+                if (payload.action === 'deleteGroupEvent') {
+                    if (payload.success) {
+                        const card = document.querySelector(`.fd-group-card[data-event-id="${payload.eventId}"]`);
+                        if (card) card.remove();
+                        showToast(true, 'Group event deleted.');
+                    } else {
+                        const card = document.querySelector(`.fd-group-card[data-event-id="${payload.eventId}"]`);
+                        if (card) {
+                            card.style.opacity = '';
+                            card.style.pointerEvents = '';
+                            const btn = card.querySelector('.gd-post-del');
+                            if (btn) { btn.disabled = false; btn.querySelector('.msi').textContent = 'delete'; }
+                        }
+                        showToast(false, 'Delete failed.');
+                    }
+                } else if (payload.action === 'deleteGroupPost') {
                     if (payload.success) {
                         const card = document.querySelector(`.fd-group-card[data-post-id="${payload.postId}"]`);
                         if (card) card.remove();
@@ -388,6 +403,8 @@ if (window.chrome?.webview) {
                     renderInvFiles(payload.files || [], activeInvTab);
                     if (payload.tag === 'gallery' && typeof onGroupPostGalleryLoaded === 'function')
                         onGroupPostGalleryLoaded(payload.files || []);
+                    if (payload.tag === 'gallery' && typeof onGroupEventGalleryLoaded === 'function')
+                        onGroupEventGalleryLoaded(payload.files || []);
                 } else {
                     const g = document.getElementById('invGrid');
                     if (g) g.innerHTML = `<div class="empty-msg" style="color:var(--err);">Error: ${esc(payload.error)}<br><span style="font-size:11px;color:var(--tx3);">This feature may require VRC+ or a VRChat login.</span></div>`;

@@ -42,7 +42,10 @@ function renderGroupDetail(g) {
     // Actions - moved to bottom bar
     const canPost = g.canPost === true;
     const createPostBtn = (g.isJoined && canPost)
-        ? `<button class="fd-btn fd-btn-join" onclick="openGroupPostModal('${esc(g.id)}')"><span class="msi" style="font-size:16px;vertical-align:middle;margin-right:4px;">edit</span>Create Post</button>`
+        ? `<button class="fd-btn fd-btn-join" onclick="openGroupPostModal('${esc(g.id)}')"><span class="msi" style="font-size:16px;vertical-align:middle;margin-right:4px;">edit</span>Post</button>`
+        : '';
+    const createEventBtn = (g.isJoined && canPost)
+        ? `<button class="fd-btn fd-btn-join" onclick="openGroupEventModal('${esc(g.id)}')"><span class="msi" style="font-size:16px;vertical-align:middle;margin-right:4px;">event</span>Events</button>`
         : '';
     const leaveJoinBtn = g.isJoined
         ? `<button class="fd-btn fd-btn-danger" onclick="sendToCS({action:'vrcLeaveGroup',groupId:'${esc(g.id)}'});document.getElementById('modalDetail').style.display='none';"><span class="msi" style="font-size:16px;vertical-align:middle;margin-right:4px;">logout</span>Leave Group</button>`
@@ -102,9 +105,15 @@ function renderGroupDetail(g) {
             const badge = e.accessType ? `<span style="font-size:9px;padding:1px 6px;border-radius:4px;background:color-mix(in srgb,var(--accent) 12%,transparent);color:var(--accent-lt);border:1px solid color-mix(in srgb,var(--accent) 35%,transparent);margin-left:6px;">${esc(e.accessType)}</span>` : '';
             const gid = esc(e.ownerId || g.id || '');
             const cid = esc(e.id || '');
-            eventsTab += `<div class="fd-group-card" style="display:block;cursor:pointer;padding:12px;" onclick="openEventDetail('${gid}','${cid}')">
+            const delEvtBtn = (canPost && e.id)
+                ? `<button class="gd-post-del" onclick="event.stopPropagation();deleteGroupEvent('${esc(g.id)}','${cid}',this)" title="Delete event"><span class="msi">delete</span></button>`
+                : '';
+            eventsTab += `<div class="fd-group-card" data-event-id="${cid}" style="display:block;cursor:pointer;padding:12px;" onclick="openEventDetail('${gid}','${cid}')">
                 ${imgHtml}
-                <div style="font-size:13px;font-weight:600;color:var(--tx0);">${esc(e.title || 'Untitled Event')}${badge}</div>
+                <div style="display:flex;align-items:center;justify-content:space-between;gap:6px;">
+                    <div style="font-size:13px;font-weight:600;color:var(--tx0);">${esc(e.title || 'Untitled Event')}${badge}</div>
+                    ${delEvtBtn}
+                </div>
                 <div style="font-size:10px;color:var(--tx3);margin:2px 0 4px;">${dateStr}${timeStr ? ' · ' + timeStr : ''}</div>
                 ${e.description ? `<div style="font-size:12px;color:var(--tx2);line-height:1.4;">${esc(e.description)}</div>` : ''}
             </div>`;
@@ -178,7 +187,7 @@ function renderGroupDetail(g) {
         <div id="gdTabInstances" style="display:none;">${instancesTab}</div>
         <div id="gdTabGallery" style="display:none;">${galleryTab}</div>
         <div id="gdTabMembers" style="display:none;">${membersTab}</div>
-        <div style="margin-top:10px;display:flex;justify-content:space-between;align-items:center;"><div style="display:flex;gap:8px;">${createPostBtn}${leaveJoinBtn}</div><button class="fd-btn" onclick="document.getElementById('modalDetail').style.display='none'">Close</button></div>
+        <div style="margin-top:10px;display:flex;justify-content:space-between;align-items:center;"><div style="display:flex;gap:8px;">${createPostBtn}${createEventBtn}${leaveJoinBtn}</div><button class="fd-btn" onclick="document.getElementById('modalDetail').style.display='none'">Close</button></div>
     </div>`;
 }
 
@@ -221,6 +230,14 @@ function deleteGroupPost(groupId, postId, btn) {
     const card = btn.closest('.fd-group-card');
     if (card) { card.style.opacity = '.4'; card.style.pointerEvents = 'none'; }
     sendToCS({ action: 'vrcDeleteGroupPost', groupId, postId });
+}
+
+function deleteGroupEvent(groupId, eventId, btn) {
+    btn.disabled = true;
+    btn.querySelector('.msi').textContent = 'hourglass_empty';
+    const card = btn.closest('.fd-group-card');
+    if (card) { card.style.opacity = '.4'; card.style.pointerEvents = 'none'; }
+    sendToCS({ action: 'vrcDeleteGroupEvent', groupId, eventId });
 }
 
 /* === Group Post Modal === */
@@ -412,4 +429,247 @@ function submitGroupPost() {
 
     sendToCS(payload);
     closeGroupPostModal();
+}
+
+/* === Group Event Modal === */
+let _groupEventGroupId = null;
+let _groupEventImageBase64 = null;
+let _groupEventSelectedFileId = null;
+
+function openGroupEventModal(groupId) {
+    _groupEventGroupId = groupId;
+    _groupEventImageBase64 = null;
+    _groupEventSelectedFileId = null;
+
+    // Default start: now + 1h, rounded to next full hour
+    const now = new Date();
+    now.setMinutes(0, 0, 0);
+    now.setHours(now.getHours() + 1);
+    const pad = n => String(n).padStart(2, '0');
+    const localDT = v => `${v.getFullYear()}-${pad(v.getMonth()+1)}-${pad(v.getDate())}T${pad(v.getHours())}:${pad(v.getMinutes())}`;
+    const defaultStart = localDT(now);
+    const endD = new Date(now); endD.setHours(endD.getHours() + 1);
+    const defaultEnd = localDT(endD);
+
+    let overlay = document.getElementById('groupEventOverlay');
+    if (!overlay) {
+        overlay = document.createElement('div');
+        overlay.id = 'groupEventOverlay';
+        overlay.style.cssText = 'position:fixed;inset:0;z-index:10002;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;';
+        document.body.appendChild(overlay);
+    }
+    overlay.innerHTML = `
+    <div class="gp-modal" role="dialog" aria-label="Create Group Event" style="max-height:calc(100vh - 32px);overflow-y:auto;">
+        <div class="gp-modal-header">
+            <span class="msi" style="font-size:20px;color:var(--accent);">event</span>
+            <span>Create Group Event</span>
+            <button class="fd-btn" onclick="closeGroupEventModal()" style="padding:4px 8px;" title="Close"><span class="msi" style="font-size:18px;">close</span></button>
+        </div>
+        <div class="gp-modal-body">
+            <label class="gp-label">Event Name</label>
+            <input id="gevName" class="gp-input" type="text" placeholder="Event name..." maxlength="64">
+
+            <label class="gp-label" style="margin-top:12px;">Description</label>
+            <textarea id="gevDesc" class="gp-textarea" placeholder="What's happening?" rows="4" maxlength="2000"></textarea>
+
+            <div style="display:flex;gap:12px;margin-top:12px;flex-wrap:wrap;">
+                <div style="flex:1;min-width:160px;">
+                    <label class="gp-label">Start</label>
+                    <input id="gevStart" class="gp-input" type="datetime-local" value="${defaultStart}">
+                </div>
+                <div style="flex:1;min-width:160px;">
+                    <label class="gp-label">End</label>
+                    <input id="gevEnd" class="gp-input" type="datetime-local" value="${defaultEnd}">
+                </div>
+            </div>
+
+            <div style="display:flex;gap:12px;margin-top:12px;flex-wrap:wrap;">
+                <div style="flex:1;min-width:130px;">
+                    <label class="gp-label">Category</label>
+                    <select id="gevCategory" class="gp-select">
+                        <option value="hangout">Hangout</option>
+                        <option value="gaming">Gaming</option>
+                        <option value="music">Music</option>
+                        <option value="dance">Dance</option>
+                        <option value="performance">Performance</option>
+                        <option value="arts">Arts</option>
+                        <option value="education">Education</option>
+                        <option value="exploration">Exploration</option>
+                        <option value="film_media">Film & Media</option>
+                        <option value="roleplaying">Roleplaying</option>
+                        <option value="wellness">Wellness</option>
+                        <option value="avatars">Avatars</option>
+                        <option value="other">Other</option>
+                    </select>
+                </div>
+                <div style="flex:1;min-width:130px;">
+                    <label class="gp-label">Access Type</label>
+                    <select id="gevAccess" class="gp-select">
+                        <option value="group">Group only</option>
+                        <option value="public">Public</option>
+                    </select>
+                </div>
+            </div>
+
+            <div style="margin-top:12px;">
+                <label class="gp-label">Notification</label>
+                <select id="gevNotify" class="gp-select">
+                    <option value="0">No notification</option>
+                    <option value="1">Send notification</option>
+                </select>
+            </div>
+
+            <label class="gp-label" style="margin-top:12px;">Image <span style="color:var(--tx3);font-weight:400;">(optional)</span></label>
+            <div style="display:flex;gap:6px;margin-bottom:8px;">
+                <button class="fd-btn active" id="gevSrcUploadBtn" onclick="gevSetImgSource('upload')" style="flex:1;font-size:11px;"><span class="msi" style="font-size:14px;vertical-align:middle;">upload_file</span> Upload</button>
+                <button class="fd-btn" id="gevSrcLibraryBtn" onclick="gevSetImgSource('library')" style="flex:1;font-size:11px;"><span class="msi" style="font-size:14px;vertical-align:middle;">photo_library</span> From Library</button>
+            </div>
+            <div id="gevUploadArea">
+                <div class="gp-img-area" id="gevImgArea" onclick="document.getElementById('gevFileInput').click()">
+                    <span class="msi" style="font-size:28px;color:var(--tx3);">image</span>
+                    <span id="gevImgLabel" style="font-size:11px;color:var(--tx3);">Click to select image</span>
+                    <input id="gevFileInput" type="file" accept="image/png,image/jpeg,image/gif,image/webp" style="display:none;" onchange="onGroupEventImageSelected(event)">
+                </div>
+                <img id="gevImgPreview" style="display:none;width:100%;max-height:160px;object-fit:contain;border-radius:8px;margin-top:8px;">
+            </div>
+            <div id="gevLibraryArea" style="display:none;">
+                <div id="gevLibraryGrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(72px,1fr));gap:6px;max-height:180px;overflow-y:auto;padding:4px 0;">
+                    <div style="grid-column:1/-1;text-align:center;padding:20px;font-size:11px;color:var(--tx3);">Loading photos...</div>
+                </div>
+            </div>
+
+            <div id="gevError" style="display:none;margin-top:8px;padding:8px 10px;background:rgba(255,80,80,.12);border-radius:8px;color:var(--err);font-size:12px;"></div>
+        </div>
+        <div class="gp-modal-footer">
+            <button class="fd-btn" onclick="closeGroupEventModal()">Cancel</button>
+            <button class="fd-btn fd-btn-join" id="gevSubmitBtn" onclick="submitGroupEvent()"><span class="msi" style="font-size:16px;vertical-align:middle;margin-right:4px;">event</span>Create Event</button>
+        </div>
+    </div>`;
+    overlay.style.display = 'flex';
+    setTimeout(() => document.getElementById('gevName')?.focus(), 50);
+}
+
+function gevSetImgSource(src) {
+    const uploadArea = document.getElementById('gevUploadArea');
+    const libraryArea = document.getElementById('gevLibraryArea');
+    const uploadBtn = document.getElementById('gevSrcUploadBtn');
+    const libraryBtn = document.getElementById('gevSrcLibraryBtn');
+    if (!uploadArea || !libraryArea) return;
+    if (src === 'library') {
+        uploadArea.style.display = 'none';
+        libraryArea.style.display = '';
+        uploadBtn?.classList.remove('active');
+        libraryBtn?.classList.add('active');
+        _groupEventImageBase64 = null;
+        const cached = invFilesCache['gallery'];
+        if (cached && cached.length > 0) {
+            gevRenderLibraryPhotos(cached);
+        } else {
+            sendToCS({ action: 'invGetFiles', tag: 'gallery' });
+        }
+    } else {
+        uploadArea.style.display = '';
+        libraryArea.style.display = 'none';
+        uploadBtn?.classList.add('active');
+        libraryBtn?.classList.remove('active');
+        _groupEventSelectedFileId = null;
+    }
+}
+
+function gevRenderLibraryPhotos(files) {
+    const grid = document.getElementById('gevLibraryGrid');
+    if (!grid) return;
+    if (!files || files.length === 0) {
+        grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:20px;font-size:11px;color:var(--tx3);">No photos in library.</div>';
+        return;
+    }
+    grid.innerHTML = files.map(f => {
+        const url = f.fileUrl || '';
+        const fid = jsq(f.id || '');
+        const fname = esc(f.name || f.id || '');
+        return `<img src="${esc(url)}" title="${fname}" style="width:100%;aspect-ratio:1;object-fit:cover;border-radius:6px;cursor:pointer;opacity:0.85;transition:opacity .15s;" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0.85" onclick="gevSelectLibraryPhoto('${fid}','${jsq(url)}')" onerror="this.parentElement?.remove()">`;
+    }).join('');
+}
+
+function gevSelectLibraryPhoto(fileId, url) {
+    _groupEventSelectedFileId = fileId;
+    _groupEventImageBase64 = null;
+    document.querySelectorAll('#gevLibraryGrid img').forEach(el => el.style.outline = 'none');
+    event.target.style.outline = '2px solid var(--accent)';
+}
+
+// Called from messages.js when gallery photos load, refresh picker if open
+function onGroupEventGalleryLoaded(files) {
+    const libraryArea = document.getElementById('gevLibraryArea');
+    if (!libraryArea || libraryArea.style.display === 'none') return;
+    gevRenderLibraryPhotos(files);
+}
+
+function closeGroupEventModal() {
+    const overlay = document.getElementById('groupEventOverlay');
+    if (overlay) overlay.style.display = 'none';
+    _groupEventGroupId = null;
+    _groupEventImageBase64 = null;
+    _groupEventSelectedFileId = null;
+}
+
+function onGroupEventImageSelected(event) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    if (file.size > 10 * 1024 * 1024) {
+        const err = document.getElementById('gevError');
+        if (err) { err.textContent = 'Image too large (max 10 MB)'; err.style.display = ''; }
+        return;
+    }
+    const err = document.getElementById('gevError');
+    if (err) err.style.display = 'none';
+    const reader = new FileReader();
+    reader.onload = e => {
+        _groupEventImageBase64 = e.target.result;
+        _groupEventSelectedFileId = null;
+        const preview = document.getElementById('gevImgPreview');
+        if (preview) { preview.src = _groupEventImageBase64; preview.style.display = ''; }
+        const label = document.getElementById('gevImgLabel');
+        if (label) label.textContent = file.name;
+    };
+    reader.readAsDataURL(file);
+}
+
+function submitGroupEvent() {
+    if (!_groupEventGroupId) return;
+    const title = document.getElementById('gevName')?.value.trim() || '';
+    const description = document.getElementById('gevDesc')?.value.trim() || '';
+    const startVal = document.getElementById('gevStart')?.value || '';
+    const endVal = document.getElementById('gevEnd')?.value || '';
+    const category = document.getElementById('gevCategory')?.value || 'other';
+    const accessType = document.getElementById('gevAccess')?.value || 'group';
+    const sendCreationNotification = document.getElementById('gevNotify')?.value === '1';
+    const errEl = document.getElementById('gevError');
+
+    if (!title) { if (errEl) { errEl.textContent = 'Event name is required.'; errEl.style.display = ''; } return; }
+    if (!description) { if (errEl) { errEl.textContent = 'Description is required.'; errEl.style.display = ''; } return; }
+    if (!startVal) { if (errEl) { errEl.textContent = 'Start date/time is required.'; errEl.style.display = ''; } return; }
+    if (!endVal) { if (errEl) { errEl.textContent = 'End date/time is required.'; errEl.style.display = ''; } return; }
+    if (new Date(endVal) <= new Date(startVal)) { if (errEl) { errEl.textContent = 'End must be after start.'; errEl.style.display = ''; } return; }
+    if (errEl) errEl.style.display = 'none';
+
+    const btn = document.getElementById('gevSubmitBtn');
+    if (btn) { btn.disabled = true; btn.innerHTML = '<span class="msi" style="font-size:16px;vertical-align:middle;margin-right:4px;">hourglass_empty</span>Creating...'; }
+
+    const payload = {
+        action: 'vrcCreateGroupEvent',
+        groupId: _groupEventGroupId,
+        title,
+        description,
+        startsAt: new Date(startVal).toISOString(),
+        endsAt: new Date(endVal).toISOString(),
+        category,
+        accessType,
+        sendCreationNotification,
+    };
+    if (_groupEventSelectedFileId) payload.imageFileId = _groupEventSelectedFileId;
+    else if (_groupEventImageBase64) payload.imageBase64 = _groupEventImageBase64;
+
+    sendToCS(payload);
+    closeGroupEventModal();
 }

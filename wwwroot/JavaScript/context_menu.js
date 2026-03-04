@@ -264,7 +264,8 @@
             'sep',
         ];
         if (canPost) {
-            items.push({ icon: 'edit_note', label: 'Create Post', action: () => openGroupPostModal(id) });
+            items.push({ icon: 'edit_note', label: 'Post', action: () => openGroupPostModal(id) });
+            items.push({ icon: 'event', label: 'Events', action: () => openGroupEventModal(id) });
             items.push('sep');
         }
         items.push({ icon: 'logout', label: 'Leave Group', action: () => sendToCS({ action: 'vrcLeaveGroup', groupId: id }), danger: true, confirm: true });

@@ -171,7 +171,7 @@ function _calClickDay(key) {
 function _eventKey(e) {
     const d = new Date(e.startsAt || e.startDate || '');
     if (isNaN(d)) return null;
-    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+    return `${d.getUTCFullYear()}-${String(d.getUTCMonth()+1).padStart(2,'0')}-${String(d.getUTCDate()).padStart(2,'0')}`;
 }
 
 function _eventsForDay(key) {
@@ -195,7 +195,7 @@ function _buildGrid() {
     });
 
     const today     = new Date();
-    const todayKey  = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
+    const todayKey  = `${today.getUTCFullYear()}-${String(today.getUTCMonth()+1).padStart(2,'0')}-${String(today.getUTCDate()).padStart(2,'0')}`;
     const firstDay  = new Date(_calYear, _calMonth, 1).getDay();
     const daysInMth = new Date(_calYear, _calMonth + 1, 0).getDate();
 
@@ -241,7 +241,7 @@ function _buildDayPanel(events, key) {
         return;
     }
 
-    const dayLabel = new Date(key + 'T12:00:00')
+    const dayLabel = new Date(key + 'T12:00:00Z')
         .toLocaleDateString(undefined, { weekday:'long', month:'long', day:'numeric', year:'numeric' });
 
     const cards = events

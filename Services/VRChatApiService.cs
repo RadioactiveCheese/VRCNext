@@ -1181,7 +1181,7 @@ public class VRChatApiService
         return new JArray();
     }
 
-    public async Task<JArray> GetCalendarEventsAsync(string filter = "all", int year = 0, int month = 0, int n = 100, int offset = 0)
+    public async Task<JArray> GetCalendarEventsAsync(string filter = "all", int year = 0, int month = 0)
     {
         if (!IsLoggedIn) return new JArray();
         try
@@ -1189,25 +1189,41 @@ public class VRChatApiService
             var now = DateTime.UtcNow;
             int y = year  > 0 ? year  : now.Year;
             int m = month > 0 ? month : now.Month;
-            var monthDate    = new DateTime(y, m, 1, 0, 0, 0, DateTimeKind.Utc);
-            var monthDateStr = Uri.EscapeDataString(monthDate.ToString("yyyy-MM-ddTHH:mm:ss.fffZ"));
+            // Correct parameter name is "date" (not "monthDate")
+            var dateStr = Uri.EscapeDataString(new DateTime(y, m, 1, 0, 0, 0, DateTimeKind.Utc).ToString("yyyy-MM-ddTHH:mm:ss.fffZ"));
 
-            var endpoint = filter switch {
-                "featured"  => $"{BASE}/calendar/featured?n={n}&offset={offset}&monthDate={monthDateStr}",
-                "following" => $"{BASE}/calendar/following?n={n}&offset={offset}&monthDate={monthDateStr}",
-                _           => $"{BASE}/calendar?n={n}&offset={offset}&monthDate={monthDateStr}"
-            };
-            var resp = await _http.GetAsync(endpoint);
-            var body = await resp.Content.ReadAsStringAsync();
-            Log($"GetCalendarEvents({filter},{y}/{m}): {(int)resp.StatusCode}, len={body.Length}, preview={body[..Math.Min(400,body.Length)]}");
-            if (resp.IsSuccessStatusCode)
+            var allEvents  = new JArray();
+            int pageOffset = 0;
+            const int pageSize = 100;
+
+            while (true)
             {
+                var endpoint = filter switch {
+                    "featured"  => $"{BASE}/calendar/featured?n={pageSize}&offset={pageOffset}&date={dateStr}",
+                    "following" => $"{BASE}/calendar/following?n={pageSize}&offset={pageOffset}&date={dateStr}",
+                    _           => $"{BASE}/calendar?n={pageSize}&offset={pageOffset}&date={dateStr}"
+                };
+                var resp = await _http.GetAsync(endpoint);
+                var body = await resp.Content.ReadAsStringAsync();
+                Log($"GetCalendarEvents({filter},{y}/{m},off={pageOffset}): {(int)resp.StatusCode}, len={body.Length}, preview={body[..Math.Min(300,body.Length)]}");
+                if (!resp.IsSuccessStatusCode) break;
+
+                JArray? page = null;
                 var token = JToken.Parse(body);
-                if (token is JArray arr) return arr;
-                if (token is JObject obj)
+                if (token is JArray arr) page = arr;
+                else if (token is JObject obj)
                     foreach (var key in new[] { "results", "events", "data", "items" })
-                        if (obj[key] is JArray found) return found;
+                        if (obj[key] is JArray found) { page = found; break; }
+
+                if (page == null || page.Count == 0) break;
+                foreach (var ev in page) allEvents.Add(ev);
+                if (page.Count < pageSize) break;
+                pageOffset += pageSize;
+                if (pageOffset >= pageSize * 5) break; // safety: max 5 pages
             }
+
+            Log($"GetCalendarEvents({filter},{y}/{m}): total={allEvents.Count}");
+            return allEvents;
         }
         catch (Exception ex) { Log($"GetCalendarEvents exception: {ex.Message}"); }
         return new JArray();

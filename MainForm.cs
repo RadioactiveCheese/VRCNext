@@ -1249,6 +1249,14 @@ public class MainForm : Form
                     break;
                 }
 
+                case "vrcGetMyWorlds":
+                    _ = Task.Run(async () =>
+                    {
+                        var worlds = await _vrcApi.GetMyWorldsAsync();
+                        Invoke(() => SendToJS("vrcMyWorlds", worlds));
+                    });
+                    break;
+
                 // Groups - my groups, join, leave
                 case "vrcGetFavoriteWorlds":
                     _ = Task.Run(async () =>
@@ -1290,6 +1298,19 @@ public class MainForm : Form
                         groupList = FillMissingWorldSlots(groupList);
                         Invoke(() => SendToJS("vrcWorldFavGroups", groupList));
                     });
+                    break;
+
+                case "vrcSetHomeWorld":
+                    var homeWid = msg["worldId"]?.ToString();
+                    if (!string.IsNullOrEmpty(homeWid))
+                    {
+                        _ = Task.Run(async () =>
+                        {
+                            var ok = await _vrcApi.SetHomeWorldAsync(homeWid);
+                            Invoke(() => SendToJS("vrcActionResult", new { action = "setHomeWorld", success = ok,
+                                message = ok ? "Home world updated!" : "Failed to set home world" }));
+                        });
+                    }
                     break;
 
                 case "vrcAddWorldFavorite":

@@ -281,6 +281,9 @@ if (window.chrome?.webview) {
             case 'vrcFavoriteWorlds':
                 renderFavWorlds(payload);
                 break;
+            case 'vrcMyWorlds':
+                renderMyWorlds(payload);
+                break;
             case 'vrcFavoriteGroupUpdated':
                 onFavoriteGroupUpdated(payload);
                 onAvatarFavoriteGroupUpdated(payload);

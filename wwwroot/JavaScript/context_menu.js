@@ -222,10 +222,16 @@
             if (id) return buildWorldItems(id);
         }
 
-        const worldCard = el.closest('#favWorldsGrid .s-card, #worldSearchArea .s-card');
+        const worldCard = el.closest('#favWorldsGrid .s-card, #worldSearchArea .s-card, #worldMineGrid .s-card');
         if (worldCard) {
             const id = extractId(worldCard, /openWorldSearchDetail\('([^']+)'\)/);
             if (id) return buildWorldItems(id);
+        }
+
+        const avatarCard = el.closest('.av-card');
+        if (avatarCard) {
+            const id = (avatarCard.getAttribute('onclick') || '').match(/selectAvatar\('([^']+)'\)/)?.[1];
+            if (id) return buildAvatarItems(id);
         }
 
         const friendCard = el.closest('.vrc-friend-card, .fd-profile-item, .wd-friend-row, .inst-user-row');
@@ -254,6 +260,7 @@
         const canPost = g && g.canPost === true;
         const items = [
             { icon: 'open_in_new', label: 'Open Details', action: () => openGroupDetail(id) },
+            { icon: 'share', label: 'Share Group', action: () => { navigator.clipboard.writeText('https://vrchat.com/home/group/' + id); showToast(true, 'Group link copied to clipboard'); } },
             'sep',
         ];
         if (canPost) {
@@ -264,11 +271,19 @@
         return items;
     }
 
+    function buildAvatarItems(id) {
+        return [
+            { icon: 'share', label: 'Share Avatar', action: () => { navigator.clipboard.writeText('https://vrchat.com/home/avatar/' + id); showToast(true, 'Avatar link copied to clipboard'); } },
+            { icon: 'checkroom', label: 'Use Avatar', action: () => sendToCS({ action: 'vrcSelectAvatar', avatarId: id }) },
+        ];
+    }
+
     function buildWorldItems(id) {
         const favEntry = (typeof favWorldsData !== 'undefined') && favWorldsData.find(fw => fw.id === id);
         const items = [
             { icon: 'open_in_new', label: 'Open Details', action: () => openWorldSearchDetail(id) },
             { icon: 'share', label: 'Share World', action: () => { navigator.clipboard.writeText('https://vrchat.com/home/world/' + id); showToast(true, 'World link copied to clipboard'); } },
+            { icon: 'home', label: 'Set as Home', action: () => sendToCS({ action: 'vrcSetHomeWorld', worldId: id }), confirm: true },
             'sep',
         ];
         if (favEntry) {

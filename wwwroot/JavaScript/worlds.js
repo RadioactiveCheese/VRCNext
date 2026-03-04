@@ -11,15 +11,31 @@ function refreshFavWorlds() {
     if (btn) { btn.disabled = true; btn.querySelector('.msi').textContent = 'hourglass_empty'; }
     sendToCS({ action: 'vrcGetFavoriteWorlds' });
 }
+let _myWorldsLoaded = false;
+
 function setWorldFilter(filter) {
     worldFilter = filter;
     document.getElementById('worldFilterFav').classList.toggle('active', filter === 'favorites');
+    document.getElementById('worldFilterMine').classList.toggle('active', filter === 'mine');
     document.getElementById('worldFilterSearch').classList.toggle('active', filter === 'search');
-    document.getElementById('worldSearchArea').style.display = filter === 'search' ? '' : 'none';
-    document.getElementById('worldFavArea').style.display = filter === 'favorites' ? '' : 'none';
-    if (filter === 'favorites' && favWorldsData.length === 0) {
-        sendToCS({ action: 'vrcGetFavoriteWorlds' });
+    document.getElementById('worldFavArea').style.display    = filter === 'favorites' ? '' : 'none';
+    document.getElementById('worldMineArea').style.display   = filter === 'mine'      ? '' : 'none';
+    document.getElementById('worldSearchArea').style.display = filter === 'search'    ? '' : 'none';
+    if (filter === 'favorites' && favWorldsData.length === 0) sendToCS({ action: 'vrcGetFavoriteWorlds' });
+    if (filter === 'mine' && !_myWorldsLoaded) {
+        _myWorldsLoaded = true;
+        sendToCS({ action: 'vrcGetMyWorlds' });
     }
+}
+
+function renderMyWorlds(worlds) {
+    const el = document.getElementById('worldMineGrid');
+    if (!el) return;
+    if (!Array.isArray(worlds) || worlds.length === 0) {
+        el.innerHTML = '<div class="empty-msg">No worlds uploaded yet</div>';
+        return;
+    }
+    el.innerHTML = worlds.map(w => renderWorldCard(w)).join('');
 }
 
 function _wdGroupOptionLabel(g) {

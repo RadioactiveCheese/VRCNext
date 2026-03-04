@@ -350,6 +350,20 @@ public class VRChatApiService
         return null;
     }
 
+    public async Task<bool> SetHomeWorldAsync(string worldId)
+    {
+        if (!IsLoggedIn || CurrentUserId == null) return false;
+        try
+        {
+            var payload = new JObject { ["homeLocation"] = worldId };
+            var content = new StringContent(payload.ToString(), Encoding.UTF8, "application/json");
+            var resp = await _http.PutAsync($"{BASE}/users/{CurrentUserId}", content);
+            Log($"SetHomeWorld({worldId}): {(int)resp.StatusCode}");
+            return resp.IsSuccessStatusCode;
+        }
+        catch (Exception ex) { Log($"SetHomeWorld exception: {ex.Message}"); return false; }
+    }
+
     // Update own profile (bio, pronouns, links, tags)
     public async Task<JObject?> UpdateProfileAsync(string? bio, string? pronouns, List<string>? bioLinks, List<string>? tags)
     {
@@ -844,6 +858,19 @@ public class VRChatApiService
             Log($"GetUserBadges({userId}) failed: {(int)resp.StatusCode}");
         }
         catch (Exception ex) { Log($"GetUserBadges({userId}) exception: {ex.Message}"); }
+        return new JArray();
+    }
+
+    public async Task<JArray> GetMyWorldsAsync()
+    {
+        if (!IsLoggedIn) return new JArray();
+        try
+        {
+            var resp = await _http.GetAsync($"{BASE}/worlds?user=me&releaseStatus=all&n=100&sort=updated");
+            Log($"GetMyWorlds: {(int)resp.StatusCode}");
+            if (resp.IsSuccessStatusCode) return JArray.Parse(await resp.Content.ReadAsStringAsync());
+        }
+        catch (Exception ex) { Log($"GetMyWorlds exception: {ex.Message}"); }
         return new JArray();
     }
 

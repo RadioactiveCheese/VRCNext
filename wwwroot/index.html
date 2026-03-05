@@ -9,7 +9,7 @@
 </head>
 <body>
     <div class="sidebar" id="sidebarEl">
-        <div class="logo"><div class="logo-icon" id="logoIcon">V</div><div class="logo-txt"><div class="logo-text-row"><div class="logo-text">VRCNext</div><span class="logo-beta-badge">BETA</span></div><div class="logo-sub">v2026.4.0</div></div><button class="sb-toggle" onclick="toggleSidebar()" title="Toggle sidebar"><span class="msi" id="sbIcon">menu_open</span></button></div>
+        <div class="logo"><div class="logo-icon" id="logoIcon">V</div><div class="logo-txt"><div class="logo-text-row"><div class="logo-text">VRCNext</div><span class="logo-beta-badge">BETA</span></div><div class="logo-sub">v2026.4.1</div></div><button class="sb-toggle" onclick="toggleSidebar()" title="Toggle sidebar"><span class="msi" id="sbIcon">menu_open</span></button></div>
         <div class="nav">
             <button class="nav-btn active" onclick="showTab(0)"><span class="ni msi">dashboard</span><span class="nl">Dashboard</span></button>
             <button class="nav-btn" onclick="showTab(1)"><span class="ni msi">travel_explore</span><span class="nl">Worlds</span></button>
@@ -710,7 +710,10 @@
                     <div class="sf-card sf-status-card">
                         <div class="sf-status-row">
                             <div class="sf-status"><span class="sf-dot offline" id="vfDot"></span><span id="vfStatusText">Not running</span></div>
-                            <button class="btn-f" id="vfConnBtn" onclick="vfConnect()"><span class="msi" style="font-size:16px;">play_arrow</span> Start</button>
+                            <div style="display:flex;gap:8px;">
+                                <button class="btn-f" onclick="openVfBlockModal()"><span class="msi" style="font-size:16px;">block</span> Block Words</button>
+                                <button class="btn-f" id="vfConnBtn" onclick="vfConnect()"><span class="msi" style="font-size:16px;">play_arrow</span> Start</button>
+                            </div>
                         </div>
                     </div>
                     <!-- Device -->
@@ -830,6 +833,18 @@
     <!-- My Profile Modal -->
     <div class="modal-overlay" id="modalMyProfile" style="display:none;" onclick="if(event.target===this)closeMyProfile()">
         <div class="modal-box wide" id="mypBox" style="position:relative;"></div>
+    </div>
+
+    <!-- Voice Fight Block Words Modal -->
+    <div class="modal-overlay" id="modalVfBlock" style="display:none;" onclick="if(event.target===this)this.style.display='none'">
+        <div class="modal-box" style="max-width:440px;">
+            <div class="modal-title" style="margin-bottom:4px;">Block Words</div>
+            <div style="font-size:12px;color:var(--tx3);margin-bottom:14px;">Stripped from recognition. Type a word and press Enter.</div>
+            <div class="vf-block-chips" id="vfBlockChips" onclick="document.getElementById('vfBlockInlineInput')?.focus()"></div>
+            <div class="modal-btns" style="margin-top:14px;">
+                <button class="fd-btn" onclick="document.getElementById('modalVfBlock').style.display='none'">Close</button>
+            </div>
+        </div>
     </div>
 
     <!-- Multi-Invite Modal -->

@@ -436,6 +436,7 @@ if (window.chrome?.webview) {
             case 'vfMeter': updateVfMeter(payload.level); break;
             case 'vfKeyword': vfOnKeyword(payload.word); break;
             case 'vfRecognized': vfOnRecognized(payload.text, payload.isPartial); break;
+            case 'vfBlockList': handleVfBlockList(payload.words); break;
             case 'oscState':
                 handleOscState(payload);
                 break;

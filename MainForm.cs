@@ -2089,11 +2089,11 @@ public class MainForm : Form
                         _voiceFight = new VoiceFightService();
                         _voiceFight.OnLog += s => Invoke(() => SendToJS("log", new { msg = s, color = "sec" }));
                         _voiceFight.OnKeywordTriggered += word => Invoke(() => SendToJS("vfKeyword", new { word }));
-                        _voiceFight.OnRecognized += (text, isPartial) =>
+                        _voiceFight.OnRecognized += (displayHtml, cleanText, isPartial) =>
                         {
-                            Invoke(() => SendToJS("vfRecognized", new { text, isPartial }));
+                            Invoke(() => SendToJS("vfRecognized", new { text = displayHtml, isPartial }));
                             if (!isPartial && _vfSettings.MuteTalk)
-                                ThreadPool.QueueUserWorkItem(_ => VfSendChatbox(text));
+                                ThreadPool.QueueUserWorkItem(_ => VfSendChatbox(cleanText));
                         };
                         _voiceFight.SetKeywords(_vfSettings.Items);
                         _voiceFight.SetStopWord(_vfSettings.StopWord);
@@ -2229,6 +2229,38 @@ public class MainForm : Form
 
                 case "vfStopSound":
                     _voiceFight?.StopPlayback();
+                    break;
+
+                case "vfGetBlockList":
+                    {
+                        var path = System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "voice", "block.txt");
+                        var words = new List<string>();
+                        if (System.IO.File.Exists(path))
+                        {
+                            foreach (var raw in System.IO.File.ReadAllLines(path))
+                            {
+                                var line = raw.Trim();
+                                if (line.Length == 0 || line.StartsWith('#')) continue;
+                                words.Add(line);
+                            }
+                        }
+                        SendToJS("vfBlockList", new { words });
+                    }
+                    break;
+
+                case "vfSetBlockList":
+                    {
+                        var path = System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "voice", "block.txt");
+                        var words = msg["words"]?.ToObject<List<string>>() ?? new List<string>();
+                        var lines = new List<string>
+                        {
+                            "# Words listed here are stripped from VOSK recognition results before keyword matching.",
+                            "# One word or phrase per line. Lines starting with # are comments."
+                        };
+                        lines.AddRange(words.Select(w => w.Trim().ToLowerInvariant()).Where(w => w.Length > 0).Distinct());
+                        System.IO.File.WriteAllLines(path, lines);
+                        _voiceFight?.ReloadBlockList();
+                    }
                     break;
 
                 case "vfSetWord":

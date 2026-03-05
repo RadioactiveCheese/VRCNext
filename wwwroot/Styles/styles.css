@@ -6881,6 +6881,55 @@ div.vn-select {
 }
 .vf-recognized-partial { color: var(--tx2); }
 .vf-recognized-final   { color: var(--accent); }
+.vf-blocked            { color: #e05555; text-decoration: line-through; opacity: .75; }
+.vf-block-chips {
+    display: flex;
+    flex-wrap: wrap;
+    align-content: flex-start;
+    gap: 6px;
+    min-height: 44px;
+    padding: 8px;
+    background: var(--bg-input);
+    border-radius: 8px;
+    cursor: text;
+}
+.vf-block-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background: rgba(224,85,85,.15);
+    color: #e05555;
+    border-radius: 6px;
+    padding: 3px 8px 3px 10px;
+    font-size: 12px;
+    font-weight: 600;
+    flex-shrink: 0;
+}
+.vf-block-chip-remove {
+    background: none;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+    color: inherit;
+    opacity: .5;
+    display: flex;
+    align-items: center;
+    line-height: 1;
+    transition: opacity .15s;
+}
+.vf-block-chip-remove:hover { opacity: 1; }
+.vf-block-inline-input {
+    background: none;
+    border: none;
+    outline: none;
+    color: var(--tx1);
+    font-family: inherit;
+    font-size: 12px;
+    min-width: 120px;
+    flex: 1;
+    padding: 2px 0;
+    caret-color: var(--accent);
+}
 /* ── VF item header (trigger word + delete item btn) ── */
 .vf-item-header {
     display: flex;

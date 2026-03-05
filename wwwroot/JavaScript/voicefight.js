@@ -223,7 +223,7 @@ let _vfClearTimer = null;
 function vfOnRecognized(text, isPartial) {
     const el = document.getElementById('vfRecognizedText');
     if (!el) return;
-    el.textContent = text;
+    el.innerHTML = text;
     el.classList.toggle('vf-recognized-partial', !!isPartial);
     el.classList.toggle('vf-recognized-final', !isPartial);
     if (!isPartial) {
@@ -231,7 +231,7 @@ function vfOnRecognized(text, isPartial) {
         _vfClearTimer = setTimeout(() => {
             if (el) {
                 el.classList.remove('vf-recognized-final');
-                el.textContent = '—';
+                el.innerHTML = '—';
             }
         }, 3000);
     }
@@ -249,6 +249,63 @@ function vfOnKeyword(word) {
             setTimeout(() => el.classList.remove('vf-item-flash'), 600);
         }
     });
+}
+
+// ── Block Words Modal ───────────────────────────────────────────────────────
+
+let _vfBlockWords = [];
+
+function openVfBlockModal() {
+    sendToCS({ action: 'vfGetBlockList' });
+    document.getElementById('modalVfBlock').style.display = 'flex';
+}
+
+function handleVfBlockList(words) {
+    _vfBlockWords = words || [];
+    renderVfBlockChips();
+    setTimeout(() => document.getElementById('vfBlockInlineInput')?.focus(), 50);
+}
+
+function renderVfBlockChips() {
+    const el = document.getElementById('vfBlockChips');
+    if (!el) return;
+    const chips = _vfBlockWords.map(w =>
+        `<span class="vf-block-chip">${esc(w)}<button class="vf-block-chip-remove" onclick='vfBlockRemove(${JSON.stringify(w)})' title="Remove"><span class="msi" style="font-size:11px;">close</span></button></span>`
+    ).join('');
+    const placeholder = _vfBlockWords.length === 0 ? 'Type a word and press Enter…' : '';
+    el.innerHTML = chips + `<input id="vfBlockInlineInput" class="vf-block-inline-input" placeholder="${placeholder}" onkeydown="vfBlockInputKey(event)">`;
+}
+
+function vfBlockInputKey(e) {
+    if (e.key === 'Enter') {
+        e.preventDefault();
+        vfBlockAdd();
+    } else if (e.key === 'Backspace' && e.target.value === '' && _vfBlockWords.length > 0) {
+        e.preventDefault();
+        _vfBlockWords.pop();
+        renderVfBlockChips();
+        document.getElementById('vfBlockInlineInput')?.focus();
+        sendToCS({ action: 'vfSetBlockList', words: _vfBlockWords });
+    }
+}
+
+function vfBlockAdd() {
+    const inp = document.getElementById('vfBlockInlineInput');
+    if (!inp) return;
+    const word = inp.value.trim().toLowerCase();
+    inp.value = '';
+    if (!word || _vfBlockWords.includes(word)) return;
+    _vfBlockWords.push(word);
+    renderVfBlockChips();
+    document.getElementById('vfBlockInlineInput')?.focus();
+    sendToCS({ action: 'vfSetBlockList', words: _vfBlockWords });
+}
+
+function vfBlockRemove(word) {
+    _vfBlockWords = _vfBlockWords.filter(w => w !== word);
+    renderVfBlockChips();
+    document.getElementById('vfBlockInlineInput')?.focus();
+    sendToCS({ action: 'vfSetBlockList', words: _vfBlockWords });
 }
 
 // ── Helpers ────────────────────────────────────────────────────────────────

@@ -16,7 +16,7 @@ namespace VRCNext.Services;
 public sealed class VoiceFightService : IDisposable
 {
     public event Action<string>? OnKeywordTriggered;
-    public event Action<string, bool>? OnRecognized; // text, isPartial
+    public event Action<string, string, bool>? OnRecognized; // displayHtml, cleanText, isPartial
     public event Action<string>? OnLog;
 
     private static readonly string ModelPath = Path.Combine(
@@ -38,9 +38,13 @@ public sealed class VoiceFightService : IDisposable
     private static readonly string StopSoundPath = Path.Combine(
         AppDomain.CurrentDomain.BaseDirectory, "voice", "sounds", "stop.wav");
 
+    // Block list — words stripped from recognition results before keyword matching
+    private static readonly string BlockListPath = Path.Combine(
+        AppDomain.CurrentDomain.BaseDirectory, "voice", "block.txt");
+    private HashSet<string> _blockList = new(StringComparer.OrdinalIgnoreCase);
+
     // Mic capture
     private WaveInEvent? _waveIn;
-    private int _deviceIndex;
 
     // Meter
     private volatile float _meterLevel;
@@ -87,8 +91,8 @@ public sealed class VoiceFightService : IDisposable
     public void Start(int deviceIndex)
     {
         Stop();
-        _deviceIndex = deviceIndex;
 
+        LoadBlockList();
         EnsureModel();
 
         _waveOut = new WaveOutEvent();
@@ -166,6 +170,24 @@ public sealed class VoiceFightService : IDisposable
     public void PlayFile(string filePath, float volumePercent)
     {
         ThreadPool.QueueUserWorkItem(_ => PlayFileInternal(filePath, volumePercent));
+    }
+
+    public void ReloadBlockList() => LoadBlockList();
+
+    private void LoadBlockList()
+    {
+        var set = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        if (File.Exists(BlockListPath))
+        {
+            foreach (var raw in File.ReadAllLines(BlockListPath))
+            {
+                var line = raw.Trim();
+                if (line.Length == 0 || line.StartsWith('#')) continue;
+                var norm = NormalizeWord(line);
+                if (norm.Length > 0) set.Add(norm);
+            }
+        }
+        _blockList = set;
     }
 
     private void EnsureModel()
@@ -328,10 +350,19 @@ public sealed class VoiceFightService : IDisposable
         var filtered = string.Join(' ', text.Split(' ', StringSplitOptions.RemoveEmptyEntries)
             .Where(w => !string.Equals(w, "[unk]", StringComparison.OrdinalIgnoreCase)));
         if (!string.IsNullOrWhiteSpace(filtered))
-            OnRecognized?.Invoke(filtered, partial);
+        {
+            var displayHtml = BuildDisplayHtml(filtered, _blockList);
+            var cleanText = BuildCleanText(filtered, _blockList);
+            OnRecognized?.Invoke(displayHtml, cleanText, partial);
+        }
 
         // Normalize full text for phrase matching (supports multi-word triggers in sentences)
         var textNorm = NormalizeWord(text);
+        if (textNorm.Length == 0) return false;
+
+        // Strip blocked words before any matching
+        foreach (var blocked in _blockList)
+            textNorm = RemoveWholeWord(textNorm, blocked);
         if (textNorm.Length == 0) return false;
 
         // Check stop word (partial + final; returns true so recognizer resets on partial)
@@ -421,6 +452,54 @@ public sealed class VoiceFightService : IDisposable
             else buf.Append(' ');
         // Collapse multiple spaces so multi-word phrases match cleanly
         return string.Join(' ', buf.ToString().Split(' ', StringSplitOptions.RemoveEmptyEntries));
+    }
+
+    // Builds display HTML: blocked words wrapped in <span class="vf-blocked">.
+    private string BuildDisplayHtml(string text, HashSet<string> blockList)
+    {
+        if (blockList.Count == 0) return text;
+        var words = text.Split(' ');
+        var sb = new System.Text.StringBuilder();
+        foreach (var word in words)
+        {
+            if (sb.Length > 0) sb.Append(' ');
+            if (word.Length > 0 && blockList.Contains(NormalizeWord(word)))
+                sb.Append("<span class=\"vf-blocked\">").Append(word).Append("</span>");
+            else
+                sb.Append(word);
+        }
+        return sb.ToString();
+    }
+
+    // Builds clean text with blocked words removed (for OSC chatbox).
+    private string BuildCleanText(string text, HashSet<string> blockList)
+    {
+        if (blockList.Count == 0) return text;
+        return string.Join(' ', text.Split(' ', StringSplitOptions.RemoveEmptyEntries)
+            .Where(w => !blockList.Contains(NormalizeWord(w))));
+    }
+
+    // Removes all whole-word occurrences of 'word' from 'text' (both already normalised).
+    private static string RemoveWholeWord(string text, string word)
+    {
+        int idx = text.IndexOf(word, StringComparison.Ordinal);
+        while (idx >= 0)
+        {
+            bool startOk = idx == 0 || text[idx - 1] == ' ';
+            bool endOk = idx + word.Length == text.Length || text[idx + word.Length] == ' ';
+            if (startOk && endOk)
+            {
+                int from = idx > 0 ? idx - 1 : 0;
+                int len = idx > 0 ? word.Length + 1 : word.Length + (idx + word.Length < text.Length ? 1 : 0);
+                text = text.Remove(from, len).Trim();
+                idx = text.IndexOf(word, Math.Max(0, from), StringComparison.Ordinal);
+            }
+            else
+            {
+                idx = text.IndexOf(word, idx + 1, StringComparison.Ordinal);
+            }
+        }
+        return text;
     }
 
     // True if 'phrase' (already normalised) appears in 'text' at a word boundary.

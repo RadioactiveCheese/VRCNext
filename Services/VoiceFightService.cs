@@ -30,6 +30,7 @@ public sealed class VoiceFightService : IDisposable
     // Per-keyword cooldown to prevent spam (ms)
     private const int KeywordCooldownMs = 1500;
     private readonly Dictionary<string, DateTime> _lastTriggered = new(StringComparer.OrdinalIgnoreCase);
+    private DateTime _lastStopTriggered = DateTime.MinValue;
 
     // Stop word
     private string _stopWord = "";
@@ -338,7 +339,12 @@ public sealed class VoiceFightService : IDisposable
         lock (_stopWordLock) sw = _stopWord;
         if (sw.Length > 0 && ContainsPhrase(textNorm, sw))
         {
-            ThreadPool.QueueUserWorkItem(_ => StopPlaybackAndConfirm());
+            var now = DateTime.UtcNow;
+            if ((now - _lastStopTriggered).TotalMilliseconds >= KeywordCooldownMs)
+            {
+                _lastStopTriggered = now;
+                ThreadPool.QueueUserWorkItem(_ => StopPlaybackAndConfirm());
+            }
             return true;
         }
 

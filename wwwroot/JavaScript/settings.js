@@ -105,6 +105,7 @@ function saveSettings() {
             vrcPath: document.getElementById('setVrcPath').value,
             extraExe: settings.extraExe || [],
             autoStart: document.getElementById('setAutoStart').checked,
+            startWithWindows: document.getElementById('setStartWithWindows').checked,
             notifySound: document.getElementById('setNotifySound').checked,
             theme: currentTheme,
             dashBgPath: dashBgPath,
@@ -137,7 +138,7 @@ function autoSave() {
 }
 // Attach autosave listeners after DOM ready
 function initAutoSave() {
-    const ids = ['setBotName','setBotAvatar','setVrcPath','setAutoStart',
+    const ids = ['setBotName','setBotAvatar','setVrcPath','setAutoStart','setStartWithWindows',
         'setNotifySound','setDashOpacity','setRandomBg',
         'setVrcUser','setVrcPass','setCbAutoStart','setSfAutoStart',
         'setImgCacheEnabled','setImgCacheLimit'];
@@ -170,6 +171,7 @@ function loadSettingsToUI(s) {
     document.getElementById('setVrcUser').value = s.VrcUsername || s.vrcUsername || '';
     document.getElementById('setVrcPass').value = s.VrcPassword || s.vrcPassword || '';
     document.getElementById('setAutoStart').checked = s.AutoStart || s.autoStart || false;
+    document.getElementById('setStartWithWindows').checked = s.StartWithWindows || s.startWithWindows || false;
     document.getElementById('setNotifySound').checked = s.NotifySound || s.notifySound || false;
     settings.folders = s.WatchFolders || s.watchFolders || s.folders || [];
     settings.extraExe = s.ExtraExe || s.extraExe || [];

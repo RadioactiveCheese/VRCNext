@@ -186,6 +186,7 @@ public class AppSettings
     public string VrcPath { get; set; } = "";
     public List<string> ExtraExe { get; set; } = new();
     public bool AutoStart { get; set; }
+    public bool StartWithWindows { get; set; }
     public bool PostAll { get; set; }
     public int SelectedChannel { get; set; }
     public bool Notifications { get; set; } = true;

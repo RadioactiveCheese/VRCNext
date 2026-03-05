@@ -1,7 +1,7 @@
 /* VRCNext Setup Wizard */
 
 var currentPage = 0;
-var totalPages = 5;
+var totalPages = 6;
 var isLoggedIn = false;
 var loggedInName = '';
 var vrc2faType = 'totp';
@@ -50,6 +50,8 @@ function nextPage() {
         if (dirVal) sendToCS({ action: 'setupSavePhotoDir', path: dirVal });
     }
     if (currentPage >= totalPages - 1) {
+        var startWithWin = document.getElementById('setupStartWithWindows').checked;
+        sendToCS({ action: 'setupSaveStartWithWindows', enabled: startWithWin });
         sendToCS({ action: 'setupDone' });
         return;
     }

@@ -176,6 +176,36 @@ html, body { height: 100%; overflow: hidden; font-family: 'Inter', sans-serif; b
 .cam-step-text { font-size: 12px; color: rgba(255,255,255,.5); line-height: 1.5; }
 .cam-step-text strong { color: rgba(255,255,255,.8); }
 
+/* ── Start with Windows toggle ── */
+.startup-toggle-card {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 16px 18px; background: rgba(255,255,255,.03);
+    border: 1px solid rgba(255,255,255,.06); border-radius: 12px; gap: 16px;
+}
+.startup-toggle-label {
+    display: flex; align-items: center; gap: 14px;
+}
+.startup-toggle-title {
+    font-size: 13px; font-weight: 700; color: rgba(255,255,255,.85); margin-bottom: 2px;
+}
+.startup-toggle-sub {
+    font-size: 11px; color: rgba(255,255,255,.3);
+}
+.sw-toggle { position: relative; display: inline-block; width: 40px; height: 22px; flex-shrink: 0; cursor: pointer; }
+.sw-toggle input { opacity: 0; width: 0; height: 0; position: absolute; }
+.sw-track {
+    position: absolute; inset: 0; border-radius: 11px;
+    background: rgba(255,255,255,.1); transition: background .2s;
+}
+.sw-toggle input:checked + .sw-track { background: #6a5af9; }
+.sw-knob {
+    position: absolute; top: 3px; left: 3px;
+    width: 16px; height: 16px; border-radius: 50%;
+    background: #fff; transition: transform .2s;
+    box-shadow: 0 1px 4px rgba(0,0,0,.3);
+}
+.sw-toggle input:checked + .sw-track .sw-knob { transform: translateX(18px); }
+
 /* ── 2FA Modal ── */
 .modal-overlay {
     position: fixed; inset: 0; z-index: 200;

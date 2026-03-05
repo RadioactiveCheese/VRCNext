@@ -110,6 +110,8 @@ public class MainForm : Form
         Size = new Size(1100, 700);
         MinimumSize = new Size(900, 540);
         StartPosition = FormStartPosition.CenterScreen;
+        if (Environment.GetCommandLineArgs().Contains("--minimized"))
+            WindowState = FormWindowState.Minimized;
         BackColor = Color.FromArgb(8, 12, 21);
         FormBorderStyle = FormBorderStyle.Sizable;
         DoubleBuffered = true;
@@ -338,6 +340,12 @@ public class MainForm : Form
 
                 case "forceFfcAll":
                     _ = Task.Run(ForceFfcAllAsync);
+                    break;
+
+                case "setupSaveStartWithWindows":
+                    _settings.StartWithWindows = msg["enabled"]?.Value<bool>() ?? false;
+                    ApplyStartWithWindows(_settings.StartWithWindows);
+                    _settings.Save();
                     break;
 
                 case "setupSaveVrcPath":
@@ -6353,6 +6361,17 @@ var list = avatars.Select(a => new
         return result;
     }
 
+    private static void ApplyStartWithWindows(bool enable)
+    {
+        using var key = Microsoft.Win32.Registry.CurrentUser.OpenSubKey(
+            @"SOFTWARE\Microsoft\Windows\CurrentVersion\Run", true);
+        if (key == null) return;
+        if (enable)
+            key.SetValue("VRCNext", $"\"{Application.ExecutablePath}\" --minimized");
+        else
+            key.DeleteValue("VRCNext", throwOnMissingValue: false);
+    }
+
     // Settings
     private void ApplySettings(JToken data)
     {
@@ -6362,6 +6381,8 @@ var list = avatars.Select(a => new
             _settings.BotAvatarUrl = data["botAvatar"]?.ToString() ?? "";
             _settings.VrcPath = data["vrcPath"]?.ToString() ?? "";
             _settings.AutoStart = data["autoStart"]?.Value<bool>() ?? false;
+            _settings.StartWithWindows = data["startWithWindows"]?.Value<bool>() ?? false;
+            ApplyStartWithWindows(_settings.StartWithWindows);
             _settings.PostAll = data["postAll"]?.Value<bool>() ?? false;
             _settings.Notifications = data["notifications"]?.Value<bool>() ?? true;
             _settings.NotifySound = data["notifySound"]?.Value<bool>() ?? false;

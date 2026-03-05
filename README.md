@@ -103,6 +103,8 @@ VRCNext is not a replacement for VRCX and never will be. It is a hobby project f
 * See if you have a new friend request and deny or accept it
 * See if someone invites you to an instance
 * See if someone invites you to a group
+* Rich in-app toast cards pop up in real time for friend requests, invites, request invites, invite responses, vote-to-kick, group announcements, group invites, and group join requests
+* Accept or deny notifications directly from the toast card without opening the Notifications tab
 
 ### Media Library
 
@@ -137,6 +139,26 @@ VRCNext is not a replacement for VRCX and never will be. It is a hobby project f
 * Automatically detects all available parameters from VRChat
 * Toggle or set values for Bool, Int, and Float parameters
 * Filter and search through your parameters
+
+### Events Calendar
+
+* Browse upcoming VRChat events in a full monthly calendar view
+* Filter by All, Featured, or events you are Following
+* Navigate forward and backward through months
+* Click any day to see a detailed list of events happening that day
+* Open event details including world, time, and description directly from the calendar
+
+### Voice Fight (BETA)
+
+* Voice-triggered soundboard powered by offline VOSK speech recognition — no internet required
+* Assign one or more audio files (WAV, MP3, OGG) to any trigger word or phrase
+* Randomly picks from multiple files assigned to the same trigger
+* Configure a stop word to immediately cut playback
+* Per-keyword cooldown prevents accidental spam triggers
+* Live microphone VU meter so you can see your input level
+* Choose your input microphone and audio output device independently
+* Block-list filter strips unwanted filler words from recognition before matching
+* Real-time transcription displayed on screen while listening
 
 ### YouTube Fix / VRCVideoCacher
 

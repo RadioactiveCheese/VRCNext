@@ -1,5 +1,0 @@
-# Words listed here are stripped from VOSK recognition results before keyword matching.
-# One word or phrase per line. Lines starting with # are comments.
-huh
-heh
-hah

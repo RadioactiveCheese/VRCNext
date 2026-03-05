@@ -40,7 +40,8 @@ public sealed class VoiceFightService : IDisposable
 
     // Block list — words stripped from recognition results before keyword matching
     private static readonly string BlockListPath = Path.Combine(
-        AppDomain.CurrentDomain.BaseDirectory, "voice", "block.txt");
+        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "VRCNext", "block.txt");
+    private static readonly string[] BlockListDefaults = ["huh", "heh", "hah"];
     private HashSet<string> _blockList = new(StringComparer.OrdinalIgnoreCase);
 
     // Mic capture
@@ -176,16 +177,23 @@ public sealed class VoiceFightService : IDisposable
 
     private void LoadBlockList()
     {
-        var set = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        if (File.Exists(BlockListPath))
+        if (!File.Exists(BlockListPath))
         {
-            foreach (var raw in File.ReadAllLines(BlockListPath))
+            Directory.CreateDirectory(Path.GetDirectoryName(BlockListPath)!);
+            File.WriteAllLines(BlockListPath, new[]
             {
-                var line = raw.Trim();
-                if (line.Length == 0 || line.StartsWith('#')) continue;
-                var norm = NormalizeWord(line);
-                if (norm.Length > 0) set.Add(norm);
-            }
+                "# Words listed here are stripped from VOSK recognition results before keyword matching.",
+                "# One word or phrase per line. Lines starting with # are comments."
+            }.Concat(BlockListDefaults));
+        }
+
+        var set = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var raw in File.ReadAllLines(BlockListPath))
+        {
+            var line = raw.Trim();
+            if (line.Length == 0 || line.StartsWith('#')) continue;
+            var norm = NormalizeWord(line);
+            if (norm.Length > 0) set.Add(norm);
         }
         _blockList = set;
     }

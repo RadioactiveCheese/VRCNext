@@ -2233,16 +2233,23 @@ public class MainForm : Form
 
                 case "vfGetBlockList":
                     {
-                        var path = System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "voice", "block.txt");
-                        var words = new List<string>();
-                        if (System.IO.File.Exists(path))
+                        var path = System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "VRCNext", "block.txt");
+                        if (!System.IO.File.Exists(path))
                         {
-                            foreach (var raw in System.IO.File.ReadAllLines(path))
+                            System.IO.Directory.CreateDirectory(System.IO.Path.GetDirectoryName(path)!);
+                            System.IO.File.WriteAllLines(path, new[]
                             {
-                                var line = raw.Trim();
-                                if (line.Length == 0 || line.StartsWith('#')) continue;
-                                words.Add(line);
-                            }
+                                "# Words listed here are stripped from VOSK recognition results before keyword matching.",
+                                "# One word or phrase per line. Lines starting with # are comments.",
+                                "huh", "heh", "hah"
+                            });
+                        }
+                        var words = new List<string>();
+                        foreach (var raw in System.IO.File.ReadAllLines(path))
+                        {
+                            var line = raw.Trim();
+                            if (line.Length == 0 || line.StartsWith('#')) continue;
+                            words.Add(line);
                         }
                         SendToJS("vfBlockList", new { words });
                     }
@@ -2250,7 +2257,7 @@ public class MainForm : Form
 
                 case "vfSetBlockList":
                     {
-                        var path = System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "voice", "block.txt");
+                        var path = System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "VRCNext", "block.txt");
                         var words = msg["words"]?.ToObject<List<string>>() ?? new List<string>();
                         var lines = new List<string>
                         {

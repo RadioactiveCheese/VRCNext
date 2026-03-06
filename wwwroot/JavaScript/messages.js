@@ -116,6 +116,7 @@ if (window.chrome?.webview) {
                 document.getElementById('friendDetailContent').innerHTML = `<div class="fd-loading" style="color:var(--err);">${esc(payload.error || 'Error loading profile')}</div><div style="margin-top:10px;text-align:right;"><button class="fd-btn" onclick="closeFriendDetail()">Close</button></div>`;
                 break;
             case 'vrcActionResult':
+                if (payload.action === 'sendChatMessage') { if (typeof handleChatActionResult === 'function') handleChatActionResult(payload); break; }
                 if (payload.action === 'deleteGroupEvent') {
                     if (payload.success) {
                         const card = document.querySelector(`.fd-group-card[data-event-id="${payload.eventId}"]`);
@@ -375,6 +376,15 @@ if (window.chrome?.webview) {
                 break;
             case 'vrcWorldDetailError':
                 document.getElementById('detailModalContent').innerHTML = `<div style="padding:30px;text-align:center;color:var(--err);">${esc(payload.error || 'Error loading world')}</div><div style="text-align:center;margin-top:10px;"><button class="fd-btn" onclick="document.getElementById('modalDetail').style.display='none'">Close</button></div>`;
+                break;
+            case 'vrcChatHistory':
+                if (typeof handleChatHistory === 'function') handleChatHistory(payload);
+                break;
+            case 'vrcChatMessage':
+                if (typeof handleChatMessage  === 'function') handleChatMessage(payload);
+                break;
+            case 'vrcChatSlotInfo':
+                if (typeof handleChatSlotInfo === 'function') handleChatSlotInfo(payload);
                 break;
             case 'vrcNotifications':
                 // Merge: keep WS-received notifications not present in the REST response

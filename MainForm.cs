@@ -2592,6 +2592,41 @@ public class MainForm : Form
                     }
                     break;
 
+                case "vrcSendChatMessage":
+                    var scmUserId = msg["userId"]?.ToString();
+                    var scmText   = msg["text"]?.ToString();
+                    if (!string.IsNullOrEmpty(scmUserId) && !string.IsNullOrEmpty(scmText))
+                    {
+                        _ = Task.Run(async () =>
+                        {
+                            var (ok, err, slotsUsed) = await _vrcApi.SendChatMessageAsync(scmUserId, scmText);
+                            if (ok)
+                            {
+                                var entry = StoreChatMessage(scmUserId, "me", scmText);
+                                Invoke(() => SendToJS("vrcChatMessage", entry));
+                            }
+                            Invoke(() => {
+                                SendToJS("vrcChatSlotInfo", new { used = slotsUsed, total = 24 });
+                                SendToJS("vrcActionResult", new { action = "sendChatMessage", success = ok, message = ok ? "Sent!" : err });
+                            });
+                        });
+                    }
+                    break;
+
+                case "vrcGetChatHistory":
+                    var gchUserId = msg["userId"]?.ToString();
+                    if (!string.IsNullOrEmpty(gchUserId))
+                    {
+                        Invoke(() => SendToJS("vrcChatHistory", new { userId = gchUserId, messages = GetChatHistory(gchUserId) }));
+                        // Also fetch real slot status from VRChat so the ring is accurate
+                        _ = Task.Run(async () =>
+                        {
+                            var (used, total) = await _vrcApi.LoadChatSlotStatusAsync();
+                            Invoke(() => SendToJS("vrcChatSlotInfo", new { used, total }));
+                        });
+                    }
+                    break;
+
                 // Calendar
                 case "vrcGetCalendarEvents":
                     var calFilter = msg["filter"]?.ToString() ?? "all";
@@ -4352,6 +4387,44 @@ var list = avatars.Select(a => new
     {
         if (_timeline.IsLoggedNotif((string)n.id)) return null;
         _timeline.AddLoggedNotif((string)n.id);
+
+        // ── VRCN Chat intercept ───────────────────────────────────────────────
+        // invite OR requestInvite whose slot text starts with "msg " are chat messages.
+        var nType = (string)n.type;
+        if (nType == "invite" || nType == "requestInvite")
+        {
+            var invMsg = "";
+            JObject? det = null;
+            try
+            {
+                var rawDet = n.details as JToken;
+                if (rawDet is JObject jo) det = jo;
+                else if (rawDet?.Type == JTokenType.String) det = JObject.Parse(rawDet.ToString());
+                // invite → inviteMessage, requestInvite → requestMessage
+                invMsg = det?["inviteMessage"]?.ToString()
+                      ?? det?["requestMessage"]?.ToString()
+                      ?? "";
+            }
+            catch { }
+
+            if (invMsg.StartsWith("msg "))
+            {
+                var chatText     = invMsg["msg ".Length..];
+                var senderId     = (string?)n.senderUserId ?? "";
+                var entry        = StoreChatMessage(senderId, senderId, chatText);
+                var notifId      = (string)n.id;
+                Invoke(() => SendToJS("vrcChatMessage", entry));
+                // Auto-hide & mark seen so it doesn't appear in notification panel
+                if (!string.IsNullOrEmpty(notifId) && _vrcApi.IsLoggedIn)
+                    _ = Task.Run(async () =>
+                    {
+                        await _vrcApi.MarkNotificationReadAsync(notifId);
+                        await _vrcApi.HideNotificationAsync(notifId);
+                    });
+                return null; // skip timeline + notification panel
+            }
+        }
+        // ─────────────────────────────────────────────────────────────────────
 
         var senderImg    = "";
         var senderUserId = (string?)n.senderUserId;
@@ -6574,6 +6647,43 @@ var list = avatars.Select(a => new
         if (t.Type == JTokenType.Date)
             return t.Value<DateTime>().ToUniversalTime().ToString("o");
         return t.ToString();
+    }
+
+    // ── VRCN Chat Storage ─────────────────────────────────────────────────────
+    private static readonly string _chatDir = Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "VRCNext", "chat");
+
+    private record ChatEntry(string id, string from, string text, string time);
+
+    private static string ChatFile(string userId) =>
+        Path.Combine(_chatDir, $"chat_{userId}.json");
+
+    private List<ChatEntry> GetChatHistory(string userId)
+    {
+        try
+        {
+            var file = ChatFile(userId);
+            if (!File.Exists(file)) return [];
+            var json = File.ReadAllText(file);
+            return JsonConvert.DeserializeObject<List<ChatEntry>>(json) ?? [];
+        }
+        catch { return []; }
+    }
+
+    private ChatEntry StoreChatMessage(string userId, string from, string text)
+    {
+        var entry = new ChatEntry(Guid.NewGuid().ToString(), from, text, DateTime.UtcNow.ToString("o"));
+        try
+        {
+            Directory.CreateDirectory(_chatDir);
+            var history = GetChatHistory(userId);
+            history.Add(entry);
+            // Keep last 500 messages per conversation
+            if (history.Count > 500) history = history[^500..];
+            File.WriteAllText(ChatFile(userId), JsonConvert.SerializeObject(history));
+        }
+        catch { }
+        return entry;
     }
 
 }

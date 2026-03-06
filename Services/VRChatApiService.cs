@@ -795,6 +795,137 @@ public class VRChatApiService
         catch (Exception ex) { Log($"InviteFriend exception: {ex.Message}"); return false; }
     }
 
+    // ── VRCN Messenger ────────────────────────────────────────────────────────
+    // Protocol: invites to the VRChat home world whose slot text starts with
+    // "msg " are intercepted by VRCN as chat messages (auto-hidden, stored locally).
+    //
+    // 24 slots across 2 types → 1 msg every ~2.5 min sustained:
+    //   Virtual slots  0–11 → type "message"        → POST /invite/{userId}
+    //   Virtual slots 12–23 → type "requestMessage" → POST /requestInvite/{userId}
+    private const string ChatWorldId = "wrld_4432ea9b-729c-46e3-8eaf-846aa0a37fdd";
+    // Key: virtual slot 0-23, Value: last-used timestamp
+    private readonly Dictionary<int, DateTime> _chatSlotTimestamps = new();
+
+    private const int ChatTotalSlots = 24;
+
+    /// How many of the 24 slots are currently in cooldown.
+    public int ChatSlotsUsed =>
+        _chatSlotTimestamps.Count(x => DateTime.Now - x.Value < TimeSpan.FromMinutes(60));
+
+    /// Fetch real cooldown state from VRChat API for both slot types and populate _chatSlotTimestamps.
+    /// Returns (slotsUsed, total).
+    public async Task<(int used, int total)> LoadChatSlotStatusAsync()
+    {
+        if (!IsLoggedIn || CurrentUserId == null) return (0, ChatTotalSlots);
+        try
+        {
+            var t1 = _http.GetAsync($"{BASE}/message/{CurrentUserId}/message");
+            var t2 = _http.GetAsync($"{BASE}/message/{CurrentUserId}/requestMessage");
+            await Task.WhenAll(t1, t2);
+
+            foreach (var (resp, offset) in new[] { (t1.Result, 0), (t2.Result, 12) })
+            {
+                if (!resp.IsSuccessStatusCode) continue;
+                var arr = JArray.Parse(await resp.Content.ReadAsStringAsync());
+                foreach (JObject slot in arr.Cast<JObject>())
+                {
+                    var idx      = slot["slot"]?.Value<int>() ?? -1;
+                    var canEdit  = slot["canBeUpdated"]?.Value<bool>() ?? true;
+                    var cooldown = slot["remainingCooldownMinutes"]?.Value<int>() ?? 0;
+                    if (idx < 0 || idx >= 12) continue;
+                    var vSlot = idx + offset;
+                    if (!canEdit && cooldown > 0)
+                        // Mark as used: set timestamp so (60 - cooldown) minutes have "elapsed"
+                        _chatSlotTimestamps[vSlot] = DateTime.Now - TimeSpan.FromMinutes(60 - cooldown);
+                    else
+                        // Free: remove any stale entry
+                        _chatSlotTimestamps.Remove(vSlot);
+                }
+            }
+            Log($"ChatSlotStatus: {ChatSlotsUsed}/{ChatTotalSlots} in cooldown");
+        }
+        catch (Exception ex) { Log($"LoadChatSlotStatus exception: {ex.Message}"); }
+        return (ChatSlotsUsed, ChatTotalSlots);
+    }
+
+    /// Returns the first virtual slot (0-23) not currently in cooldown. -1 if all busy.
+    private int GetNextFreeSlot()
+    {
+        for (int i = 0; i < ChatTotalSlots; i++)
+            if (!_chatSlotTimestamps.TryGetValue(i, out var t) || DateTime.Now - t >= TimeSpan.FromMinutes(60))
+                return i;
+        return -1;
+    }
+
+    private async Task<(bool ok, int cooldown)> UpdateChatSlotAsync(int virtualSlot, string text)
+    {
+        if (CurrentUserId == null) return (false, 0);
+        var type     = virtualSlot < 12 ? "message" : "requestMessage";
+        var realSlot = virtualSlot < 12 ? virtualSlot : virtualSlot - 12;
+        var payload  = new JObject { ["message"] = text };
+        var content  = new StringContent(payload.ToString(), Encoding.UTF8, "application/json");
+        var resp     = await _http.PutAsync($"{BASE}/message/{CurrentUserId}/{type}/{realSlot}", content);
+        var body     = await resp.Content.ReadAsStringAsync();
+        if (resp.IsSuccessStatusCode) return (true, 0);
+        if ((int)resp.StatusCode == 429)
+        {
+            try { return (false, JObject.Parse(body)["remainingCooldownMinutes"]?.Value<int>() ?? 60); } catch { }
+            return (false, 60);
+        }
+        Log($"UpdateChatSlot({type}/{realSlot}) failed: {(int)resp.StatusCode}");
+        return (false, 0);
+    }
+
+    public async Task<(bool ok, string error, int slotsUsed)> SendChatMessageAsync(string userId, string text)
+    {
+        if (!IsLoggedIn || CurrentUserId == null) return (false, "Not logged in", 0);
+        try
+        {
+            var vSlot = GetNextFreeSlot();
+            if (vSlot < 0)
+                return (false, $"All {ChatTotalSlots} slots in cooldown", ChatSlotsUsed);
+
+            var (updateOk, cooldown) = await UpdateChatSlotAsync(vSlot, "msg " + text);
+            if (!updateOk)
+            {
+                // Slot was in cooldown despite our local state — update timestamps and report
+                _chatSlotTimestamps[vSlot] = DateTime.Now - TimeSpan.FromMinutes(60 - Math.Max(cooldown, 1));
+                return (false, $"Slot {vSlot} cooldown: {cooldown} min (refreshing…)", ChatSlotsUsed);
+            }
+
+            _chatSlotTimestamps[vSlot] = DateTime.Now;
+
+            HttpResponseMessage resp;
+            string body;
+            if (vSlot < 12)
+            {
+                var payload = new JObject
+                {
+                    ["instanceId"]  = $"{ChatWorldId}:0~region(eu)",
+                    ["worldId"]     = ChatWorldId,
+                    ["messageSlot"] = vSlot,
+                };
+                var content = new StringContent(payload.ToString(), Encoding.UTF8, "application/json");
+                resp = await _http.PostAsync($"{BASE}/invite/{userId}", content);
+                body = await resp.Content.ReadAsStringAsync();
+            }
+            else
+            {
+                var realSlot = vSlot - 12;
+                var payload  = new JObject { ["messageSlot"] = realSlot };
+                var content  = new StringContent(payload.ToString(), Encoding.UTF8, "application/json");
+                resp = await _http.PostAsync($"{BASE}/requestInvite/{userId}", content);
+                body = await resp.Content.ReadAsStringAsync();
+            }
+
+            Log($"SendChatMessage({userId}) vSlot={vSlot}: {(int)resp.StatusCode} {body[..Math.Min(150, body.Length)]}");
+            return resp.IsSuccessStatusCode
+                ? (true, "", ChatSlotsUsed)
+                : (false, $"HTTP {(int)resp.StatusCode}", ChatSlotsUsed);
+        }
+        catch (Exception ex) { Log($"SendChatMessage exception: {ex.Message}"); return (false, ex.Message, 0); }
+    }
+
     // Get user's predefined invite message slots (type "message" = outgoing invites)
     public async Task<JArray?> GetInviteMessagesAsync(string userId)
     {

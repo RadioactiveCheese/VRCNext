@@ -23,11 +23,7 @@
   <ItemGroup>
     <Content Include="wwwroot\**" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
-  <ItemGroup>
-    <EmbeddedResource Update="MainForm.resx">
-      <DependentUpon>MainForm.cs</DependentUpon>
-    </EmbeddedResource>
-  </ItemGroup>
+
   <ItemGroup>
   <None Update="voice\**\*">
     <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>

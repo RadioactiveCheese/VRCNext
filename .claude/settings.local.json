@@ -3,7 +3,8 @@
     "allow": [
       "WebSearch",
       "WebFetch(domain:vrchatapi.github.io)",
-      "Bash(curl -s \"https://vrchatapi.github.io/docs/api/\")"
+      "Bash(curl -s \"https://vrchatapi.github.io/docs/api/\")",
+      "WebFetch(domain:api.github.com)"
     ]
   }
 }

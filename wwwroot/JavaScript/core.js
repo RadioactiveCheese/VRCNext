@@ -1,5 +1,6 @@
 let relayOn = false, settings = { webhooks: [{}, {}, {}, {}], folders: [], extraExe: [] }, postedFiles = [], selectedFolderIdx = -1;
 let favorites = new Set(), showFavOnly = false, libraryFiles = [];
+let _prevTab = -1;
 let hiddenMedia = new Set();
 try { hiddenMedia = new Set(JSON.parse(localStorage.getItem('vrcnext_hidden') || '[]')); } catch {}
 const thumbCache = {};
@@ -239,6 +240,8 @@ function toggleNavGroup(id) {
 }
 
 function showTab(i) {
+    if (_prevTab === 7 && i !== 7) destroyLibrary();
+    _prevTab = i;
     document.querySelectorAll('.tab').forEach((t, j) => t.classList.toggle('active', j === i));
     // Clear active from all nav-btns (including sub-items and group headers)
     document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));

@@ -1157,7 +1157,19 @@ body {
 }
 
 /* === LIBRARY === */
+/* Tab 7 fills full .content height as flex column — same pattern as #tab12 */
+/* Remove bottom padding so paginator reaches the screen edge on both tabs */
+.content:has(#tab7.active),
+.content:has(#tab12.active) { overflow-y: hidden; padding-bottom: 0; }
+#tab7.active {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+}
 .lib-wrap {
+    flex: 1;
+    overflow-y: auto;
+    min-height: 0;
     position: relative;
 }
 .lib-top-fade {
@@ -5211,8 +5223,6 @@ body {
 }
 
 /* ── Timeline tab fills full .content height as flex column ── */
-.content:has(#tab12.active) { overflow-y: hidden; }
-
 #tab12.active {
     display: flex;
     flex-direction: column;

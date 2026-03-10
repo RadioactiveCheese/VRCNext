@@ -124,15 +124,15 @@ sendToCS({ action: 'getTimeline' });
 
 /* === Library top-fade === */
 (function () {
-    const content = document.querySelector('.content');
-    if (!content) return;
     const tab7 = document.getElementById('tab7');
     function applyLibFade() {
-        const fade = document.getElementById('libTopFade');
+        const fade    = document.getElementById('libTopFade');
+        const libWrap = document.querySelector('.lib-wrap');
         if (!fade || !tab7) return;
-        const visible = tab7.classList.contains('active') && content.scrollTop > 160;
+        const visible = tab7.classList.contains('active') && (libWrap?.scrollTop ?? 0) > 60;
         fade.classList.toggle('visible', visible);
     }
-    content.addEventListener('scroll', applyLibFade, { passive: true });
+    // .lib-wrap is the scrolling container after the flex-column layout change
+    document.querySelector('.lib-wrap')?.addEventListener('scroll', applyLibFade, { passive: true });
     document.documentElement.addEventListener('tabchange', applyLibFade);
 }());

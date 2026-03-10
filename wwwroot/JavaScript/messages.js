@@ -44,7 +44,7 @@ window.external.receiveMessage(rawMsg => {
             case 'libraryPageData': appendLibraryPage(payload); break;
             case 'libraryFileDeleted':
                 libraryFiles = libraryFiles.filter(f => f.path !== payload.path);
-                filterLibrary();
+                filterLibrary(true); // stay on current page after delete
                 break;
             case 'favoritesLoaded':
                 favorites = new Set(payload || []);

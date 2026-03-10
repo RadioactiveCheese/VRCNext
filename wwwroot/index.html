@@ -350,7 +350,7 @@
             <!-- Tab 7: Media Library -->
             <div class="tab" id="tab7">
                 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:10px;">
-                    <div><span style="font-size:14px;font-weight:700;color:var(--tx0);">Media Library</span><span id="libCount" style="font-size:12px;color:var(--tx3);margin-left:10px;"></span></div>
+                    <div><span style="font-size:14px;font-weight:700;color:var(--tx0);">Media Library</span></div>
                     <div style="display:flex;gap:8px;align-items:center;">
                         <button class="vrcn-button" id="libFavBtn" onclick="toggleFavFilter()"><span class="msi" style="font-size:16px;">star</span> Favorites</button>
                         <select id="libFolderFilter" class="vrcn-dropdown" onchange="filterLibrary()"><option value="__all__">All Folders</option></select>
@@ -362,6 +362,7 @@
                     <div class="lib-top-fade" id="libTopFade"></div>
                     <div id="libGrid" class="lib-grid"><div class="empty-msg">Add watch folders in Settings.</div></div>
                 </div>
+                <div id="libPaginatorBar" class="tl-paginator-bar"></div>
             </div>
             <!-- Tab 8: Activity Log -->
             <div class="tab" id="tab8">

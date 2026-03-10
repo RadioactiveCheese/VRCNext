@@ -9,6 +9,7 @@ public partial class MainForm
 {
     private PhotinoWindow _window = null!;
     private string _imgCacheDir = "";
+    private string _thumbCacheDir = "";
     private string _vrcPhotoDir = "";
     private int _httpPort;
     private System.Net.HttpListener? _httpListener;

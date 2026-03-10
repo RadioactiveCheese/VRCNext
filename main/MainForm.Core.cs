@@ -27,6 +27,10 @@ public partial class MainForm
             Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
             "VRCNext", "ImageCache");
         Directory.CreateDirectory(_imgCacheDir);
+        _thumbCacheDir = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+            "VRCNext", "ThumbCache");
+        Directory.CreateDirectory(_thumbCacheDir);
         _imgCache = new ImageCacheService(_imgCacheDir, _vrcApi.GetHttpClient())
         {
             Enabled    = _settings.ImgCacheEnabled,
@@ -219,7 +223,8 @@ public partial class MainForm
 
     private void HandleHttp(System.Net.HttpListenerContext ctx)
     {
-        var path = ctx.Request.Url?.AbsolutePath ?? "/";
+        var path    = ctx.Request.Url?.AbsolutePath ?? "/";
+        var isThumb = ctx.Request.Url?.Query?.Contains("thumb=1") == true;
         try
         {
             if (path.StartsWith("/imgcache/"))
@@ -227,9 +232,11 @@ public partial class MainForm
             else if (path.StartsWith("/vrcphotos/"))
             {
                 if (!string.IsNullOrEmpty(_vrcPhotoDir))
-                    ServeFile(ctx, Path.Combine(_vrcPhotoDir, Uri.UnescapeDataString(path["/vrcphotos/".Length..])));
-                else
-                    ctx.Response.StatusCode = 404;
+                {
+                    var file = Path.Combine(_vrcPhotoDir, Uri.UnescapeDataString(path["/vrcphotos/".Length..]));
+                    if (isThumb) ServeThumb(ctx, file); else ServeFile(ctx, file);
+                }
+                else ctx.Response.StatusCode = 404;
             }
             else if (path.StartsWith("/media"))
             {
@@ -237,9 +244,11 @@ public partial class MainForm
                 var slash = rest.IndexOf('/');
                 if (slash > 0 && int.TryParse(rest[..slash], out var idx)
                     && idx < _settings.WatchFolders.Count)
-                    ServeFile(ctx, Path.Combine(_settings.WatchFolders[idx], Uri.UnescapeDataString(rest[(slash + 1)..])));
-                else
-                    ctx.Response.StatusCode = 404;
+                {
+                    var file = Path.Combine(_settings.WatchFolders[idx], Uri.UnescapeDataString(rest[(slash + 1)..]));
+                    if (isThumb) ServeThumb(ctx, file); else ServeFile(ctx, file);
+                }
+                else ctx.Response.StatusCode = 404;
             }
             else ctx.Response.StatusCode = 404;
         }
@@ -261,6 +270,46 @@ public partial class MainForm
         };
         ctx.Response.StatusCode = 200;
         using var fs = File.OpenRead(file);
+        fs.CopyTo(ctx.Response.OutputStream);
+    }
+
+    private void ServeThumb(System.Net.HttpListenerContext ctx, string file)
+    {
+        if (!File.Exists(file)) { ctx.Response.StatusCode = 404; return; }
+        var ext = Path.GetExtension(file).ToLower();
+        // Only thumbnail images; serve other types (video etc.) as-is
+        if (ext is not (".jpg" or ".jpeg" or ".png" or ".webp"))
+        {
+            ServeFile(ctx, file);
+            return;
+        }
+
+        // Cache key: MD5 of path, invalidate if source is newer
+        var keyBytes  = System.Security.Cryptography.MD5.HashData(System.Text.Encoding.UTF8.GetBytes(file));
+        var thumbPath = Path.Combine(_thumbCacheDir, Convert.ToHexString(keyBytes) + ".jpg");
+
+        if (!File.Exists(thumbPath) || File.GetLastWriteTimeUtc(thumbPath) < File.GetLastWriteTimeUtc(file))
+        {
+            using var src = System.Drawing.Image.FromFile(file);
+            const int maxSize = 480;
+            var scale = Math.Min(1.0, Math.Min(maxSize / (double)src.Width, maxSize / (double)src.Height));
+            var w = Math.Max(1, (int)(src.Width  * scale));
+            var h = Math.Max(1, (int)(src.Height * scale));
+            using var bmp = new System.Drawing.Bitmap(w, h);
+            using var g   = System.Drawing.Graphics.FromImage(bmp);
+            g.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.HighQualityBicubic;
+            g.DrawImage(src, 0, 0, w, h);
+            var jpegCodec = System.Drawing.Imaging.ImageCodecInfo.GetImageEncoders()
+                .First(c => c.FormatID == System.Drawing.Imaging.ImageFormat.Jpeg.Guid);
+            var encParams = new System.Drawing.Imaging.EncoderParameters(1);
+            encParams.Param[0] = new System.Drawing.Imaging.EncoderParameter(
+                System.Drawing.Imaging.Encoder.Quality, 85L);
+            bmp.Save(thumbPath, jpegCodec, encParams);
+        }
+
+        ctx.Response.ContentType = "image/jpeg";
+        ctx.Response.StatusCode  = 200;
+        using var fs = File.OpenRead(thumbPath);
         fs.CopyTo(ctx.Response.OutputStream);
     }
 }

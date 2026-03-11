@@ -3939,6 +3939,26 @@ body {
     transition: background .1s;
 }
 
+.inst-user-info {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+
+.inst-user-status-row {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+}
+
+.inst-user-status {
+    font-size: 10px;
+    color: var(--tx3);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
 .inst-user-row:hover {
     background: var(--bg-hover);
 }
@@ -5838,10 +5858,11 @@ div.vn-select {
 .launch-modal-cancel:hover { color: var(--tx2); }
 
 /* === Single Friend Invite Modal === */
-.inv-single-modal { overflow: hidden; padding: 0; min-width: 320px; max-width: 400px; width: 90%; }
+.inv-single-modal { overflow: hidden; padding: 0; min-width: 320px; max-width: 420px; width: 90%; max-height: 85vh; display: flex; flex-direction: column; }
 .inv-single-body {
     padding: 14px 16px 16px;
     display: flex; flex-direction: column; gap: 8px;
+    overflow-y: auto; flex: 1; min-height: 0;
 }
 .inv-single-row {
     display: flex; gap: 8px;
@@ -5849,7 +5870,15 @@ div.vn-select {
 .inv-action-full { width: 100%; flex: none; }
 #invMsgList {
     display: flex; flex-direction: column; gap: 4px;
-    max-height: 200px; overflow-y: auto;
+    max-height: 190px; overflow-y: auto;
+}
+.inv-photo-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(62px, 1fr));
+    gap: 5px;
+    max-height: 175px;
+    overflow-y: auto;
+    border-radius: 6px;
 }
 .inv-msg-item {
     display: flex; align-items: center; gap: 8px;
@@ -6941,6 +6970,15 @@ div.vn-select {
     background: var(--bg2);
     display: block;
 }
+.dp-world-placeholder {
+    width: 72px;
+    height: 72px;
+    border-radius: 10px;
+    background: var(--bg2);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
 .dp-status-dot {
     width: 16px;
     height: 16px;
@@ -6998,3 +7036,98 @@ div.vn-select {
 .dp-pg-dot.join_me { background: #5bc8f5; }
 .dp-pg-dot.ask_me  { background: #faa61a; }
 .dp-pg-dot.busy    { background: #ed4245; }
+
+/* ═══════════════════════════════════════════════════════════
+   INSTANCE INFO MODAL — Player Table
+   ═══════════════════════════════════════════════════════════ */
+.iim-scroll {
+    max-height: 420px;
+    overflow-y: auto;
+    border-radius: 8px;
+    border: 1px solid var(--bg-line);
+    margin-bottom: 14px;
+}
+.iim-table {
+    width: 100%;
+    border-collapse: collapse;
+    background: var(--bg-card);
+}
+.iim-table thead th {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    background: var(--bg-card);
+    border-bottom: 1px solid var(--bg-line);
+    padding: 6px 8px;
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--tx3);
+    letter-spacing: .05em;
+    text-align: left;
+    white-space: nowrap;
+    font-family: inherit;
+}
+.iim-table tbody tr {
+    border-bottom: 1px solid rgba(255,255,255,.04);
+    transition: background .1s;
+}
+.iim-table tbody tr:last-child { border-bottom: none; }
+.iim-table tbody tr:hover { background: var(--bg-hover); }
+.iim-table td {
+    padding: 5px 8px;
+    font-size: 12px;
+    color: var(--tx1);
+    vertical-align: middle;
+    white-space: nowrap;
+}
+.iim-av {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background-size: cover;
+    background-position: center;
+    background-color: var(--bg-hover);
+    display: block;
+}
+.iim-av-letter {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--tx3);
+}
+.iim-name {
+    color: var(--tx0);
+    font-weight: 500;
+    max-width: 180px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: block;
+}
+.iim-lang-badge {
+    font-size: 9px;
+    padding: 1px 4px;
+    border-radius: 3px;
+    background: var(--bg-hover);
+    color: var(--tx3);
+    letter-spacing: .03em;
+}
+.iim-status-cell {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    max-width: 200px;
+    overflow: hidden;
+}
+.iim-status-cell span:last-child {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    color: var(--tx2);
+}
+.iim-lang-cell {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 3px;
+    align-items: center;
+}

@@ -276,10 +276,10 @@ function handleInvUploadResult(payload) {
         if (INV_TABS[activeInvTab]?.tag === tag) {
             renderInvFiles(invFilesCache[tag], activeInvTab);
         }
-        iuHandleUploadDone(true);
+        iuHandleUploadDone(true, payload.file);
         showToast(true, 'Uploaded successfully!');
     } else {
-        iuHandleUploadDone(false);
+        iuHandleUploadDone(false, null);
         showToast(false, payload.error || 'Upload failed');
     }
 }

@@ -668,70 +668,6 @@ function renderBioLink(url) {
     return `<button class="fd-bio-link" onclick="sendToCS({action:'openUrl',url:'${safeUrlJs}'})" title="${safeUrl}">${platformSvg}<span>${esc(label)}</span></button>`;
 }
 
-// Timeline preview list for friend detail modal
-function buildFdTimelinePreview(userId) {
-    // Always return a placeholder so updateFdTlPreview() can find the element later
-    if (!Array.isArray(timelineEvents) || !userId) return '<div id="fdTlPreview"></div>';
-
-    let evs = timelineEvents.filter(ev => {
-        if (ev.type === 'first_meet' || ev.type === 'meet_again')
-            return ev.userId === userId;
-        if (ev.type === 'photo')
-            return (ev.players || []).some(p => p.userId === userId);
-        return false;
-    });
-    // Show section only if we've ever seen this person (first_meet OR meet_again)
-    if (!evs.some(ev => ev.type === 'first_meet' || ev.type === 'meet_again'))
-        return '<div id="fdTlPreview"></div>';
-
-    evs.sort((a, b) => (b.timestamp || '').localeCompare(a.timestamp || ''));  // newest first
-    if (evs.length > 10) evs = evs.slice(0, 10);
-
-    const items = evs.map(ev => {
-        const meta  = TL_TYPE_META[ev.type]  || { icon: 'event', label: ev.type };
-        const color = TL_TYPE_COLOR[ev.type] || 'var(--tx3)';
-        const d    = ev.timestamp ? new Date(ev.timestamp) : null;
-        const dateStr = d ? d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '';
-        const timeStr = d ? d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }) : '';
-
-        let imgSrc = '';
-        if (ev.type === 'photo' && ev.photoUrl) {
-            imgSrc = ev.photoUrl;
-        } else {
-            // For all event types (including first_meet / meet_again): show world thumbnail
-            imgSrc = ev.worldThumb || '';
-        }
-
-        const imgHtml = imgSrc
-            ? `<img class="fdtl-avatar" src="${esc(imgSrc)}" onerror="this.style.display='none'">`
-            : `<div class="fdtl-avatar fdtl-avatar-empty"><span class="msi" style="font-size:16px;">${meta.icon}</span></div>`;
-
-        const loc = ev.type === 'photo'
-            ? (ev.photoPath ? ev.photoPath.split(/[\\/]/).pop() : 'Photo')
-            : (ev.worldName || '');
-
-        return `<div class="fdtl-item">
-            ${imgHtml}
-            <div class="fdtl-item-info">
-                <div class="fdtl-badge vrcn-badge" style="background:${color}22;color:${color};"><span class="msi" style="font-size:10px;vertical-align:middle;">${meta.icon}</span> ${esc(meta.label)}</div>
-                ${loc ? `<div class="fdtl-item-loc">${esc(loc)}</div>` : ''}
-                <div class="fdtl-item-date">${esc(dateStr)}${timeStr ? ' · ' + timeStr : ''}</div>
-            </div>
-        </div>`;
-    });
-
-    return `<div id="fdTlPreview" class="fd-tl-section">
-        <div class="fd-meta-label" style="margin-bottom:8px;">Timeline</div>
-        <div class="fdtl-list">${items.join('')}</div>
-    </div>`;
-}
-
-// Called by renderTimeline / handleTimelineEvent if the friend detail modal is open
-function updateFdTlPreview() {
-    const el = document.getElementById('fdTlPreview');
-    if (!el || !currentFriendDetail) return;
-    el.outerHTML = buildFdTimelinePreview(currentFriendDetail.id || '');
-}
 
 function renderFriendDetail(d) {
     currentFriendDetail = d;
@@ -913,9 +849,8 @@ function renderFriendDetail(d) {
     }
 
     // Info tab content
-    const tlPreviewHtml = buildFdTimelinePreview(d.id || '');
     const userIdBadge = d.id ? `<div style="margin-bottom:10px;">${idBadge(d.id)}</div>` : '';
-    const infoContent = `${vrcBadgesHtml}${repGroupInfoHtml}${userIdBadge}${bioHtml}${bioLinksHtml}${langsHtml}${worldHtml}${metaHtml ? '<div style="margin-bottom:14px;">' + metaHtml + '</div>' : ''}${noteHtml}${tlPreviewHtml}`;
+    const infoContent = `${vrcBadgesHtml}${repGroupInfoHtml}${userIdBadge}${bioHtml}${bioLinksHtml}${langsHtml}${worldHtml}${metaHtml ? '<div style="margin-bottom:14px;">' + metaHtml + '</div>' : ''}${noteHtml}`;
 
     // Banner
     const bannerSrc = d.profilePicOverride || d.currentAvatarImageUrl || d.image || '';
@@ -925,11 +860,11 @@ function renderFriendDetail(d) {
 
     // Presence
     const fdLocation = d.location || '';
-    // "private" / "traveling" = in-game with hidden or transitioning instance, not web.
-    // d.state === 'active' is the reliable web indicator (null = in-game, 'active' = web/mobile).
-    const fdIsInGame = fdLocation && fdLocation !== 'offline' && fdLocation !== '' && d.state !== 'active';
-    const fdIsWeb = !fdIsInGame && (d.state === 'active' || (d.platform || '').toLowerCase() === 'web') && d.status !== 'offline';
-    const fdIsOffline = !fdIsInGame && !fdIsWeb;
+    // VRChat returns state="offline" for ALL non-friends (privacy) — cannot be used for offline detection.
+    // Use status as the authoritative online/offline indicator (accurate for both friends and non-friends).
+    const fdIsOffline = (d.status || 'offline') === 'offline';
+    const fdIsInGame = !fdIsOffline && !!fdLocation && fdLocation !== 'offline';
+    const fdIsWeb = !fdIsOffline && !fdIsInGame && d.state === 'active';
     const fdDotClass = fdIsWeb ? 'vrc-status-ring' : 'vrc-status-dot';
     const fdStatusDotCls = fdIsOffline ? 's-offline' : statusDotClass(d.status);
 
@@ -1199,18 +1134,26 @@ function filterFavFriends() {
 }());
 
 /* === Invite Modal === */
-let _invModalUserId = null;
-let _invModalApiMsgs = []; // raw VRChat API objects { slot, message, canBeUpdated, remainingCooldownMinutes }
-let _invModalSelected = -1;
+let _invModalUserId      = null;
+let _invModalApiMsgs     = []; // { slot, message, canBeUpdated, remainingCooldownMinutes }
+let _invModalSelected    = -1;
+let _invModalTab         = 'direct'; // 'direct' | 'message' | 'photo'
+let _invModalPhotoFileId = null;
+let _invModalPhotoUrl    = null;  // CDN url from library selection
 
-function openFriendInviteModal(userId, displayName) {
+function openFriendInviteModal(userId, displayName, initialTab) {
     closeFriendInviteModal();
-    _invModalUserId = userId;
-    _invModalApiMsgs = [];
-    _invModalSelected = -1;
+    _invModalUserId      = userId;
+    _invModalApiMsgs     = [];
+    _invModalSelected    = -1;
+    _invModalTab         = 'direct';
+    _invModalPhotoFileId = null;
+    _invModalPhotoUrl    = null;
+    const _invInitialTab = initialTab || 'direct';
 
-    const thumb = currentInstanceData?.worldThumb || '';
-    const worldName = currentInstanceData?.worldName || 'your instance';
+    const thumb      = currentInstanceData?.worldThumb || '';
+    const worldName  = currentInstanceData?.worldName || 'your instance';
+    const hasVrcPlus = Array.isArray(currentVrcUser?.tags) && currentVrcUser.tags.includes('system_supporter');
 
     const el = document.createElement('div');
     el.className = 'modal-overlay';
@@ -1226,19 +1169,56 @@ function openFriendInviteModal(userId, displayName) {
                 <button class="inv-close-btn" onclick="closeFriendInviteModal()"><span class="msi" style="font-size:18px;">close</span></button>
             </div>
             <div class="inv-single-body">
-                <div class="inv-single-row">
-                    <button class="vrcn-button vrcn-btn-primary" onclick="_invModalSendDirect()">Invite Directly</button>
-                    <button class="vrcn-button" id="invMsgToggleBtn" onclick="_invModalToggleMsgs()">Invite with Message</button>
+                <div class="fd-tabs">
+                    <button class="fd-tab active" id="invTab_direct"  onclick="_invModalSetTab('direct')">Directly</button>
+                    <button class="fd-tab"         id="invTab_message" onclick="_invModalSetTab('message')">With Message</button>
+                    ${hasVrcPlus ? `<button class="fd-tab" id="invTab_photo" onclick="_invModalSetTab('photo')">With Image</button>` : ''}
                 </div>
-                <div id="invMsgList" style="display:none;"></div>
-                <div id="invMsgSendRow" style="display:none;">
-                    <button class="vrcn-button vrcn-btn-primary inv-action-full" onclick="_invModalSendWithMsg()">Send Invite</button>
+                <div id="invContent_direct" style="padding:4px 0 6px;font-size:12px;color:var(--tx3);">Send a direct invite with no message.</div>
+                <div id="invMsgSection" style="display:none;">
+                    <div id="invMsgOptLabel" style="display:none;font-size:11px;color:var(--tx3);margin-bottom:4px;">Optional message</div>
+                    <div id="invMsgList"></div>
                 </div>
+                <div id="invPhotoSection" style="display:none;">
+                    <label class="gp-label">Image <span style="color:var(--tx3);font-weight:400;">(required)</span></label>
+                    <div id="invLibraryGrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(72px,1fr));gap:6px;max-height:180px;overflow-y:auto;padding:4px 0;"></div>
+                </div>
+                <button id="invSendBtn" class="vrcn-button vrcn-btn-primary inv-action-full" onclick="_invModalSend()">Send Invite</button>
             </div>
         </div>`;
     el.addEventListener('click', e => { if (e.target === el) closeFriendInviteModal(); });
     document.body.appendChild(el);
     window._inviteModalEl = el;
+    if (_invInitialTab !== 'direct') _invModalSetTab(_invInitialTab);
+}
+
+function _invModalSetTab(tab) {
+    _invModalTab = tab;
+    ['direct', 'message', 'photo'].forEach(t => {
+        const btn = document.getElementById(`invTab_${t}`);
+        if (btn) btn.classList.toggle('active', t === tab);
+    });
+    const directEl = document.getElementById('invContent_direct');
+    const msgSect  = document.getElementById('invMsgSection');
+    const optLabel = document.getElementById('invMsgOptLabel');
+    const photoSect = document.getElementById('invPhotoSection');
+    if (directEl)  directEl.style.display  = tab === 'direct'  ? '' : 'none';
+    if (msgSect)   msgSect.style.display   = (tab === 'message' || tab === 'photo') ? '' : 'none';
+    if (optLabel)  optLabel.style.display  = tab === 'photo'   ? '' : 'none';
+    if (photoSect) photoSect.style.display = tab === 'photo'   ? '' : 'none';
+    // Load messages on first switch to a tab that needs them
+    if ((tab === 'message' || tab === 'photo') && !_invModalApiMsgs.length) {
+        sendToCS({ action: 'vrcGetInviteMessages' });
+    } else if (tab === 'message' || tab === 'photo') {
+        _invModalRenderMsgs();
+    }
+    // On first switch to photo tab: load library from cache or request
+    if (tab === 'photo') {
+        const cached = (typeof invFilesCache !== 'undefined') && invFilesCache['gallery'];
+        if (cached && cached.length > 0) _invModalRenderLibrary(cached);
+        else sendToCS({ action: 'invGetFiles', tag: 'gallery' });
+    }
+    _invModalUpdateSendBtn();
 }
 
 function _invModalRenderMsgs() {
@@ -1249,8 +1229,8 @@ function _invModalRenderMsgs() {
         return;
     }
     list.innerHTML = _invModalApiMsgs.map(m => {
-        const i = m.slot;
-        const canEdit = m.canBeUpdated;
+        const i        = m.slot;
+        const canEdit  = m.canBeUpdated;
         const cooldown = m.remainingCooldownMinutes || 0;
         const isSelected = _invModalSelected === i;
         return `
@@ -1263,48 +1243,23 @@ function _invModalRenderMsgs() {
     }).join('');
 }
 
-function _invModalToggleMsgs() {
-    const list = document.getElementById('invMsgList');
-    const btn = document.getElementById('invMsgToggleBtn');
-    if (!list) return;
-    const open = list.style.display === 'none';
-    list.style.display = open ? '' : 'none';
-    if (btn) btn.classList.toggle('active', open);
-    if (open) {
-        _invModalRenderMsgs();
-        // Fetch real messages from VRChat API
-        sendToCS({ action: 'vrcGetInviteMessages' });
-    } else {
-        _invModalSelected = -1;
-        const sendRow = document.getElementById('invMsgSendRow');
-        if (sendRow) sendRow.style.display = 'none';
-    }
-}
-
 function handleVrcInviteMessages(msgs) {
-    // msgs = array of { slot, message, canBeUpdated, remainingCooldownMinutes, ... }
     _invModalApiMsgs = (msgs || []).slice().sort((a, b) => a.slot - b.slot);
     _invModalRenderMsgs();
 }
 
 function handleVrcInviteMessageUpdateFailed(payload) {
     const itemEl = document.getElementById(`invMsg_${payload.slot}`);
-    if (itemEl) {
-        delete itemEl.dataset.editing;
-        _invModalRenderMsgs();
-    }
-    const cd = payload.cooldown || 60;
-    showToast(false, `Cooldown: ${cd} min remaining`);
+    if (itemEl) { delete itemEl.dataset.editing; _invModalRenderMsgs(); }
+    showToast(false, `Cooldown: ${payload.cooldown || 60} min remaining`);
 }
 
 function _invModalSelectMsg(idx) {
     _invModalSelected = _invModalSelected === idx ? -1 : idx;
-    document.querySelectorAll('.inv-msg-item').forEach(el => {
-        const slot = parseInt(el.id.replace('invMsg_', ''));
-        el.classList.toggle('selected', slot === _invModalSelected);
+    document.querySelectorAll('#invMsgList .inv-msg-item').forEach(el => {
+        el.classList.toggle('selected', parseInt(el.id.replace('invMsg_', '')) === _invModalSelected);
     });
-    const sendRow = document.getElementById('invMsgSendRow');
-    if (sendRow) sendRow.style.display = _invModalSelected >= 0 ? '' : 'none';
+    _invModalUpdateSendBtn();
 }
 
 function _invModalEditMsg(idx) {
@@ -1328,7 +1283,6 @@ function _invModalSaveMsg(idx, input) {
     delete itemEl.dataset.editing;
     const m = _invModalApiMsgs.find(x => x.slot === idx);
     const newText = input.value.trim();
-    // Only call API if text actually changed — avoids unnecessary 60min rate limit
     if (!input.dataset.cancel && newText && m && newText !== m.message) {
         sendToCS({ action: 'vrcUpdateInviteMessage', slot: idx, message: newText });
         m.message = newText;
@@ -1338,15 +1292,61 @@ function _invModalSaveMsg(idx, input) {
     _invModalRenderMsgs();
 }
 
-function _invModalSendDirect() {
-    if (!_invModalUserId) return;
-    sendToCS({ action: 'vrcInviteFriend', userId: _invModalUserId });
-    closeFriendInviteModal();
+const _INV_PLUS_TILE = `<div style="width:100%;aspect-ratio:1;border-radius:6px;cursor:pointer;background:var(--bg-input);border:1.5px dashed var(--border);display:flex;align-items:center;justify-content:center;flex-shrink:0;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'" onclick="_invModalOpenUpload()" title="Upload new photo"><span class="msi" style="font-size:22px;color:var(--tx3);pointer-events:none;">add_photo_alternate</span></div>`;
+
+function _invModalOpenUpload() {
+    openInvUploadModal('photos', file => {
+        _invModalRenderLibrary(invFilesCache['gallery'] || []);
+        const firstImg = document.querySelector('#invLibraryGrid img');
+        if (firstImg) _invModalSelectLibraryPhoto(firstImg, file.fileUrl, file.id);
+    });
 }
 
-function _invModalSendWithMsg() {
-    if (!_invModalUserId || _invModalSelected < 0) return;
-    sendToCS({ action: 'vrcInviteFriend', userId: _invModalUserId, messageSlot: _invModalSelected });
+function _invModalOnGalleryLoaded(files) {
+    if (!document.getElementById('invLibraryGrid')) return;
+    _invModalRenderLibrary(files);
+}
+
+function _invModalRenderLibrary(files) {
+    const grid = document.getElementById('invLibraryGrid');
+    if (!grid) return;
+    if (!files || !files.length) { grid.innerHTML = _INV_PLUS_TILE; return; }
+    grid.innerHTML = _INV_PLUS_TILE + files.map(f => {
+        const url = f.fileUrl || '';
+        const fid = jsq(f.id || '');
+        if (!url) return '';
+        return `<img src="${esc(url)}" style="width:100%;aspect-ratio:1;object-fit:cover;border-radius:6px;cursor:pointer;opacity:0.85;transition:opacity .15s;" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0.85" onclick="_invModalSelectLibraryPhoto(this,'${jsq(url)}','${fid}')" onerror="this.style.display='none'">`;
+    }).join('');
+}
+
+function _invModalSelectLibraryPhoto(el, url, fileId) {
+    document.querySelectorAll('#invLibraryGrid img').forEach(i => i.style.outline = 'none');
+    el.style.outline = '2px solid var(--accent)';
+    _invModalPhotoFileId = fileId;
+    _invModalPhotoUrl    = url;
+    _invModalUpdateSendBtn();
+}
+
+function _invModalUpdateSendBtn() {
+    const btn = document.getElementById('invSendBtn');
+    if (!btn) return;
+    btn.disabled = (_invModalTab === 'message' && _invModalSelected < 0)
+                || (_invModalTab === 'photo'   && !_invModalPhotoUrl);
+}
+
+function _invModalSend() {
+    if (!_invModalUserId) return;
+    if (_invModalTab === 'direct') {
+        sendToCS({ action: 'vrcInviteFriend', userId: _invModalUserId });
+    } else if (_invModalTab === 'message') {
+        if (_invModalSelected < 0) return;
+        sendToCS({ action: 'vrcInviteFriend', userId: _invModalUserId, messageSlot: _invModalSelected });
+    } else if (_invModalTab === 'photo') {
+        if (!_invModalPhotoUrl) return;
+        const p = { action: 'vrcInviteFriendWithPhoto', userId: _invModalUserId, fileUrl: _invModalPhotoUrl };
+        if (_invModalSelected >= 0) p.messageSlot = _invModalSelected;
+        sendToCS(p);
+    }
     closeFriendInviteModal();
 }
 

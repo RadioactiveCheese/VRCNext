@@ -311,8 +311,6 @@ public partial class MainForm
 
     // WebSocket helpers
 
-    private System.Threading.Timer? _wsFallbackTimer;
-
     private void StartWebSocket()
     {
         var (auth, tfa) = _vrcApi.GetCookies();
@@ -391,19 +389,10 @@ public partial class MainForm
                 SendToJS("wsStatus", new { connected = true });
                 SendToJS("log", new { msg = "[WS] Connected to pipeline.vrchat.cloud", color = "ok" });
             });
-            // Only do a full refresh if disconnected long enough to have missed real events.
-            // Brief 90s idle-disconnects from VRChat not sending heartbeats don't need a refresh —
-            // the 5-min fallback timer is the safety net for those.
-            if (_vrcApi.IsLoggedIn && (DateTime.UtcNow - _wsDisconnectedAt).TotalSeconds > 5)
-            {
-                _ = VrcRefreshFriendsAsync(true);
-                _ = VrcGetNotificationsAsync();
-            }
         };
 
         _wsService.Disconnected += (_, _) =>
         {
-            _wsDisconnectedAt = DateTime.UtcNow;
             Invoke(() =>
             {
                 SendToJS("wsStatus", new { connected = false });
@@ -411,8 +400,17 @@ public partial class MainForm
             });
         };
 
+        // Real connection failure (not watchdog idle-timeout "No data for Xs") → one REST fallback.
+        // Watchdog aborts the socket after 75s of silence and reconnects automatically — no REST needed.
         _wsService.ConnectError += (_, err) =>
+        {
             Invoke(() => SendToJS("log", new { msg = $"[WS] Error: {err}", color = "err" }));
+            if (!err.StartsWith("No data for") && _vrcApi.IsLoggedIn)
+            {
+                _ = VrcRefreshFriendsAsync(true);
+                _ = VrcGetNotificationsAsync();
+            }
+        };
 
         // Friends Timeline: typed WebSocket events
         _wsService.FriendLocationChanged += OnWsFriendLocation;
@@ -426,16 +424,5 @@ public partial class MainForm
             var (a, t) = _vrcApi.GetCookies();
             return (a ?? "", t ?? "");
         });
-
-        // Fallback: safety-net refresh every 5 min in case a WebSocket event was missed.
-        // WS events now update the live store directly, so REST is only a last resort.
-        _wsFallbackTimer?.Dispose();
-        var jitter = TimeSpan.FromSeconds(Random.Shared.Next(0, 30));
-        _wsFallbackTimer = new System.Threading.Timer(_ =>
-        {
-            if (!_vrcApi.IsLoggedIn) return;
-            _ = VrcRefreshFriendsAsync(true);
-            _ = VrcGetNotificationsAsync();
-        }, null, TimeSpan.FromMinutes(5) + jitter, TimeSpan.FromMinutes(5));
     }
 }

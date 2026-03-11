@@ -480,6 +480,7 @@ public partial class MainForm
                 platform,
                 presence,
                 tags              = f["tags"]?.ToObject<List<string>>() ?? new List<string>(),
+                ageVerified       = f["ageVerified"]?.Value<bool>() ?? false,
             };
         })
         .OrderBy(f => f.presence switch { "game" => 0, "web" => 1, _ => 2 })
@@ -506,8 +507,13 @@ public partial class MainForm
     {
         if (!_vrcApi.IsLoggedIn) return;
 
-        // Disk cache → serve instantly, then refresh in background (deduplicated per userId)
-        var diskCached = _settings.FfcEnabled ? _cache.LoadRaw(CacheHandler.KeyUserProfile(userId)) : null;
+        // Disk cache is only valid for friends: the friend store (WebSocket) keeps their
+        // status live. For non-friends there is no WebSocket data, so the overlay would
+        // force status="offline" — serve a fresh API fetch instead.
+        bool isFriend;
+        lock (_friendStore) isFriend = _friendStore.ContainsKey(userId);
+
+        var diskCached = (_settings.FfcEnabled && isFriend) ? _cache.LoadRaw(CacheHandler.KeyUserProfile(userId)) : null;
         if (diskCached is JObject diskProfile)
         {
             // Overlay live fields from the friend store (kept fresh by WebSocket).
@@ -537,7 +543,7 @@ public partial class MainForm
                 {
                     try
                     {
-                        var fresh = await BuildUserDetailPayloadAsync(userId, fetchNote: false);
+                        var fresh = await BuildUserDetailPayloadAsync(userId);
                         if (fresh == null) return;
                         Invoke(() =>
                         {
@@ -552,7 +558,7 @@ public partial class MainForm
             return;
         }
 
-        // Cold fetch — no disk cache entry yet
+        // Non-friends always land here (no disk cache). Friends land here on first open.
         try
         {
             var payload = await BuildUserDetailPayloadAsync(userId);
@@ -561,7 +567,8 @@ public partial class MainForm
                 SendToJS("vrcFriendDetailError", new { error = "Could not load user profile" });
                 return;
             }
-            if (_settings.FfcEnabled) _cache.Save(CacheHandler.KeyUserProfile(userId), payload);
+            // Only cache friends — non-friend profiles must always be fetched fresh
+            if (_settings.FfcEnabled && isFriend) _cache.Save(CacheHandler.KeyUserProfile(userId), payload);
             SendToJS("vrcFriendDetail", payload);
         }
         catch (Exception ex)
@@ -571,18 +578,31 @@ public partial class MainForm
         }
     }
 
-    private async Task<object?> BuildUserDetailPayloadAsync(string userId, bool fetchNote = true)
+    private async Task<object?> BuildUserDetailPayloadAsync(string userId)
     {
         // Use live store data if available for location/status (kept fresh by WebSocket events).
         // Always fetch the full user object via REST when store data lacks badges, since the
         // friends-list endpoints (/auth/user/friends) do not include the badges array.
         JObject? user;
-        lock (_friendStore) _friendStore.TryGetValue(userId, out user);
+        JObject? storeSnapshot;
+        lock (_friendStore) _friendStore.TryGetValue(userId, out storeSnapshot);
+
+        user = storeSnapshot;
         if (user == null || user["badges"] == null)
         {
             var fresh = await _vrcApi.GetUserAsync(userId);
             if (fresh != null) user = fresh;
             else if (user == null) return null;
+        }
+
+        // WebSocket store is authoritative for status/location for friends.
+        // Overlay it after any REST fetch so the modal always reflects live state.
+        if (storeSnapshot != null)
+        {
+            var liveStatus = storeSnapshot["status"]?.ToString();
+            var liveLoc    = storeSnapshot["location"]?.ToString();
+            if (!string.IsNullOrEmpty(liveStatus)) user["status"]   = liveStatus;
+            if (liveLoc != null)                   user["location"]  = liveLoc;
         }
 
         var location = user["location"]?.ToString() ?? "private";
@@ -591,18 +611,17 @@ public partial class MainForm
 
         // Launch all secondary fetches in parallel after GetUser completes.
         // Instance response embeds world data (inst["world"]), so no separate GetWorld call needed.
+        // Note is already in user["note"] from GET /users/{id} — no separate userNotes call needed.
         var instTask    = hasWorld ? _vrcApi.GetInstanceAsync(location) : Task.FromResult<JObject?>(null);
-        var noteTask    = fetchNote ? _vrcApi.GetUserNoteAsync(userId) : Task.FromResult<JObject?>(null);
         var grpsTask    = _vrcApi.GetUserGroupsByIdAsync(userId);
         var worldsTask  = _vrcApi.GetUserWorldsAsync(userId);
         var mutualsTask = _vrcApi.GetUserMutualsAsync(userId);
 
         // Wait for all; ContinueWith swallows individual task exceptions
-        await Task.WhenAll(new Task[] { instTask, noteTask, grpsTask, worldsTask, mutualsTask }
+        await Task.WhenAll(new Task[] { instTask, grpsTask, worldsTask, mutualsTask }
             .Select(t => t.ContinueWith(_ => { })));
 
         var inst     = instTask.IsCompletedSuccessfully    ? instTask.Result    : null;
-        var noteObj  = noteTask.IsCompletedSuccessfully    ? noteTask.Result    : null;
         var groups   = grpsTask.IsCompletedSuccessfully    ? grpsTask.Result    : new JArray();
         var worlds   = worldsTask.IsCompletedSuccessfully  ? worldsTask.Result  : new JArray();
         var (mutualsArr, mutualsOptedOut) = mutualsTask.IsCompletedSuccessfully
@@ -620,7 +639,7 @@ public partial class MainForm
         string worldThumb    = _imgCache?.GetWorld(instWorld?["thumbnailImageUrl"]?.ToString()) ?? instWorld?["thumbnailImageUrl"]?.ToString() ?? "";
         int    worldCapacity = instWorld?["capacity"]?.Value<int>() ?? inst?["capacity"]?.Value<int>() ?? 0;
         int    userCount     = inst?["n_users"]?.Value<int>() ?? inst?["userCount"]?.Value<int>() ?? 0;
-        string userNote      = noteObj?["note"]?.ToString() ?? "";
+        string userNote      = user["note"]?.ToString() ?? "";
 
         bool canJoin = instanceType == "public" || instanceType == "friends" || instanceType == "friends+"
                     || instanceType == "hidden"

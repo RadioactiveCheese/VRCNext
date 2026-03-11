@@ -131,8 +131,7 @@ public partial class MainForm
                 SendToJS("log", new { msg = $"VRChat: Reconnected as {result.User["displayName"]}", color = "ok" });
                 SendAllCachedData();
                 await VrcRefreshFriendsAsync();
-                _wsDisconnectedAt = DateTime.UtcNow;
-                StartWebSocket();
+                    StartWebSocket();
                 _ = TriggerStartupBackgroundRefreshAsync();
                 return;
             }
@@ -177,7 +176,6 @@ public partial class MainForm
             SendVrcUserData(result.User, loginFlow: true);
             SendToJS("log", new { msg = $"VRChat: Logged in as {result.User["displayName"]}", color = "ok" });
             await VrcRefreshFriendsAsync();
-            _wsDisconnectedAt = DateTime.UtcNow;
             StartWebSocket();
             _ = TriggerStartupBackgroundRefreshAsync();
         }
@@ -200,7 +198,6 @@ public partial class MainForm
             SendVrcUserData(result.User, loginFlow: true);
             SendToJS("log", new { msg = $"VRChat: Logged in as {result.User["displayName"]}", color = "ok" });
             await VrcRefreshFriendsAsync();
-            _wsDisconnectedAt = DateTime.UtcNow;
             StartWebSocket();
             _ = TriggerStartupBackgroundRefreshAsync();
         }

@@ -9,7 +9,7 @@
 </head>
 <body>
     <div class="sidebar" id="sidebarEl">
-        <div class="logo"><div class="logo-icon" id="logoIcon">V</div><div class="logo-txt"><div class="logo-text-row"><div class="logo-text">VRCNext</div><span class="logo-beta-badge">BETA</span></div><div class="logo-sub">v2026.10.2</div></div><button class="sb-toggle" onclick="toggleSidebar()" title="Toggle sidebar"><span class="msi" id="sbIcon">menu_open</span></button></div>
+        <div class="logo"><div class="logo-icon" id="logoIcon">V</div><div class="logo-txt"><div class="logo-text-row"><div class="logo-text">VRCNext</div><span class="logo-beta-badge">BETA</span></div><div class="logo-sub">v2026.10.3</div></div><button class="sb-toggle" onclick="toggleSidebar()" title="Toggle sidebar"><span class="msi" id="sbIcon">menu_open</span></button></div>
         <div class="nav">
             <button class="nav-btn active" onclick="showTab(0)"><span class="ni msi">dashboard</span><span class="nl">Dashboard</span></button>
             <button class="nav-btn" onclick="showTab(1)"><span class="ni msi">travel_explore</span><span class="nl">Worlds</span></button>
@@ -367,16 +367,23 @@
             </div>
             <!-- Tab 8: Activity Log -->
             <div class="tab" id="tab8">
-                <div class="log-header" style="margin-top:0;display:flex;align-items:center;justify-content:flex-end;flex-shrink:0;">
+                <div class="log-header" style="margin-top:0;display:flex;align-items:center;justify-content:flex-end;gap:5px;flex-shrink:0;">
+                    <div class="mini-badge" id="httpBadge200" style="display:none;background:rgba(59,165,93,.12);border-color:rgba(59,165,93,.4);"><span class="mini-badge-label" style="color:#3ba55d;font-variant-numeric:tabular-nums;">200: 0</span></div>
+                    <div class="mini-badge" id="httpBadge429" style="display:none;background:rgba(240,165,0,.12);border-color:rgba(240,165,0,.4);"><span class="mini-badge-label" style="color:#f0a500;font-variant-numeric:tabular-nums;">429: 0</span></div>
+                    <div class="mini-badge" id="httpBadge404" style="display:none;background:rgba(237,66,69,.12);border-color:rgba(237,66,69,.4);"><span class="mini-badge-label" style="color:#ed4245;font-variant-numeric:tabular-nums;">404: 0</span></div>
+                    <div class="mini-badge" id="httpBadge403" style="display:none;background:rgba(237,66,69,.12);border-color:rgba(237,66,69,.4);"><span class="mini-badge-label" style="color:#ed4245;font-variant-numeric:tabular-nums;">403: 0</span></div>
+                    <div class="mini-badge" id="httpBadge400" style="display:none;background:rgba(237,66,69,.12);border-color:rgba(237,66,69,.4);"><span class="mini-badge-label" style="color:#ed4245;font-variant-numeric:tabular-nums;">400: 0</span></div>
                     <div class="mini-badge offline" id="wsBadge">
                         <span class="mini-badge-icon msi">wifi_off</span>
                         <span class="mini-badge-label">WebSocket</span>
                     </div>
                 </div>
                 <div class="log-area" id="logArea" style="flex:1;min-height:0;"></div>
-                <div style="display:flex;gap:8px;margin-top:8px;flex-shrink:0;">
-                    <button class="vrcn-button" onclick="exportLog()" style="flex:1;justify-content:center;"><span class="msi" style="font-size:16px;">download</span> Export Logs</button>
-                    <button class="vrcn-button" onclick="clearLog()" style="flex:1;justify-content:center;"><span class="msi" style="font-size:16px;">delete_sweep</span> Clear Logs</button>
+                <div style="display:flex;gap:6px;margin-top:8px;flex-shrink:0;">
+                    <button class="vrcn-button" onclick="copyLog()" style="flex:1;justify-content:center;" title="Copy to Clipboard"><span class="msi" style="font-size:16px;">content_copy</span> Copy</button>
+                    <button class="vrcn-button" onclick="sendToCS({action:'openLogFile'})" style="flex:1;justify-content:center;" title="Open current log file"><span class="msi" style="font-size:16px;">description</span> Open Log</button>
+                    <button class="vrcn-button" onclick="sendToCS({action:'openLogFolder'})" style="flex:1;justify-content:center;" title="Open logs folder"><span class="msi" style="font-size:16px;">folder_open</span> Open Folder</button>
+                    <button class="vrcn-button" onclick="clearLog()" style="flex:1;justify-content:center;" title="Clear log"><span class="msi" style="font-size:16px;">delete_sweep</span> Clear</button>
                 </div>
             </div>
             <!-- Tab 9: Settings -->
@@ -847,7 +854,10 @@
                         <div class="sf-card-header"><span class="msi">visibility</span> Live Preview</div>
                         <div class="dp-preview">
                             <div class="dp-img-wrap">
-                                <img id="dpPreviewImg" src="" alt="" class="dp-world-img">
+                                <div id="dpPreviewImgPlaceholder" class="dp-world-placeholder">
+                                    <span class="msi" style="font-size:28px;color:var(--text-muted);">travel_explore</span>
+                                </div>
+                                <img id="dpPreviewImg" src="" alt="" class="dp-world-img" style="display:none;">
                                 <div id="dpPreviewStatusDot" class="dp-status-dot online"></div>
                             </div>
                             <div class="dp-preview-text">
@@ -973,6 +983,11 @@
     <!-- World Detail Modal -->
     <div class="modal-overlay" id="modalWorldDetail" style="display:none;" onclick="if(event.target===this)closeWorldDetail()">
         <div class="modal-box wide" id="worldDetailContent" style="position:relative;"></div>
+    </div>
+
+    <!-- Instance Info Modal (current instance player list) -->
+    <div class="modal-overlay" id="modalInstanceInfo" style="display:none;" onclick="if(event.target===this)closeInstanceInfoModal()">
+        <div class="modal-box wide" id="instanceInfoContent" style="position:relative;max-width:860px;width:95vw;"></div>
     </div>
 
     <!-- My Instance Detail Modal -->

@@ -19,6 +19,9 @@ public partial class MainForm
     private string _lastVideoUrl = "";
     private DateTime _lastVideoUrlTime = DateTime.MinValue;
     private string _lastAvatarName = "";
+    private StreamWriter? _activityLogWriter;
+    private string _activityLogPath = "";
+    private string _activityLogDir  = "";
 
     private readonly AppSettings _settings;
     private readonly WebhookService _webhook = new();
@@ -33,7 +36,6 @@ public partial class MainForm
     private ImageCacheService? _imgCache;
     private readonly CacheHandler _cache = new();
     private readonly SemaphoreSlim _friendsRefreshLock = new(1, 1);
-    private DateTime _wsDisconnectedAt = DateTime.MinValue;
     private static readonly System.Text.RegularExpressions.Regex _vrcImgUrlRegex = new(
         @"""(https://(?:api\.vrchat\.cloud|assets\.vrchat\.com|files\.vrchat\.cloud)[^""]+)""",
         System.Text.RegularExpressions.RegexOptions.Compiled);
@@ -99,8 +101,10 @@ public partial class MainForm
     private string _vrcxImportPath = "";
 
     // Timeline image/world resolution session caches — prevents repeated API calls for already-resolved data
-    private readonly System.Collections.Concurrent.ConcurrentDictionary<string, string> _tlPlayerImageCache = new();
-    private readonly System.Collections.Concurrent.ConcurrentDictionary<string, string> _tlWorldThumbCache  = new(); // "" = tried but 404
+    private readonly System.Collections.Concurrent.ConcurrentDictionary<string, string>   _tlPlayerImageCache     = new();
+    private readonly System.Collections.Concurrent.ConcurrentDictionary<string, bool>    _playerAgeVerifiedCache = new();
+    private readonly System.Collections.Concurrent.ConcurrentDictionary<string, JObject> _playerProfileCache     = new(); // full profile per userId
+    private readonly System.Collections.Concurrent.ConcurrentDictionary<string, string>  _tlWorldThumbCache      = new(); // "" = tried but 404
 
     private System.Threading.CancellationTokenSource _tlFetchCts  = new();
     private System.Threading.CancellationTokenSource _ftlFetchCts = new();

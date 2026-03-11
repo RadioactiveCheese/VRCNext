@@ -19,25 +19,37 @@ public partial class MainForm
 
             var parsed = VRChatApiService.ParseLocation(loc);
 
-            // Step 2: Fetch instance details (for world info + n_users)
-            var inst = await _vrcApi.GetInstanceAsync(loc);
+            // Only fetch world info from API once per instance (when location changes or cache is empty).
+            // Player count comes from LogWatcher — no need to poll the instance endpoint repeatedly.
+            string worldName, worldThumb;
+            int worldCapacity;
 
-            // Step 3: Get world info
-            var worldName     = inst?["world"]?["name"]?.ToString() ?? "";
-            var worldThumb    = inst?["world"]?["thumbnailImageUrl"]?.ToString() ?? "";
-            var worldCapacity = inst?["world"]?["capacity"]?.Value<int>() ?? 0;
-
-            if (string.IsNullOrEmpty(worldName) && !string.IsNullOrEmpty(parsed.worldId))
+            bool locationChanged = _cachedInstLocation != loc || string.IsNullOrEmpty(_cachedInstWorldName);
+            if (locationChanged)
             {
-                var world = await _vrcApi.GetWorldAsync(parsed.worldId);
-                if (world != null)
+                var inst = await _vrcApi.GetInstanceAsync(loc);
+                worldName     = inst?["world"]?["name"]?.ToString() ?? "";
+                worldThumb    = inst?["world"]?["thumbnailImageUrl"]?.ToString() ?? "";
+                worldCapacity = inst?["world"]?["capacity"]?.Value<int>() ?? inst?["capacity"]?.Value<int>() ?? 0;
+
+                if (string.IsNullOrEmpty(worldName) && !string.IsNullOrEmpty(parsed.worldId))
                 {
-                    worldName     = world["name"]?.ToString() ?? "";
-                    worldThumb    = world["thumbnailImageUrl"]?.ToString() ?? "";
-                    worldCapacity = world["capacity"]?.Value<int>() ?? 0;
+                    var world = await _vrcApi.GetWorldAsync(parsed.worldId);
+                    if (world != null)
+                    {
+                        worldName     = world["name"]?.ToString() ?? "";
+                        worldThumb    = world["thumbnailImageUrl"]?.ToString() ?? "";
+                        worldCapacity = world["capacity"]?.Value<int>() ?? 0;
+                    }
                 }
+                if (string.IsNullOrEmpty(worldName)) worldName = parsed.worldId;
             }
-            if (string.IsNullOrEmpty(worldName)) worldName = parsed.worldId;
+            else
+            {
+                worldName     = _cachedInstWorldName;
+                worldThumb    = _cachedInstWorldThumb;
+                worldCapacity = _cachedInstCapacity;
+            }
 
             // Step 4: Build player list. Prefer LogWatcher (reads VRChat logs),
             // fall back to API users array
@@ -52,12 +64,14 @@ public partial class MainForm
             {
                 playerSource = "logfile";
 
-                var playersWithId = logPlayers.Where(p => !string.IsNullOrEmpty(p.UserId)).ToList();
+                // Only players with a real usr_ ID can be looked up via the VRChat API.
+                // Old-format IDs (e.g. "GGQdjFCSD4") are kept for display but not fetched.
+                var playersWithId = logPlayers.Where(p => !string.IsNullOrEmpty(p.UserId) && p.UserId.StartsWith("usr_")).ToList();
                 var userProfiles  = new Dictionary<string, JObject>();
 
+                // Skip only if we have a previously cached full profile (tags, platform, ageVerified etc.)
                 var needFetch = playersWithId.Where(p =>
-                    !_friendNameImg.ContainsKey(p.UserId) &&
-                    !_tlPlayerImageCache.ContainsKey(p.UserId)
+                    !_playerProfileCache.ContainsKey(p.UserId)
                 ).ToList();
 
                 if (needFetch.Count > 0)
@@ -74,6 +88,8 @@ public partial class MainForm
                                 var img = VRChatApiService.GetUserImage(profile);
                                 if (!string.IsNullOrEmpty(img))
                                     _tlPlayerImageCache[p.UserId] = img;
+                                _playerAgeVerifiedCache[p.UserId] = profile["ageVerified"]?.Value<bool>() ?? false;
+                                _playerProfileCache[p.UserId] = profile;
                                 lock (userProfiles)
                                     userProfiles[p.UserId] = profile;
                             }
@@ -84,18 +100,29 @@ public partial class MainForm
 
                 }
 
+                // Load previously cached profiles for players that were skipped
+                foreach (var p in playersWithId)
+                {
+                    if (!userProfiles.ContainsKey(p.UserId) && _playerProfileCache.TryGetValue(p.UserId, out var cached))
+                        userProfiles[p.UserId] = cached;
+                }
+
                 Invoke(() => SendToJS("log", new { msg = $"[LOG] Profiles: {needFetch.Count} fetched, {playersWithId.Count - needFetch.Count} cached", color = "sec" }));
 
                 foreach (var p in logPlayers)
                 {
-                    var img = "";
-                    var status = "";
+                    var img               = "";
+                    var status            = "";
+                    var statusDescription = "";
+                    JObject? profObj = null;
                     if (!string.IsNullOrEmpty(p.UserId))
                     {
                         if (userProfiles.TryGetValue(p.UserId, out var prof))
                         {
-                            img    = VRChatApiService.GetUserImage(prof);
-                            status = prof["status"]?.ToString() ?? "";
+                            profObj           = prof;
+                            img               = VRChatApiService.GetUserImage(prof);
+                            status            = prof["status"]?.ToString() ?? "";
+                            statusDescription = prof["statusDescription"]?.ToString() ?? "";
                         }
                         else if (_friendNameImg.TryGetValue(p.UserId, out var fi) && !string.IsNullOrEmpty(fi.image))
                         {
@@ -106,29 +133,21 @@ public partial class MainForm
                             img = ci;
                         }
                     }
-                    users.Add(new { id = p.UserId, displayName = p.DisplayName, image = img, status });
-                }
-            }
-
-            // Source B: API users array (sometimes populated for public instances)
-            if (users.Count == 0 && inst?["users"]?.Type == JTokenType.Array)
-            {
-                playerSource = "api";
-                foreach (var u in inst["users"]!)
-                {
                     users.Add(new {
-                        id          = u["id"]?.ToString() ?? "",
-                        displayName = u["displayName"]?.ToString() ?? "",
-                        image       = VRChatApiService.GetUserImage((JObject)u),
-                        status      = u["status"]?.ToString() ?? "",
+                        id                = p.UserId,
+                        displayName       = p.DisplayName,
+                        image             = img,
+                        status,
+                        statusDescription,
+                        joinedAt          = new DateTimeOffset(p.JoinedAt).ToUnixTimeMilliseconds(),
+                        tags              = profObj?["tags"]?.ToObject<List<string>>() ?? new List<string>(),
+                        ageVerified       = profObj?["ageVerified"]?.Value<bool>() ?? false,
+                        platform          = profObj?["last_platform"]?.ToString() ?? "",
                     });
                 }
             }
 
-            var nUsers = inst?["n_users"]?.Value<int>()
-                ?? inst?["userCount"]?.Value<int>()
-                ?? users.Count;
-            if (worldCapacity == 0) worldCapacity = inst?["capacity"]?.Value<int>() ?? 0;
+            var nUsers = users.Count;
 
             _cachedInstLocation   = loc;
             _cachedInstWorldName  = worldName;
@@ -169,14 +188,37 @@ public partial class MainForm
         var logPlayers = _logWatcher.GetCurrentPlayers();
         var users = logPlayers.Select(p =>
         {
-            string img;
+            string img = "";
             if (_friendNameImg.TryGetValue(p.UserId ?? "", out var fi) && !string.IsNullOrEmpty(fi.image))
                 img = fi.image;
             else if (_tlPlayerImageCache.TryGetValue(p.UserId ?? "", out var ci) && !string.IsNullOrEmpty(ci))
                 img = ci;
-            else
-                img = "";
-            return (object)new { id = p.UserId, displayName = p.DisplayName, image = img, status = "" };
+
+            var av = !string.IsNullOrEmpty(p.UserId) && _playerAgeVerifiedCache.TryGetValue(p.UserId, out var cached) && cached;
+
+            string status = "", statusDescription = "", platform = "";
+            var tags = new List<string>();
+            if (!string.IsNullOrEmpty(p.UserId) && _playerProfileCache.TryGetValue(p.UserId, out var prof))
+            {
+                status            = prof["status"]?.ToString() ?? "";
+                statusDescription = prof["statusDescription"]?.ToString() ?? "";
+                platform          = prof["last_platform"]?.ToString() ?? "";
+                tags              = prof["tags"]?.ToObject<List<string>>() ?? new List<string>();
+                if (string.IsNullOrEmpty(img))
+                    img = VRChatApiService.GetUserImage(prof);
+            }
+
+            return (object)new {
+                id                = p.UserId,
+                displayName       = p.DisplayName,
+                image             = img,
+                status,
+                statusDescription,
+                joinedAt          = new DateTimeOffset(p.JoinedAt).ToUnixTimeMilliseconds(),
+                tags,
+                ageVerified       = av,
+                platform,
+            };
         }).ToList();
 
         SendToJS("vrcCurrentInstance", new {

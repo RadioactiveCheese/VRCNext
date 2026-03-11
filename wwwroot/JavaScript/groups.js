@@ -527,23 +527,7 @@ function openGroupPostModal(groupId) {
                 </div>
             </div>
             <label class="gp-label" style="margin-top:12px;">Image <span style="color:var(--tx3);font-weight:400;">(optional)</span></label>
-            <div style="display:flex;gap:6px;margin-bottom:8px;">
-                <button class="vrcn-button-round active" id="gpSrcUploadBtn" onclick="gpSetImgSource('upload')" style="flex:1;font-size:11px;"><span class="msi" style="font-size:14px;vertical-align:middle;">upload_file</span> Upload</button>
-                <button class="vrcn-button-round" id="gpSrcLibraryBtn" onclick="gpSetImgSource('library')" style="flex:1;font-size:11px;"><span class="msi" style="font-size:14px;vertical-align:middle;">photo_library</span> From Library</button>
-            </div>
-            <div id="gpUploadArea">
-                <div class="gp-img-area" id="gpImgArea" onclick="document.getElementById('gpFileInput').click()">
-                    <span class="msi" style="font-size:28px;color:var(--tx3);">image</span>
-                    <span id="gpImgLabel" style="font-size:11px;color:var(--tx3);">Click to select image</span>
-                    <input id="gpFileInput" type="file" accept="image/png,image/jpeg,image/gif,image/webp" style="display:none;" onchange="onGroupPostImageSelected(event)">
-                </div>
-                <img id="gpImgPreview" style="display:none;width:100%;max-height:180px;object-fit:contain;border-radius:8px;margin-top:8px;">
-            </div>
-            <div id="gpLibraryArea" style="display:none;">
-                <div id="gpLibraryGrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(72px,1fr));gap:6px;max-height:180px;overflow-y:auto;padding:4px 0;">
-                    <div style="grid-column:1/-1;text-align:center;padding:20px;font-size:11px;color:var(--tx3);">Loading photos...</div>
-                </div>
-            </div>
+            <div id="gpImgGrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(72px,1fr));gap:6px;max-height:180px;overflow-y:auto;padding:4px 0;"></div>
             <div id="gpError" style="display:none;margin-top:8px;padding:8px 10px;background:rgba(255,80,80,.12);border-radius:8px;color:var(--err);font-size:12px;"></div>
         </div>
         <div class="gp-modal-footer">
@@ -554,64 +538,46 @@ function openGroupPostModal(groupId) {
     initAllVnSelects();
     overlay.style.display = 'flex';
     setTimeout(() => document.getElementById('gpTitle')?.focus(), 50);
+    const _gpCached = (typeof invFilesCache !== 'undefined') && invFilesCache['gallery'];
+    if (_gpCached && _gpCached.length > 0) renderGpImgGrid(_gpCached);
+    else sendToCS({ action: 'invGetFiles', tag: 'gallery' });
 }
 
-function gpSetImgSource(src) {
-    const uploadArea = document.getElementById('gpUploadArea');
-    const libraryArea = document.getElementById('gpLibraryArea');
-    const uploadBtn = document.getElementById('gpSrcUploadBtn');
-    const libraryBtn = document.getElementById('gpSrcLibraryBtn');
-    if (!uploadArea || !libraryArea) return;
-    if (src === 'library') {
-        uploadArea.style.display = 'none';
-        libraryArea.style.display = '';
-        uploadBtn?.classList.remove('active');
-        libraryBtn?.classList.add('active');
-        _groupPostImageBase64 = null;
-        // Render cached photos or request fresh
-        const cached = invFilesCache['gallery'];
-        if (cached && cached.length > 0) {
-            renderGpLibraryPhotos(cached);
-        } else {
-            sendToCS({ action: 'invGetFiles', tag: 'gallery' });
-        }
-    } else {
-        uploadArea.style.display = '';
-        libraryArea.style.display = 'none';
-        uploadBtn?.classList.add('active');
-        libraryBtn?.classList.remove('active');
-        _groupPostSelectedFileId = null;
-    }
-}
+const _GP_PLUS_TILE = `<div style="width:100%;aspect-ratio:1;border-radius:6px;cursor:pointer;background:var(--bg-input);border:1.5px dashed var(--border);display:flex;align-items:center;justify-content:center;flex-shrink:0;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'" onclick="gpOpenUpload()" title="Upload new photo"><span class="msi" style="font-size:22px;color:var(--tx3);pointer-events:none;">add_photo_alternate</span></div>`;
 
-function renderGpLibraryPhotos(files) {
-    const grid = document.getElementById('gpLibraryGrid');
+function renderGpImgGrid(files) {
+    const grid = document.getElementById('gpImgGrid');
     if (!grid) return;
-    if (!files || files.length === 0) {
-        grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:20px;font-size:11px;color:var(--tx3);">No photos in library.<br>Upload photos via the Inventory tab.</div>';
-        return;
-    }
-    grid.innerHTML = files.map(f => {
+    if (!files || !files.length) { grid.innerHTML = _GP_PLUS_TILE; return; }
+    grid.innerHTML = _GP_PLUS_TILE + files.map(f => {
         const url = f.fileUrl || '';
+        if (!url) return '';
         const fid = jsq(f.id || '');
         const fname = esc(f.name || f.id || '');
-        const fnameJs = jsq(f.name || f.id || '');
-        return `<img src="${esc(url)}" title="${fname}" style="width:100%;aspect-ratio:1;object-fit:cover;border-radius:6px;cursor:pointer;opacity:0.85;transition:opacity .15s;" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0.85" onclick="gpSelectLibraryPhoto('${fid}','${jsq(url)}','${fnameJs}')" onerror="this.parentElement?.remove()">`;
+        return `<img src="${esc(url)}" title="${fname}" style="width:100%;aspect-ratio:1;object-fit:cover;border-radius:6px;cursor:pointer;opacity:0.85;transition:opacity .15s;" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0.85" onclick="gpSelectLibraryPhoto('${fid}','${jsq(url)}')" onerror="this.style.display='none'">`;
     }).join('');
 }
 
-function gpSelectLibraryPhoto(fileId, url, name) {
+function gpOpenUpload() {
+    openInvUploadModal('photos', file => {
+        _groupPostSelectedFileId = file.id;
+        _groupPostImageBase64 = null;
+        renderGpImgGrid(invFilesCache['gallery'] || []);
+        const first = document.querySelector('#gpImgGrid img');
+        if (first) { document.querySelectorAll('#gpImgGrid img').forEach(el => el.style.outline = 'none'); first.style.outline = '2px solid var(--accent)'; }
+    });
+}
+
+function gpSelectLibraryPhoto(fileId, url) {
     _groupPostSelectedFileId = fileId;
     _groupPostImageBase64 = null;
-    document.querySelectorAll('#gpLibraryGrid img').forEach(el => el.style.outline = 'none');
+    document.querySelectorAll('#gpImgGrid img').forEach(el => el.style.outline = 'none');
     event.target.style.outline = '2px solid var(--accent)';
 }
 
-// Called from messages.js when gallery photos load, to refresh picker if open
 function onGroupPostGalleryLoaded(files) {
-    const libraryArea = document.getElementById('gpLibraryArea');
-    if (!libraryArea || libraryArea.style.display === 'none') return;
-    renderGpLibraryPhotos(files);
+    if (!document.getElementById('gpImgGrid')) return;
+    renderGpImgGrid(files);
 }
 
 function closeGroupPostModal() {
@@ -622,26 +588,6 @@ function closeGroupPostModal() {
     _groupPostSelectedFileId = null;
 }
 
-function onGroupPostImageSelected(event) {
-    const file = event.target.files?.[0];
-    if (!file) return;
-    if (file.size > 10 * 1024 * 1024) {
-        document.getElementById('gpError').textContent = 'Image too large (max 10 MB, max 2048×2048 px)';
-        document.getElementById('gpError').style.display = '';
-        return;
-    }
-    document.getElementById('gpError').style.display = 'none';
-    const reader = new FileReader();
-    reader.onload = e => {
-        _groupPostImageBase64 = e.target.result;
-        _groupPostSelectedFileId = null;
-        const preview = document.getElementById('gpImgPreview');
-        if (preview) { preview.src = _groupPostImageBase64; preview.style.display = ''; }
-        const label = document.getElementById('gpImgLabel');
-        if (label) label.textContent = file.name;
-    };
-    reader.readAsDataURL(file);
-}
 
 function submitGroupPost() {
     if (!_groupPostGroupId) return;
@@ -994,23 +940,7 @@ function openGroupEventModal(groupId) {
             </div>
 
             <label class="gp-label" style="margin-top:12px;">Image <span style="color:var(--tx3);font-weight:400;">(optional)</span></label>
-            <div style="display:flex;gap:6px;margin-bottom:8px;">
-                <button class="vrcn-button-round active" id="gevSrcUploadBtn" onclick="gevSetImgSource('upload')" style="flex:1;font-size:11px;"><span class="msi" style="font-size:14px;vertical-align:middle;">upload_file</span> Upload</button>
-                <button class="vrcn-button-round" id="gevSrcLibraryBtn" onclick="gevSetImgSource('library')" style="flex:1;font-size:11px;"><span class="msi" style="font-size:14px;vertical-align:middle;">photo_library</span> From Library</button>
-            </div>
-            <div id="gevUploadArea">
-                <div class="gp-img-area" id="gevImgArea" onclick="document.getElementById('gevFileInput').click()">
-                    <span class="msi" style="font-size:28px;color:var(--tx3);">image</span>
-                    <span id="gevImgLabel" style="font-size:11px;color:var(--tx3);">Click to select image</span>
-                    <input id="gevFileInput" type="file" accept="image/png,image/jpeg,image/gif,image/webp" style="display:none;" onchange="onGroupEventImageSelected(event)">
-                </div>
-                <img id="gevImgPreview" style="display:none;width:100%;max-height:160px;object-fit:contain;border-radius:8px;margin-top:8px;">
-            </div>
-            <div id="gevLibraryArea" style="display:none;">
-                <div id="gevLibraryGrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(72px,1fr));gap:6px;max-height:180px;overflow-y:auto;padding:4px 0;">
-                    <div style="grid-column:1/-1;text-align:center;padding:20px;font-size:11px;color:var(--tx3);">Loading photos...</div>
-                </div>
-            </div>
+            <div id="gevImgGrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(72px,1fr));gap:6px;max-height:180px;overflow-y:auto;padding:4px 0;"></div>
 
             <div id="gevError" style="display:none;margin-top:8px;padding:8px 10px;background:rgba(255,80,80,.12);border-radius:8px;color:var(--err);font-size:12px;"></div>
         </div>
@@ -1024,62 +954,46 @@ function openGroupEventModal(groupId) {
     _gevDpSetDisplay('end', defaultEnd);
     overlay.style.display = 'flex';
     setTimeout(() => document.getElementById('gevName')?.focus(), 50);
+    const _gevCached = (typeof invFilesCache !== 'undefined') && invFilesCache['gallery'];
+    if (_gevCached && _gevCached.length > 0) renderGevImgGrid(_gevCached);
+    else sendToCS({ action: 'invGetFiles', tag: 'gallery' });
 }
 
-function gevSetImgSource(src) {
-    const uploadArea = document.getElementById('gevUploadArea');
-    const libraryArea = document.getElementById('gevLibraryArea');
-    const uploadBtn = document.getElementById('gevSrcUploadBtn');
-    const libraryBtn = document.getElementById('gevSrcLibraryBtn');
-    if (!uploadArea || !libraryArea) return;
-    if (src === 'library') {
-        uploadArea.style.display = 'none';
-        libraryArea.style.display = '';
-        uploadBtn?.classList.remove('active');
-        libraryBtn?.classList.add('active');
-        _groupEventImageBase64 = null;
-        const cached = invFilesCache['gallery'];
-        if (cached && cached.length > 0) {
-            gevRenderLibraryPhotos(cached);
-        } else {
-            sendToCS({ action: 'invGetFiles', tag: 'gallery' });
-        }
-    } else {
-        uploadArea.style.display = '';
-        libraryArea.style.display = 'none';
-        uploadBtn?.classList.add('active');
-        libraryBtn?.classList.remove('active');
-        _groupEventSelectedFileId = null;
-    }
-}
+const _GEV_PLUS_TILE = `<div style="width:100%;aspect-ratio:1;border-radius:6px;cursor:pointer;background:var(--bg-input);border:1.5px dashed var(--border);display:flex;align-items:center;justify-content:center;flex-shrink:0;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'" onclick="gevOpenUpload()" title="Upload new photo"><span class="msi" style="font-size:22px;color:var(--tx3);pointer-events:none;">add_photo_alternate</span></div>`;
 
-function gevRenderLibraryPhotos(files) {
-    const grid = document.getElementById('gevLibraryGrid');
+function renderGevImgGrid(files) {
+    const grid = document.getElementById('gevImgGrid');
     if (!grid) return;
-    if (!files || files.length === 0) {
-        grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:20px;font-size:11px;color:var(--tx3);">No photos in library.</div>';
-        return;
-    }
-    grid.innerHTML = files.map(f => {
+    if (!files || !files.length) { grid.innerHTML = _GEV_PLUS_TILE; return; }
+    grid.innerHTML = _GEV_PLUS_TILE + files.map(f => {
         const url = f.fileUrl || '';
+        if (!url) return '';
         const fid = jsq(f.id || '');
         const fname = esc(f.name || f.id || '');
-        return `<img src="${esc(url)}" title="${fname}" style="width:100%;aspect-ratio:1;object-fit:cover;border-radius:6px;cursor:pointer;opacity:0.85;transition:opacity .15s;" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0.85" onclick="gevSelectLibraryPhoto('${fid}','${jsq(url)}')" onerror="this.parentElement?.remove()">`;
+        return `<img src="${esc(url)}" title="${fname}" style="width:100%;aspect-ratio:1;object-fit:cover;border-radius:6px;cursor:pointer;opacity:0.85;transition:opacity .15s;" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0.85" onclick="gevSelectLibraryPhoto('${fid}','${jsq(url)}')" onerror="this.style.display='none'">`;
     }).join('');
+}
+
+function gevOpenUpload() {
+    openInvUploadModal('photos', file => {
+        _groupEventSelectedFileId = file.id;
+        _groupEventImageBase64 = null;
+        renderGevImgGrid(invFilesCache['gallery'] || []);
+        const first = document.querySelector('#gevImgGrid img');
+        if (first) { document.querySelectorAll('#gevImgGrid img').forEach(el => el.style.outline = 'none'); first.style.outline = '2px solid var(--accent)'; }
+    });
 }
 
 function gevSelectLibraryPhoto(fileId, url) {
     _groupEventSelectedFileId = fileId;
     _groupEventImageBase64 = null;
-    document.querySelectorAll('#gevLibraryGrid img').forEach(el => el.style.outline = 'none');
+    document.querySelectorAll('#gevImgGrid img').forEach(el => el.style.outline = 'none');
     event.target.style.outline = '2px solid var(--accent)';
 }
 
-// Called from messages.js when gallery photos load, refresh picker if open
 function onGroupEventGalleryLoaded(files) {
-    const libraryArea = document.getElementById('gevLibraryArea');
-    if (!libraryArea || libraryArea.style.display === 'none') return;
-    gevRenderLibraryPhotos(files);
+    if (!document.getElementById('gevImgGrid')) return;
+    renderGevImgGrid(files);
 }
 
 function closeGroupEventModal() {
@@ -1090,27 +1004,6 @@ function closeGroupEventModal() {
     _groupEventSelectedFileId = null;
 }
 
-function onGroupEventImageSelected(event) {
-    const file = event.target.files?.[0];
-    if (!file) return;
-    if (file.size > 10 * 1024 * 1024) {
-        const err = document.getElementById('gevError');
-        if (err) { err.textContent = 'Image too large (max 10 MB)'; err.style.display = ''; }
-        return;
-    }
-    const err = document.getElementById('gevError');
-    if (err) err.style.display = 'none';
-    const reader = new FileReader();
-    reader.onload = e => {
-        _groupEventImageBase64 = e.target.result;
-        _groupEventSelectedFileId = null;
-        const preview = document.getElementById('gevImgPreview');
-        if (preview) { preview.src = _groupEventImageBase64; preview.style.display = ''; }
-        const label = document.getElementById('gevImgLabel');
-        if (label) label.textContent = file.name;
-    };
-    reader.readAsDataURL(file);
-}
 
 function submitGroupEvent() {
     if (!_groupEventGroupId) return;

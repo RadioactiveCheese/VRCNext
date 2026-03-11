@@ -701,6 +701,16 @@ public partial class MainForm
                     });
                     break;
 
+                case "openLogFile":
+                    if (!string.IsNullOrEmpty(_activityLogPath) && File.Exists(_activityLogPath))
+                        Process.Start(new ProcessStartInfo(_activityLogPath) { UseShellExecute = true });
+                    break;
+
+                case "openLogFolder":
+                    if (!string.IsNullOrEmpty(_activityLogDir) && Directory.Exists(_activityLogDir))
+                        Process.Start(new ProcessStartInfo(_activityLogDir) { UseShellExecute = true });
+                    break;
+
                 // Get friend detail
                 case "vrcGetFriendDetail":
                     var friendId = msg["userId"]?.ToString();
@@ -765,6 +775,22 @@ public partial class MainForm
                             action = "invite",
                             success = ok3,
                             message = ok3 ? "Invite sent!" : "Failed to send invite. Make sure you are in a valid instance."
+                        });
+                    }
+                    break;
+
+                case "vrcInviteFriendWithPhoto":
+                    var invPhotoUserId = msg["userId"]?.ToString();
+                    var invPhotoFileUrl = msg["fileUrl"]?.ToString();
+                    var invPhotoSlot   = msg["messageSlot"]?.Value<int?>();
+                    if (!string.IsNullOrEmpty(invPhotoUserId) && !string.IsNullOrEmpty(invPhotoFileUrl))
+                    {
+                        var okPhoto = await _vrcApi.InviteFriendWithPhotoAsync(invPhotoUserId, _logWatcher.CurrentLocation ?? "", invPhotoFileUrl, invPhotoSlot);
+                        SendToJS("vrcActionResult", new
+                        {
+                            action  = "invite",
+                            success = okPhoto,
+                            message = okPhoto ? "Invite sent!" : "Failed to send invite. Make sure you are in a valid instance."
                         });
                     }
                     break;

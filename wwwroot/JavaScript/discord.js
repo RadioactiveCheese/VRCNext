@@ -68,9 +68,19 @@ function dpOnInstanceUpdate(worldName, worldImg, instanceState, joinedAt) {
     const title = document.getElementById('dpPreviewTitle');
     const state = document.getElementById('dpPreviewState');
     const img   = document.getElementById('dpPreviewImg');
+    const ph    = document.getElementById('dpPreviewImgPlaceholder');
     if (title) title.textContent = _dpCurrentWorld || '—';
     if (state) state.textContent = _dpCurrentState || '—';
-    if (img && _dpCurrentImg) img.src = _dpCurrentImg;
+    if (img) {
+        if (_dpCurrentImg) {
+            img.src = _dpCurrentImg;
+            img.style.display = '';
+            if (ph) ph.style.display = 'none';
+        } else {
+            img.style.display = 'none';
+            if (ph) ph.style.display = '';
+        }
+    }
 
     dpUpdateStatusDot();
     if (_dpRunning) dpUpdatePreviewClock();

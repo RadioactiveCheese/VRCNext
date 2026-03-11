@@ -72,6 +72,17 @@ const LANG_MAP = {
     language_bfi: 'BSL', language_dse: 'DGS', language_fsl: 'LSF',
     language_kvk: 'KSL',
 };
+// Language tag → flag emoji (for instance info modal)
+const LANG_FLAG = {
+    language_eng: '🇺🇸', language_kor: '🇰🇷', language_rus: '🇷🇺',
+    language_spa: '🇪🇸', language_por: '🇧🇷', language_zho: '🇨🇳',
+    language_deu: '🇩🇪', language_jpn: '🇯🇵', language_fra: '🇫🇷',
+    language_swe: '🇸🇪', language_nld: '🇳🇱', language_tur: '🇹🇷',
+    language_ara: '🇸🇦', language_pol: '🇵🇱', language_dan: '🇩🇰',
+    language_nor: '🇳🇴', language_fin: '🇫🇮', language_ces: '🇨🇿',
+    language_hun: '🇭🇺', language_ron: '🇷🇴', language_tha: '🇹🇭',
+    language_vie: '🇻🇳', language_ukr: '🇺🇦',
+};
 // Platform SVG icon paths (Simple Icons, CC0)
 const PLATFORM_ICONS = {
     'twitter':   { svg: 'M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.748l7.73-8.835L1.254 2.25H8.08l4.26 5.632zm-1.161 17.52h1.833L7.084 4.126H5.117z' },
@@ -260,7 +271,7 @@ function showTab(i) {
             }
         }
     });
-    document.getElementById('pageTitle').textContent = ['Dashboard','Worlds','Groups','People','Avatars','Custom Chatbox','Media Relay','Media Library','Activity Log','Settings','Space Flight','OSC Tool','Timeline','Inventory','YouTube Fix','Mutual Network','Time Spent','Calendar','Voice Fight'][i] ?? '';
+    document.getElementById('pageTitle').textContent = ['Dashboard','Worlds','Groups','People','Avatars','Custom Chatbox','Media Relay','Media Library','Activity Log','Settings','Space Flight','OSC Tool','Timeline','Inventory','YouTube Fix','Mutual Network','Time Spent','Calendar','Voice Fight','Discord Presence'][i] ?? '';
     if (i === 0) renderDashboard();
     if (i === 1 && favWorldsData.length === 0) sendToCS({ action: 'vrcGetFavoriteWorlds' });
     if (i === 2 && !myGroupsLoaded) loadMyGroups();
@@ -304,6 +315,17 @@ function setRelayState(r, s) {
     }
 }
 
+const _httpCounts = { 200: 0, 429: 0, 404: 0, 403: 0, 400: 0 };
+const _httpBadgeIds = { 200: 'httpBadge200', 429: 'httpBadge429', 404: 'httpBadge404', 403: 'httpBadge403', 400: 'httpBadge400' };
+
+function _updateHttpBadge(code) {
+    const el = document.getElementById(_httpBadgeIds[code]);
+    if (!el) return;
+    const lbl = el.querySelector('.mini-badge-label');
+    if (lbl) lbl.textContent = `${code}: ${_httpCounts[code]}`;
+    el.style.display = '';
+}
+
 function addLog(m, c) {
     const a = document.getElementById('logArea');
     if (!a) return;
@@ -311,6 +333,13 @@ function addLog(m, c) {
 
     // Strip emoji characters
     m = m.replace(/[\p{Emoji_Presentation}\p{Extended_Pictographic}]/gu, '').trim();
+
+    // Track HTTP status code counts
+    const statusMatch = m.match(/→ (\d{3})/);
+    if (statusMatch) {
+        const code = +statusMatch[1];
+        if (code in _httpCounts) { _httpCounts[code]++; _updateHttpBadge(code); }
+    }
 
     // Bracket-prefix to CSS class map
     const _prefixMap = {
@@ -347,6 +376,7 @@ function addLog(m, c) {
     l.className = 'log-line';
     l.innerHTML = `<span class="log-time">${t}  </span><span class="${cl}">${esc(m)}</span>`;
     a.appendChild(l);
+    while (a.childElementCount > 500) a.removeChild(a.firstChild);
     a.scrollTop = a.scrollHeight;
 }
 
@@ -401,20 +431,20 @@ function handleVcState(d) {
 function clearLog() {
     const a = document.getElementById('logArea');
     if (a) a.innerHTML = '';
+    for (const code in _httpCounts) {
+        _httpCounts[code] = 0;
+        const el = document.getElementById(_httpBadgeIds[code]);
+        if (el) el.style.display = 'none';
+    }
 }
 
-function exportLog() {
+function copyLog() {
     const a = document.getElementById('logArea');
     if (!a) return;
-    const lines = Array.from(a.querySelectorAll('.log-line')).map(l => l.textContent);
-    const blob = new Blob([lines.join('\n')], { type: 'text/plain' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `vrcnext-log-${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.txt`;
-    link.click();
-    URL.revokeObjectURL(url);
+    const text = Array.from(a.querySelectorAll('.log-line')).map(l => l.textContent).join('\n');
+    navigator.clipboard.writeText(text).then(() => showToast(true, 'Log copied to clipboard'));
 }
+
 
 function playVRChat() {
     sendToCS({ action: 'playVRChat' });

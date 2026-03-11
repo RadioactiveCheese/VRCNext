@@ -246,7 +246,7 @@
             if (id) return buildGroupMemberItems(id, window._currentGroupDetail);
         }
 
-        const friendCard = el.closest('.vrc-friend-card, .vrcn-profile-item, .vrcn-profile-item, .inst-user-row, .dash-feed-card');
+        const friendCard = el.closest('.vrc-friend-card, .vrcn-profile-item, .inst-user-row, .iim-user-tr, .dash-feed-card, .fav-friend-card, .s-card-h');
         if (friendCard) {
             const id = extractId(friendCard, /openFriendDetail\('([^']+)'\)/);
             if (id) return buildFriendItems(id);
@@ -365,8 +365,10 @@
             if (canJoin)          actionItems.push({ icon: 'login',            label: 'Join',                 action: () => friendAction('join', loc, id) });
             if (canRequestInvite) actionItems.push({ icon: 'mail',             label: 'Request Invite',       action: () => friendAction('requestInvite', loc, id) });
             if (myInInstance) {
-                actionItems.push(                  { icon: 'send',             label: 'Invite',               action: () => sendToCS({ action: 'vrcInviteFriend', userId: id }) });
-                actionItems.push(                  { icon: 'forward_to_inbox', label: 'Invite with Message',  action: () => { openFriendInviteModal(id, f.displayName || id); _invModalToggleMsgs(); } });
+                const hasVrcPlus = Array.isArray(currentVrcUser?.tags) && currentVrcUser.tags.includes('system_supporter');
+                actionItems.push({ icon: 'send',             label: 'Invite',              action: () => sendToCS({ action: 'vrcInviteFriend', userId: id }) });
+                actionItems.push({ icon: 'forward_to_inbox', label: 'Invite with Message', action: () => openFriendInviteModal(id, f.displayName || id, 'message') });
+                if (hasVrcPlus) actionItems.push({ icon: 'add_photo_alternate', label: 'Invite with Image', action: () => openFriendInviteModal(id, f.displayName || id, 'photo') });
             }
             actionItems.push({ icon: 'waving_hand', label: 'Boop!',     action: () => { if (typeof msgrRegisterBoopSent === 'function') msgrRegisterBoopSent(id); sendToCS({ action: 'vrcBoop', userId: id }); } });
             actionItems.push({ icon: 'chat',        label: 'Messenger', action: () => openMessenger(id, f.displayName || id, f.image || '', f.status || '', f.statusDescription || '') });

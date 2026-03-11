@@ -31,6 +31,14 @@ public partial class MainForm
             Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
             "VRCNext", "ThumbCache");
         Directory.CreateDirectory(_thumbCacheDir);
+        _activityLogDir = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+            "VRCNext", "Logs");
+        Directory.CreateDirectory(_activityLogDir);
+        var logFileName = $"vrcn-log-{DateTime.Now:yyyy-MM-dd_HH-mm-ss}.txt";
+        _activityLogPath = Path.Combine(_activityLogDir, logFileName);
+        try { _activityLogWriter = new StreamWriter(_activityLogPath, append: false, System.Text.Encoding.UTF8) { AutoFlush = true }; } catch { }
+
         _imgCache = new ImageCacheService(_imgCacheDir, _vrcApi.GetHttpClient())
         {
             Enabled    = _settings.ImgCacheEnabled,
@@ -145,7 +153,6 @@ public partial class MainForm
     {
         try { _vcProcess?.Kill(entireProcessTree: true); } catch { }
         _wsService?.Dispose();
-        _wsFallbackTimer?.Dispose();
         _fileWatcher.Dispose();
         _uptimeTimer2?.Dispose();
         _steamVR?.Dispose();
@@ -162,10 +169,21 @@ public partial class MainForm
         _logWatcher.Dispose();
         _memTrim.Dispose();
         _httpListener?.Stop();
+        _activityLogWriter?.Dispose();
     }
 
     private void SendToJS(string type, object? payload = null)
     {
+        if (type == "log" && payload != null && _activityLogWriter != null)
+        {
+            try
+            {
+                var p = Newtonsoft.Json.Linq.JObject.FromObject(payload);
+                var logMsg = p["msg"]?.ToString() ?? "";
+                _activityLogWriter.WriteLine($"{DateTime.Now:HH:mm:ss}  {logMsg}");
+            }
+            catch { }
+        }
         var msg = JsonConvert.SerializeObject(new { type, payload });
         if (_imgCache != null)
             msg = _vrcImgUrlRegex.Replace(msg, m => $"\"{_imgCache.Get(m.Groups[1].Value)}\"");

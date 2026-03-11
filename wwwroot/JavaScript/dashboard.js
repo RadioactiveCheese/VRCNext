@@ -1,6 +1,7 @@
 /* === Dashboard === */
 
 let _dashOnlineCount = 0;
+let _dashOnlineCountLastFetch = 0;
 
 function updateDashSub() {
     const name = currentVrcUser?.displayName;
@@ -33,7 +34,11 @@ function renderDashboard() {
 
     renderDashWorlds();
     renderDashFriendsFeed();
-    sendToCS({ action: 'vrcGetOnlineCount' });
+    const now = Date.now();
+    if (now - _dashOnlineCountLastFetch >= 10 * 60 * 1000) {
+        _dashOnlineCountLastFetch = now;
+        sendToCS({ action: 'vrcGetOnlineCount' });
+    }
 }
 
 function requestWorldResolution() {

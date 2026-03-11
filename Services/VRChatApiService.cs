@@ -842,6 +842,48 @@ public class VRChatApiService
         catch (Exception ex) { Log($"InviteFriend exception: {ex.Message}"); return false; }
     }
 
+    // Invite friend to your instance with a photo attachment (VRC+)
+    // imageUrl: CDN URL (library) or data: URI (upload)
+    public async Task<bool> InviteFriendWithPhotoAsync(string userId, string myLocation, string imageUrl, int? messageSlot = null)
+    {
+        if (!IsLoggedIn) return false;
+        try
+        {
+            var loc = myLocation;
+            if (string.IsNullOrEmpty(loc) || loc == "offline" || loc == "traveling")
+            { Log("InviteWithPhoto: no valid instance"); return false; }
+
+            // Get image bytes — decode data URI (upload) or download from CDN (library)
+            byte[] imgBytes;
+            if (imageUrl.StartsWith("data:image", StringComparison.OrdinalIgnoreCase))
+            {
+                var comma = imageUrl.IndexOf(',');
+                imgBytes = Convert.FromBase64String(imageUrl[(comma + 1)..]);
+            }
+            else
+            {
+                imgBytes = await _http.GetByteArrayAsync(imageUrl);
+            }
+
+            // Build the 'data' JSON field (no worldId, no fileId — just instanceId + optional messageSlot)
+            var dataObj = new JObject { ["instanceId"] = loc };
+            if (messageSlot.HasValue) dataObj["messageSlot"] = messageSlot.Value;
+
+            // Send as multipart/form-data
+            using var form = new MultipartFormDataContent();
+            var imgContent = new ByteArrayContent(imgBytes);
+            imgContent.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("image/png");
+            form.Add(imgContent, "image", "photo.png");
+            form.Add(new StringContent(dataObj.ToString(Newtonsoft.Json.Formatting.None)), "data");
+
+            var resp = await _http.PostAsync($"{BASE}/invite/{userId}/photo", form);
+            var body = await resp.Content.ReadAsStringAsync();
+            Log($"InviteWithPhoto response: {(int)resp.StatusCode} body: {body[..Math.Min(200, body.Length)]}");
+            return resp.IsSuccessStatusCode;
+        }
+        catch (Exception ex) { Log($"InviteWithPhoto exception: {ex.Message}"); return false; }
+    }
+
     // ── VRCN Messenger ────────────────────────────────────────────────────────
     // Protocol: invites to the VRChat home world whose slot text starts with
     // "msg " are intercepted by VRCN as chat messages (auto-hidden, stored locally).

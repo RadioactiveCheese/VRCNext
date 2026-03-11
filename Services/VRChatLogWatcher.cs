@@ -47,14 +47,17 @@ public class VRChatLogWatcher : IDisposable
 
     private void Log(string msg) => DebugLog?.Invoke(msg);
 
-    // Regex - do NOT match [NetworkManager] or [Behaviour], VRChat obfuscates them!
+    // Real player join/leave events always come from [Behaviour] in the log.
+    // World scripts (e.g. [PUG] [TapsterLock]) also emit OnPlayerJoined/Left lines
+    // with non-player payloads — we must require [Behaviour] to avoid false matches.
+    // Note: [NetworkManager] is obfuscated but [Behaviour] is stable across versions.
 
-    // "OnPlayerJoined DisplayName (usr_xxx)" or without userId
+    // "OnPlayerJoined DisplayName (usr_xxx)" — also handles old non-usr_ ID format
     private static readonly Regex RxPlayerJoined = new(
-        @"OnPlayerJoined (.+?)(?:\s+\((usr_[a-f0-9\-]+)\))?\s*$",
+        @"\[Behaviour\]\s+OnPlayerJoined (.+?)(?:\s+\(([A-Za-z0-9_\-]+)\))?\s*$",
         RegexOptions.Compiled);
     private static readonly Regex RxPlayerLeft = new(
-        @"OnPlayerLeft (.+?)(?:\s+\((usr_[a-f0-9\-]+)\))?\s*$",
+        @"\[Behaviour\]\s+OnPlayerLeft (.+?)(?:\s+\(([A-Za-z0-9_\-]+)\))?\s*$",
         RegexOptions.Compiled);
     // "Joining wrld_xxx:12345~..." captures the full location string
     private static readonly Regex RxRoomJoin = new(

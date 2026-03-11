@@ -503,6 +503,8 @@ window.external.receiveMessage(rawMsg => {
                         onGroupEventGalleryLoaded(payload.files || []);
                     if (typeof onImagePickerFilesLoaded === 'function')
                         onImagePickerFilesLoaded(payload.files || [], payload.tag);
+                    if (payload.tag === 'gallery' && typeof _invModalOnGalleryLoaded === 'function')
+                        _invModalOnGalleryLoaded(payload.files || []);
                 } else {
                     const g = document.getElementById('invGrid');
                     if (g) g.innerHTML = `<div class="empty-msg" style="color:var(--err);">Error: ${esc(payload.error)}<br><span style="font-size:11px;color:var(--tx3);">This feature may require VRC+ or a VRChat login.</span></div>`;

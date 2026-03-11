@@ -352,7 +352,7 @@ var list = avatars.Select(a => new
                 await semaphore.WaitAsync();
                 try
                 {
-                    var payload = await BuildUserDetailPayloadAsync(uid, fetchNote: false);
+                    var payload = await BuildUserDetailPayloadAsync(uid);
                     if (payload != null)
                     {
                         _cache.Save(CacheHandler.KeyUserProfile(uid), payload);

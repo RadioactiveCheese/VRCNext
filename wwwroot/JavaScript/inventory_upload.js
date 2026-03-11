@@ -44,6 +44,7 @@ const IU_MASK_TAG_DEFAULT = 'square';
 
 // State
 let _iuTab        = '';
+let _iuCallback   = null; // optional (file) => void called after successful upload
 let _iuFile       = null;
 let _iuImg        = null;
 let _iuAnimStyle  = 'aura';
@@ -62,11 +63,13 @@ let _iuCropH      = 0;
 
 // ── Open / Close ──────────────────────────────────────────────────────────────
 
-function openInvUploadModal() {
-    const tab = activeInvTab;
-    if (!INV_TABS[tab]?.canUpload) return;
+function openInvUploadModal(tabOverride, callback) {
+    const tab = tabOverride || activeInvTab;
+    if (!tabOverride && !INV_TABS[tab]?.canUpload) return;
+    if (!INV_UPLOAD_REQS[tab]) return;
 
     _iuTab       = tab;
+    _iuCallback  = callback || null;
     _iuFile      = null;
     _iuImg       = null;
     _iuAnimStyle = 'aura';
@@ -80,6 +83,7 @@ function openInvUploadModal() {
     const overlay = document.createElement('div');
     overlay.className = 'modal-overlay';
     overlay.id = 'invUploadModal';
+    overlay.style.zIndex = '10010'; // always above any modal that opens it
     overlay.onclick = e => { if (e.target === overlay) closeInvUploadModal(); };
     overlay.innerHTML = _iuBuildHTML(tab);
     document.body.appendChild(overlay);
@@ -655,9 +659,12 @@ function iuDoUpload() {
 }
 
 // Called from messages.js when upload completes
-function iuHandleUploadDone(success) {
+function iuHandleUploadDone(success, file) {
     if (success) {
+        const cb = _iuCallback;
+        _iuCallback = null;
         closeInvUploadModal();
+        if (cb && file) cb(file);
     } else {
         const ub = document.getElementById('iuUploadBtn');
         if (ub) { ub.disabled = false; ub.innerHTML = '<span class="msi" style="font-size:14px;">upload</span> Upload'; }

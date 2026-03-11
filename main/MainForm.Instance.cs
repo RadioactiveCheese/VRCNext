@@ -449,6 +449,33 @@ public partial class MainForm
 
         // Instantly push updated player list to JS (no REST call needed)
         PushCurrentInstanceFromCache();
+
+        // If we don't have a cached profile for this player yet, fetch it async so the
+        // instance panel and modal get enriched data (image, status, platform, etc.)
+        if (!string.IsNullOrEmpty(userId) && userId.StartsWith("usr_")
+            && !_playerProfileCache.ContainsKey(userId) && _vrcApi.IsLoggedIn)
+        {
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    var profile = await _vrcApi.GetUserAsync(userId);
+                    if (profile == null) return;
+                    var img = VRChatApiService.GetUserImage(profile);
+                    if (!string.IsNullOrEmpty(img))
+                        _tlPlayerImageCache[userId] = img;
+                    _playerAgeVerifiedCache[userId] = profile["ageVerified"]?.Value<bool>() ?? false;
+                    _playerProfileCache[userId] = profile;
+
+                    // Also enrich the cumulative instance player record with the resolved image
+                    if (_cumulativeInstancePlayers.TryGetValue(userId, out var existing) && string.IsNullOrEmpty(existing.image))
+                        _cumulativeInstancePlayers[userId] = (existing.displayName, img);
+
+                    Invoke(() => PushCurrentInstanceFromCache());
+                }
+                catch { }
+            });
+        }
     }
 
     // Timeline - helpers

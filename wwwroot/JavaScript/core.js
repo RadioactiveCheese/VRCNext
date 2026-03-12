@@ -413,7 +413,7 @@ function showTab(i) {
     if (i === 2 && !myGroupsLoaded) loadMyGroups();
     if (i === 3 && favFriendsData.length === 0) sendToCS({ action: 'vrcGetFavoriteFriends' });
     if (i === 4) { if (!avatarsLoaded) refreshAvatars(); }
-    if (i === 7) refreshLibrary();
+    if (i === 7) { if (!libraryFiles.length) refreshLibrary(); else filterLibrary(); }
     if (i === 9) {
         renderThemeChips();
         if (currentTheme === 'custom') renderColorInputs();

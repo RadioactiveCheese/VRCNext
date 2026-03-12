@@ -129,7 +129,75 @@ public partial class MainForm
         // Snapshot players for VRChat screenshots
         SnapshotPhotoPlayers(e.FilePath);
 
+        // Inject into library without rescanning
+        AddFileToLibrary(e.FilePath);
+
         await PostFile(e.FilePath, false, e.SizeMB);
+    }
+
+    // Add a single new file to the library cache and push it to JS immediately.
+    // No-op if the cache isn't ready yet (the next scan will pick it up).
+    private void AddFileToLibrary(string filePath)
+    {
+        if (!_libCacheReady) return;
+        try
+        {
+            var fi = new FileInfo(filePath);
+            if (!fi.Exists) return;
+
+            // Find which watch folder contains this file
+            int folderIdx = -1;
+            string folder = "";
+            for (int i = 0; i < _settings.WatchFolders.Count; i++)
+            {
+                if (filePath.StartsWith(_settings.WatchFolders[i], StringComparison.OrdinalIgnoreCase))
+                { folderIdx = i; folder = _settings.WatchFolders[i]; break; }
+            }
+            if (folderIdx < 0) return;
+
+            // Deduplicate
+            if (_libFileCache.Any(e => e.Fi.FullName.Equals(filePath, StringComparison.OrdinalIgnoreCase))) return;
+
+            var entry = new LibFileEntry(fi, folderIdx, folder);
+            _libFileCache.Insert(0, entry);
+            _libFileCacheTotal = _libFileCache.Count;
+
+            var isImg  = FileWatcherService.ImgExt.Contains(fi.Extension);
+            var sizeMB = fi.Length / 1048576.0;
+            var rel    = Path.GetRelativePath(folder, filePath).Replace('\\', '/');
+            var url    = $"http://localhost:{_httpPort}/media{folderIdx}/{Uri.EscapeDataString(rel).Replace("%2F", "/")}";
+
+            string? worldId = null;
+            List<object>? players = null;
+            if (isImg)
+            {
+                var rec = _photoPlayersStore.GetPhotoRecord(fi.Name);
+                if (rec != null)
+                {
+                    worldId = rec.WorldId;
+                    players = rec.Players.Select(p => (object)new
+                    {
+                        userId = p.UserId, displayName = p.DisplayName,
+                        image  = ResolvePlayerImage(p.UserId, p.Image)
+                    }).ToList();
+                }
+            }
+
+            SendToJS("libraryNewFile", new
+            {
+                name     = fi.Name,
+                path     = fi.FullName,
+                folder,
+                type     = isImg ? "image" : "video",
+                size     = sizeMB < 1 ? $"{fi.Length / 1024.0:F0} KB" : $"{sizeMB:F1} MB",
+                modified = fi.LastWriteTime.ToString("o"),
+                time     = fi.LastWriteTime.ToString("HH:mm"),
+                url,
+                worldId  = worldId ?? "",
+                players  = players ?? new List<object>(),
+            });
+        }
+        catch { }
     }
 
     /// <summary>
@@ -164,7 +232,7 @@ public partial class MainForm
             Task.Run(async () =>
             {
                 await Task.Delay(2000);
-                try { Invoke(() => SnapshotPhotoPlayers(e.FullPath)); }
+                try { Invoke(() => { SnapshotPhotoPlayers(e.FullPath); AddFileToLibrary(e.FullPath); }); }
                 catch { }
             });
         };
@@ -321,16 +389,29 @@ public partial class MainForm
         }
     }
 
-    // Media Library - scan watch folders for media files
-    private void ScanLibraryFolders()
+    // Media Library — enumerate files and send all metadata to JS in one shot.
+    // force=false: serve from in-memory cache instantly if already scanned (tab re-open).
+    // force=true : rescan filesystem (Refresh button).
+    private void ScanLibraryFolders(bool force = false)
     {
         UpdateVirtualHostMappings();
 
+        // Cache hit — serve instantly without touching disk, then enrich in background
+        if (!force && _libCacheReady && _libFileCache.Count > 0)
+        {
+            var all = BuildLibraryItemsFast();
+            SendToJS("libraryData", new { files = all, total = all.Count, hasMore = false });
+            _ = Task.Run(() => EnrichLibraryWorldIds());
+            return;
+        }
+
+        _libCacheReady = false;
         Task.Run(() =>
         {
             try
             {
-                var allExts = FileWatcherService.ImgExt.Concat(FileWatcherService.VidExt).ToHashSet(StringComparer.OrdinalIgnoreCase);
+                var allExts = FileWatcherService.ImgExt.Concat(FileWatcherService.VidExt)
+                    .ToHashSet(StringComparer.OrdinalIgnoreCase);
                 var entries = new List<LibFileEntry>();
 
                 for (int fi = 0; fi < _settings.WatchFolders.Count; fi++)
@@ -348,19 +429,15 @@ public partial class MainForm
                     catch { }
                 }
 
-                // Sort all by newest first, store cache
-                var sorted = entries.OrderByDescending(e => e.Fi.LastWriteTime).ToList();
-                _libFileCache = sorted;
-                _libFileCacheTotal = sorted.Count;
+                _libFileCache      = entries.OrderByDescending(e => e.Fi.LastWriteTime).ToList();
+                _libFileCacheTotal = _libFileCache.Count;
+                _libCacheReady     = true;
 
-                var firstPage = BuildLibraryItems(0, 100);
-                Invoke(() => SendToJS("libraryData", new
-                {
-                    files = firstPage,
-                    total = _libFileCacheTotal,
-                    offset = 0,
-                    hasMore = _libFileCacheTotal > 100,
-                }));
+                var all = BuildLibraryItemsFast();
+                Invoke(() => SendToJS("libraryData", new { files = all, total = all.Count, hasMore = false }));
+
+                // Background pass: read PNG world IDs without blocking the UI
+                EnrichLibraryWorldIds();
             }
             catch (Exception ex)
             {
@@ -369,53 +446,86 @@ public partial class MainForm
         });
     }
 
-    private List<object> BuildLibraryItems(int offset, int count)
+    // Builds the full item list using only in-memory data — zero file reads.
+    // WorldId comes from the player-record store (already in RAM).
+    // ExtractWorldIdFromPng is intentionally skipped here to keep this fast;
+    // it is still called live by SnapshotPhotoPlayers when a photo is first taken.
+    private List<object> BuildLibraryItemsFast()
     {
-        var result = new List<object>();
-        var slice = _libFileCache.Skip(offset).Take(count);
-        foreach (var e in slice)
+        var result = new List<object>(_libFileCache.Count);
+        foreach (var e in _libFileCache)
         {
-            var f = e.Fi;
-            var isImg = FileWatcherService.ImgExt.Contains(f.Extension);
+            var f      = e.Fi;
+            var isImg  = FileWatcherService.ImgExt.Contains(f.Extension);
             var sizeMB = f.Length / 1048576.0;
-            var relPath = Path.GetRelativePath(e.Folder, f.FullName).Replace('\\', '/');
-            var virtualUrl = $"http://localhost:{_httpPort}/media{e.FolderIndex}/{Uri.EscapeDataString(relPath).Replace("%2F", "/")}";
+            var rel    = Path.GetRelativePath(e.Folder, f.FullName).Replace('\\', '/');
+            var url    = $"http://localhost:{_httpPort}/media{e.FolderIndex}/{Uri.EscapeDataString(rel).Replace("%2F", "/")}";
 
-            string? photoWorldId = null;
-            List<object>? photoPlayers = null;
+            string? worldId = null;
+            List<object>? players = null;
             if (isImg)
             {
-                if (f.Extension.Equals(".png", StringComparison.OrdinalIgnoreCase))
-                    try { photoWorldId = WorldTimeTracker.ExtractWorldIdFromPng(f.FullName); } catch { }
-
-                var rec = _photoPlayersStore.GetPhotoRecord(f.Name);
-                if (rec == null && (DateTime.Now - f.LastWriteTime).TotalHours < 24)
-                {
-                    try { Invoke(() => SnapshotPhotoPlayers(f.FullName)); rec = _photoPlayersStore.GetPhotoRecord(f.Name); }
-                    catch { }
-                }
+                var rec = _photoPlayersStore.GetPhotoRecord(f.Name); // O(1) dict lookup
                 if (rec != null)
                 {
-                    if (string.IsNullOrEmpty(photoWorldId) && !string.IsNullOrEmpty(rec.WorldId))
-                        photoWorldId = rec.WorldId;
-                    photoPlayers = rec.Players.Select(p => (object)new { userId = p.UserId, displayName = p.DisplayName, image = ResolvePlayerImage(p.UserId, p.Image) }).ToList();
+                    worldId = rec.WorldId;
+                    players = rec.Players.Select(p => (object)new
+                    {
+                        userId = p.UserId, displayName = p.DisplayName,
+                        image  = ResolvePlayerImage(p.UserId, p.Image)
+                    }).ToList();
                 }
             }
 
             result.Add(new
             {
-                name = f.Name,
-                path = f.FullName,
-                folder = e.Folder,
-                type = isImg ? "image" : "video",
-                size = sizeMB < 1 ? $"{f.Length / 1024.0:F0} KB" : $"{sizeMB:F1} MB",
+                name     = f.Name,
+                path     = f.FullName,
+                folder   = e.Folder,
+                type     = isImg ? "image" : "video",
+                size     = sizeMB < 1 ? $"{f.Length / 1024.0:F0} KB" : $"{sizeMB:F1} MB",
                 modified = f.LastWriteTime.ToString("o"),
-                time = f.LastWriteTime.ToString("HH:mm"),
-                url = virtualUrl,
-                worldId = photoWorldId ?? "",
-                players = photoPlayers ?? new List<object>(),
+                time     = f.LastWriteTime.ToString("HH:mm"),
+                url,
+                worldId  = worldId ?? "",
+                players  = players ?? new List<object>(),
             });
         }
         return result;
     }
+
+    // Silently reads PNG world-ID metadata in the background after the fast scan.
+    // Sends batches of { path → worldId } to JS so it can patch items and cards.
+    // Only processes PNGs that don't already have a worldId from the player store.
+    private void EnrichLibraryWorldIds()
+    {
+        var batch = new Dictionary<string, string>();
+        foreach (var e in _libFileCache)
+        {
+            var f = e.Fi;
+            if (!f.Extension.Equals(".png", StringComparison.OrdinalIgnoreCase)) continue;
+            // Skip if player store already provided a worldId
+            var rec = _photoPlayersStore.GetPhotoRecord(f.Name);
+            if (rec != null && !string.IsNullOrEmpty(rec.WorldId)) continue;
+
+            string? worldId = null;
+            try { worldId = WorldTimeTracker.ExtractWorldIdFromPng(f.FullName); } catch { }
+            if (string.IsNullOrEmpty(worldId)) continue;
+
+            batch[f.FullName] = worldId;
+            if (batch.Count >= 50)
+            {
+                var toSend = new Dictionary<string, string>(batch);
+                Invoke(() => SendToJS("libraryWorldIds", toSend));
+                batch.Clear();
+                Thread.Sleep(20); // yield — keep enrichment low-priority
+            }
+        }
+        if (batch.Count > 0)
+            Invoke(() => SendToJS("libraryWorldIds", batch));
+    }
+
+    // Keep old paginated builder for loadLibraryPage compatibility
+    private List<object> BuildLibraryItems(int offset, int count)
+        => BuildLibraryItemsFast().Skip(offset).Take(count).ToList();
 }

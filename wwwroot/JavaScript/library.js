@@ -30,6 +30,8 @@ function destroyLibrary() {
 }
 
 // ── Data loading ───────────────────────────────────────────────────────────
+// First tab open: show localStorage cache immediately, then ask C# (returns
+// instantly from its own in-memory cache after the first scan).
 function refreshLibrary() {
     try {
         const raw = localStorage.getItem('vrcnext_lib_cache');
@@ -44,6 +46,24 @@ function refreshLibrary() {
         }
     } catch {}
     sendToCS({ action: 'scanLibrary' });
+}
+
+// Refresh button: force a full filesystem rescan.
+function forceRefreshLibrary() {
+    _libHasMore  = false;
+    _libLoading  = false;
+    libraryFiles = [];
+    _libFiltered = [];
+    _libPage     = 0;
+    _libTotal    = 0;
+    const g = document.getElementById('libGrid');
+    if (g) {
+        g.querySelectorAll('.lib-thumb').forEach(img => { img.src = PLACEHOLDER; });
+        g.querySelectorAll('video').forEach(v => { try { v.pause(); } catch {} v.src = ''; });
+        g.innerHTML = '<div class="empty-msg">Scanning…</div>';
+    }
+    _setLibPaginator('');
+    sendToCS({ action: 'scanLibraryForce' });
 }
 
 function renderLibrary(data) {
@@ -102,6 +122,39 @@ function _fetchNextMetaPage() {
     if (!_libHasMore || _libLoading) return;
     _libLoading = true;
     sendToCS({ action: 'loadLibraryPage', offset: libraryFiles.length });
+}
+
+// Background enrichment: C# sends batches of { path → worldId } after the fast scan.
+// Patches libraryFiles in-place and injects world badges into already-rendered cards.
+function applyLibraryWorldIds(dict) {
+    if (!dict || !Object.keys(dict).length) return;
+    const newIds = [];
+    for (const [path, worldId] of Object.entries(dict)) {
+        if (!worldId) continue;
+        // Patch in-memory item
+        const item = libraryFiles.find(f => f.path === path);
+        if (item && !item.worldId) { item.worldId = worldId; }
+        if (!worldInfoCache[worldId]) newIds.push(worldId);
+        // Patch visible card if rendered and badge not yet there
+        const card = document.querySelector(`.lib-card[data-path="${CSS.escape(path)}"]`);
+        if (!card) continue;
+        const wrap = card.querySelector('.lib-thumb-wrap');
+        if (!wrap || wrap.querySelector('.lib-world-badge')) continue;
+        const wInfo = worldInfoCache[worldId];
+        const wName  = wInfo ? esc(wInfo.name) : 'View World';
+        const wThumb = wInfo?.thumbnailImageUrl || '';
+        wrap.insertAdjacentHTML('beforeend',
+            `<button class="lib-world-badge" data-wid="${esc(worldId)}" onclick="event.stopPropagation();openWorldSearchDetail('${esc(worldId)}')" title="${wName}"><span class="lib-world-badge-thumb" style="${wThumb ? `background-image:url('${cssUrl(wThumb)}')` : ''}"></span><span class="lib-world-badge-text">${wName}</span></button>`);
+    }
+    if (newIds.length) sendToCS({ action: 'vrcResolveWorlds', worldIds: [...new Set(newIds)].slice(0, 30) });
+}
+
+// Called when a new file lands in a watch folder — no rescan needed.
+function addNewLibraryFile(item) {
+    if (!item || libraryFiles.find(f => f.path === item.path)) return;
+    libraryFiles.unshift(item); // prepend — newest first
+    _resolveWorldIds([item]);
+    filterLibrary(true); // re-filter current page so new file appears at top of page 0
 }
 
 function _resolveWorldIds(files) {

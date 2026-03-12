@@ -1429,6 +1429,19 @@ public class VRChatApiService
         return new JArray();
     }
 
+    public async Task<JArray> GetGroupRoleMembersAsync(string groupId, string roleId)
+    {
+        if (!IsLoggedIn) return new JArray();
+        try
+        {
+            var resp = await _http.GetAsync($"{BASE}/groups/{groupId}/members?n=100&roleId={Uri.EscapeDataString(roleId)}");
+            if (resp.IsSuccessStatusCode) return JArray.Parse(await resp.Content.ReadAsStringAsync());
+            Log($"GetGroupRoleMembers({groupId}/{roleId}): {(int)resp.StatusCode}");
+        }
+        catch (Exception ex) { Log($"GetGroupRoleMembers exception: {ex.Message}"); }
+        return new JArray();
+    }
+
     public async Task<JArray> GetGroupMembersAsync(string groupId, int n = 50, int offset = 0)
     {
         if (!IsLoggedIn) return new JArray();
@@ -1440,6 +1453,39 @@ public class VRChatApiService
         }
         catch (Exception ex) { Log($"GetGroupMembers exception: {ex.Message}"); }
         return new JArray();
+    }
+
+    /// <summary>
+    /// Searches group members by displayName — fetches pages until 50 matches found or 10 pages exhausted.
+    /// VRChat has no server-side search for group members, so we paginate and filter client-side.
+    /// </summary>
+    public async Task<JArray> SearchGroupMembersAsync(string groupId, string query)
+    {
+        if (!IsLoggedIn) return new JArray();
+        var matches = new JArray();
+        int offset = 0;
+        const int pageSize = 100;
+        const int maxPages = 10;
+        for (int page = 0; page < maxPages; page++)
+        {
+            try
+            {
+                var resp = await _http.GetAsync($"{BASE}/groups/{groupId}/members?n={pageSize}&offset={offset}&sort=joinedAt:desc");
+                if (!resp.IsSuccessStatusCode) break;
+                var page_data = JArray.Parse(await resp.Content.ReadAsStringAsync());
+                foreach (var m in page_data)
+                {
+                    var name = m["user"]?["displayName"]?.ToString() ?? m["displayName"]?.ToString() ?? "";
+                    if (name.Contains(query, StringComparison.OrdinalIgnoreCase))
+                        matches.Add(m);
+                }
+                if (page_data.Count < pageSize) break; // last page
+                offset += pageSize;
+                if (matches.Count >= 50) break; // enough results
+            }
+            catch (Exception ex) { Log($"SearchGroupMembers exception: {ex.Message}"); break; }
+        }
+        return matches;
     }
 
     public async Task<JArray> GetCalendarEventsAsync(string filter = "all", int year = 0, int month = 0)
@@ -1604,6 +1650,124 @@ public class VRChatApiService
             return resp.IsSuccessStatusCode;
         }
         catch (Exception ex) { Log($"BanGroupMember exception: {ex.Message}"); return false; }
+    }
+
+    public async Task<JArray> GetGroupBansAsync(string groupId)
+    {
+        if (!IsLoggedIn) return new JArray();
+        try
+        {
+            var resp = await _http.GetAsync($"{BASE}/groups/{groupId}/bans");
+            if (resp.IsSuccessStatusCode) return JArray.Parse(await resp.Content.ReadAsStringAsync());
+            Log($"GetGroupBans({groupId}): {(int)resp.StatusCode}");
+        }
+        catch (Exception ex) { Log($"GetGroupBans exception: {ex.Message}"); }
+        return new JArray();
+    }
+
+    public async Task<bool> UnbanGroupMemberAsync(string groupId, string userId)
+    {
+        if (!IsLoggedIn) return false;
+        try
+        {
+            var resp = await _http.DeleteAsync($"{BASE}/groups/{groupId}/bans/{userId}");
+            Log($"UnbanGroupMember({groupId}/{userId}): {(int)resp.StatusCode}");
+            return resp.IsSuccessStatusCode;
+        }
+        catch (Exception ex) { Log($"UnbanGroupMember exception: {ex.Message}"); return false; }
+    }
+
+    public async Task<JObject?> CreateGroupRoleAsync(string groupId, string name, string description, List<string> permissions, bool isAddedOnJoin, bool isSelfAssignable, bool requiresTwoFactor)
+    {
+        if (!IsLoggedIn) return null;
+        try
+        {
+            // VRChat rejects permissions in the create body — create first, then update with permissions
+            var body = new JObject
+            {
+                ["name"] = name,
+                ["description"] = description,
+                ["isAddedOnJoin"] = isAddedOnJoin,
+                ["isSelfAssignable"] = isSelfAssignable,
+                ["requiresTwoFactor"] = requiresTwoFactor,
+            };
+            var resp = await _http.PostAsync($"{BASE}/groups/{groupId}/roles",
+                new StringContent(body.ToString(Newtonsoft.Json.Formatting.None), Encoding.UTF8, "application/json"));
+            Log($"CreateGroupRole({groupId}): {(int)resp.StatusCode}");
+            if (!resp.IsSuccessStatusCode) { Log($"CreateGroupRole body: {await resp.Content.ReadAsStringAsync()}"); return null; }
+            var role = JObject.Parse(await resp.Content.ReadAsStringAsync());
+            // If permissions were requested, apply them via update
+            if (permissions.Count > 0)
+            {
+                var roleId = role["id"]?.ToString();
+                if (!string.IsNullOrEmpty(roleId))
+                    await UpdateGroupRoleAsync(groupId, roleId, null, null, permissions, null, null, null);
+            }
+            return role;
+        }
+        catch (Exception ex) { Log($"CreateGroupRole exception: {ex.Message}"); }
+        return null;
+    }
+
+    public async Task<bool> UpdateGroupRoleAsync(string groupId, string roleId, string? name, string? description, List<string>? permissions, bool? isAddedOnJoin, bool? isSelfAssignable, bool? requiresTwoFactor)
+    {
+        if (!IsLoggedIn) return false;
+        try
+        {
+            var body = new JObject();
+            if (name        != null) body["name"]        = name;
+            if (description != null) body["description"] = description;
+            if (permissions != null) body["permissions"] = new JArray(permissions);
+            if (isAddedOnJoin.HasValue)    body["isAddedOnJoin"]    = isAddedOnJoin.Value;
+            if (isSelfAssignable.HasValue) body["isSelfAssignable"] = isSelfAssignable.Value;
+            if (requiresTwoFactor.HasValue) body["requiresTwoFactor"] = requiresTwoFactor.Value;
+            var reqBody = body.ToString(Newtonsoft.Json.Formatting.None);
+            if (permissions != null)
+                Log($"UpdateGroupRole perms: [{string.Join(", ", permissions)}]");
+            var resp = await _http.PutAsync($"{BASE}/groups/{groupId}/roles/{roleId}",
+                new StringContent(reqBody, Encoding.UTF8, "application/json"));
+            Log($"UpdateGroupRole({groupId}/{roleId}): {(int)resp.StatusCode}");
+            if (!resp.IsSuccessStatusCode) Log($"UpdateGroupRole body: {await resp.Content.ReadAsStringAsync()}");
+            return resp.IsSuccessStatusCode;
+        }
+        catch (Exception ex) { Log($"UpdateGroupRole exception: {ex.Message}"); return false; }
+    }
+
+    public async Task<bool> DeleteGroupRoleAsync(string groupId, string roleId)
+    {
+        if (!IsLoggedIn) return false;
+        try
+        {
+            var resp = await _http.DeleteAsync($"{BASE}/groups/{groupId}/roles/{roleId}");
+            Log($"DeleteGroupRole({groupId}/{roleId}): {(int)resp.StatusCode}");
+            return resp.IsSuccessStatusCode;
+        }
+        catch (Exception ex) { Log($"DeleteGroupRole exception: {ex.Message}"); return false; }
+    }
+
+    public async Task<bool> AddGroupMemberRoleAsync(string groupId, string userId, string roleId)
+    {
+        if (!IsLoggedIn) return false;
+        try
+        {
+            var resp = await _http.PutAsync($"{BASE}/groups/{groupId}/members/{userId}/roles/{roleId}",
+                new StringContent("{}", Encoding.UTF8, "application/json"));
+            Log($"AddGroupMemberRole({groupId}/{userId}/{roleId}): {(int)resp.StatusCode}");
+            return resp.IsSuccessStatusCode;
+        }
+        catch (Exception ex) { Log($"AddGroupMemberRole exception: {ex.Message}"); return false; }
+    }
+
+    public async Task<bool> RemoveGroupMemberRoleAsync(string groupId, string userId, string roleId)
+    {
+        if (!IsLoggedIn) return false;
+        try
+        {
+            var resp = await _http.DeleteAsync($"{BASE}/groups/{groupId}/members/{userId}/roles/{roleId}");
+            Log($"RemoveGroupMemberRole({groupId}/{userId}/{roleId}): {(int)resp.StatusCode}");
+            return resp.IsSuccessStatusCode;
+        }
+        catch (Exception ex) { Log($"RemoveGroupMemberRole exception: {ex.Message}"); return false; }
     }
 
     public async Task<bool> UpdateGroupAsync(string groupId, string? description = null, string? rules = null, List<string>? languages = null, List<string>? links = null, string? iconId = null, string? bannerId = null, string? joinState = null)

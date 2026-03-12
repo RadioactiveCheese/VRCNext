@@ -67,9 +67,10 @@ public partial class MainForm
     // Tracks which userIds currently have a background profile refresh in-flight (deduplication)
     private readonly HashSet<string> _profileRefreshInFlight = new();
 
-    // Library file cache: quick-scan result for pagination
+    // Library file cache
     private List<LibFileEntry> _libFileCache = new();
-    private int _libFileCacheTotal = 0;
+    private int  _libFileCacheTotal = 0;
+    private bool _libCacheReady     = false;
 
     // Timeline: cumulative instance player tracking
     private readonly Dictionary<string, (string displayName, string image)> _cumulativeInstancePlayers = new();

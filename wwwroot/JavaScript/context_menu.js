@@ -249,10 +249,23 @@
             if (id) return buildAvatarItems(id);
         }
 
-        const memberCard = el.closest('#gdTabMembers .vrcn-profile-item');
+        const bannedCard = el.closest('#gdTabBanned .vrcn-profile-item');
+        if (bannedCard && window._currentGroupDetail?.canBan) {
+            const id = extractId(bannedCard, /openFriendDetail\('([^']+)'\)/);
+            if (id) return [
+                { icon: 'lock_open', label: 'Unban Member', action: () => sendToCS({ action: 'vrcUnbanGroupMember', groupId: window._currentGroupDetail.id, userId: id }) },
+                'sep',
+                ...buildFriendItems(id),
+            ];
+        }
+
+        const memberCard = el.closest('#gdTabMembers .vrcn-profile-item, #gdTabRoles .vrcn-profile-item');
         if (memberCard && window._currentGroupDetail) {
             const id = extractId(memberCard, /openFriendDetail\('([^']+)'\)/);
-            if (id) return buildGroupMemberItems(id, window._currentGroupDetail);
+            if (id) {
+                const memberRoleIds = (window._gdMemberRoleIds && window._gdMemberRoleIds[id]) || [];
+                return buildGroupMemberItems(id, window._currentGroupDetail, memberRoleIds);
+            }
         }
 
         const friendCard = el.closest('.vrc-friend-card, .vrcn-profile-item, .inst-user-row, .iim-user-tr, .dash-feed-card, .fav-friend-card, .s-card-h');
@@ -292,15 +305,41 @@
         return items;
     }
 
-    function buildGroupMemberItems(userId, grpCtx) {
+    function buildGroupMemberItems(userId, grpCtx, memberRoleIds = []) {
         const modItems = [];
         if (grpCtx.canKick) modItems.push({ icon: 'person_remove', label: 'Kick from group', danger: true, confirm: true,
             action: () => sendToCS({ action: 'vrcKickGroupMember', groupId: grpCtx.id, userId }) });
         if (grpCtx.canBan)  modItems.push({ icon: 'block', label: 'Ban from group', danger: true, confirm: true,
             action: () => sendToCS({ action: 'vrcBanGroupMember', groupId: grpCtx.id, userId }) });
+        if (grpCtx.canAssignRoles) {
+            const assignable = (grpCtx.roles || []).filter(r => !(r.permissions || []).includes('*'));
+            if (assignable.length > 0)
+                modItems.push({ icon: 'badge', label: 'Assign Role', submenuFn: btn => showRoleAssignSubmenu(userId, grpCtx, memberRoleIds, btn) });
+        }
         const friendItems = buildFriendItems(userId);
         if (modItems.length > 0) return [...modItems, 'sep', ...friendItems];
         return friendItems;
+    }
+
+    function showRoleAssignSubmenu(userId, grpCtx, memberRoleIds, parentBtn) {
+        const roles = (grpCtx.roles || []).filter(r => !(r.permissions || []).includes('*'));
+        submenu.innerHTML = roles.map(r => {
+            const hasRole = memberRoleIds.includes(r.id);
+            return `<button class="vn-ctx-item" data-role-id="${esc(r.id)}" data-group-id="${esc(grpCtx.id)}" data-user-id="${esc(userId)}" data-has-role="${hasRole}">
+                <span class="msi" style="font-size:14px;color:${hasRole ? 'var(--ok, #4caf50)' : 'inherit'};">${hasRole ? 'check_circle' : 'badge'}</span>
+                <span class="vn-ctx-label">${esc(r.name)}</span>
+            </button>`;
+        }).join('');
+        submenu.querySelectorAll('[data-role-id]').forEach(btn => {
+            btn.addEventListener('click', e => {
+                e.stopPropagation();
+                const action = btn.dataset.hasRole === 'true' ? 'vrcRemoveGroupMemberRole' : 'vrcAddGroupMemberRole';
+                sendToCS({ action, groupId: btn.dataset.groupId, userId: btn.dataset.userId, roleId: btn.dataset.roleId });
+                hideMenu();
+            });
+            btn.addEventListener('mouseenter', () => clearTimeout(submenuTimer));
+        });
+        positionSubmenu(parentBtn);
     }
 
     function buildAvatarItems(id) {

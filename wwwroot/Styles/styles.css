@@ -1944,8 +1944,49 @@ body {
 }
 
 .modal-box.wide {
-    width: 440px;
+    width: 580px;
 }
+
+/* === Group Roles === */
+.gd-role-card {
+    background: var(--bg-input);
+    border-radius: 10px;
+    margin-bottom: 8px;
+    border: 1px solid var(--brd);
+    overflow: hidden;
+}
+.gd-role-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 14px;
+    cursor: pointer;
+    user-select: none;
+}
+.gd-role-header:hover { background: var(--bg-hover); }
+.gd-role-name { font-size: 13px; font-weight: 600; color: var(--tx0); }
+.gd-role-meta { font-size: 11px; color: var(--tx3); margin-top: 1px; }
+.gd-role-body { padding: 0 14px 14px; }
+.gd-role-section { margin-top: 14px; }
+.gd-role-section-title {
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--tx3);
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    margin-bottom: 8px;
+}
+.gd-perm-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 7px 0;
+    border-bottom: 1px solid color-mix(in srgb, var(--brd) 50%, transparent);
+}
+.gd-perm-row:last-child { border-bottom: none; }
+.gd-perm-info { flex: 1; min-width: 0; }
+.gd-perm-label { font-size: 12px; color: var(--tx1); font-weight: 500; }
+.gd-perm-desc { font-size: 10px; color: var(--tx3); margin-top: 2px; line-height: 1.4; }
 
 .fd-banner {
     margin: -28px -32px 0 -32px;
@@ -2184,6 +2225,7 @@ body {
     cursor: pointer;
     transition: background .15s;
     user-select: none;
+    min-width: 0;
 }
 
 .vrcn-profile-item:hover {
@@ -2362,6 +2404,8 @@ body {
 }
 
 .dash-section-label {
+    position: relative;
+    z-index: 1;
     font-size: 11px;
     font-weight: 700;
     color: var(--tx3);
@@ -2391,6 +2435,8 @@ body {
 }
 
 .dash-worlds-grid {
+    position: relative;
+    z-index: 1;
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(208px, 1fr));
     gap: 14px;
@@ -2540,6 +2586,8 @@ body {
 }
 
 .dash-friends-feed {
+    position: relative;
+    z-index: 1;
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
     gap: 10px;
@@ -3055,6 +3103,7 @@ body {
     cursor: pointer;
     transition: background .15s;
     margin-bottom: 6px;
+    min-width: 0;
 }
 
 .fd-group-card:hover {

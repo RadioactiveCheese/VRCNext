@@ -64,7 +64,9 @@ function openGroupDetail(groupId) {
 }
 
 function renderGroupDetail(g) {
-    window._currentGroupDetail = { id: g.id, canKick: g.canKick === true, canBan: g.canBan === true, languages: g.languages || [], links: g.links || [], joinState: g.joinState || '' };
+    window._currentGroupDetail = { id: g.id, canKick: g.canKick === true, canBan: g.canBan === true, canManageRoles: g.canManageRoles === true, canAssignRoles: g.canAssignRoles === true, languages: g.languages || [], links: g.links || [], joinState: g.joinState || '', roles: g.roles || [] };
+    window._gdBannedLoaded = false;
+    window._gdMemberRoleIds = {};
     const el = document.getElementById('detailModalContent');
     const canEdit = g.canEdit === true;
     const gidJs  = jsq(g.id);
@@ -287,22 +289,26 @@ function renderGroupDetail(g) {
 
     // Tab: Members (paginated)
     const members = g.groupMembers || [];
-    let membersTab = '';
+    let membersTab = `<div class="search-bar-row" style="margin-bottom:6px;">
+        <span class="msi search-ico">search</span>
+        <input id="gdMembersSearch" type="text" class="vrcn-input" placeholder="Search users by name... hit enter" style="background:var(--bg-input);" onkeydown="if(event.key==='Enter')searchGroupMembers()">
+    </div>`;
+    membersTab += '<div id="gdMembersList" style="display:grid;grid-template-columns:1fr 1fr;column-gap:6px;">';
     if (members.length === 0) {
-        membersTab = '<div style="padding:20px;text-align:center;font-size:12px;color:var(--tx3);">No members</div>';
+        membersTab += '<div style="padding:20px;text-align:center;font-size:12px;color:var(--tx3);">No members</div>';
     } else {
-        membersTab = '<div id="gdMembersList">';
-        members.forEach(m => {
-            membersTab += renderGroupMemberCard(m);
-        });
-        membersTab += '</div>';
-        if (members.length >= 50) {
-            membersTab += `<div id="gdMembersLoadMore" style="text-align:center;padding:12px;"><button class="vrcn-button" onclick="loadMoreGroupMembers()">Load More Members</button></div>`;
-        }
+        members.forEach(m => { membersTab += renderGroupMemberCard(m); });
     }
+    membersTab += '</div>';
+    membersTab += `<div id="gdMembersLoadMore" style="text-align:center;padding:12px;">` +
+        (members.length >= 50
+            ? `<button class="vrcn-button" onclick="loadMoreGroupMembers()">Load More Members</button>`
+            : (members.length > 0 ? `<div style="font-size:11px;color:var(--tx3);">All members loaded</div>` : '')) +
+        `</div>`;
     // Store group id + offset for pagination
     window._gdMembersGroupId = g.id;
     window._gdMembersOffset = members.length;
+    window._gdMembersSearchActive = false;
 
     // Tabs
     const tabs = [
@@ -313,7 +319,12 @@ function renderGroupDetail(g) {
         { key: 'gallery', label: 'Gallery' },
         { key: 'members', label: 'Members' },
     ];
+    if (g.canManageRoles) tabs.push({ key: 'roles', label: 'Roles' });
+    if (g.canBan)         tabs.push({ key: 'banned', label: 'Banned' });
     const tabsHtml = `<div class="fd-tabs gd-tabs">${tabs.map((t,i) => `<button class="fd-tab${i===0?' active':''}" onclick="switchGdTab('${t.key}',this)">${t.label}</button>`).join('')}</div>`;
+
+    const rolesTab   = g.canManageRoles ? _buildRolesTab(g) : '';
+    const bannedTab  = g.canBan ? _buildBannedTab() : '';
 
     el.innerHTML = `${bannerHtml}${headerHtml}${tabsHtml}
         <div id="gdTabInfo">${infoTab}</div>
@@ -322,11 +333,17 @@ function renderGroupDetail(g) {
         <div id="gdTabInstances" style="display:none;">${instancesTab}</div>
         <div id="gdTabGallery" style="display:none;">${galleryTab}</div>
         <div id="gdTabMembers" style="display:none;">${membersTab}</div>
+        ${g.canManageRoles ? `<div id="gdTabRoles" style="display:none;">${rolesTab}</div>` : ''}
+        ${g.canBan ? `<div id="gdTabBanned" style="display:none;">${bannedTab}</div>` : ''}
         <div style="margin-top:10px;display:flex;justify-content:space-between;align-items:center;"><div style="display:flex;gap:8px;">${createPostBtn}${createEventBtn}${leaveJoinBtn}</div><button class="vrcn-button-round" onclick="document.getElementById('modalDetail').style.display='none'">Close</button></div>
     </div>`;
 }
 
 function renderGroupMemberCard(m) {
+    if (m.id && m.roleIds) {
+        if (!window._gdMemberRoleIds) window._gdMemberRoleIds = {};
+        window._gdMemberRoleIds[m.id] = m.roleIds;
+    }
     return renderProfileItem(m, `closeDetailModal();openFriendDetail('${jsq(m.id || '')}')`);
 }
 
@@ -438,19 +455,42 @@ function removeGrpLanguage(code) {
 }
 
 function loadMoreGroupMembers() {
-    if (!window._gdMembersGroupId) return;
+    if (!window._gdMembersGroupId || window._gdMembersSearchActive) return;
     const btn = document.querySelector('#gdMembersLoadMore button');
     if (btn) { btn.textContent = 'Loading...'; btn.disabled = true; }
     sendToCS({ action: 'vrcGetGroupMembers', groupId: window._gdMembersGroupId, offset: window._gdMembersOffset || 0 });
 }
 
+function searchGroupMembers() {
+    if (!window._gdMembersGroupId) return;
+    const q = document.getElementById('gdMembersSearch')?.value.trim() || '';
+    if (!q) {
+        // Empty search → reset to normal paginated view
+        window._gdMembersSearchActive = false;
+        window._gdMembersOffset = 0;
+        const list = document.getElementById('gdMembersList');
+        if (list) list.innerHTML = '<div style="padding:16px;text-align:center;font-size:12px;color:var(--tx3);">Loading...</div>';
+        const lm = document.getElementById('gdMembersLoadMore');
+        if (lm) lm.innerHTML = '';
+        sendToCS({ action: 'vrcGetGroupMembers', groupId: window._gdMembersGroupId, offset: 0 });
+        return;
+    }
+    window._gdMembersSearchActive = true;
+    const list = document.getElementById('gdMembersList');
+    if (list) list.innerHTML = '<div style="padding:16px;text-align:center;font-size:12px;color:var(--tx3);">Searching...</div>';
+    const lm = document.getElementById('gdMembersLoadMore');
+    if (lm) lm.innerHTML = '';
+    sendToCS({ action: 'vrcSearchGroupMembers', groupId: window._gdMembersGroupId, query: q });
+}
+
 function switchGdTab(tab, btn) {
-    ['Info','Posts','Events','Instances','Gallery','Members'].forEach(t => {
+    ['Info','Posts','Events','Instances','Gallery','Members','Roles','Banned'].forEach(t => {
         const el = document.getElementById('gdTab' + t);
         if (el) el.style.display = t.toLowerCase() === tab ? '' : 'none';
     });
     btn.closest('.fd-tabs').querySelectorAll('.fd-tab').forEach(t => t.classList.remove('active'));
     btn.classList.add('active');
+    if (tab === 'banned' && !window._gdBannedLoaded) loadGroupBans();
 }
 
 function toggleGPost(i) {
@@ -1042,4 +1082,274 @@ function submitGroupEvent() {
 
     sendToCS(payload);
     closeGroupEventModal();
+}
+
+/* ============================================================
+   GROUP ROLES
+   ============================================================ */
+
+const ROLE_PERM_DEFS = [
+    { key: 'group-members-manage',               label: 'Manage Group Member Data',            desc: 'View, filter, sort, and edit data about all members.' },
+    { key: 'group-data-manage',                  label: 'Manage Group Data',                   desc: 'Edit group details (name, description, joinState, etc).' },
+    { key: 'group-audit-view',                   label: 'View Audit Log',                      desc: 'View the full group audit log.' },
+    { key: 'group-roles-manage',                 label: 'Manage Group Roles',                  desc: 'Create, modify, and delete roles.' },
+    { key: 'group-default-role-manage',          label: 'Manage Default Role',                 desc: 'Manage permissions for the default (Everyone) role.' },
+    { key: 'group-roles-assign',                 label: 'Assign Group Roles',                  desc: 'Assign/unassign roles to users. Requires "Manage Group Member Data".' },
+    { key: 'group-bans-manage',                  label: 'Manage Group Bans',                   desc: 'Ban/unban users and view all banned users. Requires "Manage Group Member Data".' },
+    { key: 'group-members-remove',               label: 'Remove Group Members',                desc: 'Remove someone from the group. Requires "Manage Group Member Data".' },
+    { key: 'group-members-viewall',              label: 'View All Members',                    desc: 'View all members in the group, not just friends.' },
+    { key: 'group-announcement-manage',          label: 'Manage Group Announcement',           desc: 'Set/clear group announcement and send it as a notification.' },
+    { key: 'group-calendar-manage',              label: 'Manage Group Calendar',               desc: 'Create, modify, and publish calendar entries.' },
+    { key: 'group-galleries-manage',             label: 'Manage Group Galleries',              desc: 'Create, reorder, edit, and delete group galleries.' },
+    { key: 'group-invites-manage',               label: 'Manage Group Invites',                desc: 'Create/cancel invites, accept/decline/block join requests.' },
+    { key: 'group-instance-moderate',            label: 'Moderate Group Instances',            desc: 'Moderate within a group instance.' },
+    { key: 'group-instance-manage',              label: 'Manage Group Instances',              desc: 'Rename or close a group instance.' },
+    { key: 'group-instance-queue-priority',      label: 'Group Instance Queue Priority',       desc: 'Priority for group instance queues.' },
+    { key: 'group-instance-age-gated-create',    label: 'Create Age Gated Instances',          desc: 'Create instances requiring age verification (18+).' },
+    { key: 'group-instance-public-create',       label: 'Create Public Group Instances',       desc: 'Create instances open to all, member or not.' },
+    { key: 'group-instance-plus-create',         label: 'Create Group+ Instances',             desc: 'Create instances that friends of attendees can also join.' },
+    { key: 'group-instance-open-create',         label: 'Create Open Group Instances',         desc: 'Create open group instances.' },
+    { key: 'group-instance-restricted-create',   label: 'Create Role-Restricted Instances',    desc: 'Create instances restricted to specific roles.' },
+    { key: 'group-instance-plus-portal',         label: 'Portal to Group+ Instances',          desc: 'Open locked portals to Group+ instances.' },
+    { key: 'group-instance-plus-portal-unlocked',label: 'Unlocked Portal to Group+ Instances', desc: 'Open unlocked portals to Group+ instances.' },
+    { key: 'group-instance-join',                label: 'Join Group Instances',                desc: 'Join group instances.' },
+];
+
+function _buildRoleEditor(role, groupId, canManage, isSystemRole) {
+    const rid = esc(role.id);
+    const gid = jsq(groupId);
+    const isOwner = (role.permissions || []).includes('*');
+    const dis = (canManage && !isOwner) ? '' : 'disabled';
+    const generalHtml = `
+    <div class="gd-role-section">
+        <div class="gd-role-section-title">General</div>
+        <div class="sf-row" style="margin-bottom:8px;">
+            <label style="font-size:12px;color:var(--tx2);min-width:50px;">Name</label>
+            <input id="grole-name-${rid}" class="vrcn-edit-field" value="${esc(role.name)}" maxlength="64" style="flex:1;" ${dis}>
+        </div>
+        <div class="sf-toggle-row"><span>Assign On Join</span>
+            <label class="toggle"><input type="checkbox" id="grole-join-${rid}" ${role.isAddedOnJoin ? 'checked' : ''} ${dis}><div class="toggle-track"><div class="toggle-knob"></div></div></label></div>
+        <div class="sf-toggle-row"><span>Self Assignable</span>
+            <label class="toggle"><input type="checkbox" id="grole-self-${rid}" ${role.isSelfAssignable ? 'checked' : ''} ${dis}><div class="toggle-track"><div class="toggle-knob"></div></div></label></div>
+        <div class="sf-toggle-row"><span>Require Two Factor Authentication</span>
+            <label class="toggle"><input type="checkbox" id="grole-tfa-${rid}" ${role.requiresTwoFactor ? 'checked' : ''} ${dis}><div class="toggle-track"><div class="toggle-knob"></div></div></label></div>
+    </div>`;
+    const hasWildcard = (role.permissions || []).includes('*');
+    const permsHtml = `
+    <div class="gd-role-section">
+        <div class="gd-role-section-title">Permissions</div>
+        ${hasWildcard
+            ? `<div style="padding:8px 0;font-size:12px;color:var(--tx2);">This role has full access (all permissions).</div>`
+            : ROLE_PERM_DEFS.map(p => {
+                const checked = (role.permissions || []).includes(p.key);
+                return `<div class="gd-perm-row">
+                    <div class="gd-perm-info"><div class="gd-perm-label">${p.label}</div><div class="gd-perm-desc">${p.desc}</div></div>
+                    <label class="toggle" style="flex-shrink:0;margin-left:12px;"><input type="checkbox" data-perm-key="${p.key}" ${checked ? 'checked' : ''} ${dis}><div class="toggle-track"><div class="toggle-knob"></div></div></label>
+                </div>`;
+            }).join('')}
+    </div>`;
+    const canSave = canManage && !isOwner;
+    const actionBtns = canSave ? `
+    <div style="display:flex;gap:8px;margin-top:14px;justify-content:space-between;">
+        ${!isSystemRole ? `<button class="vrcn-button-round vrcn-btn-danger" style="font-size:11px;" onclick="deleteGroupRole('${jsq(role.id)}','${gid}')"><span class="msi" style="font-size:14px;">delete</span> Delete</button>` : '<div></div>'}
+        <button class="vrcn-button-round vrcn-btn-join" style="font-size:11px;" onclick="saveGroupRole('${jsq(role.id)}','${gid}')"><span class="msi" style="font-size:14px;">save</span> Save Changes</button>
+    </div>` : '';
+    return generalHtml + permsHtml + actionBtns;
+}
+
+function _buildRoleCard(role, groupId, canManage) {
+    const rid = esc(role.id);
+    const permCount = (role.permissions || []).includes('*') ? '∗' : (role.permissions || []).length;
+    const meta = [
+        permCount + (permCount === '∗' ? ' (all)' : permCount === 1 ? ' permission' : ' permissions'),
+        role.isAddedOnJoin   ? 'Auto-join'   : '',
+        role.isSelfAssignable? 'Self-assign' : '',
+    ].filter(Boolean).join(' · ');
+    const badge = role.isManagementRole ? `<span class="vrcn-badge" style="margin-right:6px;">System</span>` : '';
+    return `<div class="gd-role-card" id="gdrole-${rid}">
+        <div class="gd-role-header" onclick="toggleGdRoleExpand('${rid}')">
+            <div style="flex:1;"><div class="gd-role-name">${badge}${esc(role.name)}</div><div class="gd-role-meta">${meta}</div></div>
+            <span class="msi gd-role-chevron" style="font-size:18px;color:var(--tx3);transition:transform .2s;">expand_more</span>
+        </div>
+        <div class="gd-role-body" id="gdrole-body-${rid}" style="display:none;">
+            <div class="fd-tabs gd-tabs" style="margin:10px 14px 0;">
+                <button class="fd-tab active" onclick="switchGdRoleTab('${rid}','settings',this)">Settings</button>
+                <button class="fd-tab" onclick="switchGdRoleTab('${rid}','members',this)">Members</button>
+            </div>
+            <div id="gdrole-settings-${rid}">
+                ${_buildRoleEditor(role, groupId, canManage, role.isManagementRole)}
+            </div>
+            <div id="gdrole-members-${rid}" style="display:none;">
+                <div id="gdrole-members-list-${rid}" style="padding:8px 0;">
+                    <div style="padding:16px;text-align:center;font-size:12px;color:var(--tx3);">Click to load members...</div>
+                </div>
+            </div>
+        </div>
+    </div>`;
+}
+
+function _buildCreateRoleForm(groupId) {
+    const gid = jsq(groupId);
+    return `<div id="gdRoleCreateForm" style="display:none;margin-bottom:10px;">
+        <div class="gd-role-card" style="border:1.5px dashed var(--accent);">
+            <div style="padding:12px 14px 0;"><div class="gd-role-section-title">New Role</div>
+            <div class="sf-row" style="margin-bottom:8px;">
+                <label style="font-size:12px;color:var(--tx2);min-width:50px;">Name</label>
+                <input id="gdNewRoleName" class="vrcn-edit-field" placeholder="Role name..." maxlength="64" style="flex:1;">
+            </div>
+            <div class="sf-toggle-row"><span>Assign On Join</span>
+                <label class="toggle"><input type="checkbox" id="gdNewRoleJoin"><div class="toggle-track"><div class="toggle-knob"></div></div></label></div>
+            <div class="sf-toggle-row"><span>Self Assignable</span>
+                <label class="toggle"><input type="checkbox" id="gdNewRoleSelf"><div class="toggle-track"><div class="toggle-knob"></div></div></label></div>
+            <div class="sf-toggle-row"><span>Require Two Factor Authentication</span>
+                <label class="toggle"><input type="checkbox" id="gdNewRoleTfa"><div class="toggle-track"><div class="toggle-knob"></div></div></label></div>
+            <div class="gd-role-section-title" style="margin-top:14px;">Permissions</div>
+            ${ROLE_PERM_DEFS.map(p => `<div class="gd-perm-row">
+                <div class="gd-perm-info"><div class="gd-perm-label">${p.label}</div><div class="gd-perm-desc">${p.desc}</div></div>
+                <label class="toggle" style="flex-shrink:0;margin-left:12px;"><input type="checkbox" class="gdNewRolePerm" data-perm-key="${p.key}"><div class="toggle-track"><div class="toggle-knob"></div></div></label>
+            </div>`).join('')}
+            <div style="display:flex;gap:8px;margin-top:14px;padding-bottom:14px;">
+                <button class="vrcn-button-round" style="font-size:11px;" onclick="closeCreateRoleForm()">Cancel</button>
+                <button class="vrcn-button-round vrcn-btn-join" style="font-size:11px;margin-left:auto;" onclick="submitCreateRole('${gid}')"><span class="msi" style="font-size:14px;">add</span> Create Role</button>
+            </div></div>
+        </div>
+    </div>`;
+}
+
+function _buildRolesTab(g) {
+    const canManage = g.canManageRoles === true;
+    const roles = g.roles || [];
+    const createBtn = `<button class="vrcn-button-round" style="margin-bottom:10px;" onclick="openCreateRoleForm()"><span class="msi" style="font-size:14px;">add</span> Create Role</button>`;
+    const createForm = _buildCreateRoleForm(g.id);
+    const roleCards = roles.length
+        ? roles.map(r => _buildRoleCard(r, g.id, canManage)).join('')
+        : '<div style="padding:20px;text-align:center;font-size:12px;color:var(--tx3);">No roles found</div>';
+    return `${createBtn}${createForm}<div id="gdRolesList">${roleCards}</div>`;
+}
+
+function toggleGdRoleExpand(roleId) {
+    const body    = document.getElementById('gdrole-body-' + roleId);
+    const chevron = document.querySelector('#gdrole-' + roleId + ' .gd-role-chevron');
+    if (!body) return;
+    const open = body.style.display !== 'none';
+    body.style.display = open ? 'none' : '';
+    if (chevron) chevron.style.transform = open ? '' : 'rotate(180deg)';
+}
+
+function switchGdRoleTab(roleId, tab, btn) {
+    document.getElementById('gdrole-settings-' + roleId).style.display = tab === 'settings' ? '' : 'none';
+    document.getElementById('gdrole-members-'  + roleId).style.display = tab === 'members'  ? '' : 'none';
+    btn.closest('.fd-tabs').querySelectorAll('.fd-tab').forEach(b => b.classList.toggle('active', b === btn));
+    if (tab === 'members') {
+        const listEl = document.getElementById('gdrole-members-list-' + roleId);
+        if (listEl && !listEl.dataset.loaded) {
+            listEl.dataset.loaded = '1';
+            listEl.innerHTML = '<div style="padding:16px;text-align:center;font-size:12px;color:var(--tx3);">Loading...</div>';
+            const g = window._currentGroupDetail;
+            if (g) sendToCS({ action: 'vrcGetGroupRoleMembers', groupId: g.id, roleId });
+        }
+    }
+}
+
+function onGroupRoleMembers(data) {
+    const listEl = document.getElementById('gdrole-members-list-' + data.roleId);
+    if (!listEl) return;
+    if (!data.members || data.members.length === 0) {
+        listEl.innerHTML = '<div style="padding:16px;text-align:center;font-size:12px;color:var(--tx3);">No members with this role.</div>';
+        return;
+    }
+    listEl.innerHTML = data.members.map(m => renderGroupMemberCard(m)).join('');
+}
+
+function openCreateRoleForm() {
+    const form = document.getElementById('gdRoleCreateForm');
+    if (form) { form.style.display = ''; form.querySelector('input')?.focus(); }
+}
+
+function closeCreateRoleForm() {
+    const form = document.getElementById('gdRoleCreateForm');
+    if (form) form.style.display = 'none';
+}
+
+function submitCreateRole(groupId) {
+    const name = document.getElementById('gdNewRoleName')?.value.trim() || '';
+    if (!name) { showToast(false, 'Role name is required'); return; }
+    const perms = Array.from(document.querySelectorAll('.gdNewRolePerm:checked')).map(el => el.dataset.permKey);
+    sendToCS({
+        action: 'vrcCreateGroupRole', groupId, name, description: '',
+        permissions: perms,
+        isAddedOnJoin:    document.getElementById('gdNewRoleJoin')?.checked || false,
+        isSelfAssignable: document.getElementById('gdNewRoleSelf')?.checked || false,
+        requiresTwoFactor:document.getElementById('gdNewRoleTfa')?.checked  || false,
+    });
+}
+
+function saveGroupRole(roleId, groupId) {
+    const name = document.getElementById('grole-name-' + roleId)?.value.trim() || '';
+    if (!name) { showToast(false, 'Role name is required'); return; }
+    const perms = Array.from(document.querySelectorAll(`#gdrole-body-${roleId} [data-perm-key]:checked`)).map(el => el.dataset.permKey);
+    sendToCS({
+        action: 'vrcUpdateGroupRole', groupId, roleId, name, permissions: perms,
+        isAddedOnJoin:    document.getElementById('grole-join-' + roleId)?.checked || false,
+        isSelfAssignable: document.getElementById('grole-self-' + roleId)?.checked || false,
+        requiresTwoFactor:document.getElementById('grole-tfa-'  + roleId)?.checked || false,
+    });
+}
+
+function deleteGroupRole(roleId, groupId) {
+    const card = document.getElementById('gdrole-' + roleId);
+    if (card) { card.style.opacity = '0.4'; card.style.pointerEvents = 'none'; }
+    sendToCS({ action: 'vrcDeleteGroupRole', groupId, roleId });
+}
+
+function onGroupRoleResult(payload) {
+    if (!payload.success) {
+        const msg = { create: 'Failed to create role', update: 'Failed to save role', delete: 'Failed to delete role' }[payload.action] || 'Role action failed';
+        showToast(false, msg);
+        if (payload.action === 'delete') {
+            const card = document.getElementById('gdrole-' + payload.roleId);
+            if (card) { card.style.opacity = ''; card.style.pointerEvents = ''; }
+        }
+        return;
+    }
+    if (payload.action === 'create') {
+        showToast(true, 'Role created');
+        closeCreateRoleForm();
+        if (payload.role && window._currentGroupDetail) {
+            window._currentGroupDetail.roles = [...(window._currentGroupDetail.roles || []), payload.role];
+            const list = document.getElementById('gdRolesList');
+            if (list) list.insertAdjacentHTML('beforeend', _buildRoleCard(payload.role, payload.groupId, true));
+        }
+    } else if (payload.action === 'update') {
+        showToast(true, 'Role saved');
+    } else if (payload.action === 'delete') {
+        showToast(true, 'Role deleted');
+        if (window._currentGroupDetail)
+            window._currentGroupDetail.roles = (window._currentGroupDetail.roles || []).filter(r => r.id !== payload.roleId);
+        document.getElementById('gdrole-' + payload.roleId)?.remove();
+    }
+}
+
+/* ============================================================
+   GROUP BANNED MEMBERS
+   ============================================================ */
+
+function _buildBannedTab() {
+    return `<div id="gdBannedList"><div style="padding:20px;text-align:center;font-size:12px;color:var(--tx3);">Loading...</div></div>`;
+}
+
+function loadGroupBans() {
+    if (!window._currentGroupDetail?.id) return;
+    window._gdBannedLoaded = true;
+    sendToCS({ action: 'vrcGetGroupBans', groupId: window._currentGroupDetail.id });
+}
+
+function renderGroupBans(groupId, bans) {
+    const list = document.getElementById('gdBannedList');
+    if (!list) return;
+    if (!bans || bans.length === 0) {
+        list.innerHTML = '<div style="padding:20px;text-align:center;font-size:12px;color:var(--tx3);">No banned members</div>';
+        return;
+    }
+    list.innerHTML = bans.map(b => renderProfileItem(b, `closeDetailModal();openFriendDetail('${jsq(b.id || '')}')`)).join('');
 }

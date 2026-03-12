@@ -260,7 +260,12 @@ public partial class MainForm
                     break;
 
                 case "scanLibrary":
-                    ScanLibraryFolders();
+                    ScanLibraryFolders(false);
+                    break;
+
+                case "scanLibraryForce":
+                    _libCacheReady = false;
+                    ScanLibraryFolders(true);
                     break;
 
                 case "loadLibraryPage":
@@ -1456,8 +1461,10 @@ public partial class MainForm
                                 var canPost  = myPerms.Any(p => p.ToString() == "*" || p.ToString() == "group-announcement-manage");
                                 var canEvent = myPerms.Any(p => p.ToString() == "*" || p.ToString() == "group-calendar-manage");
                                 var canEdit  = myPerms.Any(p => p.ToString() == "*" || p.ToString() == "group-data-manage");
-                                var canKick  = myPerms.Any(p => p.ToString() == "*" || p.ToString() == "group-members-remove");
-                                var canBan   = myPerms.Any(p => p.ToString() == "*" || p.ToString() == "group-bans-manage");
+                                var canKick        = myPerms.Any(p => p.ToString() == "*" || p.ToString() == "group-members-remove");
+                                var canBan         = myPerms.Any(p => p.ToString() == "*" || p.ToString() == "group-bans-manage");
+                                var canManageRoles = myPerms.Any(p => p.ToString() == "*" || p.ToString() == "group-roles-manage");
+                                var canAssignRoles = myPerms.Any(p => p.ToString() == "*" || p.ToString() == "group-roles-manage" || p.ToString() == "group-roles-assign");
 
                                 Invoke(() => SendToJS("vrcGroupDetail", new {
                                     id = g["id"]?.ToString() ?? "", name = g["name"]?.ToString() ?? "",
@@ -1469,7 +1476,21 @@ public partial class MainForm
                                     languages = (g["languages"] as JArray)?.Select(x => x.ToString()).ToArray() ?? Array.Empty<string>(),
                                     links     = (g["links"]     as JArray)?.Select(x => x.ToString()).ToArray() ?? Array.Empty<string>(),
                                     isJoined = g["myMember"] != null && g["myMember"].Type != JTokenType.Null,
-                                    canPost, canEvent, canEdit, canKick, canBan,
+                                    canPost, canEvent, canEdit, canKick, canBan, canManageRoles, canAssignRoles,
+                                    roles = (g["roles"] as JArray ?? new JArray()).Select(r => {
+                                        var rPerms = (r["permissions"] as JArray)?.Select(p => p.ToString()).ToArray() ?? Array.Empty<string>();
+                                        SendToJS("log", new { msg = $"[ROLE] \"{r["name"]}\" perms: [{string.Join(", ", rPerms)}]", color = "sec" });
+                                        return new {
+                                            id              = r["id"]?.ToString() ?? "",
+                                            name            = r["name"]?.ToString() ?? "",
+                                            description     = r["description"]?.ToString() ?? "",
+                                            permissions     = rPerms,
+                                            isAddedOnJoin   = r["isAddedOnJoin"]?.Value<bool>() ?? false,
+                                            isSelfAssignable  = r["isSelfAssignable"]?.Value<bool>() ?? false,
+                                            requiresTwoFactor = r["requiresTwoFactor"]?.Value<bool>() ?? false,
+                                            isManagementRole  = r["isManagementRole"]?.Value<bool>() ?? false,
+                                        };
+                                    }),
                                     posts = posts.Select(p => new {
                                         id = p["id"]?.ToString() ?? "",
                                         title = p["title"]?.ToString() ?? "",
@@ -1506,7 +1527,7 @@ public partial class MainForm
                                             : "",
                                         status = m["user"]?["status"]?.ToString() ?? "",
                                         statusDescription = m["user"]?["statusDescription"]?.ToString() ?? "",
-                                        role = m["roleIds"]?.FirstOrDefault()?.ToString() ?? "",
+                                        roleIds = (m["roleIds"] as JArray)?.Select(r => r.ToString()).ToArray() ?? Array.Empty<string>(),
                                         joinedAt = m["joinedAt"]?.ToString() ?? "",
                                     }),
                                 }));
@@ -1546,7 +1567,7 @@ public partial class MainForm
                                     : "",
                                 status = m["user"]?["status"]?.ToString() ?? "",
                                 statusDescription = m["user"]?["statusDescription"]?.ToString() ?? "",
-                                role = m["roleIds"]?.FirstOrDefault()?.ToString() ?? "",
+                                roleIds = (m["roleIds"] as JArray)?.Select(r => r.ToString()).ToArray() ?? Array.Empty<string>(),
                                 joinedAt = m["joinedAt"]?.ToString() ?? "",
                             }).ToList();
                             Invoke(() => SendToJS("vrcGroupMembersPage", new {
@@ -1556,6 +1577,54 @@ public partial class MainForm
                         });
                     }
                     break;
+
+                case "vrcSearchGroupMembers":
+                {
+                    var sgmId = msg["groupId"]?.ToString() ?? "";
+                    var sgmQuery = msg["query"]?.ToString() ?? "";
+                    if (!string.IsNullOrEmpty(sgmId) && !string.IsNullOrEmpty(sgmQuery))
+                    {
+                        _ = Task.Run(async () => {
+                            var members = await _vrcApi.SearchGroupMembersAsync(sgmId, sgmQuery);
+                            var list = members.Select(m => new {
+                                id = m["userId"]?.ToString() ?? "",
+                                displayName = m["user"]?["displayName"]?.ToString() ?? m["displayName"]?.ToString() ?? "",
+                                image = m["user"] is JObject sgmu
+                                    ? (VRChatApiService.GetUserImage(sgmu) is var sgi && sgi.Length > 0 ? sgi : sgmu["thumbnailUrl"]?.ToString() ?? "")
+                                    : "",
+                                status = m["user"]?["status"]?.ToString() ?? "",
+                                statusDescription = m["user"]?["statusDescription"]?.ToString() ?? "",
+                                roleIds = (m["roleIds"] as JArray)?.Select(r => r.ToString()).ToArray() ?? Array.Empty<string>(),
+                                joinedAt = m["joinedAt"]?.ToString() ?? "",
+                            }).ToList();
+                            Invoke(() => SendToJS("vrcGroupSearchResults", new {
+                                groupId = sgmId, query = sgmQuery, members = list,
+                            }));
+                        });
+                    }
+                    break;
+                }
+
+                case "vrcGetGroupRoleMembers":
+                {
+                    var grmGroupId = msg["groupId"]?.ToString() ?? "";
+                    var grmRoleId  = msg["roleId"]?.ToString() ?? "";
+                    if (!string.IsNullOrEmpty(grmGroupId) && !string.IsNullOrEmpty(grmRoleId))
+                        _ = Task.Run(async () => {
+                            var members = await _vrcApi.GetGroupRoleMembersAsync(grmGroupId, grmRoleId);
+                            var list = members.Select(m => new {
+                                id = m["userId"]?.ToString() ?? "",
+                                displayName = m["user"]?["displayName"]?.ToString() ?? m["displayName"]?.ToString() ?? "",
+                                image = m["user"] is JObject ru
+                                    ? (VRChatApiService.GetUserImage(ru) is var ri && ri.Length > 0 ? ri : ru["thumbnailUrl"]?.ToString() ?? "")
+                                    : "",
+                                status = m["user"]?["status"]?.ToString() ?? "",
+                                statusDescription = m["user"]?["statusDescription"]?.ToString() ?? "",
+                            }).ToList();
+                            Invoke(() => SendToJS("vrcGroupRoleMembers", new { groupId = grmGroupId, roleId = grmRoleId, members = list }));
+                        });
+                    break;
+                }
 
                 case "vrcLeaveGroup":
                     var lgId = msg["groupId"]?.ToString();
@@ -1715,6 +1784,119 @@ public partial class MainForm
                         {
                             var ok = await _vrcApi.BanGroupMemberAsync(bmGroupId, bmUserId);
                             Invoke(() => SendToJS("vrcActionResult", new { action = "banGroupMember", success = ok, message = ok ? "Member banned." : "Ban failed." }));
+                        });
+                    break;
+                }
+
+                case "vrcGetGroupBans":
+                {
+                    var gbId = msg["groupId"]?.ToString() ?? "";
+                    if (!string.IsNullOrEmpty(gbId))
+                        _ = Task.Run(async () => {
+                            var bans = await _vrcApi.GetGroupBansAsync(gbId);
+                            var list = bans.Select(b => new {
+                                id          = b["userId"]?.ToString() ?? "",
+                                displayName = b["user"]?["displayName"]?.ToString() ?? b["displayName"]?.ToString() ?? "",
+                                image       = b["user"] is JObject gu ? (VRChatApiService.GetUserImage(gu) is var gi && gi.Length > 0 ? gi : gu["thumbnailUrl"]?.ToString() ?? "") : "",
+                                bannedAt    = b["bannedAt"]?.ToString() ?? b["createdAt"]?.ToString() ?? "",
+                            }).ToList();
+                            Invoke(() => SendToJS("vrcGroupBans", new { groupId = gbId, bans = list }));
+                        });
+                    break;
+                }
+
+                case "vrcUnbanGroupMember":
+                {
+                    var ubGroupId = msg["groupId"]?.ToString() ?? "";
+                    var ubUserId  = msg["userId"]?.ToString() ?? "";
+                    if (!string.IsNullOrEmpty(ubGroupId) && !string.IsNullOrEmpty(ubUserId))
+                        _ = Task.Run(async () => {
+                            var ok = await _vrcApi.UnbanGroupMemberAsync(ubGroupId, ubUserId);
+                            Invoke(() => SendToJS("vrcActionResult", new { action = "unbanGroupMember", success = ok, userId = ubUserId, message = ok ? "Member unbanned." : "Unban failed." }));
+                        });
+                    break;
+                }
+
+                case "vrcCreateGroupRole":
+                {
+                    var crGroupId = msg["groupId"]?.ToString() ?? "";
+                    var crName    = msg["name"]?.ToString() ?? "";
+                    var crDesc    = msg["description"]?.ToString() ?? "";
+                    var crPerms   = msg["permissions"]?.ToObject<List<string>>() ?? new List<string>();
+                    var crJoin    = msg["isAddedOnJoin"]?.Value<bool>() ?? false;
+                    var crSelf    = msg["isSelfAssignable"]?.Value<bool>() ?? false;
+                    var crTfa     = msg["requiresTwoFactor"]?.Value<bool>() ?? false;
+                    if (!string.IsNullOrEmpty(crGroupId) && !string.IsNullOrEmpty(crName))
+                        _ = Task.Run(async () => {
+                            var role = await _vrcApi.CreateGroupRoleAsync(crGroupId, crName, crDesc, crPerms, crJoin, crSelf, crTfa);
+                            var ok = role != null;
+                            object? roleData = ok ? (object)new {
+                                id              = role!["id"]?.ToString() ?? "",
+                                name            = role["name"]?.ToString() ?? "",
+                                description     = role["description"]?.ToString() ?? "",
+                                permissions     = (role["permissions"] as JArray)?.Select(p => p.ToString()).ToArray() ?? Array.Empty<string>(),
+                                isAddedOnJoin   = role["isAddedOnJoin"]?.Value<bool>() ?? false,
+                                isSelfAssignable  = role["isSelfAssignable"]?.Value<bool>() ?? false,
+                                requiresTwoFactor = role["requiresTwoFactor"]?.Value<bool>() ?? false,
+                                isManagementRole  = role["isManagementRole"]?.Value<bool>() ?? false,
+                            } : null;
+                            Invoke(() => SendToJS("vrcGroupRoleResult", new { action = "create", success = ok, groupId = crGroupId, role = roleData }));
+                        });
+                    break;
+                }
+
+                case "vrcUpdateGroupRole":
+                {
+                    var urGroupId = msg["groupId"]?.ToString() ?? "";
+                    var urRoleId  = msg["roleId"]?.ToString() ?? "";
+                    var urName    = msg["name"]        != null ? msg["name"]!.ToString()        : (string?)null;
+                    var urDesc    = msg["description"] != null ? msg["description"]!.ToString() : (string?)null;
+                    var urPerms   = msg["permissions"]?.ToObject<List<string>>();
+                    var urJoin    = msg["isAddedOnJoin"]    != null ? (bool?)msg["isAddedOnJoin"]!.Value<bool>()    : null;
+                    var urSelf    = msg["isSelfAssignable"] != null ? (bool?)msg["isSelfAssignable"]!.Value<bool>() : null;
+                    var urTfa     = msg["requiresTwoFactor"]!= null ? (bool?)msg["requiresTwoFactor"]!.Value<bool>(): null;
+                    if (!string.IsNullOrEmpty(urGroupId) && !string.IsNullOrEmpty(urRoleId))
+                        _ = Task.Run(async () => {
+                            var ok = await _vrcApi.UpdateGroupRoleAsync(urGroupId, urRoleId, urName, urDesc, urPerms, urJoin, urSelf, urTfa);
+                            Invoke(() => SendToJS("vrcGroupRoleResult", new { action = "update", success = ok, groupId = urGroupId, roleId = urRoleId }));
+                        });
+                    break;
+                }
+
+                case "vrcDeleteGroupRole":
+                {
+                    var drGroupId = msg["groupId"]?.ToString() ?? "";
+                    var drRoleId  = msg["roleId"]?.ToString() ?? "";
+                    if (!string.IsNullOrEmpty(drGroupId) && !string.IsNullOrEmpty(drRoleId))
+                        _ = Task.Run(async () => {
+                            var ok = await _vrcApi.DeleteGroupRoleAsync(drGroupId, drRoleId);
+                            Invoke(() => SendToJS("vrcGroupRoleResult", new { action = "delete", success = ok, groupId = drGroupId, roleId = drRoleId }));
+                        });
+                    break;
+                }
+
+                case "vrcAddGroupMemberRole":
+                {
+                    var amrGroupId = msg["groupId"]?.ToString() ?? "";
+                    var amrUserId  = msg["userId"]?.ToString() ?? "";
+                    var amrRoleId  = msg["roleId"]?.ToString() ?? "";
+                    if (!string.IsNullOrEmpty(amrGroupId) && !string.IsNullOrEmpty(amrUserId) && !string.IsNullOrEmpty(amrRoleId))
+                        _ = Task.Run(async () => {
+                            var ok = await _vrcApi.AddGroupMemberRoleAsync(amrGroupId, amrUserId, amrRoleId);
+                            Invoke(() => SendToJS("vrcActionResult", new { action = "addGroupMemberRole", success = ok, userId = amrUserId, roleId = amrRoleId, message = ok ? "Role assigned." : "Failed to assign role." }));
+                        });
+                    break;
+                }
+
+                case "vrcRemoveGroupMemberRole":
+                {
+                    var rmrGroupId = msg["groupId"]?.ToString() ?? "";
+                    var rmrUserId  = msg["userId"]?.ToString() ?? "";
+                    var rmrRoleId  = msg["roleId"]?.ToString() ?? "";
+                    if (!string.IsNullOrEmpty(rmrGroupId) && !string.IsNullOrEmpty(rmrUserId) && !string.IsNullOrEmpty(rmrRoleId))
+                        _ = Task.Run(async () => {
+                            var ok = await _vrcApi.RemoveGroupMemberRoleAsync(rmrGroupId, rmrUserId, rmrRoleId);
+                            Invoke(() => SendToJS("vrcActionResult", new { action = "removeGroupMemberRole", success = ok, userId = rmrUserId, roleId = rmrRoleId, message = ok ? "Role removed." : "Failed to remove role." }));
                         });
                     break;
                 }

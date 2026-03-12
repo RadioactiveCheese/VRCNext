@@ -597,6 +597,19 @@ function closeFriendDetail() {
     if (_fdLiveTimer) { clearInterval(_fdLiveTimer); _fdLiveTimer = null; }
     document.getElementById('modalFriendDetail').style.display = 'none';
     currentFriendDetail = null;
+    window._fdAllMutuals = null;
+}
+
+function filterFdMutuals() {
+    const q = document.getElementById('fdMutualsSearch')?.value.trim().toLowerCase() || '';
+    const grid = document.getElementById('fdMutualsGrid');
+    if (!grid) return;
+    const filtered = q
+        ? (window._fdAllMutuals || []).filter(m => (m.displayName || '').toLowerCase().includes(q))
+        : (window._fdAllMutuals || []);
+    grid.innerHTML = filtered.length
+        ? filtered.map(mu => renderProfileItem(mu, `closeFriendDetail();openFriendDetail('${jsq(mu.id)}')`)).join('')
+        : `<div style="padding:12px;grid-column:1/-1;text-align:center;font-size:12px;color:var(--tx3);">No results</div>`;
 }
 
 function switchFdTab(tab, btn) {
@@ -815,12 +828,14 @@ function renderFriendDetail(d) {
         const otherGroups = repG ? allGroups.filter(g => g.id !== repG.id) : allGroups;
         if (otherGroups.length > 0) {
             groupsContent += `<div class="fd-group-rep-label" style="margin-top:${repG && repG.id ? '14' : '0'}px;">Groups</div>`;
+            groupsContent += `<div style="display:grid;grid-template-columns:1fr 1fr;column-gap:6px;">`;
             otherGroups.forEach(g => {
                 const gIcon = g.iconUrl ? `<img class="fd-group-icon" src="${g.iconUrl}" onerror="this.style.display='none'">` : `<div class="fd-group-icon fd-group-icon-empty"><span class="msi" style="font-size:18px;">group</span></div>`;
                 groupsContent += `<div class="fd-group-card" onclick="closeFriendDetail();openGroupDetail('${esc(g.id)}')">
                     ${gIcon}<div class="fd-group-card-info"><div class="fd-group-card-name">${esc(g.name)}</div><div class="fd-group-card-meta">${g.memberCount ? g.memberCount + ' members' : ''}</div></div>
                 </div>`;
             });
+            groupsContent += `</div>`;
         }
     }
 
@@ -843,9 +858,16 @@ function renderFriendDetail(d) {
             </span>
         </div>`;
     } else {
+        window._fdAllMutuals = allMutuals;
+        mutualsContent = `<div class="search-bar-row" style="margin-bottom:6px;">
+            <span class="msi search-ico">search</span>
+            <input id="fdMutualsSearch" type="text" class="vrcn-input" placeholder="Search users by name... hit enter" style="background:var(--bg-input);" oninput="filterFdMutuals()">
+        </div>`;
+        mutualsContent += '<div id="fdMutualsGrid" style="display:grid;grid-template-columns:1fr 1fr;column-gap:6px;">';
         allMutuals.forEach(mu => {
             mutualsContent += renderProfileItem(mu, `closeFriendDetail();openFriendDetail('${jsq(mu.id)}')`);
         });
+        mutualsContent += '</div>';
     }
 
     // Info tab content
@@ -1168,12 +1190,12 @@ function openFriendInviteModal(userId, displayName, initialTab) {
                 </div>
                 <button class="inv-close-btn" onclick="closeFriendInviteModal()"><span class="msi" style="font-size:18px;">close</span></button>
             </div>
+            <div class="fd-tabs" style="margin:14px 16px 0;flex-shrink:0;">
+                <button class="fd-tab active" id="invTab_direct"  onclick="_invModalSetTab('direct')">Directly</button>
+                <button class="fd-tab"         id="invTab_message" onclick="_invModalSetTab('message')">With Message</button>
+                ${hasVrcPlus ? `<button class="fd-tab" id="invTab_photo" onclick="_invModalSetTab('photo')">With Image</button>` : ''}
+            </div>
             <div class="inv-single-body">
-                <div class="fd-tabs">
-                    <button class="fd-tab active" id="invTab_direct"  onclick="_invModalSetTab('direct')">Directly</button>
-                    <button class="fd-tab"         id="invTab_message" onclick="_invModalSetTab('message')">With Message</button>
-                    ${hasVrcPlus ? `<button class="fd-tab" id="invTab_photo" onclick="_invModalSetTab('photo')">With Image</button>` : ''}
-                </div>
                 <div id="invContent_direct" style="padding:4px 0 6px;font-size:12px;color:var(--tx3);">Send a direct invite with no message.</div>
                 <div id="invMsgSection" style="display:none;">
                     <div id="invMsgOptLabel" style="display:none;font-size:11px;color:var(--tx3);margin-bottom:4px;">Optional message</div>

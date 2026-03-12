@@ -42,6 +42,8 @@ window.external.receiveMessage(rawMsg => {
                 break;
             case 'libraryData': renderLibrary(payload); break;
             case 'libraryPageData': appendLibraryPage(payload); break;
+            case 'libraryWorldIds': applyLibraryWorldIds(payload); break;
+            case 'libraryNewFile': addNewLibraryFile(payload); break;
             case 'libraryFileDeleted':
                 libraryFiles = libraryFiles.filter(f => f.path !== payload.path);
                 filterLibrary(true); // stay on current page after delete
@@ -155,6 +157,32 @@ window.external.receiveMessage(rawMsg => {
                             if (btn) { btn.disabled = false; btn.querySelector('.msi').textContent = 'delete'; }
                         }
                         showToast(false, 'Delete failed.');
+                    }
+                } else if (payload.action === 'addGroupMemberRole' || payload.action === 'removeGroupMemberRole') {
+                    showToast(payload.success, payload.message);
+                    if (payload.success && payload.userId && payload.roleId) {
+                        if (!window._gdMemberRoleIds) window._gdMemberRoleIds = {};
+                        const cur = window._gdMemberRoleIds[payload.userId] || [];
+                        if (payload.action === 'addGroupMemberRole') {
+                            if (!cur.includes(payload.roleId)) window._gdMemberRoleIds[payload.userId] = [...cur, payload.roleId];
+                        } else {
+                            window._gdMemberRoleIds[payload.userId] = cur.filter(r => r !== payload.roleId);
+                        }
+                        // Invalidate role-member tabs so they refetch on next open
+                        document.querySelectorAll('[id^="gdrole-members-list-"]').forEach(el => delete el.dataset.loaded);
+                    }
+                } else if (payload.action === 'unbanGroupMember') {
+                    showToast(payload.success, payload.message);
+                    if (payload.success) {
+                        // Remove card from banned list
+                        const bannedList = document.getElementById('gdBannedList');
+                        if (bannedList) {
+                            bannedList.querySelectorAll('.vrcn-profile-item').forEach(card => {
+                                if (card.innerHTML.includes(`openFriendDetail('${payload.userId}')`)) card.remove();
+                            });
+                            if (!bannedList.querySelector('.vrcn-profile-item'))
+                                bannedList.innerHTML = '<div style="padding:20px;text-align:center;font-size:12px;color:var(--tx3);">No banned members</div>';
+                        }
                     }
                 } else {
                     showToast(payload.success, payload.message);
@@ -328,6 +356,15 @@ window.external.receiveMessage(rawMsg => {
             case 'vrcGroupDetail':
                 renderGroupDetail(payload);
                 break;
+            case 'vrcGroupBans':
+                renderGroupBans(payload.groupId, payload.bans);
+                break;
+            case 'vrcGroupRoleResult':
+                onGroupRoleResult(payload);
+                break;
+            case 'vrcGroupRoleMembers':
+                onGroupRoleMembers(payload);
+                break;
             case 'vrcGroupDetailError':
                 document.getElementById('detailModalContent').innerHTML = `<div style="padding:30px;text-align:center;color:var(--err);">${esc(payload.error || 'Error loading group')}</div><div style="text-align:center;margin-top:10px;"><button class="vrcn-button-round" onclick="document.getElementById('modalDetail').style.display='none'">Close</button></div>`;
                 break;
@@ -335,8 +372,15 @@ window.external.receiveMessage(rawMsg => {
                 {
                     const list = document.getElementById('gdMembersList');
                     if (list && payload.members) {
-                        payload.members.forEach(m => { list.insertAdjacentHTML('beforeend', renderGroupMemberCard(m)); });
-                        window._gdMembersOffset = (window._gdMembersOffset || 0) + payload.members.length;
+                        // offset=0 means fresh load (reset), append otherwise
+                        if (payload.offset === 0) {
+                            list.innerHTML = payload.members.map(m => renderGroupMemberCard(m)).join('')
+                                || '<div style="padding:16px;text-align:center;font-size:12px;color:var(--tx3);">No members</div>';
+                            window._gdMembersOffset = payload.members.length;
+                        } else {
+                            payload.members.forEach(m => { list.insertAdjacentHTML('beforeend', renderGroupMemberCard(m)); });
+                            window._gdMembersOffset = (window._gdMembersOffset || 0) + payload.members.length;
+                        }
                     }
                     const loadMoreDiv = document.getElementById('gdMembersLoadMore');
                     if (loadMoreDiv) {
@@ -346,6 +390,18 @@ window.external.receiveMessage(rawMsg => {
                             loadMoreDiv.innerHTML = '<div style="font-size:11px;color:var(--tx3);padding:6px;">All members loaded</div>';
                         }
                     }
+                }
+                break;
+            case 'vrcGroupSearchResults':
+                {
+                    const list = document.getElementById('gdMembersList');
+                    if (list) {
+                        list.innerHTML = payload.members && payload.members.length > 0
+                            ? payload.members.map(m => renderGroupMemberCard(m)).join('')
+                            : `<div style="padding:16px;text-align:center;font-size:12px;color:var(--tx3);">No members found for "<em>${esc(payload.query || '')}</em>"</div>`;
+                    }
+                    const loadMoreDiv = document.getElementById('gdMembersLoadMore');
+                    if (loadMoreDiv) loadMoreDiv.innerHTML = '';
                 }
                 break;
             case 'vrcWorldDetail':

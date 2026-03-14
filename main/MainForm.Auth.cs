@@ -319,6 +319,19 @@ public partial class MainForm
             _settings.ChatboxAutoStart = data["chatboxAutoStart"]?.Value<bool>() ?? false;
             _settings.SfAutoStart = data["sfAutoStart"]?.Value<bool>() ?? false;
             _settings.DiscordPresenceAutoStart = data["discordPresenceAutoStart"]?.Value<bool>() ?? false;
+            // VR / Desktop split auto-starts
+            _settings.ChatboxAutoStartVR      = data["chatboxAutoStartVR"]?.Value<bool>()      ?? false;
+            _settings.ChatboxAutoStartDesktop = data["chatboxAutoStartDesktop"]?.Value<bool>() ?? false;
+            _settings.SfAutoStartVR           = data["sfAutoStartVR"]?.Value<bool>()           ?? false;
+            _settings.RelayAutoStartVR        = data["relayAutoStartVR"]?.Value<bool>()        ?? false;
+            _settings.RelayAutoStartDesktop   = data["relayAutoStartDesktop"]?.Value<bool>()   ?? false;
+            _settings.YtAutoStartVR           = data["ytAutoStartVR"]?.Value<bool>()           ?? false;
+            _settings.YtAutoStartDesktop      = data["ytAutoStartDesktop"]?.Value<bool>()      ?? false;
+            _settings.VfAutoStartVR           = data["vfAutoStartVR"]?.Value<bool>()           ?? false;
+            _settings.VfAutoStartDesktop      = data["vfAutoStartDesktop"]?.Value<bool>()      ?? false;
+            _settings.DpAutoStartVR           = data["dpAutoStartVR"]?.Value<bool>()           ?? false;
+            _settings.DpAutoStartDesktop      = data["dpAutoStartDesktop"]?.Value<bool>()      ?? false;
+            _settings.VroAutoStartVR          = data["vroAutoStartVR"]?.Value<bool>()          ?? false;
             _settings.DpHideInstIdJoinMe  = data["dpHideInstIdJoinMe"]?.Value<bool>()  ?? false;
             _settings.DpHideInstIdOnline  = data["dpHideInstIdOnline"]?.Value<bool>()  ?? false;
             _settings.DpHideInstIdAskMe   = data["dpHideInstIdAskMe"]?.Value<bool>()   ?? true;

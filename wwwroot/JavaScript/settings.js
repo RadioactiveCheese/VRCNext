@@ -104,7 +104,9 @@ function saveSettings() {
             folders: settings.folders || [],
             vrcPath: document.getElementById('setVrcPath').value,
             extraExe: settings.extraExe || [],
-            autoStart: document.getElementById('setAutoStart').checked,
+            autoStart: false, // legacy — kept for JSON compat
+            relayAutoStartVR:        document.getElementById('setAutoStartVR')?.checked       ?? false,
+            relayAutoStartDesktop:   document.getElementById('setAutoStartDesktop')?.checked  ?? false,
             startWithWindows: document.getElementById('setStartWithWindows').checked,
             notifySound: document.getElementById('setNotifySound').checked,
             theme: currentTheme,
@@ -122,10 +124,20 @@ function saveSettings() {
             sfLeftHand: document.getElementById('sfLeftHand').checked,
             sfRightHand: document.getElementById('sfRightHand').checked,
             sfUseGrip: document.getElementById('sfUseGrip').checked,
-            chatboxAutoStart: document.getElementById('setCbAutoStart').checked,
-            sfAutoStart: document.getElementById('setSfAutoStart').checked,
-            discordPresenceAutoStart: document.getElementById('setDpAutoStart')?.checked ?? false,
-            vroAutoStart:    document.getElementById('setVroAutoStart')?.checked ?? false,
+            chatboxAutoStart: false, // legacy
+            chatboxAutoStartVR:       document.getElementById('setCbAutoStartVR')?.checked        ?? false,
+            chatboxAutoStartDesktop:  document.getElementById('setCbAutoStartDesktop')?.checked   ?? false,
+            sfAutoStart: false, // legacy
+            sfAutoStartVR:            document.getElementById('setSfAutoStartVR')?.checked        ?? false,
+            ytAutoStartVR:            document.getElementById('setYtAutoStartVR')?.checked        ?? false,
+            ytAutoStartDesktop:       document.getElementById('setYtAutoStartDesktop')?.checked   ?? false,
+            vfAutoStartVR:            document.getElementById('setVfAutoStartVR')?.checked        ?? false,
+            vfAutoStartDesktop:       document.getElementById('setVfAutoStartDesktop')?.checked   ?? false,
+            discordPresenceAutoStart: false, // legacy
+            dpAutoStartVR:            document.getElementById('setDpAutoStartVR')?.checked        ?? false,
+            dpAutoStartDesktop:       document.getElementById('setDpAutoStartDesktop')?.checked   ?? false,
+            vroAutoStart: false, // legacy
+            vroAutoStartVR:           document.getElementById('setVroAutoStartVR')?.checked       ?? false,
             vroAttachLeft:   document.getElementById('vroAttachLeft')?.value === 'left',
             vroAttachHand:   document.getElementById('vroAttachPart')?.value === 'hand',
             vroPosX:  parseFloat(document.getElementById('vroPosX')?.value) || 0,
@@ -174,9 +186,15 @@ function autoSave() {
 }
 // Attach autosave listeners after DOM ready
 function initAutoSave() {
-    const ids = ['setBotName','setBotAvatar','setVrcPath','setAutoStart','setStartWithWindows',
+    const ids = ['setBotName','setBotAvatar','setVrcPath','setStartWithWindows',
         'setNotifySound','setDashOpacity','setRandomBg',
-        'setVrcUser','setVrcPass','setCbAutoStart','setSfAutoStart',
+        'setVrcUser','setVrcPass',
+        'setAutoStartVR','setAutoStartDesktop',
+        'setCbAutoStartVR','setCbAutoStartDesktop',
+        'setSfAutoStartVR',
+        'setYtAutoStartVR','setYtAutoStartDesktop',
+        'setVfAutoStartVR','setVfAutoStartDesktop',
+        'setDpAutoStartVR','setDpAutoStartDesktop',
         'setImgCacheEnabled','setImgCacheLimit','setMemoryTrimEnabled'];
     ids.forEach(id => {
         const el = document.getElementById(id);
@@ -206,7 +224,8 @@ function loadSettingsToUI(s) {
     document.getElementById('setVrcPath').value = s.VrcPath || s.vrcPath || '';
     document.getElementById('setVrcUser').value = s.VrcUsername || s.vrcUsername || '';
     document.getElementById('setVrcPass').value = s.VrcPassword || s.vrcPassword || '';
-    document.getElementById('setAutoStart').checked = s.AutoStart || s.autoStart || false;
+    const _asVR  = document.getElementById('setAutoStartVR');  if (_asVR)  _asVR.checked  = s.RelayAutoStartVR  ?? s.relayAutoStartVR  ?? false;
+    const _asDT  = document.getElementById('setAutoStartDesktop'); if (_asDT) _asDT.checked = s.RelayAutoStartDesktop ?? s.relayAutoStartDesktop ?? false;
     document.getElementById('setStartWithWindows').checked = s.StartWithWindows || s.startWithWindows || false;
     document.getElementById('setNotifySound').checked = s.NotifySound || s.notifySound || false;
     settings.folders = s.WatchFolders || s.watchFolders || s.folders || [];
@@ -274,14 +293,17 @@ function loadSettingsToUI(s) {
     document.getElementById('sfRightHand').checked = s.SfRightHand ?? s.sfRightHand ?? true;
     document.getElementById('sfUseGrip').checked = s.SfUseGrip ?? s.sfUseGrip ?? true;
 
-    // Restore auto-start flags
-    const _cbAutoStart = s.ChatboxAutoStart ?? s.chatboxAutoStart ?? false;
-    const _sfAutoStart = s.SfAutoStart ?? s.sfAutoStart ?? false;
-    const _dpAutoStart = s.DiscordPresenceAutoStart ?? s.discordPresenceAutoStart ?? false;
-    document.getElementById('setCbAutoStart').checked = _cbAutoStart;
-    document.getElementById('setSfAutoStart').checked = _sfAutoStart;
-    const dpAutoEl = document.getElementById('setDpAutoStart');
-    if (dpAutoEl) dpAutoEl.checked = _dpAutoStart;
+    // Restore VR/Desktop auto-start flags
+    const _set = (id, v) => { const el = document.getElementById(id); if (el) el.checked = !!v; };
+    _set('setCbAutoStartVR',      s.ChatboxAutoStartVR      ?? s.chatboxAutoStartVR      ?? false);
+    _set('setCbAutoStartDesktop', s.ChatboxAutoStartDesktop ?? s.chatboxAutoStartDesktop ?? false);
+    _set('setSfAutoStartVR',      s.SfAutoStartVR           ?? s.sfAutoStartVR           ?? false);
+    _set('setYtAutoStartVR',      s.YtAutoStartVR           ?? s.ytAutoStartVR           ?? false);
+    _set('setYtAutoStartDesktop', s.YtAutoStartDesktop      ?? s.ytAutoStartDesktop      ?? false);
+    _set('setVfAutoStartVR',      s.VfAutoStartVR           ?? s.vfAutoStartVR           ?? false);
+    _set('setVfAutoStartDesktop', s.VfAutoStartDesktop      ?? s.vfAutoStartDesktop      ?? false);
+    _set('setDpAutoStartVR',      s.DpAutoStartVR           ?? s.dpAutoStartVR           ?? false);
+    _set('setDpAutoStartDesktop', s.DpAutoStartDesktop      ?? s.dpAutoStartDesktop      ?? false);
     // Restore Discord privacy + join button toggles
     const _dpPv = [
         ['dpHideInstId_joinme', 'DpHideInstIdJoinMe'],  ['dpHideInstId_online', 'DpHideInstIdOnline'],
@@ -299,7 +321,6 @@ function loadSettingsToUI(s) {
     }
 
     // VR Overlay settings
-    const _vroAutoStart = s.VroAutoStart ?? s.vroAutoStart ?? false;
     vroLoadSettings({
         vroAttachLeft: s.VroAttachLeft ?? s.vroAttachLeft ?? true,
         vroAttachHand: s.VroAttachHand ?? s.vroAttachHand ?? true,
@@ -310,7 +331,7 @@ function loadSettingsToUI(s) {
         vroRotY: s.VroRotY ?? s.vroRotY ?? 46,
         vroRotZ: s.VroRotZ ?? s.vroRotZ ?? 85,
         vroWidth: s.VroWidth ?? s.vroWidth ?? 0.16,
-        vroAutoStart: _vroAutoStart,
+        vroAutoStartVR:      s.VroAutoStartVR      ?? s.vroAutoStartVR      ?? false,
         vroKeybind:       s.VroKeybind       ?? s.vroKeybind       ?? [],
         vroKeybindHand:   s.VroKeybindHand   ?? s.vroKeybindHand   ?? 0,
         vroKeybindDt:     s.VroKeybindDt     ?? s.vroKeybindDt     ?? [],
@@ -318,12 +339,7 @@ function loadSettingsToUI(s) {
         vroKeybindMode:    s.VroKeybindMode   ?? s.vroKeybindMode   ?? 0,
         vroControlRadius:  s.VroControlRadius ?? s.vroControlRadius ?? 16
     });
-
-    // Trigger auto-starts if enabled
-    if (_cbAutoStart && !chatboxEnabled) setTimeout(() => toggleChatbox(), 300);
-    if (_sfAutoStart) setTimeout(() => sfConnect(), 400);
-    if (_dpAutoStart && !_dpRunning) setTimeout(() => sendToCS({ action: 'dpStart' }), 500);
-    if (_vroAutoStart) setTimeout(() => vroConnect(), 600);
+    // Auto-starts are now triggered by vrcLaunched (see messages.js)
 
     // Image cache settings
     const imgCacheEnabled = s.ImgCacheEnabled ?? s.imgCacheEnabled ?? true;

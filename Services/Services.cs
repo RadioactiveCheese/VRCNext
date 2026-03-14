@@ -270,11 +270,25 @@ public class AppSettings
     public bool SfRightHand { get; set; } = true;
     public bool SfUseGrip { get; set; } = true;
 
-    // Auto-start flags
+    // Auto-start flags (legacy — kept for JSON compat, no longer acted on)
     public bool ChatboxAutoStart { get; set; }
     public bool SfAutoStart { get; set; }
     public bool DiscordPresenceAutoStart { get; set; }
     public bool VroAutoStart { get; set; }
+
+    // Auto-start split: VR vs Desktop (triggered when VRChat is launched from VRCNext)
+    public bool ChatboxAutoStartVR       { get; set; }
+    public bool ChatboxAutoStartDesktop  { get; set; }
+    public bool SfAutoStartVR            { get; set; }
+    public bool RelayAutoStartVR         { get; set; }
+    public bool RelayAutoStartDesktop    { get; set; }
+    public bool YtAutoStartVR            { get; set; }
+    public bool YtAutoStartDesktop       { get; set; }
+    public bool VfAutoStartVR            { get; set; }
+    public bool VfAutoStartDesktop       { get; set; }
+    public bool DpAutoStartVR            { get; set; }
+    public bool DpAutoStartDesktop       { get; set; }
+    public bool VroAutoStartVR           { get; set; }
 
     // VR Wrist Overlay settings
     public bool    VroAttachLeft  { get; set; } = true;

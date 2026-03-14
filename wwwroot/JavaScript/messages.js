@@ -3,6 +3,35 @@ window.external.receiveMessage(rawMsg => {
     const { type, payload } = JSON.parse(rawMsg);
     switch (type) {
             case 'loadSettings': loadSettingsToUI(payload); break;
+            case 'vrcLaunched': {
+                // Fired when the user launches VRChat from VRCNext (VR or Desktop)
+                const vr = !!payload.vr;
+                const s = settings || {};
+                const chk = id => !!document.getElementById(id)?.checked;
+                let delay = 300;
+                const trigger = (cond, fn) => { if (cond) { setTimeout(fn, delay); delay += 100; } };
+                // Chatbox
+                trigger(vr ? chk('setCbAutoStartVR') : chk('setCbAutoStartDesktop'),
+                    () => { if (!chatboxEnabled) toggleChatbox(); });
+                // Space Flight (VR only)
+                trigger(vr && chk('setSfAutoStartVR'), sfConnect);
+                // Media Relay
+                trigger(vr ? chk('setAutoStartVR') : chk('setAutoStartDesktop'),
+                    () => sendToCS({ action: 'startRelay' }));
+                // YouTube Fix
+                trigger(vr ? chk('setYtAutoStartVR') : chk('setYtAutoStartDesktop'),
+                    () => { if (typeof toggleVc === 'function') toggleVc(); });
+                // Voice Fight
+                trigger(vr ? chk('setVfAutoStartVR') : chk('setVfAutoStartDesktop'),
+                    () => { if (typeof vfConnect === 'function') vfConnect(); });
+                // Discord Presence
+                trigger(vr ? chk('setDpAutoStartVR') : chk('setDpAutoStartDesktop'),
+                    () => { if (!_dpRunning) sendToCS({ action: 'dpStart' }); });
+                // VR Overlay (VR only)
+                trigger(vr && chk('setVroAutoStartVR'),
+                    () => { if (typeof vroConnect === 'function') vroConnect(); });
+                break;
+            }
             case 'relayState': setRelayState(payload.running, payload.streams); break;
             case 'log': addLog(payload.msg, payload.color); break;
             case 'toast': showToast(payload.ok, payload.msg); break;

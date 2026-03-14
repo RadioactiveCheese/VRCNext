@@ -168,7 +168,11 @@ function vroMirrorAndSave() {
 }
 
 function vroAutoSaveSettings() {
-    sendToCS({ action: 'vroAutoSave', autoStart: !!document.getElementById('setVroAutoStart')?.checked });
+    sendToCS({
+        action: 'vroAutoSave',
+        autoStart:   false, // legacy
+        autoStartVR: !!document.getElementById('setVroAutoStartVR')?.checked,
+    });
     clearTimeout(_vroAutoTimer);
     _vroAutoTimer = setTimeout(() => saveSettings(), 600);
 }
@@ -325,8 +329,8 @@ function vroLoadSettings(s) {
         }
     });
 
-    const autoEl = document.getElementById('setVroAutoStart');
-    if (autoEl && s.vroAutoStart !== undefined) autoEl.checked = !!s.vroAutoStart;
+    const autoVrEl = document.getElementById('setVroAutoStartVR');
+    if (autoVrEl) autoVrEl.checked = !!(s.vroAutoStartVR ?? s.autoStartVR ?? false);
 
     vroComboIds   = s.vroKeybind   || [];
     vroComboHand  = s.vroKeybindHand ?? 0;

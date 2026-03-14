@@ -50,7 +50,7 @@ public partial class MainForm
                     SendToJS("log", new { msg = $"[STARTUP] Webhooks: {string.Join(", ", _settings.Webhooks.Select((w,i) => $"#{i+1} \"{w.Name}\" url={w.Url?.Length ?? 0}ch {(w.Enabled?"ON":"off")}"))}", color = "sec" });
                     SendToJS("loadSettings", _settings);
                     SendToJS("favoritesLoaded", _settings.Favorites);
-                    if (_settings.AutoStart) StartRelay();
+                    // Relay auto-start is now triggered by vrcLaunched (VRChat launched from VRCNext)
                     _ = VrcTryResumeAsync();
                     _ = Task.Run(async () =>
                     {
@@ -3064,6 +3064,7 @@ public partial class MainForm
                         var locLabel  = !string.IsNullOrEmpty(llLoc) ? $" → {llLoc}" : "";
                         SendToJS("vrcActionResult", new { action = "join", success = true, message = $"Launching VRChat ({modeLabel})..." });
                         SendToJS("log", new { msg = $"Launched VRChat [{modeLabel}]{locLabel}", color = "ok" });
+                        SendToJS("vrcLaunched", new { vr = llVr });
                     }
                     break;
 
@@ -3988,7 +3989,8 @@ public partial class MainForm
 
                 case "vroAutoSave":
                     {
-                        _settings.VroAutoStart = msg["autoStart"]?.Value<bool>() ?? false;
+                        _settings.VroAutoStart   = msg["autoStart"]?.Value<bool>()   ?? false; // legacy
+                        _settings.VroAutoStartVR = msg["autoStartVR"]?.Value<bool>() ?? false;
                         _settings.Save();
                     }
                     break;

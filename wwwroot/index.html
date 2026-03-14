@@ -9,7 +9,7 @@
 </head>
 <body>
     <div class="sidebar" id="sidebarEl">
-        <div class="logo"><div class="logo-icon" id="logoIcon">V</div><div class="logo-txt"><div class="logo-text-row"><div class="logo-text">VRCNext</div><span class="logo-beta-badge">BETA</span></div><div class="logo-sub">v2026.10.8</div></div></div>
+        <div class="logo"><div class="logo-icon" id="logoIcon">V</div><div class="logo-txt"><div class="logo-text-row"><div class="logo-text">VRCNext</div><span class="logo-beta-badge">BETA</span></div><div class="logo-sub">v2026.10.9</div></div></div>
         <div class="nav">
             <button class="nav-btn sb-toggle" onclick="toggleSidebar()" title="Toggle sidebar"><span class="ni msi" id="sbIcon">menu_open</span><span class="nl">Collapse</span></button>
             <button class="nav-btn active" onclick="showTab(0)"><span class="ni msi">dashboard</span><span class="nl">Dashboard</span></button>
@@ -294,7 +294,8 @@
 
                         <div class="cb-card">
                             <div class="cb-card-header"><span class="msi" style="font-size:16px;">power_settings_new</span> Launch</div>
-                            <div class="sf-toggle-row"><span>Start when launching VRCNext</span><label class="toggle"><input type="checkbox" id="setCbAutoStart" onchange="autoSave()"><div class="toggle-track"><div class="toggle-knob"></div></div></label></div>
+                            <div class="sf-toggle-row"><span>Start when launching VRChat in VR</span><label class="toggle"><input type="checkbox" id="setCbAutoStartVR" onchange="autoSave()"><div class="toggle-track"><div class="toggle-knob"></div></div></label></div>
+                            <div class="sf-toggle-row"><span>Start when launching VRChat on Desktop</span><label class="toggle"><input type="checkbox" id="setCbAutoStartDesktop" onchange="autoSave()"><div class="toggle-track"><div class="toggle-knob"></div></div></label></div>
                         </div>
                     </div>
 
@@ -352,7 +353,8 @@
                 </div>
                 <div class="cb-card" style="margin-top:16px;">
                     <div class="cb-card-header"><span class="msi" style="font-size:16px;">cell_tower</span> Relay Control</div>
-                    <div class="sf-toggle-row"><span>Start when launching VRCNext</span><label class="toggle"><input type="checkbox" id="setAutoStart" onchange="autoSave()"><div class="toggle-track"><div class="toggle-knob"></div></div></label></div>
+                    <div class="sf-toggle-row"><span>Start when launching VRChat in VR</span><label class="toggle"><input type="checkbox" id="setAutoStartVR" onchange="autoSave()"><div class="toggle-track"><div class="toggle-knob"></div></div></label></div>
+                    <div class="sf-toggle-row"><span>Start when launching VRChat on Desktop</span><label class="toggle"><input type="checkbox" id="setAutoStartDesktop" onchange="autoSave()"><div class="toggle-track"><div class="toggle-knob"></div></div></label></div>
                     <div class="sf-toggle-row"><span>Play sound on successful post</span><label class="toggle"><input type="checkbox" id="setNotifySound" onchange="autoSave()"><div class="toggle-track"><div class="toggle-knob"></div></div></label></div>
                 </div>
                 <div class="sect-label" style="margin-top:20px;">BOT IDENTITY</div>
@@ -579,7 +581,7 @@
                     </div>
                     <div class="sf-card">
                         <div class="sf-card-header"><span class="msi">power_settings_new</span> Launch</div>
-                        <div class="sf-toggle-row"><span>Start when launching VRCNext</span><label class="toggle"><input type="checkbox" id="setSfAutoStart" onchange="sfAutoSave()"><div class="toggle-track"><div class="toggle-knob"></div></div></label></div>
+                        <div class="sf-toggle-row"><span>Start when launching VRChat in VR</span><label class="toggle"><input type="checkbox" id="setSfAutoStartVR" onchange="sfAutoSave()"><div class="toggle-track"><div class="toggle-knob"></div></div></label></div>
                     </div>
                     <div class="sf-card">
                         <div class="sf-card-header"><span class="msi">rocket_launch</span> Current Offset</div>
@@ -734,6 +736,11 @@
                         <button class="vrcn-button" id="btnVc" onclick="toggleVc()" disabled><span class="msi" style="font-size:16px;">play_arrow</span> Start</button>
                     </div>
                 </div>
+                <div class="sf-card" style="margin-bottom:16px;">
+                    <div class="sf-card-header"><span class="msi">power_settings_new</span> Launch</div>
+                    <div class="sf-toggle-row"><span>Start when launching VRChat in VR</span><label class="toggle"><input type="checkbox" id="setYtAutoStartVR" onchange="autoSave()"><div class="toggle-track"><div class="toggle-knob"></div></div></label></div>
+                    <div class="sf-toggle-row"><span>Start when launching VRChat on Desktop</span><label class="toggle"><input type="checkbox" id="setYtAutoStartDesktop" onchange="autoSave()"><div class="toggle-track"><div class="toggle-knob"></div></div></label></div>
+                </div>
                 <div class="cb-card" id="vcInstallCard">
                     <div class="cb-card-header"><span class="msi" style="font-size:16px;">smart_display</span> VRCVideoCacher</div>
                     <p style="font-size:13px;color:var(--tx2);margin:0 0 4px;">Fixes <b style="color:var(--tx1)">YouTube video errors</b> in VRChat by routing requests through a local proxy. Created by <b style="color:var(--tx1)">Elly</b>.</p>
@@ -805,6 +812,12 @@
                                 <button class="vrcn-button" id="vfConnBtn" onclick="vfConnect()"><span class="msi" style="font-size:16px;">play_arrow</span> Start</button>
                             </div>
                         </div>
+                    </div>
+                    <!-- Launch -->
+                    <div class="sf-card">
+                        <div class="sf-card-header"><span class="msi">power_settings_new</span> Launch</div>
+                        <div class="sf-toggle-row"><span>Start when launching VRChat in VR</span><label class="toggle"><input type="checkbox" id="setVfAutoStartVR" onchange="autoSave()"><div class="toggle-track"><div class="toggle-knob"></div></div></label></div>
+                        <div class="sf-toggle-row"><span>Start when launching VRChat on Desktop</span><label class="toggle"><input type="checkbox" id="setVfAutoStartDesktop" onchange="autoSave()"><div class="toggle-track"><div class="toggle-knob"></div></div></label></div>
                     </div>
                     <!-- Device -->
                     <div class="sf-card">
@@ -893,7 +906,8 @@
                     <!-- Launch card -->
                     <div class="sf-card">
                         <div class="sf-card-header"><span class="msi">power_settings_new</span> Launch</div>
-                        <div class="sf-toggle-row"><span>Start when launching VRCNext</span><label class="toggle"><input type="checkbox" id="setDpAutoStart" onchange="dpAutoSave()"><div class="toggle-track"><div class="toggle-knob"></div></div></label></div>
+                        <div class="sf-toggle-row"><span>Start when launching VRChat in VR</span><label class="toggle"><input type="checkbox" id="setDpAutoStartVR" onchange="dpAutoSave()"><div class="toggle-track"><div class="toggle-knob"></div></div></label></div>
+                        <div class="sf-toggle-row"><span>Start when launching VRChat on Desktop</span><label class="toggle"><input type="checkbox" id="setDpAutoStartDesktop" onchange="dpAutoSave()"><div class="toggle-track"><div class="toggle-knob"></div></div></label></div>
                     </div>
 
                     <!-- Privacy settings card -->
@@ -984,7 +998,7 @@
                     <!-- Launch -->
                     <div class="sf-card">
                         <div class="sf-card-header"><span class="msi">power_settings_new</span> Launch</div>
-                        <div class="sf-toggle-row"><span>Start when launching VRCNext</span><label class="toggle"><input type="checkbox" id="setVroAutoStart" onchange="vroAutoSaveSettings()"><div class="toggle-track"><div class="toggle-knob"></div></div></label></div>
+                        <div class="sf-toggle-row"><span>Start when launching VRChat in VR</span><label class="toggle"><input type="checkbox" id="setVroAutoStartVR" onchange="vroAutoSaveSettings()"><div class="toggle-track"><div class="toggle-knob"></div></div></label></div>
                     </div>
 
                     <!-- Attachment -->

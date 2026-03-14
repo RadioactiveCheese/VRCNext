@@ -1,32 +1,27 @@
-# 2026.10.10
+# 2026.10.12
 
-## Friends Sidebar
+## Customization Update
 
-The friends sidebar now has a collapse button to minimize it while maintaining important information such as friend status, your profile and current instance.
+This update doesn't introduce any new logical features — it's all about giving you more control over how VRCNext looks and feels.
 
-## Voice Fight
+## Custom Themes
 
-- Added support for `.wav` files as soundboard playback
-  — Added by @LiamDevLabs
+You can now create and save your own color themes.
 
-## Tool Startup Change
+1. Go to **Settings → Special Themes** and enable **Auto Color**
+2. Set a custom dashboard background from your gallery
+3. If you like the generated color, click the **Add +** button that appears in the **Theme** section
+4. Give your theme a name and press Enter — done!
 
-**Before:** Custom Chatbox, Media Relay, Space Flight, Youtube Fix, Voice Fight, Discord Presence, and VR Overlay were all started when VRCNext launches.
+You can share your themes with friends by sending them your `custom_colors.json` file.
 
-This caused unwanted behaviour — for example, launching Space Flight would automatically start SteamVR on desktop, which is not intended.
+## Play Button Theme
 
-**Now:** Tools are no longer started on launch by default. Instead, each tool has two new toggle options:
+The **Play VRChat** and **Join** buttons now have a theme option under **Settings → Play Button Theme**:
 
-- **Start with VRChat (Desktop)**
-- **Start with VRChat (VR)**
+- **Standard** — classic green, same as before
+- **Theme Color** — uses the accent color of your currently selected theme
 
-## JSON Changes
+## Bug Fixes
 
-Favorited images were previously stored inside `settings.json`. They are now stored in a dedicated `favorited_images.json` file.
-
-**No action required** — the migration runs automatically and safely on first launch.
-
-## Changes
-
-- Moved the collapse/hamburger icon to the top of the sidebar for easier access
-- Removed the "Beta" badge — VRCNext is now considered stable
+- Fixed status display issues on friend profile modals

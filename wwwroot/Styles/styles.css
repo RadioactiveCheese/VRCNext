@@ -1711,7 +1711,7 @@ body {
 
 
 .rsidebar-header {
-    padding: 14px 4px 10px 4px;
+    padding: 14px 8px 10px 4px;
     display: flex;
     align-items: center;
     gap: 6px;
@@ -1852,7 +1852,9 @@ body {
     flex: 1;
     overflow-y: auto;
     padding: 8px;
+    scrollbar-width: none;
 }
+.rsidebar-content::-webkit-scrollbar { display: none; }
 
 .vrc-profile {
     display: flex;

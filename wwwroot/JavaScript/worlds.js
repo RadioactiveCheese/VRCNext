@@ -183,7 +183,7 @@ function renderWorldSearchDetail(w) {
     // Cache full world data so favorites grid can render it immediately after favoriting
     if (w.id) worldInfoCache[w.id] = w;
     const el = document.getElementById('detailModalContent');
-    const thumb = w.thumbnailImageUrl || w.imageUrl || '';
+    const thumb = w.imageUrl || w.thumbnailImageUrl || '';
     const desc = w.description || '';
     const wid = w.id || '';
     const authorTags = (w.tags || []).filter(t => t.startsWith('author_tag_')).map(t => t.replace('author_tag_', ''));
@@ -578,7 +578,8 @@ function openWorldDetail(worldId) {
 
     const cached = dashWorldCache[worldId];
     const worldName = cached?.name || worldId;
-    const thumb = cached?.thumbnailImageUrl || cached?.imageUrl || '';
+    // Prefer full-res imageUrl for the large modal banner; thumbnailImageUrl is only a small preview
+    const thumb = cached?.imageUrl || cached?.thumbnailImageUrl || '';
 
     // Group friends by instance (full location string)
     const instanceMap = {};

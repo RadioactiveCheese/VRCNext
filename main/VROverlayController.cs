@@ -66,8 +66,8 @@ public class VROverlayController : IDisposable
                     _core.Settings.VroControlRadius);
 
                 bool ok = _vrOverlay.Connect();
-                if (ok) { _vrOverlay.StartPolling(); _friends.PushVroLocations(); }
                 _core.VrOverlay = _vrOverlay;
+                if (ok) { _vrOverlay.StartPolling(); _friends.PushVroLocations(); }
                 UpdateToolStates();
                 _core.SendToJS("vroState", new
                 {

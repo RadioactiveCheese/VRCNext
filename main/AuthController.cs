@@ -342,6 +342,8 @@ public class AuthController
     {
         _core.SendToJS("loadSettings", _core.Settings);
         _core.SendToJS("favoritesLoaded", _photos.Favorites);
+        var customColors = _core.Cache.LoadRaw(CacheHandler.KeyCustomColors);
+        if (customColors != null) _core.SendToJS("customColors", customColors);
         _ = VrcTryResumeAsync();
         _ = Task.Run(async () =>
         {

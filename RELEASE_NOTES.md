@@ -1,39 +1,24 @@
-2026.10.21
+2026.11.0 BETA
 
-**Timeline + Steam Overlay**
+Avatar Search
 
-**Removed**
+* When right-clicking an avatar, you will now see "Similar Avatars."
+* Clicking it will show similar avatars from the database.
 
-* Online/Offline Status (Web only)
-  Removed because the VRChat API does not provide an offline event for web. Previous detection relied on unreliable workarounds.
+Fixes
 
-VRCN now only shows Online/Offline events for VRChat (in-game).
+* Fixed an issue where denying group invites did not work correctly and only hid them instead.
+* Fixed an issue that caused the time spent together counter to break.
+* Fixed an issue that caused the time spent in world counter to break.
+* Fixed an issue that caused the "Meet" count to not be shown in a user profile.
 
----
+Localization
 
-**Timeline**
+* VRCNext supports English and German.
+* Language files can be found in `wwwroot/i18n/en.json` if you want to add a new language.
+* PRs for translations are welcome.
 
-* Added unfriend events to the "Friends" tab
-  You can now see when someone unfriends you or when you remove someone.
-* Added friend events to the "Friends" tab
-  You can now see when you and someone become friends.
+Additional
 
----
-
-**Profiles**
-
-* Renamed "Worlds" to "Content"
-  The Content tab now includes a sub-navigation with "Worlds" and "Avatars".
-  Note: "Avatars" relies on a database; some entries may be missing or no longer exist.
-* Added right-click context menu for worlds in profiles
-* Added right-click context menu for avatars in profiles
-
----
-
-**Avatar Databases**
-
-* Added "Deleted" tag and darkened avatar images
-  Some databases contain outdated or missing data. This helps indicate when an avatar is no longer available.
-* Added optional auto-reporting for AVTRDB
-  Deleted avatars can be reported automatically to AVTRDB. This feature must be enabled in settings.
-  If you prefer not to send data, you can keep it disabled. Enabling it helps maintain a more accurate database.
+* Spanish, Japanese, French, and Chinese are currently DeepL auto-translations and may not be accurate.
+* If one of these is your native language, please verify it and report bugs or open a PR to improve it.

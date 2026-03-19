@@ -130,7 +130,8 @@ public partial class AppShell
             using var client = new HttpClient();
             client.Timeout = TimeSpan.FromSeconds(15);
             client.DefaultRequestHeaders.TryAddWithoutValidation("User-Agent", AppInfo.UserAgent);
-            var payload = new { avatar_ids = avatarIds, attribution = _vrcApi.CurrentUserId ?? "" };
+            var userId = _vrcApi.CurrentUserId;
+            var payload = new { avatar_ids = avatarIds, attribution = string.IsNullOrEmpty(userId) ? null : userId };
             var json = JsonConvert.SerializeObject(payload);
             var resp = await client.PostAsync("https://api.avtrdb.com/v3/avatar/ingest",
                 new StringContent(json, System.Text.Encoding.UTF8, "application/json"));

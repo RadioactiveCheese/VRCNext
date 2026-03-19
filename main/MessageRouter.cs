@@ -216,6 +216,7 @@ public partial class AppShell
                     break;
 
                 case "saveSettings":
+                case "loadTranslation":
                     await _authCtrl.HandleMessage(action, msg);
                     break;
 

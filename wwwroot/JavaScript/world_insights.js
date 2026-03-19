@@ -1,14 +1,24 @@
-/* === World Insights — line charts for own-world stats === */
+﻿/* === World Insights â€” line charts for own-world stats === */
 
 let _wiWorldId = '';
 let _wiMode = 'week';       // 'day' | 'week' | 'month' | 'year'
-let _wiAnchor = null;        // Date object — end of current range
+let _wiAnchor = null;        // Date object â€” end of current range
 let _wiData = [];            // raw stat points from backend
 let _wiLoading = false;
 let _wiInitialized = false;  // toolbar already rendered?
 let _wiDpYear = 0, _wiDpMonth = 0; // date picker calendar state
 
-// ── Public entry point (called from switchWdTab) ────────────────────────
+function wiLocale() {
+    return getLanguageLocale();
+}
+
+function wiWeekdayLabels() {
+    const base = new Date(Date.UTC(2024, 0, 7)); // Sunday
+    const fmt = new Intl.DateTimeFormat(wiLocale(), { weekday: 'short' });
+    return Array.from({ length: 7 }, (_, i) => fmt.format(new Date(base.getTime() + i * 86400000)));
+}
+
+// â”€â”€ Public entry point (called from switchWdTab) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function wiLoadInsights(worldId) {
     _wiWorldId = worldId;
@@ -22,7 +32,7 @@ function wiLoadInsights(worldId) {
     _wiRequestData();
 }
 
-// ── Date range helpers ──────────────────────────────────────────────────
+// â”€â”€ Date range helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function _wiRange() {
     const a = new Date(_wiAnchor);
@@ -32,7 +42,7 @@ function _wiRange() {
         to = new Date(from);
         to.setHours(23, 59, 59, 999);
     } else if (_wiMode === 'week') {
-        // Monday–Sunday (ISO week)
+        // Mondayâ€“Sunday (ISO week)
         const dow = a.getDay(); // 0=Sun
         const diffToMon = dow === 0 ? -6 : 1 - dow;
         from = new Date(a.getFullYear(), a.getMonth(), a.getDate() + diffToMon);
@@ -55,17 +65,18 @@ function _wiFmt(d) {
 
 function _wiRangeLabel() {
     const { from, to } = _wiRange();
-    if (_wiMode === 'day') return to.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    if (_wiMode === 'day') return to.toLocaleDateString(wiLocale(), { month: 'short', day: 'numeric', year: 'numeric' });
     if (_wiMode === 'week') {
-        const fFrom = from.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-        const fTo = to.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-        return fFrom + ' – ' + fTo;
+        const fFrom = from.toLocaleDateString(wiLocale(), { month: 'short', day: 'numeric' });
+        const fTo = to.toLocaleDateString(wiLocale(), { month: 'short', day: 'numeric', year: 'numeric' });
+        return fFrom + ' - ' + fTo;
+        return fFrom + ' â€“ ' + fTo;
     }
-    if (_wiMode === 'month') return from.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+    if (_wiMode === 'month') return from.toLocaleDateString(wiLocale(), { month: 'long', year: 'numeric' });
     return String(from.getFullYear());
 }
 
-// ── Navigation ──────────────────────────────────────────────────────────
+// â”€â”€ Navigation â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function wiSetMode(mode) {
     _wiMode = mode;
@@ -89,7 +100,7 @@ function wiToday() {
     _wiRequestData();
 }
 
-// ── Date Picker ─────────────────────────────────────────────────────────
+// â”€â”€ Date Picker â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function wiToggleDatePicker() {
     const picker = document.getElementById('wiDatePicker');
@@ -120,8 +131,7 @@ function _wiRenderDpCalendar() {
     const label = document.getElementById('wiDpMonthLabel');
     if (!grid || !label) return;
 
-    const monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
-    label.textContent = monthNames[_wiDpMonth] + ' ' + _wiDpYear;
+    label.textContent = new Date(_wiDpYear, _wiDpMonth, 1).toLocaleDateString(wiLocale(), { month: 'long', year: 'numeric' });
 
     const todayStr = _wiFmt(new Date());
     const selStr = _wiFmt(_wiAnchor);
@@ -164,7 +174,7 @@ function wiSelectDate(dateStr) {
     _wiRequestData();
 }
 
-// ── Data fetching ───────────────────────────────────────────────────────
+// â”€â”€ Data fetching â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function _wiRequestData() {
     _wiLoading = true;
@@ -189,7 +199,7 @@ function wiHandleData(payload) {
     _wiRenderCharts();
 }
 
-// ── Bucket data into chart points ───────────────────────────────────────
+// â”€â”€ Bucket data into chart points â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function _wiBucket() {
     const { from, to } = _wiRange();
@@ -210,12 +220,12 @@ function _wiBucket() {
             }
         });
     } else if (_wiMode === 'year') {
-        // 12 monthly buckets — always Jan–Dec of the anchor year
-        const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+        // 12 monthly buckets â€” always Janâ€“Dec of the anchor year
         const year = from.getFullYear();
         for (let i = 0; i < 12; i++) {
             const key = year + '-' + String(i + 1).padStart(2, '0');
-            points.push({ label: monthNames[i], monthKey: key, active: 0, favorites: 0, visits: 0, count: 0 });
+            const label = new Date(year, i, 1).toLocaleDateString(wiLocale(), { month: 'short' });
+            points.push({ label, monthKey: key, active: 0, favorites: 0, visits: 0, count: 0 });
         }
         _wiData.forEach(p => {
             const d = new Date(p.Timestamp || p.timestamp);
@@ -229,7 +239,7 @@ function _wiBucket() {
             }
         });
     } else {
-        // week (7 days Mon–Sun) or month (actual days in month)
+        // week (7 days Monâ€“Sun) or month (actual days in month)
         const start = new Date(from);
         const days = Math.floor((to - from) / (1000 * 60 * 60 * 24)) + 1;
         for (let i = 0; i < days; i++) {
@@ -237,7 +247,7 @@ function _wiBucket() {
             d.setDate(d.getDate() + i);
             const dayStr = _wiFmt(d);
             const shortLabel = _wiMode === 'week'
-                ? d.toLocaleDateString('en-US', { weekday: 'short' })
+                ? d.toLocaleDateString(wiLocale(), { weekday: 'short' })
                 : String(d.getDate());
             points.push({ label: shortLabel, dateStr: dayStr, active: 0, favorites: 0, visits: 0, count: 0 });
         }
@@ -256,12 +266,13 @@ function _wiBucket() {
     return points;
 }
 
-// ── Render: Shell (toolbar — rendered once) ─────────────────────────────
+// â”€â”€ Render: Shell (toolbar â€” rendered once) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function _wiRenderShell() {
     const container = document.getElementById('wiContainer');
     if (!container) return;
     _wiInitialized = true;
+    const weekdayHtml = wiWeekdayLabels().map(label => `<div class="tl-dp-wd">${esc(label)}</div>`).join('');
 
     container.innerHTML = `
         <div class="wi-toolbar" id="wiToolbar">
@@ -271,7 +282,7 @@ function _wiRenderShell() {
                 <button class="vrcn-button wi-today-btn" id="wiDateBtn" onclick="wiToggleDatePicker()"><span class="msi" style="font-size:14px;">today</span></button>
                 <span class="wi-range-label" id="wiRangeLabel"></span>
                 <button class="vrcn-button" onclick="wiNav(1)"><span class="msi" style="font-size:16px;">chevron_right</span></button>
-                <button class="vrcn-button" id="wiRefreshBtn" onclick="wiRefresh()" title="Refresh current data"><span class="msi" style="font-size:14px;">refresh</span></button>
+                <button class="vrcn-button" id="wiRefreshBtn" onclick="wiRefresh()" title="${esc(t('world_insights.refresh_title', 'Refresh current data'))}"><span class="msi" style="font-size:14px;">refresh</span></button>
             </div>
         </div>
         <div class="wi-dp-wrap" style="position:relative;">
@@ -281,56 +292,63 @@ function _wiRenderShell() {
                     <span id="wiDpMonthLabel" class="tl-dp-month-label"></span>
                     <button class="tl-dp-nav" onclick="wiDpNav(1)"><span class="msi" style="font-size:16px;">chevron_right</span></button>
                 </div>
-                <div class="tl-dp-weekdays">
-                    <div class="tl-dp-wd">Su</div><div class="tl-dp-wd">Mo</div><div class="tl-dp-wd">Tu</div>
-                    <div class="tl-dp-wd">We</div><div class="tl-dp-wd">Th</div><div class="tl-dp-wd">Fr</div><div class="tl-dp-wd">Sa</div>
-                </div>
+                <div class="tl-dp-weekdays">${weekdayHtml}</div>
                 <div id="wiDpGrid" class="tl-dp-days"></div>
                 <div class="tl-dp-footer">
-                    <button class="vrcn-button" style="flex:1;justify-content:center;font-size:11px;" onclick="wiSelectDate('${_wiFmt(new Date())}')">Today</button>
+                    <button class="vrcn-button" style="flex:1;justify-content:center;font-size:11px;" onclick="wiSelectDate('${_wiFmt(new Date())}')">${t('world_insights.today', 'Today')}</button>
                 </div>
             </div>
         </div>
-        <div id="wiCharts"><div class="empty-msg" style="margin-top:20px;">Loading insights…</div></div>`;
+        <div id="wiCharts"><div class="empty-msg" style="margin-top:20px;">${t('world_insights.loading', 'Loading insights...')}</div></div>`;
 
+    const area = document.getElementById('wiCharts');
+    if (area) {
+        area.innerHTML = `<div class="empty-msg" style="margin-top:20px;">${t('world_insights.loading', 'Loading insights...')}</div>`;
+    }
     _wiUpdateToolbar();
 }
 
-// ── Render: Toolbar update (no DOM rebuild) ─────────────────────────────
+// â”€â”€ Render: Toolbar update (no DOM rebuild) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function _wiUpdateToolbar() {
     const modeBtn = (m, label) =>
         `<button class="vrcn-button wi-mode-btn${_wiMode === m ? ' wi-active' : ''}" onclick="wiSetMode('${m}')">${label}</button>`;
 
     const modes = document.getElementById('wiModes');
-    if (modes) modes.innerHTML = modeBtn('day', 'Day') + modeBtn('week', 'Week') + modeBtn('month', 'Month') + modeBtn('year', 'Year');
+    if (modes) {
+        modes.innerHTML =
+            modeBtn('day', t('world_insights.mode.day', 'Day')) +
+            modeBtn('week', t('world_insights.mode.week', 'Week')) +
+            modeBtn('month', t('world_insights.mode.month', 'Month')) +
+            modeBtn('year', t('world_insights.mode.year', 'Year'));
+    }
 
     const rangeLabel = document.getElementById('wiRangeLabel');
     if (rangeLabel) rangeLabel.textContent = _wiRangeLabel();
 }
 
-// ── Render: Charts only ─────────────────────────────────────────────────
+// â”€â”€ Render: Charts only â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function _wiRenderCharts() {
     const area = document.getElementById('wiCharts');
     if (!area) return;
 
     if (!_wiData.length) {
-        area.innerHTML = '<div class="empty-msg" style="margin-top:20px;">No data collected yet for this period.</div>';
+        area.innerHTML = `<div class="empty-msg" style="margin-top:20px;">${t('world_insights.empty', 'No data collected yet for this period.')}</div>`;
         return;
     }
 
     area.innerHTML = `
         <div class="wi-chart-card">
-            <div class="wi-chart-title"><span class="msi" style="font-size:14px;color:var(--accent);">person</span> Active Players</div>
+            <div class="wi-chart-title"><span class="msi" style="font-size:14px;color:var(--accent);">person</span> ${t('world_insights.chart.active_players', 'Active Players')}</div>
             <canvas id="wiChartActive" height="160"></canvas>
         </div>
         <div class="wi-chart-card">
-            <div class="wi-chart-title"><span class="msi" style="font-size:14px;color:var(--ok);">star</span> Favorites</div>
+            <div class="wi-chart-title"><span class="msi" style="font-size:14px;color:var(--ok);">star</span> ${t('world_insights.chart.favorites', 'Favorites')}</div>
             <canvas id="wiChartFavorites" height="160"></canvas>
         </div>
         <div class="wi-chart-card">
-            <div class="wi-chart-title"><span class="msi" style="font-size:14px;color:var(--cyan);">visibility</span> Visits</div>
+            <div class="wi-chart-title"><span class="msi" style="font-size:14px;color:var(--cyan);">visibility</span> ${t('world_insights.chart.visits', 'Visits')}</div>
             <canvas id="wiChartVisits" height="160"></canvas>
         </div>`;
 
@@ -340,7 +358,7 @@ function _wiRenderCharts() {
     _wiDrawChart('wiChartVisits',    pts, 'visits',    'var(--cyan)');
 }
 
-// ── Canvas line chart ────────────────────────────────────────────────────
+// â”€â”€ Canvas line chart â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function _wiDrawChart(canvasId, points, key, cssColor) {
     const canvas = document.getElementById(canvasId);
@@ -443,7 +461,7 @@ function _wiDrawChart(canvasId, points, key, cssColor) {
     }
 }
 
-// ── Helpers ──────────────────────────────────────────────────────────────
+// â”€â”€ Helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function _wiResolveColor(css) {
     if (!css.startsWith('var(')) return css;
@@ -474,3 +492,11 @@ function _wiReset() {
     _wiData = [];
     _wiLoading = false;
 }
+
+function rerenderWorldInsightsTranslations() {
+    if (!_wiInitialized || !document.getElementById('wiContainer')) return;
+    _wiRenderShell();
+    if (!_wiLoading) _wiRenderCharts();
+}
+
+document.documentElement.addEventListener('languagechange', rerenderWorldInsightsTranslations);

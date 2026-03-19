@@ -3,18 +3,28 @@
 let _dashOnlineCount = 0;
 let _dashOnlineCountLastFetch = 0;
 
+function getDashFriendCountLabel(count, keyBase) {
+    return count === 1
+        ? tf(`${keyBase}.one`, { count }, '{count} friend')
+        : tf(`${keyBase}.other`, { count }, '{count} friends');
+}
+
 function updateDashSub() {
     const name = currentVrcUser?.displayName;
     const status = name
         ? (currentVrcUser.statusDescription || statusLabel(currentVrcUser.status))
-        : 'Connect to VRChat to see your world';
-    const suffix = _dashOnlineCount > 0 ? ` | ${_dashOnlineCount.toLocaleString()} playing worldwide` : '';
+        : t('dashboard.sub.connect_world', 'Connect to VRChat to see your world');
+    const suffix = _dashOnlineCount > 0
+        ? ` | ${tf('dashboard.sub.playing_worldwide', { count: _dashOnlineCount.toLocaleString() }, '{count} playing worldwide')}`
+        : '';
     document.getElementById('dashSub').textContent = status + suffix;
 }
 
 function renderDashboard() {
     const name = currentVrcUser?.displayName;
-    document.getElementById('dashWelcome').textContent = name ? `Welcome, ${name}!` : 'Welcome!';
+    document.getElementById('dashWelcome').textContent = name
+        ? tf('dashboard.welcome.named', { name }, 'Welcome, {name}!')
+        : t('dashboard.welcome.default', 'Welcome!');
     updateDashSub();
 
     const bgEl = document.getElementById('dashHeroBg');
@@ -61,7 +71,7 @@ function renderDashWorlds() {
         return;
     }
     if (!vrcFriendsData.length) {
-        el.innerHTML = '<div class="empty-msg">No friends in worlds right now</div>';
+        el.innerHTML = `<div class="empty-msg">${t('dashboard.worlds.empty', 'No friends in worlds right now')}</div>`;
         return;
     }
 
@@ -89,7 +99,7 @@ function renderDashWorlds() {
 
     const worldList = Object.values(worlds);
     if (!worldList.length) {
-        el.innerHTML = '<div class="empty-msg">No friends in worlds right now</div>';
+        el.innerHTML = `<div class="empty-msg">${t('dashboard.worlds.empty', 'No friends in worlds right now')}</div>`;
         return;
     }
 
@@ -105,12 +115,13 @@ function renderDashWorlds() {
                     : `<div class="dash-world-friend-av" title="${esc(f.displayName)}" style="display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;color:var(--tx3)">${esc((f.displayName||'?')[0])}</div>`;
             }).join('');
             const extra = w.friends.length > 5 ? `<span class="dash-world-extra">+${w.friends.length - 5}</span>` : '';
+            const friendCountLabel = getDashFriendCountLabel(w.friends.length, 'dashboard.worlds.count_world');
             return `<div class="dash-world-card">
                 <div class="dash-world-thumb"><div class="dash-world-thumb-overlay"></div></div>
                 <div class="dash-world-info">
-                    <div class="dash-world-name" style="color:var(--tx3)">Loading world...</div>
+                    <div class="dash-world-name" style="color:var(--tx3)">${t('dashboard.worlds.loading_world', 'Loading world...')}</div>
                     <div class="dash-world-friends-row">${friendAvatars}${extra}</div>
-                    <div class="dash-world-meta"><span class="dash-world-count">${w.friends.length} friend${w.friends.length !== 1 ? 's' : ''} in world</span></div>
+                    <div class="dash-world-meta"><span class="dash-world-count">${friendCountLabel}</span></div>
                 </div>
             </div>`;
         }).join('');
@@ -130,11 +141,11 @@ function renderDashWorlds() {
         const displayName = w.name || w.worldId;
         const instCount = w.instances ? w.instances.size : 1;
         const countLabel = instCount > 1
-            ? `${w.friends.length} friend${w.friends.length !== 1 ? 's' : ''} in world`
-            : `${w.friends.length} friend${w.friends.length !== 1 ? 's' : ''} here`;
+            ? getDashFriendCountLabel(w.friends.length, 'dashboard.worlds.count_world')
+            : getDashFriendCountLabel(w.friends.length, 'dashboard.worlds.count_here');
         const { cls: dwInstCls, label: dwInstLabel } = getInstanceBadge(w.instanceType);
         const instBadge = instCount > 1
-            ? `<span style="font-size:9px;color:var(--tx3);margin-left:auto;">${instCount} instances</span>`
+            ? `<span style="font-size:9px;color:var(--tx3);margin-left:auto;">${tf('dashboard.worlds.instances', { count: instCount }, '{count} instances')}</span>`
             : `<span class="vrcn-badge ${dwInstCls}" style="margin-left:auto;">${dwInstLabel}</span>`;
         return `<div class="dash-world-card" onclick="openWorldDetail('${wid}')">
             <div class="dash-world-thumb" style="${thumbStyle}"><div class="dash-world-thumb-overlay"></div></div>
@@ -154,7 +165,7 @@ function renderDashFriendsFeed() {
         return;
     }
     if (!vrcFriendsData.length) {
-        el.innerHTML = '<div class="empty-msg">No friends online</div>';
+        el.innerHTML = `<div class="empty-msg">${t('dashboard.friends.empty', 'No friends online')}</div>`;
         return;
     }
     const activeFriends = vrcFriendsData.filter(f => f.presence !== 'offline');
@@ -166,7 +177,9 @@ function renderDashFriendsFeed() {
         const { worldId } = parseFriendLocation(f.location);
         const cached = worldId ? dashWorldCache[worldId] : null;
         const isPrivate = !f.location || f.location === 'private';
-        const loc = f.presence === 'web' ? 'Web / Mobile' : (isPrivate ? 'Private Instance' : (cached?.name || 'In World'));
+        const loc = f.presence === 'web'
+            ? t('dashboard.friends.location_web', 'Web / Mobile')
+            : (isPrivate ? t('dashboard.friends.location_private', 'Private Instance') : (cached?.name || t('dashboard.friends.location_world', 'In World')));
         const fid = (f.id || '').replace(/'/g, "\\'");
         const dotClass = f.presence === 'web' ? 'vrc-status-ring' : 'vrc-status-dot';
         return `<div class="dash-feed-card" onclick="openFriendDetail('${fid}')">
@@ -221,12 +234,14 @@ function renderMyInstances(instances) {
         const wid = (inst.worldId || '').replace(/'/g, "\\'");
         const count = inst.userCount || 0;
         const cap   = inst.capacity  || 0;
-        const countStr = cap > 0 ? `${count}/${cap} players` : `${count} players`;
+        const countStr = cap > 0
+            ? tf('dashboard.instances.players_with_capacity', { count, capacity: cap }, '{count}/{capacity} players')
+            : tf('dashboard.instances.players', { count }, '{count} players');
         const safeLoc = (inst.location || '').replace(/'/g, "\\'");
         return `<div class="dash-world-card" onclick="openMyInstanceDetail('${wid}','${safeLoc}')" data-location="${esc(inst.location || '')}">
             <div class="dash-world-thumb" style="${thumbStyle}"><div class="dash-world-thumb-overlay"></div></div>
             <div class="dash-world-info">
-                <div class="dash-world-name">${esc(inst.worldName || inst.worldId || 'Unknown World')}</div>
+                <div class="dash-world-name">${esc(inst.worldName || inst.worldId || t('dashboard.instances.unknown_world', 'Unknown World'))}</div>
                 <div class="dash-world-friends-row"></div>
                 <div class="dash-world-meta">
                     <span class="dash-world-count">${esc(countStr)}</span>
@@ -242,7 +257,7 @@ function removeMyInstance(location) {
     _myInstancesData = _myInstancesData.filter(i => i.location !== location);
     renderMyInstances(_myInstancesData);
     closeMyInstanceDetail();
-    showToast(true, 'Instance removed.');
+    showToast(true, t('dashboard.instances.removed', 'Instance removed.'));
 }
 
 function closeMyInstanceDetail() {
@@ -273,7 +288,7 @@ function openMyInstanceDetail(worldId, location) {
         ? `<span class="vrcn-id-clip" onclick="copyInstanceLink('${jsq(inst.location)}')"><span class="msi" style="font-size:12px;">content_copy</span>#${esc(instNum)}</span>`
         : '';
 
-    let friendsHtml = '<div class="wd-friends-label">FRIENDS IN THIS INSTANCE</div><div class="wd-friends-list">';
+    let friendsHtml = `<div class="wd-friends-label">${tf('dashboard.instances.friends_title', { count: instFriends.length }, 'FRIENDS IN THIS INSTANCE ({count})')}</div><div class="wd-friends-list">`;
     if (instFriends.length > 0) {
         instFriends.forEach(f => {
             friendsHtml += renderProfileItem(f, `closeMyInstanceDetail();openFriendDetail('${jsq(f.id || '')}')`);
@@ -282,8 +297,8 @@ function openMyInstanceDetail(worldId, location) {
         friendsHtml += `<div class="vrcn-profile-item" style="pointer-events:none;opacity:0.55;">
             <div class="fd-profile-item-avatar" style="display:flex;align-items:center;justify-content:center;"><span class="msi" style="font-size:20px;color:var(--tx3);">person</span></div>
             <div class="fd-profile-item-info">
-                <div class="fd-profile-item-name">No friends here yet!</div>
-                <div class="fd-profile-item-status">Invite friends to this instance!</div>
+                <div class="fd-profile-item-name">${t('dashboard.instances.no_friends_title', 'No friends here yet!')}</div>
+                <div class="fd-profile-item-status">${t('dashboard.instances.no_friends_desc', 'Invite friends to this instance!')}</div>
             </div>
         </div>`;
     }
@@ -296,17 +311,17 @@ function openMyInstanceDetail(worldId, location) {
     const loc  = (inst.location || '').replace(/'/g, "\\'");
 
     c.innerHTML = `${bannerHtml}<div class="fd-content${thumb ? ' fd-has-banner' : ''}" style="padding:16px;">
-        <h2 style="margin:0 0 4px;color:var(--tx0);font-size:18px;">${esc(inst.worldName || inst.worldId || 'Unknown World')}</h2>
+        <h2 style="margin:0 0 4px;color:var(--tx0);font-size:18px;">${esc(inst.worldName || inst.worldId || t('dashboard.instances.unknown_world', 'Unknown World'))}</h2>
         <div style="display:flex;justify-content:flex-end;gap:6px;margin-bottom:4px;">
-            <button class="vrcn-button-round" title="Invite Friends" onclick="closeMyInstanceDetail();openInviteModalForLocation('${mloc}','${mwn}','${mwt}','${mit}')"><span class="msi" style="font-size:16px;">person_add</span></button>
-            <button class="vrcn-button-round vrcn-btn-danger" title="Remove Instance" onclick="removeMyInstance('${loc}')"><span class="msi" style="font-size:16px;">delete</span></button>
+            <button class="vrcn-button-round" title="${esc(t('dashboard.instances.invite_friends', 'Invite Friends'))}" onclick="closeMyInstanceDetail();openInviteModalForLocation('${mloc}','${mwn}','${mwt}','${mit}')"><span class="msi" style="font-size:16px;">person_add</span></button>
+            <button class="vrcn-button-round vrcn-btn-danger" title="${esc(t('dashboard.instances.remove_instance', 'Remove Instance'))}" onclick="removeMyInstance('${loc}')"><span class="msi" style="font-size:16px;">delete</span></button>
         </div>
         <div class="fd-badges-row"><span class="vrcn-badge ${cls}">${typeLabel}</span>${copyBadge}</div>
         ${friendsHtml}
         <div class="fd-actions">
-            ${canJoin ? `<button class="vrcn-button-round vrcn-btn-join" onclick="closeMyInstanceDetail();sendToCS({action:'vrcJoinFriend',location:'${loc}'})">Join World</button>` : ''}
-            <button class="vrcn-button-round" onclick="closeMyInstanceDetail();openWorldSearchDetail('${jsq(worldId)}')">Open World</button>
-            <button class="vrcn-button-round" style="margin-left:auto;" onclick="closeMyInstanceDetail()">Close</button>
+            ${canJoin ? `<button class="vrcn-button-round vrcn-btn-join" onclick="closeMyInstanceDetail();sendToCS({action:'vrcJoinFriend',location:'${loc}'})">${t('dashboard.instances.join_world', 'Join World')}</button>` : ''}
+            <button class="vrcn-button-round" onclick="closeMyInstanceDetail();openWorldSearchDetail('${jsq(worldId)}')">${t('dashboard.instances.open_world', 'Open World')}</button>
+            <button class="vrcn-button-round" style="margin-left:auto;" onclick="closeMyInstanceDetail()">${t('common.close', 'Close')}</button>
         </div>
     </div>`;
     m.style.display = 'flex';
@@ -348,7 +363,7 @@ function _fetchPopularWorlds() {
         renderDiscoverySection();
         return;
     }
-    document.getElementById('dashDiscoveryGrid').innerHTML = '<div class="empty-msg">Loading worlds...</div>';
+    document.getElementById('dashDiscoveryGrid').innerHTML = `<div class="empty-msg">${t('dashboard.discovery.loading', 'Loading worlds...')}</div>`;
     sendToCS({ action: 'vrcGetPopularWorlds' });
 }
 
@@ -357,7 +372,7 @@ function _fetchActiveWorlds() {
         renderDiscoverySection();
         return;
     }
-    document.getElementById('dashDiscoveryGrid').innerHTML = '<div class="empty-msg">Loading worlds...</div>';
+    document.getElementById('dashDiscoveryGrid').innerHTML = `<div class="empty-msg">${t('dashboard.discovery.loading', 'Loading worlds...')}</div>`;
     sendToCS({ action: 'vrcGetActiveWorlds' });
 }
 
@@ -366,7 +381,7 @@ function _fetchRecentWorlds() {
         renderDiscoverySection();
         return;
     }
-    document.getElementById('dashDiscoveryGrid').innerHTML = '<div class="empty-msg">Loading worlds...</div>';
+    document.getElementById('dashDiscoveryGrid').innerHTML = `<div class="empty-msg">${t('dashboard.discovery.loading', 'Loading worlds...')}</div>`;
     sendToCS({ action: 'vrcGetRecentWorlds' });
 }
 
@@ -399,7 +414,7 @@ function renderDiscoverySection() {
 
     const cache = _discTab === 'popular' ? _popularCache : _discTab === 'active' ? _activeCache : _recentCache;
     if (!cache.worlds.length) {
-        grid.innerHTML = '<div class="empty-msg">Loading worlds...</div>';
+        grid.innerHTML = `<div class="empty-msg">${t('dashboard.discovery.loading', 'Loading worlds...')}</div>`;
         if (pagination) pagination.style.display = 'none';
         return;
     }
@@ -414,7 +429,9 @@ function renderDiscoverySection() {
         const thumbStyle = thumb ? `background-image:url('${cssUrl(thumb)}')` : '';
         const wid = (w.id || '').replace(/'/g, "\\'");
         const occupants = w.occupants ?? w.publicOccupants ?? 0;
-        const playingStr = occupants > 0 ? `${occupants.toLocaleString()} playing` : '';
+        const playingStr = occupants > 0
+            ? tf('dashboard.discovery.playing', { count: occupants.toLocaleString() }, '{count} playing')
+            : '';
         return `<div class="dash-world-card" onclick="openWorldSearchDetail('${wid}')">
             <div class="dash-world-thumb" style="${thumbStyle}"><div class="dash-world-thumb-overlay"></div></div>
             <div class="dash-world-info">

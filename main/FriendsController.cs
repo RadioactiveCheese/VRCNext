@@ -1128,7 +1128,8 @@ public class FriendsController
             });
         }
 
-        var isCoPresent = _core.LogWatcher.GetCurrentPlayers().Any(p => p.UserId == userId);
+        var isCoPresent = (_core.IsVrcRunning?.Invoke() ?? false)
+            && _core.LogWatcher.GetCurrentPlayers().Any(p => p.UserId == userId);
         var (totalSeconds, lastSeenLocal) = _core.TimeTracker.GetUserStats(userId, isCoPresent);
 
         return new
@@ -1154,7 +1155,9 @@ public class FriendsController
             lastPlatform = user["last_platform"]?.ToString() ?? "",
             platform = user["platform"]?.ToString() ?? "",
             userNote, totalTimeSeconds = totalSeconds,
-            inSameInstance = _core.LogWatcher.GetCurrentPlayers().Any(p => p.UserId == userId),
+            meets = _core.Timeline?.GetMeetAgainCount(userId) ?? 0,
+            inSameInstance = (_core.IsVrcRunning?.Invoke() ?? false)
+                && _core.LogWatcher.GetCurrentPlayers().Any(p => p.UserId == userId),
             lastSeenTracked = lastSeenLocal,
             pronouns = user["pronouns"]?.ToString() ?? "",
             ageVerificationStatus = user["ageVerificationStatus"]?.ToString() ?? "",

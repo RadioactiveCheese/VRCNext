@@ -1,4 +1,4 @@
-using Newtonsoft.Json;
+﻿using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using NativeFileDialogSharp;
 using VRCNext.Services;
@@ -79,6 +79,10 @@ public class AuthController
             case "saveSettings":
                 var data = msg["data"];
                 if (data != null) ApplySettings(data);
+                break;
+
+            case "loadTranslation":
+                SendTranslation(msg["language"]?.ToString());
                 break;
 
             case "setupReady":
@@ -340,6 +344,7 @@ public class AuthController
 
     public void HandleReady()
     {
+        SendTranslation(_core.Settings.Language);
         _core.SendToJS("loadSettings", _core.Settings);
         _core.SendToJS("favoritesLoaded", _photos.Favorites);
         var customColors = _core.Cache.LoadRaw(CacheHandler.KeyCustomColors);
@@ -661,12 +666,13 @@ public class AuthController
             _core.Settings.MessageSoundEnabled = data["messageSoundEnabled"]?.Value<bool>() ?? false;
             _core.Settings.MediaRelaySoundEnabled = data["mediaRelaySoundEnabled"]?.Value<bool>() ?? false;
             _core.Settings.MinimizeToTray = data["minimizeToTray"]?.Value<bool>() ?? false;
+            _core.Settings.Language = NormalizeLanguage(data["language"]?.ToString());
             _core.Settings.Theme = data["theme"]?.ToString() ?? "midnight";
             _core.Settings.SpecialTheme = data["specialTheme"]?.ToString() ?? "";
 #if WINDOWS
             // Theme colors are always pushed from JS via overlayThemeColors
             // (triggered by applyColors in core.js). Do NOT call SetTheme()
-            // here — the C# hardcoded palettes may be out of sync with the
+            // here â€” the C# hardcoded palettes may be out of sync with the
             // JS THEMES and would overwrite the correct colors that JS just sent.
 #endif
             _core.Settings.AutoColorAccuracy = data["autoColorAccuracy"]?.Value<int>() ?? 50;
@@ -773,11 +779,48 @@ public class AuthController
             if (_core.Settings.LastSaveError != null)
                 _core.SendToJS("log", new { msg = $"\u274c Save failed: {_core.Settings.LastSaveError}", color = "err" });
 
-            // No-op with Photino — watch folders served via /media{i}/ routes
+            // No-op with Photino â€” watch folders served via /media{i}/ routes
         }
         catch (Exception ex)
         {
             _core.SendToJS("log", new { msg = $"Save error: {ex.Message}", color = "err" });
+        }
+    }
+
+    private static string NormalizeLanguage(string? language)
+    {
+        return (language ?? string.Empty).Trim().ToLowerInvariant() switch
+        {
+            "de" => "de",
+            "es" => "es",
+            "fr" => "fr",
+            "ja" => "ja",
+            "zh-cn" => "zh-CN",
+            "zh_cn" => "zh-CN",
+            _ => "en"
+        };
+    }
+
+    private void SendTranslation(string? requestedLanguage)
+    {
+        try
+        {
+            var language = NormalizeLanguage(requestedLanguage);
+            var i18nDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "wwwroot", "i18n");
+            var path = Path.Combine(i18nDir, $"{language}.json");
+            var fallbackPath = Path.Combine(i18nDir, "en.json");
+            var json = File.Exists(path)
+                ? File.ReadAllText(path)
+                : File.Exists(fallbackPath)
+                    ? File.ReadAllText(fallbackPath)
+                    : "{}";
+            var translations = JObject.Parse(json);
+            _core.SendToJS("translationData", new { language, translations });
+        }
+        catch (Exception ex)
+        {
+            _core.SendToJS("log", new { msg = $"Translation load failed: {ex.Message}", color = "err" });
+            _core.SendToJS("translationData", new { language = "en", translations = new JObject() });
         }
     }
 

@@ -15,11 +15,16 @@ let vroDtHand      = 0;   // 0=any, 1=left, 2=right
 
 let _vroAutoTimer   = null;
 let _vroPrevHand    = null; // tracks previous hand selection for mirror logic
+let _vroLastError   = '';
 
 // Button name lookup (mirrors C# ButtonNames dictionary)
 const VRO_BTN_NAMES = { 1: 'B/Y', 2: 'Grip', 7: 'A/X', 32: 'Stick', 33: 'Trigger' };
 function vroGetNames(ids) {
     return ids.map(id => VRO_BTN_NAMES[id] ?? `Button${id}`);
+}
+
+function vroRadiusLabelText(value) {
+    return tf('vro.transform.radius_value', { value }, `${value} cm`);
 }
 
 // ── Helpers to get/set active slot ───────────────────────────────────────────
@@ -33,6 +38,7 @@ function handleVroState(d) {
     vroConnected    = !!d.connected;
     vroVisible      = !!d.visible;
     vroRecording    = !!d.recording;
+    _vroLastError   = d.error || '';
 
     if (d.keybind     !== undefined) vroComboIds   = d.keybind     || [];
     if (d.keybindHand !== undefined) vroComboHand  = d.keybindHand ?? 0;
@@ -47,9 +53,9 @@ function handleVroState(d) {
 
     if (d.connected) {
         dot?.classList.replace('offline', 'online');
-        if (txt) txt.textContent = 'Connected';
+        if (txt) txt.textContent = t('vro.status.connected', 'Connected');
         if (txt) txt.style.color = 'var(--ok)';
-        if (btn) btn.innerHTML = '<span class="msi" style="font-size:16px;">link_off</span> Disconnect';
+        if (btn) btn.innerHTML = `<span class="msi" style="font-size:16px;">link_off</span> ${t('common.disconnect', 'Disconnect')}`;
         badge?.classList.replace('offline', 'online');
         if (currentSpecialTheme === 'auto') applyAutoColor();
         else {
@@ -59,9 +65,9 @@ function handleVroState(d) {
         }
     } else {
         dot?.classList.replace('online', 'offline');
-        if (txt) txt.textContent = d.error || 'Not connected';
+        if (txt) txt.textContent = d.error || t('vro.status.not_connected', 'Not connected');
         if (txt) txt.style.color = d.error ? 'var(--err)' : 'var(--tx3)';
-        if (btn) btn.innerHTML = '<span class="msi" style="font-size:16px;">link</span> Connect';
+        if (btn) btn.innerHTML = `<span class="msi" style="font-size:16px;">link</span> ${t('common.connect', 'Connect')}`;
         badge?.classList.replace('online', 'offline');
     }
 
@@ -76,7 +82,9 @@ function handleVroState(d) {
     const visIco = document.getElementById('vroVisIcon');
     const visTxt = document.getElementById('vroVisText');
     if (visIco) visIco.textContent = d.visible ? 'visibility_off' : 'visibility';
-    if (visTxt) visTxt.textContent = d.visible ? 'Hide Overlay' : 'Show Overlay';
+    if (visTxt) visTxt.textContent = d.visible
+        ? t('vro.control.hide_overlay', 'Hide Overlay')
+        : t('vro.control.show_overlay', 'Show Overlay');
 
     updateModePill();
     updateKeybindDisplay();
@@ -239,66 +247,6 @@ function vroClearKeybind() {
     vroSendConfig();
 }
 
-function updateRecordingUI() {
-    const recordBtn = document.getElementById('vroRecordBtn');
-    const cancelBtn = document.getElementById('vroCancelRecordBtn');
-    const hint      = document.getElementById('vroRecordHint');
-
-    if (vroRecording) {
-        if (recordBtn) recordBtn.style.display = 'none';
-        if (cancelBtn) cancelBtn.style.display = 'flex';
-        if (hint) {
-            hint.textContent = vroKeybindMode === 1
-                ? 'Press one button and hold to record for Double Tap…'
-                : 'Hold 1–4 buttons simultaneously to record a combo…';
-            hint.style.color = 'var(--warn)';
-        }
-    } else {
-        if (recordBtn) recordBtn.style.display = 'flex';
-        if (cancelBtn) cancelBtn.style.display = 'none';
-        if (hint) {
-            hint.textContent = vroKeybindMode === 1
-                ? 'Double-tap a single button to toggle the overlay.'
-                : 'Hold 1–4 buttons on one controller to toggle the overlay.';
-            hint.style.color = 'var(--tx3)';
-        }
-    }
-}
-
-function updateKeybindDisplay() {
-    const display = document.getElementById('vroKeybindDisplay');
-    const visual  = document.getElementById('vroControllerVisual');
-
-    const ids  = vroActiveIds();
-    const hand = vroActiveHand();
-
-    if (!display) return;
-
-    if (ids.length === 0) {
-        display.innerHTML = '<span style="color:var(--tx3);font-style:italic;">No keybind set</span>';
-    } else {
-        const names = vroGetNames(ids);
-        const sideLabel = hand === 1 ? '<span class="vro-keybind-chip" style="background:var(--accent20);color:var(--accent);">L</span>'
-                        : hand === 2 ? '<span class="vro-keybind-chip" style="background:var(--accent20);color:var(--accent);">R</span>'
-                        : '';
-        const modeChip = vroKeybindMode === 1
-            ? '<span class="vro-keybind-chip" style="background:color-mix(in srgb,var(--cyan) 20%,transparent);color:var(--cyan);border-color:var(--cyan);">×2</span>'
-            : '';
-        const chips = names
-            .map(n => `<span class="vro-keybind-chip">${n}</span>`)
-            .join('<span class="vro-keybind-plus">+</span>');
-        const sep = (sideLabel || modeChip) ? '<span class="vro-keybind-plus">·</span>' : '';
-        display.innerHTML = modeChip + sideLabel + sep + chips;
-    }
-
-    if (!visual) return;
-    visual.querySelectorAll('.vro-btn').forEach(el => {
-        el.classList.remove('active');
-        const btnId = parseInt(el.dataset.btnId ?? '999');
-        if (ids.includes(btnId)) el.classList.add('active');
-    });
-}
-
 // ── Transform value display ───────────────────────────────────────────────────
 
 function vroUpdateTransformLabel(id) {
@@ -306,92 +254,6 @@ function vroUpdateTransformLabel(id) {
     const label = document.getElementById(id + 'Val');
     if (!input || !label) return;
     label.textContent = parseFloat(input.value).toFixed(2);
-}
-
-function vroUpdateControlRadius() {
-    const input = document.getElementById('vroControlRadius');
-    const label = document.getElementById('vroControlRadiusVal');
-    if (input && label) label.textContent = input.value + ' cm';
-    vroAutoSave();
-}
-
-function vroResetTransform() {
-    const defaults = {
-        vroPosX: -0.10, vroPosY: -0.03, vroPosZ: 0.11,
-        vroRotX: -180,  vroRotY:  46,   vroRotZ: 85,
-        vroWidth: 0.16
-    };
-    for (const [id, val] of Object.entries(defaults)) {
-        const el = document.getElementById(id);
-        if (el) { el.value = val; vroUpdateTransformLabel(id); }
-    }
-    const crEl  = document.getElementById('vroControlRadius');
-    const crLbl = document.getElementById('vroControlRadiusVal');
-    if (crEl)  crEl.value = 16;
-    if (crLbl) crLbl.textContent = '16 cm';
-    vroAutoSave();
-}
-
-// ── Load settings from C# ─────────────────────────────────────────────────────
-
-function vroLoadSettings(s) {
-    if (!s) return;
-
-    const attachLeftEl = document.getElementById('vroAttachLeft');
-    if (attachLeftEl) attachLeftEl.value = s.vroAttachLeft ? 'left' : 'right';
-
-    const ids  = ['vroPosX','vroPosY','vroPosZ','vroRotX','vroRotY','vroRotZ','vroWidth'];
-    const keys = ['vroPosX','vroPosY','vroPosZ','vroRotX','vroRotY','vroRotZ','vroWidth'];
-    ids.forEach((id, i) => {
-        const el = document.getElementById(id);
-        if (el && s[keys[i]] !== undefined) {
-            el.value = s[keys[i]];
-            vroUpdateTransformLabel(id);
-        }
-    });
-
-    const autoVrEl = document.getElementById('setVroAutoStartVR');
-    if (autoVrEl) autoVrEl.checked = !!(s.vroAutoStartVR ?? s.autoStartVR ?? false);
-
-    vroComboIds   = s.vroKeybind   || [];
-    vroComboHand  = s.vroKeybindHand ?? 0;
-    vroDtIds      = s.vroKeybindDt   || [];
-    vroDtHand     = s.vroKeybindDtHand ?? 0;
-    vroKeybindMode = s.vroKeybindMode ?? 0;
-
-    const crEl = document.getElementById('vroControlRadius');
-    const crLbl = document.getElementById('vroControlRadiusVal');
-    const crVal = s.vroControlRadius ?? 28;
-    if (crEl)  crEl.value = crVal;
-    if (crLbl) crLbl.textContent = crVal + ' cm';
-
-    updateModePill();
-    updateKeybindDisplay();
-    updateRecordingUI();
-
-    _vroPrevHand = s.vroAttachLeft ? true : false;
-
-    // Toast notification settings
-    const _toastEls = {
-        vroToastEnabled:    s.vroToastEnabled    ?? true,
-        vroToastFavOnly:    s.vroToastFavOnly    ?? false,
-        vroToastOnline:     s.vroToastOnline     ?? true,
-        vroToastOffline:    s.vroToastOffline    ?? true,
-        vroToastGps:        s.vroToastGps        ?? true,
-        vroToastStatus:     s.vroToastStatus     ?? true,
-        vroToastStatusDesc: s.vroToastStatusDesc ?? true,
-        vroToastBio:        s.vroToastBio        ?? true,
-    };
-    for (const [id, val] of Object.entries(_toastEls)) {
-        const el = document.getElementById(id);
-        if (el) el.checked = val;
-    }
-    const tSizeEl = document.getElementById('vroToastSize');
-    if (tSizeEl) { tSizeEl.value = s.vroToastSize ?? 50; vroToastUpdateLabel('vroToastSize'); }
-    const tOffXEl = document.getElementById('vroToastOffsetX');
-    if (tOffXEl) { tOffXEl.value = s.vroToastOffsetX ?? 0; vroToastUpdateLabel('vroToastOffsetX'); }
-    const tOffYEl = document.getElementById('vroToastOffsetY');
-    if (tOffYEl) { tOffYEl.value = s.vroToastOffsetY ?? -0.12; vroToastUpdateLabel('vroToastOffsetY'); }
 }
 
 // ── Toast notification settings ──────────────────────────────────────────────
@@ -428,3 +290,205 @@ function vroToastSendConfig() {
         bio:         !!document.getElementById('vroToastBio')?.checked,
     });
 }
+
+function updateRecordingUI() {
+    const recordBtn = document.getElementById('vroRecordBtn');
+    const cancelBtn = document.getElementById('vroCancelRecordBtn');
+    const hint = document.getElementById('vroRecordHint');
+
+    if (vroRecording) {
+        if (recordBtn) recordBtn.style.display = 'none';
+        if (cancelBtn) cancelBtn.style.display = 'flex';
+        if (hint) {
+            hint.textContent = vroKeybindMode === 1
+                ? t('vro.keybind.hint.record_double_tap', 'Press one button and hold to record for Double Tap...')
+                : t('vro.keybind.hint.record_combo', 'Hold 1-4 buttons simultaneously to record a combo...');
+            hint.style.color = 'var(--warn)';
+        }
+        return;
+    }
+
+    if (recordBtn) recordBtn.style.display = 'flex';
+    if (cancelBtn) cancelBtn.style.display = 'none';
+    if (hint) {
+        hint.textContent = vroKeybindMode === 1
+            ? t('vro.keybind.hint.idle_double_tap', 'Double-tap a single button to toggle the overlay.')
+            : t('vro.keybind.hint.idle_combo', 'Hold 1-4 buttons on one controller to toggle the overlay.');
+        hint.style.color = 'var(--tx3)';
+    }
+}
+
+function updateKeybindDisplay() {
+    const display = document.getElementById('vroKeybindDisplay');
+    const visual = document.getElementById('vroControllerVisual');
+    const ids = vroActiveIds();
+    const hand = vroActiveHand();
+
+    if (!display) return;
+
+    if (ids.length === 0) {
+        display.innerHTML = `<span style="color:var(--tx3);font-style:italic;">${t('vro.keybind.none', 'No keybind set')}</span>`;
+    } else {
+        const names = vroGetNames(ids);
+        const sideLabel = hand === 1
+            ? '<span class="vro-keybind-chip" style="background:var(--accent20);color:var(--accent);">L</span>'
+            : hand === 2
+                ? '<span class="vro-keybind-chip" style="background:var(--accent20);color:var(--accent);">R</span>'
+                : '';
+        const modeChip = vroKeybindMode === 1
+            ? '<span class="vro-keybind-chip" style="background:color-mix(in srgb,var(--cyan) 20%,transparent);color:var(--cyan);border-color:var(--cyan);">x2</span>'
+            : '';
+        const chips = names
+            .map(name => `<span class="vro-keybind-chip">${name}</span>`)
+            .join('<span class="vro-keybind-plus">+</span>');
+        const sep = (sideLabel || modeChip) ? '<span class="vro-keybind-plus">/</span>' : '';
+        display.innerHTML = modeChip + sideLabel + sep + chips;
+    }
+
+    if (!visual) return;
+    visual.querySelectorAll('.vro-btn').forEach(el => {
+        el.classList.remove('active');
+        const btnId = parseInt(el.dataset.btnId ?? '999', 10);
+        if (ids.includes(btnId)) el.classList.add('active');
+    });
+}
+
+function vroUpdateControlRadius() {
+    const input = document.getElementById('vroControlRadius');
+    const label = document.getElementById('vroControlRadiusVal');
+    if (input && label) label.textContent = vroRadiusLabelText(input.value);
+    vroAutoSave();
+}
+
+function vroResetTransform() {
+    const defaults = {
+        vroPosX: -0.10,
+        vroPosY: -0.03,
+        vroPosZ: 0.11,
+        vroRotX: -180,
+        vroRotY: 46,
+        vroRotZ: 85,
+        vroWidth: 0.16
+    };
+
+    for (const [id, val] of Object.entries(defaults)) {
+        const el = document.getElementById(id);
+        if (el) {
+            el.value = val;
+            vroUpdateTransformLabel(id);
+        }
+    }
+
+    const radiusInput = document.getElementById('vroControlRadius');
+    const radiusLabel = document.getElementById('vroControlRadiusVal');
+    if (radiusInput) radiusInput.value = 16;
+    if (radiusLabel) radiusLabel.textContent = vroRadiusLabelText(16);
+    vroAutoSave();
+}
+
+function vroLoadSettings(s) {
+    if (!s) return;
+
+    const attachLeftEl = document.getElementById('vroAttachLeft');
+    if (attachLeftEl) attachLeftEl.value = s.vroAttachLeft ? 'left' : 'right';
+
+    const ids = ['vroPosX', 'vroPosY', 'vroPosZ', 'vroRotX', 'vroRotY', 'vroRotZ', 'vroWidth'];
+    ids.forEach(id => {
+        const el = document.getElementById(id);
+        if (el && s[id] !== undefined) {
+            el.value = s[id];
+            vroUpdateTransformLabel(id);
+        }
+    });
+
+    const autoVrEl = document.getElementById('setVroAutoStartVR');
+    if (autoVrEl) autoVrEl.checked = !!(s.vroAutoStartVR ?? s.autoStartVR ?? false);
+
+    vroComboIds = s.vroKeybind || [];
+    vroComboHand = s.vroKeybindHand ?? 0;
+    vroDtIds = s.vroKeybindDt || [];
+    vroDtHand = s.vroKeybindDtHand ?? 0;
+    vroKeybindMode = s.vroKeybindMode ?? 0;
+
+    const radiusInput = document.getElementById('vroControlRadius');
+    const radiusLabel = document.getElementById('vroControlRadiusVal');
+    const radiusValue = s.vroControlRadius ?? 28;
+    if (radiusInput) radiusInput.value = radiusValue;
+    if (radiusLabel) radiusLabel.textContent = vroRadiusLabelText(radiusValue);
+
+    updateModePill();
+    updateKeybindDisplay();
+    updateRecordingUI();
+
+    _vroPrevHand = s.vroAttachLeft ? true : false;
+
+    const toastValues = {
+        vroToastEnabled: s.vroToastEnabled ?? true,
+        vroToastFavOnly: s.vroToastFavOnly ?? false,
+        vroToastOnline: s.vroToastOnline ?? true,
+        vroToastOffline: s.vroToastOffline ?? true,
+        vroToastGps: s.vroToastGps ?? true,
+        vroToastStatus: s.vroToastStatus ?? true,
+        vroToastStatusDesc: s.vroToastStatusDesc ?? true,
+        vroToastBio: s.vroToastBio ?? true
+    };
+
+    for (const [id, val] of Object.entries(toastValues)) {
+        const el = document.getElementById(id);
+        if (el) el.checked = val;
+    }
+
+    const toastSizeEl = document.getElementById('vroToastSize');
+    if (toastSizeEl) {
+        toastSizeEl.value = s.vroToastSize ?? 50;
+        vroToastUpdateLabel('vroToastSize');
+    }
+
+    const toastOffsetXEl = document.getElementById('vroToastOffsetX');
+    if (toastOffsetXEl) {
+        toastOffsetXEl.value = s.vroToastOffsetX ?? 0;
+        vroToastUpdateLabel('vroToastOffsetX');
+    }
+
+    const toastOffsetYEl = document.getElementById('vroToastOffsetY');
+    if (toastOffsetYEl) {
+        toastOffsetYEl.value = s.vroToastOffsetY ?? -0.12;
+        vroToastUpdateLabel('vroToastOffsetY');
+    }
+}
+
+function rerenderVroTranslations() {
+    const statusText = document.getElementById('vroStatusText');
+    if (statusText) {
+        if (vroConnected) {
+            statusText.textContent = t('vro.status.connected', 'Connected');
+            statusText.style.color = 'var(--ok)';
+        } else {
+            statusText.textContent = _vroLastError || t('vro.status.not_connected', 'Not connected');
+            statusText.style.color = _vroLastError ? 'var(--err)' : 'var(--tx3)';
+        }
+    }
+
+    const connBtn = document.getElementById('vroConnBtn');
+    if (connBtn) {
+        connBtn.innerHTML = vroConnected
+            ? `<span class="msi" style="font-size:16px;">link_off</span> ${t('common.disconnect', 'Disconnect')}`
+            : `<span class="msi" style="font-size:16px;">link</span> ${t('common.connect', 'Connect')}`;
+    }
+
+    const visText = document.getElementById('vroVisText');
+    if (visText) {
+        visText.textContent = vroVisible
+            ? t('vro.control.hide_overlay', 'Hide Overlay')
+            : t('vro.control.show_overlay', 'Show Overlay');
+    }
+
+    const radiusInput = document.getElementById('vroControlRadius');
+    const radiusLabel = document.getElementById('vroControlRadiusVal');
+    if (radiusInput && radiusLabel) radiusLabel.textContent = vroRadiusLabelText(radiusInput.value);
+
+    updateKeybindDisplay();
+    updateRecordingUI();
+}
+
+document.documentElement.addEventListener('languagechange', rerenderVroTranslations);

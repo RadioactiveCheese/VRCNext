@@ -27,6 +27,8 @@ function renderInstanceItem(opts) {
     const { thumb, worldName, instanceType, instanceId, owner, ownerGroup, ownerId, region, userCount, capacity, friends, location, onclick } = opts;
 
     const { cls, label } = getInstanceBadge(instanceType);
+    const joinLabel = t('common.join', 'Join');
+    const joiningLabel = t('common.joining', 'Joining...');
     const thumbStyle = thumb ? `background-image:url('${cssUrl(thumb)}')` : '';
 
     const regionHtml = region
@@ -63,7 +65,7 @@ function renderInstanceItem(opts) {
     let joinHtml = '';
     if (location && instanceType !== 'private') {
         const loc = location.replace(/'/g, "\\'");
-        joinHtml = `<button class="vrcn-button inst-item-join" onclick="sendToCS({action:'vrcJoinFriend',location:'${loc}'});this.disabled=true;this.textContent='Joining...';" ><span class="msi" style="font-size:14px;">login</span> Join</button>`;
+        joinHtml = `<button class="vrcn-button inst-item-join" onclick="sendToCS({action:'vrcJoinFriend',location:'${loc}'});this.disabled=true;this.textContent='${jsq(joiningLabel)}';" ><span class="msi" style="font-size:14px;">login</span> ${esc(joinLabel)}</button>`;
     }
 
     const rightHtml = (friendsHtml || joinHtml)

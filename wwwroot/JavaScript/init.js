@@ -12,6 +12,7 @@ document.addEventListener('contextmenu', e => e.preventDefault());
 
 initAllVnSelects();
 renderWebhookCards([{}, {}, {}, {}]);
+renderLanguageChips();
 renderThemeChips();
 renderDashboard();
 tryLoadLogo();

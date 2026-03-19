@@ -225,12 +225,13 @@ public class InstanceController
 
                     // PERSONS: start from ALL UserTimeTracker users so nobody is missed.
                     // liveElapsed: time since last Tick not yet counted for co-present users
-                    var logPlayerIds = new HashSet<string>(
-                        _core.LogWatcher.GetCurrentPlayers()
-                            .Where(p => !string.IsNullOrEmpty(p.UserId))
-                            .Select(p => p.UserId));
+                    var vrcRunning = _core.IsVrcRunning?.Invoke() ?? false;
+                    var logPlayerIds = vrcRunning
+                        ? new HashSet<string>(_core.LogWatcher.GetCurrentPlayers()
+                            .Where(p => !string.IsNullOrEmpty(p.UserId)).Select(p => p.UserId))
+                        : new HashSet<string>();
                     var rawLiveElapsed = (long)(DateTime.UtcNow - _core.TimeTracker.LastTick).TotalSeconds;
-                    var liveElapsed = rawLiveElapsed > 0 && rawLiveElapsed <= 3600 ? rawLiveElapsed : 0;
+                    var liveElapsed = vrcRunning && rawLiveElapsed > 0 && rawLiveElapsed <= 3600 ? rawLiveElapsed : 0;
 
                     var personList = _core.TimeTracker.Users
                         .Where(kv => kv.Key != tsMyId)

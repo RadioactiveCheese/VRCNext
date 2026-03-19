@@ -1,18 +1,23 @@
 /* === Multi-Invite Modal === */
 let _inviteSelected = new Set();
 let _inviteSending = false;
-let _inviteOverrideLoc = null; // set when inviting to a specific instance (not current)
+let _inviteOverride = null; // { location, worldName, worldThumb, instanceType } for non-current invites
+let _inviteFilter = '';
+let _inviteProgressState = null;
 
 function openInviteModal() {
     if (!currentVrcUser) return;
     if (!currentInstanceData || currentInstanceData.empty || currentInstanceData.error || !currentInstanceData.worldId) {
-        showToast(false, 'You must be in an instance to invite friends.');
+        showToast(false, t('invite.multi.error.no_instance', 'You must be in an instance to invite friends.'));
         return;
     }
     const m = document.getElementById('modalInvite');
     if (!m) return;
     _inviteSelected = new Set();
     _inviteSending = false;
+    _inviteOverride = null;
+    _inviteFilter = '';
+    _inviteProgressState = null;
     _renderInviteModal();
     m.style.display = 'flex';
 }
@@ -22,37 +27,34 @@ function closeInviteModal() {
     if (m) m.style.display = 'none';
     _inviteSelected = new Set();
     _inviteSending = false;
-    _inviteOverrideLoc = null;
+    _inviteOverride = null;
+    _inviteFilter = '';
+    _inviteProgressState = null;
 }
 
 function openInviteModalForLocation(location, worldName, worldThumb, instanceType) {
-    _inviteOverrideLoc = location;
     const m = document.getElementById('modalInvite');
     if (!m) return;
     _inviteSelected = new Set();
     _inviteSending = false;
-    // Temporarily override currentInstanceData fields so _renderInviteModal shows correct info
-    const _prev = { worldName: currentInstanceData?.worldName, worldThumb: currentInstanceData?.worldThumb, instanceType: currentInstanceData?.instanceType };
-    if (!currentInstanceData) window.currentInstanceData = {};
-    currentInstanceData.worldName = worldName;
-    currentInstanceData.worldThumb = worldThumb;
-    currentInstanceData.instanceType = instanceType;
+    _inviteOverride = { location, worldName, worldThumb, instanceType };
+    _inviteFilter = '';
+    _inviteProgressState = null;
     _renderInviteModal();
-    // Restore after render (the render already read the values)
-    if (currentInstanceData) {
-        currentInstanceData.worldName = _prev.worldName;
-        currentInstanceData.worldThumb = _prev.worldThumb;
-        currentInstanceData.instanceType = _prev.instanceType;
-    }
     m.style.display = 'flex';
+}
+
+function _inviteSendButtonLabel(count) {
+    const base = t('profiles.invite.send', 'Send Invite');
+    return count > 0 ? `${base} (${count})` : base;
 }
 
 function _renderInviteModal() {
     const box = document.getElementById('inviteBox');
     if (!box) return;
-    const worldName = currentInstanceData?.worldName || 'Current Instance';
-    const worldThumb = currentInstanceData?.worldThumb || '';
-    const instanceType = currentInstanceData?.instanceType || '';
+    const worldName = _inviteOverride?.worldName || currentInstanceData?.worldName || t('invite.multi.current_instance', 'Current Instance');
+    const worldThumb = _inviteOverride?.worldThumb || currentInstanceData?.worldThumb || '';
+    const instanceType = _inviteOverride?.instanceType || currentInstanceData?.instanceType || '';
     const { cls: badgeCls, label: badgeLabel } = getInstanceBadge(instanceType || 'public');
     const typeBadge = instanceType && instanceType !== 'public'
         ? `<span class="vrcn-badge ${badgeCls}">${esc(badgeLabel)}</span>` : '';
@@ -62,24 +64,31 @@ function _renderInviteModal() {
             <div class="inv-world-info">
                 ${typeBadge ? `<div style="margin-bottom:4px;">${typeBadge}</div>` : ''}
                 <div class="inv-world-name">${esc(worldName)}</div>
-                <div style="font-size:10px;color:rgba(255,255,255,.65);margin-top:3px;">Invite to this instance</div>
+                <div style="font-size:10px;color:rgba(255,255,255,.65);margin-top:3px;">${esc(t('invite.multi.subtitle', 'Invite to this instance'))}</div>
             </div>
-            <button class="inv-close-btn" onclick="closeInviteModal()"><span class="msi">close</span></button>
+            <button class="inv-close-btn" onclick="closeInviteModal()" title="${esc(t('common.close', 'Close'))}"><span class="msi">close</span></button>
         </div>
         <div class="inv-search-wrap">
             <span class="msi inv-search-icon">search</span>
-            <input type="text" id="inviteSearch" class="inv-search-input" placeholder="Search friends..." oninput="filterInviteList()">
+            <input type="text" id="inviteSearch" class="inv-search-input" placeholder="${esc(t('invite.multi.search_placeholder', 'Search friends...'))}" oninput="filterInviteList()">
         </div>
         <div id="inviteList" class="inv-list"></div>
         <div class="inv-footer">
             <span id="inviteSelCount" class="inv-sel-count"></span>
-            <button id="inviteSendBtn" class="vrcn-button" onclick="sendMultiInvite()" disabled>Send Invite</button>
+            <button id="inviteSendBtn" class="vrcn-button" onclick="sendMultiInvite()" disabled>${esc(_inviteSendButtonLabel(_inviteSelected.size))}</button>
         </div>
         <div id="inviteProgress" class="inv-progress-wrap" style="display:none;">
             <div class="inv-progress-track"><div id="inviteProgressBar" class="inv-progress-bar"></div></div>
             <div id="inviteProgressText" class="inv-progress-text"></div>
         </div>`;
-    renderInviteList();
+    const search = document.getElementById('inviteSearch');
+    if (search) search.value = _inviteFilter;
+    renderInviteList(_inviteFilter);
+    if (_inviteProgressState?.total > 0) {
+        const prog = document.getElementById('inviteProgress');
+        if (prog) prog.style.display = '';
+        _applyInviteProgress(_inviteProgressState.done, _inviteProgressState.total, _inviteProgressState.success, _inviteProgressState.fail);
+    }
 }
 
 function renderInviteList(filter) {
@@ -103,7 +112,8 @@ function renderInviteList(filter) {
     const friends = allFriends.filter(f => !myLocBase || !f.location || f.location.split('~')[0] !== myLocBase);
 
     if (allFriends.length === 0) {
-        el.innerHTML = `<div class="inv-empty">${filter ? 'No results' : 'No friends available to invite'}</div>`;
+        el.innerHTML = `<div class="inv-empty">${filter ? t('profiles.people.no_results', 'No results') : t('invite.multi.empty', 'No friends available to invite')}</div>`;
+        _updateInviteFooter();
         return;
     }
 
@@ -116,10 +126,10 @@ function renderInviteList(filter) {
         const sel = _inviteSelected.has(f.id);
         const hasImg = f.image && f.image.length > 5;
         const av = hasImg
-            ? `<img class="fd-profile-item-avatar" src="${esc(f.image)}" onerror="this.outerHTML='<div class=\\'fd-profile-item-avatar\\' style=\\'display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;color:var(--tx3)\\'>${esc((f.displayName||'?')[0])}</div>'">`
-            : `<div class="fd-profile-item-avatar" style="display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;color:var(--tx3)">${esc((f.displayName||'?')[0])}</div>`;
+            ? `<img class="fd-profile-item-avatar" src="${esc(f.image)}" onerror="this.outerHTML='<div class=\\'fd-profile-item-avatar\\' style=\\'display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;color:var(--tx3)\\'>${esc((f.displayName || '?')[0])}</div>'">`
+            : `<div class="fd-profile-item-avatar" style="display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;color:var(--tx3)">${esc((f.displayName || '?')[0])}</div>`;
         const isWeb = f.presence === 'web';
-        const loc = isWeb ? 'Web / Mobile' : (f.statusDescription || statusLabel(f.status || 'offline'));
+        const loc = isWeb ? t('profiles.friends.location.web', 'Web / Mobile') : (f.statusDescription || statusLabel(f.status || 'offline'));
         const indicatorClass = isWeb ? 'vrc-status-ring' : 'vrc-status-dot';
         const statusCls = statusDotClass(f.status || 'offline');
         const fid = jsq(f.id || '');
@@ -136,15 +146,15 @@ function renderInviteList(filter) {
     }
 
     if (instFriends.length > 0) {
-        h += `<div class="inv-section-lbl">IN-INSTANCE — ${instFriends.length}</div>`;
+        h += `<div class="inv-section-lbl">${esc(tf('invite.multi.section.in_instance', { count: instFriends.length }, 'IN-INSTANCE - {count}'))}</div>`;
         instFriends.forEach(f => h += card(f));
     }
     if (gameFriends.length > 0) {
-        h += `<div class="inv-section-lbl">IN-GAME — ${gameFriends.length}</div>`;
+        h += `<div class="inv-section-lbl">${esc(tf('invite.multi.section.in_game', { count: gameFriends.length }, 'IN-GAME - {count}'))}</div>`;
         gameFriends.forEach(f => h += card(f));
     }
     if (webFriends.length > 0) {
-        h += `<div class="inv-section-lbl">WEB / ACTIVE — ${webFriends.length}</div>`;
+        h += `<div class="inv-section-lbl">${esc(tf('invite.multi.section.web_active', { count: webFriends.length }, 'WEB / ACTIVE - {count}'))}</div>`;
         webFriends.forEach(f => h += card(f));
     }
 
@@ -154,6 +164,7 @@ function renderInviteList(filter) {
 
 function filterInviteList() {
     const q = document.getElementById('inviteSearch')?.value || '';
+    _inviteFilter = q;
     renderInviteList(q);
 }
 
@@ -174,9 +185,9 @@ function _updateInviteFooter() {
     const lbl = document.getElementById('inviteSelCount');
     if (btn) {
         btn.disabled = count === 0 || _inviteSending;
-        btn.textContent = count > 0 ? `Send Invite (${count})` : 'Send Invite';
+        btn.textContent = _inviteSendButtonLabel(count);
     }
-    if (lbl) lbl.textContent = count > 0 ? `${count} selected` : '';
+    if (lbl) lbl.textContent = count > 0 ? tf('invite.multi.selected', { count }, '{count} selected') : '';
 }
 
 function sendMultiInvite() {
@@ -192,7 +203,7 @@ function sendMultiInvite() {
 
     _applyInviteProgress(0, ids.length, 0, 0);
     const msg = { action: 'vrcBatchInvite', userIds: ids };
-    if (_inviteOverrideLoc) msg.location = _inviteOverrideLoc;
+    if (_inviteOverride?.location) msg.location = _inviteOverride.location;
     sendToCS(msg);
 }
 
@@ -205,6 +216,7 @@ function handleBatchInviteProgress(payload) {
 }
 
 function _applyInviteProgress(done, total, success, fail) {
+    _inviteProgressState = { done, total, success, fail };
     const bar = document.getElementById('inviteProgressBar');
     const txt = document.getElementById('inviteProgressText');
     const pct = total > 0 ? Math.round((done / total) * 100) : 0;
@@ -217,14 +229,22 @@ function _applyInviteProgress(done, total, success, fail) {
     }
     if (txt) {
         if (done < total) {
-            txt.textContent = `Sending ${done + 1} of ${total}...`;
+            txt.textContent = tf('invite.multi.progress.sending', { current: done + 1, total }, 'Sending {current} of {total}...');
             txt.style.color = 'var(--tx2)';
         } else {
             const parts = [];
-            if (success > 0) parts.push(`${success} sent`);
-            if (fail > 0) parts.push(`${fail} failed`);
-            txt.textContent = parts.join(', ') + ' — Done!';
+            if (success > 0) parts.push(tf('invite.multi.result.sent', { count: success }, '{count} sent'));
+            if (fail > 0) parts.push(tf('invite.multi.result.failed', { count: fail }, '{count} failed'));
+            txt.textContent = parts.length
+                ? `${parts.join(', ')} - ${t('invite.multi.progress.done', 'Done!')}`
+                : t('invite.multi.progress.done', 'Done!');
             txt.style.color = fail === 0 ? 'var(--ok)' : 'var(--accent)';
         }
     }
 }
+
+function rerenderInviteTranslations() {
+    if (document.getElementById('modalInvite')?.style.display !== 'none') _renderInviteModal();
+}
+
+document.documentElement.addEventListener('languagechange', rerenderInviteTranslations);

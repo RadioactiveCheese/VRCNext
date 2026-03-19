@@ -2,33 +2,55 @@
 let vfRunning = false;
 let vfItems = [];
 let _vfWordTimers = {};
+let _vfDevicesPayload = null;
+let _vfStopWordTimer = null;
+let _vfClearTimer = null;
+let _vfBlockWords = [];
 
 function vfOnTabOpen() {
     sendToCS({ action: 'vfGetDevices' });
     sendToCS({ action: 'vfGetItems' });
 }
 
-// ── State ──────────────────────────────────────────────────────────────────
+function vfButtonHtml() {
+    return vfRunning
+        ? `<span class="msi" style="font-size:16px;">stop</span> ${t('common.stop', 'Stop')}`
+        : `<span class="msi" style="font-size:16px;">play_arrow</span> ${t('common.start', 'Start')}`;
+}
 
-function handleVfState(p) {
-    vfRunning = p.running;
+function vfStatusText() {
+    return vfRunning
+        ? t('voicefight.status.listening', 'Listening...')
+        : t('voicefight.status.not_running', 'Not running');
+}
+
+function vfSyncStateUi() {
     const dot = document.getElementById('vfDot');
     const txt = document.getElementById('vfStatusText');
     const btn = document.getElementById('vfConnBtn');
-    if (!dot) return;
+    if (dot) dot.className = vfRunning ? 'sf-dot online' : 'sf-dot offline';
+    if (txt) txt.textContent = vfStatusText();
+    if (btn) btn.innerHTML = vfButtonHtml();
     const vfBadge = document.getElementById('badgeVoice');
-    if (vfRunning) {
-        dot.className = 'sf-dot online';
-        txt.textContent = 'Listening…';
-        btn.innerHTML = '<span class="msi" style="font-size:16px;">stop</span> Stop';
-        if (vfBadge) { vfBadge.classList.remove('offline'); vfBadge.classList.add('online'); }
-    } else {
-        dot.className = 'sf-dot offline';
-        txt.textContent = 'Not running';
-        btn.innerHTML = '<span class="msi" style="font-size:16px;">play_arrow</span> Start';
-        updateVfMeter(0);
-        if (vfBadge) { vfBadge.classList.remove('online'); vfBadge.classList.add('offline'); }
+    if (vfBadge) {
+        vfBadge.classList.remove(vfRunning ? 'offline' : 'online');
+        vfBadge.classList.add(vfRunning ? 'online' : 'offline');
     }
+}
+
+function rerenderVoiceFightTranslations() {
+    vfSyncStateUi();
+    if (_vfDevicesPayload) populateVfDevices(_vfDevicesPayload);
+    renderVfItems(vfItems);
+    renderVfBlockChips();
+}
+
+document.documentElement.addEventListener('languagechange', rerenderVoiceFightTranslations);
+
+function handleVfState(p) {
+    vfRunning = !!p.running;
+    vfSyncStateUi();
+    if (!vfRunning) updateVfMeter(0);
 }
 
 function vfConnect() {
@@ -36,43 +58,43 @@ function vfConnect() {
         sendToCS({ action: 'vfStop' });
     } else {
         const sel = document.getElementById('vfDeviceSelect');
-        const deviceIndex = sel ? parseInt(sel.value) : 0;
+        const deviceIndex = sel ? parseInt(sel.value, 10) : 0;
         const outSel = document.getElementById('vfOutputDeviceSelect');
-        const outputDeviceIndex = outSel ? parseInt(outSel.value) : -1;
+        const outputDeviceIndex = outSel ? parseInt(outSel.value, 10) : -1;
         sendToCS({ action: 'vfStart', deviceIndex, outputDeviceIndex });
     }
 }
 
-// ── Devices ────────────────────────────────────────────────────────────────
-
 function populateVfDevices(p) {
+    _vfDevicesPayload = p;
+
     const sel = document.getElementById('vfDeviceSelect');
-    if (!sel) return;
-    sel.innerHTML = '';
-    const devices = p.devices || [];
-    if (devices.length === 0) {
-        sel.innerHTML = '<option value="0">No microphone found</option>';
-        if (sel._vnRefresh) sel._vnRefresh();
-    } else {
-        const targetIndex = Math.min(p.savedIndex ?? 0, devices.length - 1);
-        devices.forEach((name, i) => {
-            const opt = document.createElement('option');
-            opt.value = String(i);
-            opt.textContent = name;
-            sel.appendChild(opt);
-        });
-        sel.selectedIndex = targetIndex;
-        if (sel._vnRefresh) sel._vnRefresh();
+    if (sel) {
+        sel.innerHTML = '';
+        const devices = p.devices || [];
+        if (devices.length === 0) {
+            sel.innerHTML = `<option value="0">${t('voicefight.devices.no_microphone', 'No microphone found')}</option>`;
+            if (sel._vnRefresh) sel._vnRefresh();
+        } else {
+            const targetIndex = Math.min(p.savedIndex ?? 0, devices.length - 1);
+            devices.forEach((name, i) => {
+                const opt = document.createElement('option');
+                opt.value = String(i);
+                opt.textContent = name;
+                sel.appendChild(opt);
+            });
+            sel.selectedIndex = targetIndex;
+            if (sel._vnRefresh) sel._vnRefresh();
+        }
     }
 
     const outSel = document.getElementById('vfOutputDeviceSelect');
     if (outSel) {
         outSel.innerHTML = '';
         const outputDevices = p.outputDevices || [];
-        // -1 = Windows default (WAVE_MAPPER)
         const defOpt = document.createElement('option');
         defOpt.value = '-1';
-        defOpt.textContent = 'Windows Default';
+        defOpt.textContent = t('voicefight.devices.windows_default', 'Windows Default');
         outSel.appendChild(defOpt);
         outputDevices.forEach((name, i) => {
             const opt = document.createElement('option');
@@ -82,7 +104,7 @@ function populateVfDevices(p) {
         });
         const savedOut = p.savedOutputIndex ?? -1;
         outSel.value = String(savedOut);
-        if (outSel.value === '') outSel.selectedIndex = 0; // fallback
+        if (outSel.value === '') outSel.selectedIndex = 0;
         if (outSel._vnRefresh) outSel._vnRefresh();
     }
 
@@ -97,16 +119,14 @@ function vfSetMuteTalk(enabled) {
 }
 
 function vfSetInputDevice(val) {
-    const idx = parseInt(val) || 0;
+    const idx = parseInt(val, 10) || 0;
     sendToCS({ action: 'vfSetInputDevice', deviceIndex: idx });
 }
 
 function vfSetOutputDevice(val) {
-    const idx = parseInt(val);
+    const idx = parseInt(val, 10);
     sendToCS({ action: 'vfSetOutputDevice', deviceIndex: isNaN(idx) ? -1 : idx });
 }
-
-// ── Meter ──────────────────────────────────────────────────────────────────
 
 function updateVfMeter(level) {
     const bar = document.getElementById('vfMeterBar');
@@ -116,14 +136,12 @@ function updateVfMeter(level) {
     bar.style.background = pct > 80 ? 'var(--err)' : pct > 50 ? 'var(--warn)' : 'var(--ok)';
 }
 
-// ── Items ──────────────────────────────────────────────────────────────────
-
 function renderVfItems(items) {
     vfItems = items || [];
     const el = document.getElementById('vfItems');
     if (!el) return;
     if (vfItems.length === 0) {
-        el.innerHTML = '<div class="empty-msg">No sounds added yet.</div>';
+        el.innerHTML = `<div class="empty-msg">${t('voicefight.sounds.empty', 'No sounds added yet.')}</div>`;
         return;
     }
     el.innerHTML = vfItems.map((item, i) => buildVfItemHtml(item, i)).join('');
@@ -135,34 +153,34 @@ function buildVfItemHtml(item, i) {
     const filesHtml = files.map((f, si) => buildVfSoundHtml(f, i, si)).join('');
     return `<div class="vf-item" data-idx="${i}">
   <div class="vf-item-header">
-    <input class="vrcn-edit-field" style="flex:1;" placeholder="Trigger word…" value="${word}"
+    <input class="vrcn-edit-field" style="flex:1;" placeholder="${esc(t('voicefight.item.trigger_placeholder', 'Trigger word...'))}" value="${word}"
       oninput="vfWordChanged(${i}, this.value)"
       onblur="vfSetWord(${i}, this.value)">
-    <button class="vf-btn-icon vf-btn-del" onclick="vfDeleteItem(${i})" title="Remove item"><span class="msi">delete</span></button>
+    <button class="vf-btn-icon vf-btn-del" onclick="vfDeleteItem(${i})" title="${esc(t('voicefight.item.remove_title', 'Remove item'))}"><span class="msi">delete</span></button>
   </div>
-  <div class="vf-sounds" data-item="${i}">${filesHtml || '<div class="vf-no-sounds">No sounds yet</div>'}</div>
-  <button class="vf-add-btn" onclick="vfAddSoundToItem(${i})"><span class="msi">add</span> Add Sound</button>
+  <div class="vf-sounds" data-item="${i}">${filesHtml || `<div class="vf-no-sounds">${t('voicefight.item.no_sounds', 'No sounds yet')}</div>`}</div>
+  <button class="vf-add-btn" onclick="vfAddSoundToItem(${i})"><span class="msi">add</span> ${t('voicefight.sounds.add', 'Add Sound')}</button>
 </div>`;
 }
 
 function buildVfSoundHtml(file, i, si) {
-    const name = esc(file.fileName || file.filePath?.split(/[\\/]/).pop() || 'Unknown');
+    const name = esc(file.fileName || file.filePath?.split(/[\\/]/).pop() || t('voicefight.sound.unknown', 'Unknown'));
     const dur = formatVfTime(file.durationMs || 0);
     const vol = Math.round(file.volumePercent ?? 100);
     return `<div class="vf-sound" data-item-idx="${i}" data-sound-idx="${si}">
   <div class="vf-sound-top">
     <div class="vf-item-info">
       <span class="vf-filename">${name}</span>
-      <span class="vf-length">LENGTH: ${dur}</span>
+      <span class="vf-length">${tf('voicefight.sound.length', { duration: dur }, 'Length: {duration}')}</span>
     </div>
     <div class="vf-item-actions">
-      <button class="vf-btn-icon" onclick="vfPlaySound(${i},${si})" title="Test play"><span class="msi">play_arrow</span></button>
-      <button class="vf-btn-icon" onclick="vfStopSound()" title="Stop playback"><span class="msi">stop</span></button>
-      <button class="vf-btn-icon vf-btn-del" onclick="vfDeleteSound(${i},${si})" title="Remove"><span class="msi">close</span></button>
+      <button class="vf-btn-icon" onclick="vfPlaySound(${i},${si})" title="${esc(t('voicefight.sound.test_play', 'Test play'))}"><span class="msi">play_arrow</span></button>
+      <button class="vf-btn-icon" onclick="vfStopSound()" title="${esc(t('voicefight.sound.stop_playback', 'Stop playback'))}"><span class="msi">stop</span></button>
+      <button class="vf-btn-icon vf-btn-del" onclick="vfDeleteSound(${i},${si})" title="${esc(t('common.remove', 'Remove'))}"><span class="msi">close</span></button>
     </div>
   </div>
   <div class="vf-vol-row">
-    <span class="vf-vol-label">VOL</span>
+    <span class="vf-vol-label">${t('voicefight.sound.volume_label', 'VOL')}</span>
     <input type="range" class="vf-vol-slider" min="0" max="100" value="${vol}"
       oninput="this.nextElementSibling.textContent=this.value+'%';vfSetVolume(${i},${si},this.value)">
     <span class="vf-vol-val">${vol}%</span>
@@ -230,10 +248,6 @@ function vfSetVolume(i, si, vol) {
     sendToCS({ action: 'vfSetVolume', itemIndex: i, soundIndex: si, volume: parseFloat(vol) });
 }
 
-// ── Stop Command ──────────────────────────────────────────────────────────
-
-let _vfStopWordTimer = null;
-
 function vfStopWordChanged(word) {
     clearTimeout(_vfStopWordTimer);
     _vfStopWordTimer = setTimeout(() => vfSetStopWord(word), 600);
@@ -248,33 +262,28 @@ function vfStopSound() {
     sendToCS({ action: 'vfStopSound' });
 }
 
-// ── Recognized text display ───────────────────────────────────────────────
-
-let _vfClearTimer = null;
-
 function vfOnRecognized(text, isPartial) {
     const el = document.getElementById('vfRecognizedText');
     if (!el) return;
-    el.innerHTML = text;
+    el.textContent = text || '-';
     el.classList.toggle('vf-recognized-partial', !!isPartial);
     el.classList.toggle('vf-recognized-final', !isPartial);
     if (!isPartial) {
         clearTimeout(_vfClearTimer);
         _vfClearTimer = setTimeout(() => {
-            if (el) {
-                el.classList.remove('vf-recognized-final');
-                el.innerHTML = '—';
+            const target = document.getElementById('vfRecognizedText');
+            if (target) {
+                target.classList.remove('vf-recognized-final');
+                target.textContent = '-';
             }
         }, 3000);
     }
 }
 
-// ── Keyword flash ──────────────────────────────────────────────────────────
-
 function vfOnKeyword(word) {
     const items = document.querySelectorAll('.vf-item');
     items.forEach(el => {
-        const idx = parseInt(el.dataset.idx);
+        const idx = parseInt(el.dataset.idx, 10);
         const item = vfItems[idx];
         if (item && (item.word || '').toLowerCase().trim() === word.toLowerCase().trim()) {
             el.classList.add('vf-item-flash');
@@ -282,10 +291,6 @@ function vfOnKeyword(word) {
         }
     });
 }
-
-// ── Block Words Modal ───────────────────────────────────────────────────────
-
-let _vfBlockWords = [];
 
 function openVfBlockModal() {
     sendToCS({ action: 'vfGetBlockList' });
@@ -302,10 +307,10 @@ function renderVfBlockChips() {
     const el = document.getElementById('vfBlockChips');
     if (!el) return;
     const chips = _vfBlockWords.map(w =>
-        `<span class="vf-block-chip">${esc(w)}<button class="vf-block-chip-remove" onclick='vfBlockRemove(${JSON.stringify(w)})' title="Remove"><span class="msi" style="font-size:11px;">close</span></button></span>`
+        `<span class="vf-block-chip">${esc(w)}<button class="vf-block-chip-remove" onclick='vfBlockRemove(${JSON.stringify(w)})' title="${esc(t('common.remove', 'Remove'))}"><span class="msi" style="font-size:11px;">close</span></button></span>`
     ).join('');
-    const placeholder = _vfBlockWords.length === 0 ? 'Type a word and press Enter…' : '';
-    el.innerHTML = chips + `<input id="vfBlockInlineInput" class="vf-block-inline-input" placeholder="${placeholder}" onkeydown="vfBlockInputKey(event)">`;
+    const placeholder = _vfBlockWords.length === 0 ? t('voicefight.block_words.placeholder', 'Type a word and press Enter...') : '';
+    el.innerHTML = chips + `<input id="vfBlockInlineInput" class="vf-block-inline-input" placeholder="${esc(placeholder)}" onkeydown="vfBlockInputKey(event)">`;
 }
 
 function vfBlockInputKey(e) {
@@ -339,8 +344,6 @@ function vfBlockRemove(word) {
     document.getElementById('vfBlockInlineInput')?.focus();
     sendToCS({ action: 'vfSetBlockList', words: _vfBlockWords });
 }
-
-// ── Helpers ────────────────────────────────────────────────────────────────
 
 function formatVfTime(ms) {
     if (!ms || ms <= 0) return '00:00';

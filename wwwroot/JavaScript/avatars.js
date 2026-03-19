@@ -1,5 +1,65 @@
 /* === Avatars Tab === */
 let _avFavRefreshTimer = null;
+function avatarEmptyMessage(key, fallback) {
+    return `<div class="empty-msg">${t(key, fallback)}</div>`;
+}
+
+function avatarCountText(count) {
+    return tf(count === 1 ? 'avatars.count.one' : 'avatars.count.other', { count }, count === 1 ? '{count} avatar' : '{count} avatars');
+}
+
+function avatarResultCountText(count) {
+    return tf(count === 1 ? 'avatars.results.one' : 'avatars.results.other', { count }, count === 1 ? '{count} result' : '{count} results');
+}
+
+function avatarStatusBadge(isPublic) {
+    return isPublic
+        ? `<span class="vrcn-badge accent"><span class="msi" style="font-size:10px;">public</span> ${t('avatars.labels.public', 'Public')}</span>`
+        : `<span class="vrcn-badge private"><span class="msi" style="font-size:10px;">lock</span> ${t('avatars.labels.private', 'Private')}</span>`;
+}
+
+function avatarCurrentBadge(isActive) {
+    return isActive ? `<span class="vrcn-badge current">${t('avatars.labels.current', 'Current')}</span>` : '';
+}
+
+function avatarFavoriteActionLabel(isFavorite) {
+    return t(isFavorite ? 'avatars.actions.unfavorite' : 'avatars.actions.favorite', isFavorite ? 'Unfavorite' : 'Favorite');
+}
+
+function avatarDetailFieldLabel(field) {
+    const labels = {
+        name: t('avatars.detail.fields.name', 'Avatar name'),
+        desc: t('avatars.detail.sections.description', 'Description'),
+        visibility: t('avatars.detail.sections.visibility', 'Visibility'),
+        tags: t('avatars.detail.sections.tags', 'Tags'),
+    };
+    return labels[field] || t('avatars.detail.fields.avatar', 'Avatar');
+}
+
+function rerenderAvatarTranslations() {
+    const renameSaveBtn = document.querySelector('#favAvatarGroupRenameRow .vrcn-btn-primary');
+    if (renameSaveBtn && !renameSaveBtn.disabled) renameSaveBtn.textContent = t('common.save', 'Save');
+    if (avatarFilter === 'favorites') {
+        updateFavAvatarGroupHeader();
+        filterFavAvatars();
+    } else if (avatarFilter === 'search') {
+        if (avatarSearchResults.length) renderSearchGrid();
+        else {
+            const grid = document.getElementById('avatarSearchGrid');
+            if (grid) grid.innerHTML = avatarEmptyMessage('avatars.search.empty_prompt', 'Search for public avatars');
+        }
+    } else if (avatarFilter === 'rose') {
+        if (roseDbLoaded) filterRoseDb();
+    } else {
+        filterOwnAvatars();
+    }
+    if (_avFavPickerAvatarId) renderAvFavPickerList(_avFavPickerAvatarId);
+}
+
+document.documentElement.addEventListener('languagechange', () => {
+    rerenderAvatarTranslations();
+});
+
 function _scheduleAvFavRefresh() {
     clearTimeout(_avFavRefreshTimer);
     _avFavRefreshTimer = setTimeout(() => sendToCS({ action: 'vrcGetAvatars', filter: 'favorites' }), 2000);
@@ -15,7 +75,7 @@ function refreshAvatars() {
         return;
     }
     if (!currentVrcUser) {
-        document.getElementById('avatarGrid').innerHTML = '<div class="empty-msg">Login to VRChat to see your avatars</div>';
+        document.getElementById('avatarGrid').innerHTML = avatarEmptyMessage('avatars.empty.login_prompt', 'Login to VRChat to see your avatars');
         return;
     }
     document.getElementById('avatarGrid').innerHTML = sk('avatar', 6);
@@ -57,7 +117,7 @@ function setAvatarFilter(filter) {
     } else if (filter === 'rose') {
         loadRoseDatabase();
     } else {
-        document.getElementById('avatarSearchGrid').innerHTML = '<div class="empty-msg">Search for public avatars</div>';
+        document.getElementById('avatarSearchGrid').innerHTML = avatarEmptyMessage('avatars.search.empty_prompt', 'Search for public avatars');
         setTimeout(() => document.getElementById('avatarSearchInput')?.focus(), 50);
     }
 }
@@ -68,23 +128,23 @@ function filterOwnAvatars() {
     const el = document.getElementById('avatarGrid');
     if (!el) return;
     if (!currentVrcUser) {
-        el.innerHTML = '<div class="empty-msg">Login to VRChat to see your avatars</div>';
+        el.innerHTML = avatarEmptyMessage('avatars.empty.login_prompt', 'Login to VRChat to see your avatars');
         return;
     }
     const filtered = q
         ? avatarsData.filter(a => (a.name || '').toLowerCase().includes(q) || (a.authorName || '').toLowerCase().includes(q))
         : avatarsData;
-    document.getElementById('avatarCount').textContent = filtered.length ? `${filtered.length} avatar${filtered.length !== 1 ? 's' : ''}` : '';
+    document.getElementById('avatarCount').textContent = filtered.length ? avatarCountText(filtered.length) : '';
     el.innerHTML = filtered.length
         ? filtered.map(a => renderAvatarCard(a, 'own')).join('')
-        : `<div class="empty-msg">${q ? 'No avatars match your filter' : 'No avatars found'}</div>`;
+        : avatarEmptyMessage(q ? 'avatars.empty.no_match' : 'avatars.empty.none', q ? 'No avatars match your filter' : 'No avatars found');
 }
 
 function renderAvatarGrid() {
     const el = document.getElementById('avatarGrid');
     if (!el) return;
     if (!currentVrcUser) {
-        el.innerHTML = '<div class="empty-msg">Login to VRChat to see your avatars</div>';
+        el.innerHTML = avatarEmptyMessage('avatars.empty.login_prompt', 'Login to VRChat to see your avatars');
         return;
     }
     // Reset search then apply filter
@@ -97,14 +157,14 @@ function renderSearchGrid() {
     const el = document.getElementById('avatarSearchGrid');
     if (!el) return;
     if (avatarSearchResults.length === 0) {
-        el.innerHTML = '<div class="empty-msg">No results found</div>';
+        el.innerHTML = avatarEmptyMessage('avatars.search.no_results', 'No results found');
         return;
     }
-    document.getElementById('avatarCount').textContent = `${avatarSearchResults.length} result${avatarSearchResults.length !== 1 ? 's' : ''}`;
+    document.getElementById('avatarCount').textContent = avatarResultCountText(avatarSearchResults.length);
     let html = avatarSearchResults.map(a => renderAvatarCard(a, 'search')).join('');
     if (avatarSearchHasMore) {
         html += `<div style="grid-column:1/-1;text-align:center;margin-top:6px;">
-            <button class="vrcn-button" onclick="doAvatarSearch(true)">Load More</button>
+            <button class="vrcn-button" onclick="doAvatarSearch(true)">${t('avatars.search.load_more', 'Load More')}</button>
         </div>`;
     }
     el.innerHTML = html;
@@ -138,7 +198,7 @@ function _markDeletedAvatars(deletedIds) {
                 const badge = document.createElement('span');
                 badge.className = 'vrcn-badge';
                 badge.style.cssText = 'position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);z-index:2;background:rgba(0,0,0,.75);color:var(--err);font-size:11px;';
-                badge.innerHTML = '<span class="msi" style="font-size:10px;">delete</span> Deleted';
+                badge.innerHTML = `<span class="msi" style="font-size:10px;">delete</span> ${t('avatars.labels.deleted', 'Deleted')}`;
                 thumb.appendChild(badge);
             }
         });
@@ -166,10 +226,8 @@ function renderAvatarCard(a, context) {
     const isActive = a.id === currentAvatarId;
     const isPublic = context === 'search' || a.releaseStatus === 'public';
     const isFav = favAvatarsData.some(f => f.id === a.id);
-    const statusBadge = isPublic
-        ? '<span class="vrcn-badge accent"><span class="msi" style="font-size:10px;">public</span> Public</span>'
-        : '<span class="vrcn-badge private"><span class="msi" style="font-size:10px;">lock</span> Private</span>';
-    const activeBadge = isActive ? '<span class="vrcn-badge current">Current</span>' : '';
+    const statusBadge = avatarStatusBadge(isPublic);
+    const activeBadge = avatarCurrentBadge(isActive);
     const aid = jsq(a.id || '');
     const thumbStyle = thumb ? `background-image:url('${cssUrl(thumb)}')` : '';
     return `<div class="av-card ${isActive ? 'av-active' : ''}" onclick="selectAvatar('${aid}')">
@@ -180,11 +238,11 @@ function renderAvatarCard(a, context) {
         </div>
         <div class="av-info" style="display:flex;align-items:center;gap:6px;">
             <div style="flex:1;min-width:0;">
-                <div class="av-name">${esc(a.name || 'Unnamed')}</div>
+                <div class="av-name">${esc(a.name || t('avatars.labels.unnamed', 'Unnamed'))}</div>
                 <div class="av-author">${esc(a.authorName || '')}</div>
             </div>
             <button class="vrcn-button-round${isFav ? ' active' : ''}" onclick="event.stopPropagation();openAvFavPicker('${aid}',this)" style="flex-shrink:0;margin-left:auto;">
-                <span class="msi" style="font-size:14px;">${isFav ? 'star' : 'star_outline'}</span>${isFav ? 'Unfavorite' : 'Favorite'}
+                <span class="msi" style="font-size:14px;">${isFav ? 'star' : 'star_outline'}</span>${avatarFavoriteActionLabel(isFav)}
             </button>
         </div>
     </div>`;
@@ -234,7 +292,7 @@ function renderFavAvatars(payload) {
     const sel = document.getElementById('favAvatarGroupFilter');
     if (sel) {
         const prev = favAvatarGroupFilter;
-        sel.innerHTML = '<option value="">All Favorites</option>' +
+        sel.innerHTML = `<option value="">${t('avatars.favorites.group.all', 'All Favorites')}</option>` +
             groups.map(g => `<option value="${esc(g.name)}">${_avGroupOptionLabel(g)}</option>`).join('');
         const stillValid = groups.some(g => g.name === prev);
         favAvatarGroupFilter = stillValid ? prev : '';
@@ -258,7 +316,7 @@ function updateFavAvatarGroupHeader() {
     const badge   = document.getElementById('favAvatarGroupVrcPlusBadge');
     if (!label) return;
     if (!favAvatarGroupFilter) {
-        label.textContent = 'All Favorites';
+        label.textContent = t('avatars.favorites.group.all', 'All Favorites');
         if (editBtn) editBtn.style.display = 'none';
         if (badge) badge.style.display = 'none';
     } else {
@@ -285,7 +343,7 @@ function cancelEditAvatarGroupName() {
     const row = document.getElementById('favAvatarGroupRenameRow');
     if (row) row.style.display = 'none';
     const saveBtn = document.querySelector('#favAvatarGroupRenameRow .vrcn-btn-primary');
-    if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = 'Save'; }
+    if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = t('common.save', 'Save'); }
 }
 
 function saveAvatarGroupName() {
@@ -295,7 +353,7 @@ function saveAvatarGroupName() {
     const newName = (input?.value || '').trim();
     if (!newName) return;
     const saveBtn = document.querySelector('#favAvatarGroupRenameRow .vrcn-btn-primary');
-    if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = 'Saving...'; }
+    if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = t('common.saving', 'Saving...'); }
     sendToCS({ action: 'vrcUpdateFavoriteGroup', groupType: g.type, groupName: g.name, displayName: newName });
 }
 
@@ -307,7 +365,10 @@ function filterFavAvatars() {
     const el = document.getElementById('favAvatarsGrid');
     if (!el) return;
     if (!filtered.length) {
-        el.innerHTML = `<div class="empty-msg">${q || favAvatarGroupFilter ? 'No favorites match your filter' : 'No favorite avatars found'}</div>`;
+        el.innerHTML = avatarEmptyMessage(
+            q || favAvatarGroupFilter ? 'avatars.favorites.no_match' : 'avatars.favorites.empty',
+            q || favAvatarGroupFilter ? 'No favorites match your filter' : 'No favorite avatars found'
+        );
         return;
     }
     el.innerHTML = filtered.map(a => {
@@ -316,11 +377,9 @@ function filterFavAvatars() {
         const isActive = a.id === currentAvatarId;
         const aid = jsq(a.id || '');
         const fid = jsq(a.favoriteId || '');
-        const activeBadge = isActive ? '<span class="vrcn-badge current">Current</span>' : '';
+        const activeBadge = avatarCurrentBadge(isActive);
         const isPublic = a.releaseStatus === 'public';
-        const statusBadge = isPublic
-            ? '<span class="vrcn-badge accent"><span class="msi" style="font-size:10px;">public</span> Public</span>'
-            : '<span class="vrcn-badge private"><span class="msi" style="font-size:10px;">lock</span> Private</span>';
+        const statusBadge = avatarStatusBadge(isPublic);
         return `<div class="av-card ${isActive ? 'av-active' : ''}" onclick="selectAvatar('${aid}')">
             <div class="av-thumb" style="${thumbStyle}">
                 <div class="av-thumb-overlay"></div>
@@ -329,11 +388,11 @@ function filterFavAvatars() {
             </div>
             <div class="av-info" style="display:flex;align-items:center;gap:6px;">
                 <div style="flex:1;min-width:0;">
-                    <div class="av-name">${esc(a.name || 'Unnamed')}</div>
+                    <div class="av-name">${esc(a.name || t('avatars.labels.unnamed', 'Unnamed'))}</div>
                     <div class="av-author">${esc(a.authorName || '')}</div>
                 </div>
                 <button class="vrcn-button-round active" onclick="event.stopPropagation();removeAvatarFavorite('${aid}','${fid}')" style="flex-shrink:0;margin-left:auto;">
-                    <span class="msi" style="font-size:14px;">star</span>Unfavorite
+                    <span class="msi" style="font-size:14px;">star</span>${t('avatars.actions.unfavorite', 'Unfavorite')}
                 </button>
             </div>
         </div>`;
@@ -368,7 +427,7 @@ function openAvFavPicker(avatarId, btnEl) {
 
     // If groups not yet loaded, request them
     if (favAvatarGroups.length === 0) {
-        document.getElementById('avFavPickerList').innerHTML = '<div style="font-size:11px;color:var(--tx3);padding:8px 0;">Loading groups…</div>';
+        document.getElementById('avFavPickerList').innerHTML = `<div style="font-size:11px;color:var(--tx3);padding:8px 0;">${t('avatars.favorites.loading_groups', 'Loading groups...')}</div>`;
         sendToCS({ action: 'vrcGetAvatarFavGroups' });
     }
 
@@ -417,7 +476,7 @@ function renderAvFavPickerList(avatarId) {
                     <span style="font-size:12px;font-weight:600;color:var(--tx1);">${esc(g.displayName || g.name)}</span>
                     ${vrcBadge}
                 </div>
-                <div style="font-size:10px;color:var(--tx3);margin-top:1px;">${count}/${g.capacity || 25} slots</div>
+                <div style="font-size:10px;color:var(--tx3);margin-top:1px;">${tf('avatars.favorites.group_count', { count, capacity: g.capacity || 25 }, '{count}/{capacity} slots')}</div>
             </div>
             ${check}
         </div>`;
@@ -470,7 +529,7 @@ function onAvatarFavoriteResult(data) {
     } else {
         const list = document.getElementById('avFavPickerList');
         if (list) {
-            list.innerHTML = `<div style="font-size:11px;color:var(--err,#e55);padding:6px 0;">Failed: ${esc(data.error || 'Try again')}</div>`;
+            list.innerHTML = `<div style="font-size:11px;color:var(--err,#e55);padding:6px 0;">${t('avatars.favorites.failed_prefix', 'Failed:')} ${esc(data.error || t('avatars.favorites.try_again', 'Try again'))}</div>`;
             setTimeout(() => { if (_avFavPickerAvatarId) renderAvFavPickerList(_avFavPickerAvatarId); }, 1800);
         }
     }
@@ -492,7 +551,7 @@ function onAvatarFavGroupsLoaded(groups) {
     // Update group dropdown if favorites tab is open
     const sel = document.getElementById('favAvatarGroupFilter');
     if (sel) {
-        sel.innerHTML = '<option value="">All Favorites</option>' +
+        sel.innerHTML = `<option value="">${t('avatars.favorites.group.all', 'All Favorites')}</option>` +
             groups.map(g => `<option value="${esc(g.name)}">${_avGroupOptionLabel(g)}</option>`).join('');
         sel.value = favAvatarGroupFilter;
         if (sel._vnRefresh) sel._vnRefresh();
@@ -535,7 +594,7 @@ function loadRoseDatabase(forceRefresh) {
             filterRoseDb();
         })
         .catch(() => {
-            if (grid) grid.innerHTML = '<div class="empty-msg">Failed to load Rose Database. Check your connection.</div>';
+            if (grid) grid.innerHTML = avatarEmptyMessage('avatars.rose.failed', 'Failed to load Rose Database. Check your connection.');
         })
         .finally(() => {
             if (btn) { btn.disabled = false; btn.querySelector('.msi').textContent = 'refresh'; }
@@ -551,14 +610,14 @@ function filterRoseDb() {
             (a.tags        || []).some(t => t.toLowerCase().includes(q)))
         : roseDbData;
     renderRoseGrid(list);
-    document.getElementById('avatarCount').textContent = list.length ? `${list.length} avatar${list.length !== 1 ? 's' : ''}` : '';
+    document.getElementById('avatarCount').textContent = list.length ? avatarCountText(list.length) : '';
 }
 
 function renderRoseGrid(list) {
     const grid = document.getElementById('roseDbGrid');
     if (!grid) return;
     if (!list || list.length === 0) {
-        grid.innerHTML = '<div class="empty-msg">No avatars found</div>';
+        grid.innerHTML = avatarEmptyMessage('avatars.empty.none', 'No avatars found');
         return;
     }
     grid.innerHTML = list.map(a => renderRoseAvatarCard(a)).join('');
@@ -600,18 +659,18 @@ function renderRoseAvatarCard(a) {
     return `<div class="av-card" onclick="selectAvatar('${aid}')">
         <div class="av-thumb" style="${thumbStyle}">
             <div class="av-thumb-overlay"></div>
-            <div class="av-badges-bottom"><span class="vrcn-badge accent"><span class="msi" style="font-size:10px;">public</span> Public</span></div>
+            <div class="av-badges-bottom">${avatarStatusBadge(true)}</div>
         </div>
         <div class="av-info" style="display:flex;align-items:center;gap:6px;">
             <div style="flex:1;min-width:0;">
-                <div class="av-name">${esc(a.avatar_name || 'Unnamed')}</div>
+                <div class="av-name">${esc(a.avatar_name || t('avatars.labels.unnamed', 'Unnamed'))}</div>
                 <div class="av-author" style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
                     <span>${esc(a.author || '')}</span>
                     ${tags ? `<span style="display:inline-flex;gap:3px;flex-wrap:wrap;">${tags}</span>` : ''}
                 </div>
             </div>
             <button class="vrcn-button-round${isFav ? ' active' : ''}" onclick="event.stopPropagation();openAvFavPicker('${aid}',this)" style="flex-shrink:0;margin-left:auto;">
-                <span class="msi" style="font-size:14px;">${isFav ? 'star' : 'star_outline'}</span>${isFav ? 'Unfavorite' : 'Favorite'}
+                <span class="msi" style="font-size:14px;">${isFav ? 'star' : 'star_outline'}</span>${avatarFavoriteActionLabel(isFav)}
             </button>
         </div>
     </div>`;
@@ -642,155 +701,6 @@ const _avFieldIds = {
 };
 let _avSavingField = '';
 
-function renderAvatarDetail(a) {
-    _avDetailData = a;
-    const c = document.getElementById('avatarDetailContent');
-    if (!c) return;
-
-    const thumb  = a.thumbnailImageUrl || a.imageUrl || '';
-    const isOwn  = currentVrcUser && a.authorId === currentVrcUser.id;
-    const aid    = jsq(a.id || '');
-
-    function platBadge(label, cssClass, icon, perf) {
-        const perfHtml = perf ? `<span style="opacity:.8;font-weight:400;"> · ${esc(perf)}</span>` : '';
-        return `<span class="vrcn-badge ${cssClass}"><span class="msi" style="font-size:10px;">${icon}</span>${label}${perfHtml}</span>`;
-    }
-
-    const isPublic    = a.releaseStatus === 'public';
-    const statusBadge = isPublic
-        ? '<span class="vrcn-badge accent"><span class="msi" style="font-size:10px;">public</span> Public</span>'
-        : '<span class="vrcn-badge private"><span class="msi" style="font-size:10px;">lock</span> Private</span>';
-    const pcBadge       = a.hasPC      ? platBadge('PC',    'platform-pc',    'computer', a.pcPerf)    : '';
-    const questBadge    = a.hasQuest   ? platBadge('Quest', 'platform-quest', 'android',  a.questPerf) : '';
-    const impostorBadge = a.hasImpostor
-        ? '<span class="vrcn-badge" style="background:rgba(138,43,226,.18);color:#b47aff;"><span class="msi" style="font-size:10px;">smart_toy</span> Impostor</span>'
-        : '';
-
-    function fmtDate(iso) {
-        if (!iso) return '–';
-        const d = new Date(iso);
-        if (isNaN(d)) return iso;
-        const pad = n => String(n).padStart(2, '0');
-        return `${pad(d.getDate())}.${pad(d.getMonth()+1)}.${d.getFullYear()}, ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
-    }
-
-    const authorHtml = a.authorId
-        ? `<span onclick="closeAvatarDetail();openFriendDetail('${jsq(a.authorId)}')" style="display:inline-flex;align-items:center;padding:1px 8px;border-radius:20px;background:var(--bg-hover);font-size:11px;font-weight:600;color:var(--tx1);cursor:pointer;line-height:1.8;">${esc(a.authorName || a.authorId)}</span>`
-        : esc(a.authorName || '');
-
-    const metaRows = [
-        `<div class="fd-meta-row"><span class="fd-meta-label">Created At</span><span>${fmtDate(a.created_at)}</span></div>`,
-        `<div class="fd-meta-row"><span class="fd-meta-label">Last Updated</span><span>${fmtDate(a.updated_at)}</span></div>`,
-        a.version ? `<div class="fd-meta-row"><span class="fd-meta-label">Version</span><span>v${a.version}</span></div>` : '',
-    ].join('');
-
-    // Tags view
-    const tagsViewHtml = (a.tags && a.tags.length)
-        ? `<div class="fd-lang-tags">${a.tags.map(t => `<span class="vrcn-badge">${esc(t)}</span>`).join('')}</div>`
-        : `<div class="myp-empty">No tags</div>`;
-
-    c.innerHTML = `
-        ${thumb ? `<div class="fd-banner"><img src="${thumb}" onerror="this.parentElement.style.display='none'"><div class="fd-banner-fade"></div></div>` : ''}
-        <div class="fd-content${thumb ? ' fd-has-banner' : ''}">
-
-            <!-- Name -->
-            <div id="avfNameView" style="display:flex;align-items:center;gap:6px;padding:20px 20px 0;">
-                <h2 style="margin:0;color:var(--tx0);font-size:18px;flex:1;min-width:0;">${esc(a.name || 'Unnamed Avatar')}</h2>
-                ${isOwn ? `<button class="myp-edit-btn" onclick="editAvField('name')" title="Edit name"><span class="msi" style="font-size:14px;">edit</span></button>` : ''}
-            </div>
-            ${isOwn ? `<div id="avfNameEdit" style="display:none;padding:8px 20px 0;">
-                <input id="avNameInput" class="vrcn-edit-field" value="${esc(a.name || '')}" maxlength="64" style="width:100%;">
-                <div class="myp-edit-actions">
-                    <button class="vrcn-button" onclick="cancelAvField('name')">Cancel</button>
-                    <button class="vrcn-button vrcn-btn-primary" onclick="saveAvField('name','${aid}')">Save</button>
-                </div>
-            </div>` : ''}
-
-            <!-- Author + badges -->
-            <div style="padding:4px 20px 12px;">
-                <div style="font-size:12px;color:var(--tx3);margin-bottom:10px;">by ${authorHtml}</div>
-                <div style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:10px;">
-                    ${statusBadge}${pcBadge}${questBadge}${impostorBadge}
-                </div>
-                ${idBadge(a.id)}
-            </div>
-
-            <div style="padding:0 20px 20px;">
-                <!-- Description -->
-                <div class="myp-section">
-                    <div class="myp-section-header">
-                        <span class="myp-section-title">Description</span>
-                        ${isOwn ? `<button class="myp-edit-btn" onclick="editAvField('desc')"><span class="msi" style="font-size:14px;">edit</span></button>` : ''}
-                    </div>
-                    <div id="avfDescView">
-                        ${a.description ? `<div class="fd-bio">${esc(a.description)}</div>` : '<div class="myp-empty">No description</div>'}
-                    </div>
-                    ${isOwn ? `<div id="avfDescEdit" style="display:none;">
-                        <textarea id="avDescInput" class="myp-textarea" rows="4" maxlength="2000" placeholder="Avatar description...">${esc(a.description||'')}</textarea>
-                        <div class="myp-edit-actions">
-                            <button class="vrcn-button" onclick="cancelAvField('desc')">Cancel</button>
-                            <button class="vrcn-button vrcn-btn-primary" onclick="saveAvField('desc','${aid}')">Save</button>
-                        </div>
-                    </div>` : ''}
-                </div>
-
-                <!-- Visibility -->
-                <div class="myp-section">
-                    <div class="myp-section-header">
-                        <span class="myp-section-title">Visibility</span>
-                        ${isOwn ? `<button class="myp-edit-btn" onclick="editAvField('visibility')"><span class="msi" style="font-size:14px;">edit</span></button>` : ''}
-                    </div>
-                    <div id="avfVisView">${statusBadge}</div>
-                    ${isOwn ? `<div id="avfVisEdit" style="display:none;">
-                        <div style="display:flex;gap:6px;margin-bottom:8px;">
-                            <button id="avVisPublicBtn" class="vrcn-button-round${isPublic ? ' active' : ''}" onclick="avVisToggle('public',this)">
-                                <span class="msi" style="font-size:14px;">public</span> Public
-                            </button>
-                            <button id="avVisPrivateBtn" class="vrcn-button-round${!isPublic ? ' active' : ''}" onclick="avVisToggle('private',this)">
-                                <span class="msi" style="font-size:14px;">lock</span> Private
-                            </button>
-                        </div>
-                        <div class="myp-edit-actions">
-                            <button class="vrcn-button" onclick="cancelAvField('visibility')">Cancel</button>
-                            <button class="vrcn-button vrcn-btn-primary" onclick="saveAvField('visibility','${aid}')">Save</button>
-                        </div>
-                    </div>` : ''}
-                </div>
-
-                <!-- Tags -->
-                <div class="myp-section">
-                    <div class="myp-section-header">
-                        <span class="myp-section-title">Tags</span>
-                        ${isOwn ? `<button class="myp-edit-btn" onclick="editAvField('tags')"><span class="msi" style="font-size:14px;">edit</span></button>` : ''}
-                    </div>
-                    <div id="avfTagsView">${tagsViewHtml}</div>
-                    ${isOwn ? `<div id="avfTagsEdit" style="display:none;">
-                        <div id="avTagsChips" class="myp-lang-chips" style="margin-bottom:6px;"></div>
-                        <div style="display:flex;gap:6px;margin-bottom:8px;">
-                            <input id="avTagInput" class="vrcn-edit-field" placeholder="Add tag…" style="flex:1;"
-                                onkeydown="if(event.key==='Enter'){event.preventDefault();avAddTag();}">
-                            <button class="myp-add-lang-btn" onclick="avAddTag()"><span class="msi" style="font-size:15px;">add</span></button>
-                        </div>
-                        <div class="myp-edit-actions">
-                            <button class="vrcn-button" onclick="cancelAvField('tags')">Cancel</button>
-                            <button class="vrcn-button vrcn-btn-primary" onclick="saveAvField('tags','${aid}')">Save</button>
-                        </div>
-                    </div>` : ''}
-                </div>
-
-                <!-- Meta -->
-                <div class="fd-meta" style="margin-bottom:14px;">${metaRows}</div>
-
-                <!-- Actions -->
-                <div style="display:flex;justify-content:flex-end;gap:6px;">
-                    <button class="vrcn-button-round vrcn-btn-join" onclick="selectAvatar('${aid}');closeAvatarDetail()">
-                        <span class="msi" style="font-size:14px;">checkroom</span> Use Avatar
-                    </button>
-                    <button class="vrcn-button-round" onclick="closeAvatarDetail()">Close</button>
-                </div>
-            </div>
-        </div>`;
-}
 
 /* === Avatar inline edit === */
 let _avVisState = 'public';
@@ -827,22 +737,6 @@ function cancelAvField(field) {
     const e = document.getElementById(ids.edit); if (e) e.style.display = 'none';
 }
 
-function saveAvField(field, avatarId) {
-    const a = _avDetailData;
-    if (!a) return;
-    _avSavingField = field;
-    const ids = _avFieldIds[field];
-    const saveBtn = document.querySelector(`#${ids.edit} .vrcn-btn-primary`);
-    if (saveBtn) saveBtn.disabled = true;
-
-    // Build payload — always send all four fields, only the edited one changes
-    const name          = field === 'name'       ? (document.getElementById('avNameInput')?.value.trim() || '') : (a.name || '');
-    const description   = field === 'desc'       ? (document.getElementById('avDescInput')?.value ?? '') : (a.description || '');
-    const releaseStatus = field === 'visibility' ? _avVisState : (a.releaseStatus || 'private');
-    const tags          = field === 'tags'       ? [..._avEditTags] : (a.tags || []);
-
-    sendToCS({ action: 'vrcUpdateAvatar', avatarId, name, description, releaseStatus, tags });
-}
 
 function avVisToggle(state, btn) {
     _avVisState = state;
@@ -850,15 +744,6 @@ function avVisToggle(state, btn) {
     btn.classList.add('active');
 }
 
-function avRenderTagChips() {
-    const container = document.getElementById('avTagsChips');
-    if (!container) return;
-    container.innerHTML = _avEditTags.length
-        ? _avEditTags.map((t, i) =>
-            `<span class="myp-lang-chip" data-idx="${i}">${esc(t)}<span class="myp-lang-remove" onclick="avRemoveTag(${i})">×</span></span>`
-          ).join('')
-        : `<div class="myp-empty">No tags</div>`;
-}
 
 function avAddTag() {
     const inp = document.getElementById('avTagInput');
@@ -877,23 +762,209 @@ function avRemoveTag(idx) {
     avRenderTagChips();
 }
 
+
+function renderAvatarDetail(a) {
+    _avDetailData = a;
+    const c = document.getElementById('avatarDetailContent');
+    if (!c) return;
+
+    const thumb = a.thumbnailImageUrl || a.imageUrl || '';
+    const isOwn = currentVrcUser && a.authorId === currentVrcUser.id;
+    const aid = jsq(a.id || '');
+
+    function platBadge(label, cssClass, icon, perf) {
+        const perfHtml = perf ? `<span style="opacity:.8;font-weight:400;"> - ${esc(perf)}</span>` : '';
+        return `<span class="vrcn-badge ${cssClass}"><span class="msi" style="font-size:10px;">${icon}</span>${label}${perfHtml}</span>`;
+    }
+
+    const isPublic = a.releaseStatus === 'public';
+    const statusBadge = avatarStatusBadge(isPublic);
+    const pcBadge = a.hasPC ? platBadge('PC', 'platform-pc', 'computer', a.pcPerf) : '';
+    const questBadge = a.hasQuest ? platBadge('Quest', 'platform-quest', 'android', a.questPerf) : '';
+    const impostorBadge = a.hasImpostor
+        ? `<span class="vrcn-badge" style="background:rgba(138,43,226,.18);color:#b47aff;"><span class="msi" style="font-size:10px;">smart_toy</span> ${t('avatars.labels.impostor', 'Impostor')}</span>`
+        : '';
+
+    function fmtDate(iso) {
+        if (!iso) return '-';
+        const d = new Date(iso);
+        if (isNaN(d)) return iso;
+        const pad = n => String(n).padStart(2, '0');
+        return `${pad(d.getDate())}.${pad(d.getMonth() + 1)}.${d.getFullYear()}, ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+    }
+
+    const authorHtml = a.authorId
+        ? `<span onclick="closeAvatarDetail();openFriendDetail('${jsq(a.authorId)}')" style="display:inline-flex;align-items:center;padding:1px 8px;border-radius:20px;background:var(--bg-hover);font-size:11px;font-weight:600;color:var(--tx1);cursor:pointer;line-height:1.8;">${esc(a.authorName || a.authorId)}</span>`
+        : esc(a.authorName || '');
+
+    const metaRows = [
+        `<div class="fd-meta-row"><span class="fd-meta-label">${t('avatars.detail.meta.created_at', 'Created At')}</span><span>${fmtDate(a.created_at)}</span></div>`,
+        `<div class="fd-meta-row"><span class="fd-meta-label">${t('avatars.detail.meta.updated_at', 'Last Updated')}</span><span>${fmtDate(a.updated_at)}</span></div>`,
+        a.version ? `<div class="fd-meta-row"><span class="fd-meta-label">${t('avatars.detail.meta.version', 'Version')}</span><span>v${a.version}</span></div>` : '',
+    ].join('');
+
+    const tagsViewHtml = (a.tags && a.tags.length)
+        ? `<div class="fd-lang-tags">${a.tags.map(tag => `<span class="vrcn-badge">${esc(tag)}</span>`).join('')}</div>`
+        : `<div class="myp-empty">${t('avatars.detail.empty_tags', 'No tags')}</div>`;
+
+    c.innerHTML = `
+        ${thumb ? `<div class="fd-banner"><img src="${thumb}" onerror="this.parentElement.style.display='none'"><div class="fd-banner-fade"></div></div>` : ''}
+        <div class="fd-content${thumb ? ' fd-has-banner' : ''}">
+
+            <!-- Name -->
+            <div id="avfNameView" style="display:flex;align-items:center;gap:6px;padding:20px 20px 0;">
+                <h2 style="margin:0;color:var(--tx0);font-size:18px;flex:1;min-width:0;">${esc(a.name || t('avatars.detail.unnamed', 'Unnamed Avatar'))}</h2>
+                ${isOwn ? `<button class="myp-edit-btn" onclick="editAvField('name')" title="${esc(t('avatars.detail.actions.edit_name', 'Edit name'))}"><span class="msi" style="font-size:14px;">edit</span></button>` : ''}
+            </div>
+            ${isOwn ? `<div id="avfNameEdit" style="display:none;padding:8px 20px 0;">
+                <input id="avNameInput" class="vrcn-edit-field" value="${esc(a.name || '')}" maxlength="64" style="width:100%;">
+                <div class="myp-edit-actions">
+                    <button class="vrcn-button" onclick="cancelAvField('name')">${t('common.cancel', 'Cancel')}</button>
+                    <button class="vrcn-button vrcn-btn-primary" onclick="saveAvField('name','${aid}')">${t('common.save', 'Save')}</button>
+                </div>
+            </div>` : ''}
+
+            <!-- Author + badges -->
+            <div style="padding:4px 20px 12px;">
+                <div style="font-size:12px;color:var(--tx3);margin-bottom:10px;">${t('avatars.detail.by', 'by')} ${authorHtml}</div>
+                <div style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:10px;">
+                    ${statusBadge}${pcBadge}${questBadge}${impostorBadge}
+                </div>
+                ${idBadge(a.id)}
+            </div>
+
+            <div style="padding:0 20px 20px;">
+                <!-- Description -->
+                <div class="myp-section">
+                    <div class="myp-section-header">
+                        <span class="myp-section-title">${t('avatars.detail.sections.description', 'Description')}</span>
+                        ${isOwn ? `<button class="myp-edit-btn" onclick="editAvField('desc')"><span class="msi" style="font-size:14px;">edit</span></button>` : ''}
+                    </div>
+                    <div id="avfDescView">
+                        ${a.description ? `<div class="fd-bio">${esc(a.description)}</div>` : `<div class="myp-empty">${t('avatars.detail.empty_description', 'No description')}</div>`}
+                    </div>
+                    ${isOwn ? `<div id="avfDescEdit" style="display:none;">
+                        <textarea id="avDescInput" class="myp-textarea" rows="4" maxlength="2000" placeholder="${esc(t('avatars.detail.description_placeholder', 'Avatar description...'))}">${esc(a.description || '')}</textarea>
+                        <div class="myp-edit-actions">
+                            <button class="vrcn-button" onclick="cancelAvField('desc')">${t('common.cancel', 'Cancel')}</button>
+                            <button class="vrcn-button vrcn-btn-primary" onclick="saveAvField('desc','${aid}')">${t('common.save', 'Save')}</button>
+                        </div>
+                    </div>` : ''}
+                </div>
+
+                <!-- Visibility -->
+                <div class="myp-section">
+                    <div class="myp-section-header">
+                        <span class="myp-section-title">${t('avatars.detail.sections.visibility', 'Visibility')}</span>
+                        ${isOwn ? `<button class="myp-edit-btn" onclick="editAvField('visibility')"><span class="msi" style="font-size:14px;">edit</span></button>` : ''}
+                    </div>
+                    <div id="avfVisView">${statusBadge}</div>
+                    ${isOwn ? `<div id="avfVisEdit" style="display:none;">
+                        <div style="display:flex;gap:6px;margin-bottom:8px;">
+                            <button id="avVisPublicBtn" class="vrcn-button-round${isPublic ? ' active' : ''}" onclick="avVisToggle('public',this)">
+                                <span class="msi" style="font-size:14px;">public</span> ${t('avatars.labels.public', 'Public')}
+                            </button>
+                            <button id="avVisPrivateBtn" class="vrcn-button-round${!isPublic ? ' active' : ''}" onclick="avVisToggle('private',this)">
+                                <span class="msi" style="font-size:14px;">lock</span> ${t('avatars.labels.private', 'Private')}
+                            </button>
+                        </div>
+                        <div class="myp-edit-actions">
+                            <button class="vrcn-button" onclick="cancelAvField('visibility')">${t('common.cancel', 'Cancel')}</button>
+                            <button class="vrcn-button vrcn-btn-primary" onclick="saveAvField('visibility','${aid}')">${t('common.save', 'Save')}</button>
+                        </div>
+                    </div>` : ''}
+                </div>
+
+                <!-- Tags -->
+                <div class="myp-section">
+                    <div class="myp-section-header">
+                        <span class="myp-section-title">${t('avatars.detail.sections.tags', 'Tags')}</span>
+                        ${isOwn ? `<button class="myp-edit-btn" onclick="editAvField('tags')"><span class="msi" style="font-size:14px;">edit</span></button>` : ''}
+                    </div>
+                    <div id="avfTagsView">${tagsViewHtml}</div>
+                    ${isOwn ? `<div id="avfTagsEdit" style="display:none;">
+                        <div id="avTagsChips" class="myp-lang-chips" style="margin-bottom:6px;"></div>
+                        <div style="display:flex;gap:6px;margin-bottom:8px;">
+                            <input id="avTagInput" class="vrcn-edit-field" placeholder="${esc(t('avatars.detail.add_tag_placeholder', 'Add tag...'))}" style="flex:1;"
+                                onkeydown="if(event.key==='Enter'){event.preventDefault();avAddTag();}">
+                            <button class="myp-add-lang-btn" onclick="avAddTag()"><span class="msi" style="font-size:15px;">add</span></button>
+                        </div>
+                        <div class="myp-edit-actions">
+                            <button class="vrcn-button" onclick="cancelAvField('tags')">${t('common.cancel', 'Cancel')}</button>
+                            <button class="vrcn-button vrcn-btn-primary" onclick="saveAvField('tags','${aid}')">${t('common.save', 'Save')}</button>
+                        </div>
+                    </div>` : ''}
+                </div>
+
+                <!-- Meta -->
+                <div class="fd-meta" style="margin-bottom:14px;">${metaRows}</div>
+
+                <!-- Actions -->
+                <div style="display:flex;justify-content:flex-end;gap:6px;">
+                    <button class="vrcn-button-round vrcn-btn-join" onclick="selectAvatar('${aid}');closeAvatarDetail()">
+                        <span class="msi" style="font-size:14px;">checkroom</span> ${t('avatars.detail.actions.use_avatar', 'Use Avatar')}
+                    </button>
+                    <button class="vrcn-button-round" onclick="closeAvatarDetail()">${t('common.close', 'Close')}</button>
+                </div>
+            </div>
+        </div>`;
+}
+
+function saveAvField(field, avatarId) {
+    const a = _avDetailData;
+    if (!a) return;
+    _avSavingField = field;
+    const ids = _avFieldIds[field];
+    const saveBtn = document.querySelector(`#${ids.edit} .vrcn-btn-primary`);
+    if (saveBtn) {
+        saveBtn.disabled = true;
+        saveBtn.textContent = t('common.saving', 'Saving...');
+    }
+
+    const name = field === 'name' ? (document.getElementById('avNameInput')?.value.trim() || '') : (a.name || '');
+    const description = field === 'desc' ? (document.getElementById('avDescInput')?.value ?? '') : (a.description || '');
+    const releaseStatus = field === 'visibility' ? _avVisState : (a.releaseStatus || 'private');
+    const tags = field === 'tags' ? [..._avEditTags] : (a.tags || []);
+
+    sendToCS({ action: 'vrcUpdateAvatar', avatarId, name, description, releaseStatus, tags });
+}
+
+
 function onAvatarUpdateResult(data) {
-    const fieldLabels = { name: 'Avatar name', desc: 'Description', visibility: 'Visibility', tags: 'Tags' };
+    const fieldLabels = {
+        name: avatarDetailFieldLabel('name'),
+        desc: avatarDetailFieldLabel('desc'),
+        visibility: avatarDetailFieldLabel('visibility'),
+        tags: avatarDetailFieldLabel('tags'),
+    };
     if (data.ok) {
         if (_avDetailData) {
-            if (data.name          != null) _avDetailData.name          = data.name;
-            if (data.description   != null) _avDetailData.description   = data.description;
+            if (data.name != null) _avDetailData.name = data.name;
+            if (data.description != null) _avDetailData.description = data.description;
             if (data.releaseStatus != null) _avDetailData.releaseStatus = data.releaseStatus;
-            if (data.tags          != null) _avDetailData.tags          = data.tags;
+            if (data.tags != null) _avDetailData.tags = data.tags;
         }
-        const label = fieldLabels[_avSavingField] || 'Avatar';
-        showToast(true, `${label} saved`);
+        const label = fieldLabels[_avSavingField] || avatarDetailFieldLabel('');
+        showToast(true, tf('avatars.detail.toast.saved', { field: label }, '{field} saved'));
         renderAvatarDetail(_avDetailData);
         if (avatarFilter === 'own') filterOwnAvatars();
     } else {
-        showToast(false, data.error || 'Update failed');
+        showToast(false, data.error || t('avatars.detail.toast.update_failed', 'Update failed'));
         const ids = _avSavingField ? _avFieldIds[_avSavingField] : null;
         const saveBtn = ids ? document.querySelector(`#${ids.edit} .vrcn-btn-primary`) : null;
-        if (saveBtn) saveBtn.disabled = false;
+        if (saveBtn) {
+            saveBtn.disabled = false;
+            saveBtn.textContent = t('common.save', 'Save');
+        }
     }
+}
+
+function avRenderTagChips() {
+    const container = document.getElementById('avTagsChips');
+    if (!container) return;
+    container.innerHTML = _avEditTags.length
+        ? _avEditTags.map((tag, i) =>
+            `<span class="myp-lang-chip" data-idx="${i}">${esc(tag)}<span class="myp-lang-remove" onclick="avRemoveTag(${i})">&times;</span></span>`
+        ).join('')
+        : `<div class="myp-empty">${t('avatars.detail.empty_tags', 'No tags')}</div>`;
 }

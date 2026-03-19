@@ -1,98 +1,251 @@
 // OSC Tool - live avatar parameter viewer and editor
 
-function oscConnect() {
+let _oscBannerState = 'none';
+let _oscLastNoOutputCount = 0;
+let _oscLastOutputTotal = 0;
+let _oscLastFilesUpdated = 0;
+let _oscConnMode = 'idle';
+let _oscEnableBtnMode = 'idle';
+
+function oscStatusNotConnectedText() {
+    return t('osc.status.not_connected', 'Not connected');
+}
+
+function oscStatusConnectedHintText() {
+    return t('osc.status.connected_hint', 'Connected | toggle OSC in VRChat to load params');
+}
+
+function oscStatusConnectedLoadedText(total) {
+    return tf('osc.status.connected_loaded', { total }, `Connected | ${total} params loaded`);
+}
+
+function oscStatusConnectedLiveText(total, live) {
+    return tf('osc.status.connected_live', { total, live }, `Connected | ${total} params (${live} live)`);
+}
+
+function oscConnectBtnHtml() {
+    return `<span class="msi" style="font-size:16px;">link</span> ${esc(t('common.connect', 'Connect'))}`;
+}
+
+function oscDisconnectBtnHtml() {
+    return `<span class="msi" style="font-size:16px;">link_off</span> ${esc(t('common.disconnect', 'Disconnect'))}`;
+}
+
+function oscConnectingBtnHtml() {
+    return `<span class="msi" style="font-size:16px;">hourglass_empty</span> ${esc(t('osc.status.connecting', 'Connecting...'))}`;
+}
+
+function oscEnableOutputsBtnHtml() {
+    return `<span class="msi" style="font-size:14px;">output</span> ${esc(t('osc.outputs.enable_all', 'Enable All Outputs'))}`;
+}
+
+function oscUpdatingOutputsBtnHtml() {
+    return esc(t('osc.outputs.updating', 'Updating...'));
+}
+
+function oscDoneOutputsBtnHtml() {
+    return `<span class="msi" style="font-size:14px;">check</span> ${esc(t('osc.outputs.done', 'Done'))}`;
+}
+
+function oscBannerMissingText(missing, total) {
+    return tf('osc.outputs.missing', { missing, total }, `${missing} of ${total} params have no OSC output | VRChat will not send live updates for them.`);
+}
+
+function oscBannerUpdatedText(count) {
+    return tf('osc.outputs.updated_files', { count }, `Updated ${count} config file(s). Reload your avatar in VRChat to receive all params.`);
+}
+
+function oscBannerAlreadyEnabledText() {
+    return t('osc.outputs.already_enabled', 'All parameters already have output enabled.');
+}
+
+function oscParamCountZeroText() {
+    return t('osc.parameters.count.zero', '0 params');
+}
+
+function oscParamCountLoadedText(total) {
+    return tf('osc.parameters.count.loaded', { total }, `${total} params`);
+}
+
+function oscParamCountLiveText(total, live) {
+    return tf('osc.parameters.count.live', { total, live }, `${total} params (${live} live)`);
+}
+
+function oscEmptyConnectHintHtml() {
+    return `<div class="osc-empty" id="oscEmptyMsg">${esc(t('osc.empty.connect_hint', "Connect, then toggle OSC off/on in VRChat's Action Menu to load all parameters."))}</div>`;
+}
+
+function oscEmptyNoParamsHtml() {
+    return `<div class="osc-empty" id="oscEmptyMsg">${esc(t('osc.empty.no_params', 'No parameters received yet.'))}<br>${esc(t('osc.empty.no_params_hint', 'Connect and load your avatar in VRChat.'))}</div>`;
+}
+
+function oscEmptyNoMatchHtml() {
+    return `<div class="osc-empty" id="oscEmptyMsg">${esc(t('osc.empty.no_match', 'No parameters match your search.'))}</div>`;
+}
+
+function oscCurrentSearch() {
+    return (document.getElementById('oscSearch')?.value || '').toLowerCase();
+}
+
+function oscUpdateStatusText(total, live) {
+    const txt = document.getElementById('oscStatusText');
+    if (!txt) return;
+
+    if (!oscConnected) {
+        txt.textContent = oscStatusNotConnectedText();
+        return;
+    }
+
+    if (live > 0) txt.textContent = oscStatusConnectedLiveText(total, live);
+    else if (total > 0) txt.textContent = oscStatusConnectedLoadedText(total);
+    else txt.textContent = oscStatusConnectedHintText();
+}
+
+function oscApplyConnectButton() {
     const btn = document.getElementById('oscConnBtn');
+    if (!btn) return;
+
+    if (_oscConnMode === 'connecting') {
+        btn.disabled = true;
+        btn.innerHTML = oscConnectingBtnHtml();
+        return;
+    }
+
+    btn.disabled = false;
+    btn.innerHTML = oscConnected ? oscDisconnectBtnHtml() : oscConnectBtnHtml();
+}
+
+function oscApplyEnableOutputsButton() {
+    const btn = document.getElementById('oscEnableBtn');
+    if (!btn) return;
+
+    if (_oscEnableBtnMode === 'updating') {
+        btn.disabled = true;
+        btn.textContent = oscUpdatingOutputsBtnHtml();
+        return;
+    }
+
+    if (_oscEnableBtnMode === 'done') {
+        btn.disabled = false;
+        btn.innerHTML = oscDoneOutputsBtnHtml();
+        return;
+    }
+
+    btn.disabled = false;
+    btn.innerHTML = oscEnableOutputsBtnHtml();
+}
+
+function oscApplyBannerText() {
+    const banner = document.getElementById('oscOutputBanner');
+    if (!banner) return;
+
+    const text = banner.querySelector('.osc-banner-text');
+    if (!text) return;
+
+    if (_oscBannerState === 'missing' && _oscLastNoOutputCount > 0) {
+        banner.style.display = '';
+        text.textContent = oscBannerMissingText(_oscLastNoOutputCount, _oscLastOutputTotal);
+        return;
+    }
+
+    if (_oscBannerState === 'updated') {
+        banner.style.display = '';
+        text.textContent = oscBannerUpdatedText(_oscLastFilesUpdated);
+        return;
+    }
+
+    if (_oscBannerState === 'enabled') {
+        banner.style.display = '';
+        text.textContent = oscBannerAlreadyEnabledText();
+        return;
+    }
+
+    banner.style.display = 'none';
+}
+
+function oscConnect() {
     if (oscConnected) {
         sendToCS({ action: 'oscDisconnect' });
-    } else {
-        if (btn) { btn.disabled = true; btn.innerHTML = '<span class="msi" style="font-size:16px;">hourglass_empty</span> Connecting...'; }
-        sendToCS({ action: 'oscConnect' });
+        return;
     }
+
+    _oscConnMode = 'connecting';
+    oscApplyConnectButton();
+    sendToCS({ action: 'oscConnect' });
 }
 
 function handleOscState(data) {
     oscConnected = !!data.connected;
+    _oscConnMode = 'idle';
+
     const dot = document.getElementById('oscDot');
-    const txt = document.getElementById('oscStatusText');
-    const btn = document.getElementById('oscConnBtn');
-    if (dot) dot.className = 'sf-dot ' + (oscConnected ? 'online' : 'offline');
-    if (txt) txt.textContent = oscConnected ? 'Connected — toggle OSC in VRChat to load params' : 'Not connected';
-    if (btn) {
-        btn.disabled = false;
-        btn.innerHTML = oscConnected
-            ? '<span class="msi" style="font-size:16px;">link_off</span> Disconnect'
-            : '<span class="msi" style="font-size:16px;">link</span> Connect';
-    }
+    if (dot) dot.className = `sf-dot ${oscConnected ? 'online' : 'offline'}`;
+
+    const total = Object.keys(oscParams).length;
+    const live = Object.values(oscParams).filter(p => p.live).length;
+    oscUpdateStatusText(total, live);
+    oscApplyConnectButton();
+
     if (!oscConnected) {
         oscParams = {};
+        _oscBannerState = 'none';
+        _oscLastNoOutputCount = 0;
+        _oscLastOutputTotal = 0;
+        _oscLastFilesUpdated = 0;
+        _oscEnableBtnMode = 'idle';
         renderOscParams('');
-        const banner = document.getElementById('oscOutputBanner');
-        if (banner) banner.style.display = 'none';
+        oscApplyBannerText();
+        oscApplyEnableOutputsButton();
     }
 }
 
 // Called when VRChat sends /avatar/change. C# reads config and sends full param list.
 function handleOscAvatarParams(data) {
-    const { avatarId, paramList } = data;
+    const { paramList } = data;
     oscParams = {};
-    // Populate from config, avatar change always starts fresh
+
     for (const p of (paramList || [])) {
         const defaultVal = p.Type === 'bool' ? false : 0;
         oscParams[p.Name] = { value: defaultVal, type: p.Type, live: false, hasOutput: p.HasOutput };
     }
-    const search = (document.getElementById('oscSearch')?.value || '').toLowerCase();
+
+    const search = oscCurrentSearch();
     renderOscParams(search);
 
-    // Show banner if some params have no output configured
     const noOutput = (paramList || []).filter(p => !p.HasOutput).length;
     _updateOutputBanner(noOutput, (paramList || []).length);
 
     const total = Object.keys(oscParams).length;
     const live = Object.values(oscParams).filter(p => p.live).length;
-    const txt = document.getElementById('oscStatusText');
-    if (txt && oscConnected) {
-        txt.textContent = live > 0
-            ? `Connected — ${total} params (${live} live)`
-            : `Connected — ${total} params loaded`;
-    }
+    oscUpdateStatusText(total, live);
 }
 
 function _updateOutputBanner(noOutputCount, total) {
-    const banner = document.getElementById('oscOutputBanner');
-    if (!banner) return;
-    if (noOutputCount > 0) {
-        banner.style.display = '';
-        banner.querySelector('.osc-banner-text').textContent =
-            `${noOutputCount} of ${total} params have no OSC output — VRChat won't send live updates for them.`;
-    } else {
-        banner.style.display = 'none';
-    }
+    _oscLastNoOutputCount = noOutputCount;
+    _oscLastOutputTotal = total;
+    _oscLastFilesUpdated = 0;
+    _oscBannerState = noOutputCount > 0 ? 'missing' : 'none';
+    oscApplyBannerText();
 }
 
 function oscEnableOutputs() {
-    const btn = document.getElementById('oscEnableBtn');
-    if (btn) { btn.disabled = true; btn.textContent = 'Updating...'; }
+    _oscEnableBtnMode = 'updating';
+    oscApplyEnableOutputsButton();
     sendToCS({ action: 'oscEnableOutputs' });
 }
 
 function handleOscOutputsEnabled(data) {
-    const btn = document.getElementById('oscEnableBtn');
     const count = data.filesUpdated || 0;
-    if (btn) {
-        btn.disabled = false;
-        btn.innerHTML = '<span class="msi" style="font-size:14px;">check</span> Done';
-        setTimeout(() => {
-            btn.innerHTML = '<span class="msi" style="font-size:14px;">output</span> Enable All Outputs';
-            btn.disabled = false;
-        }, 3000);
-    }
-    const banner = document.getElementById('oscOutputBanner');
-    if (banner) {
-        banner.querySelector('.osc-banner-text').textContent =
-            count > 0
-                ? `Updated ${count} config file(s). Reload your avatar in VRChat to receive all params.`
-                : 'All parameters already have output enabled.';
-    }
+    _oscLastFilesUpdated = count;
+    _oscBannerState = count > 0 ? 'updated' : 'enabled';
+    _oscEnableBtnMode = 'done';
+    oscApplyEnableOutputsButton();
+    oscApplyBannerText();
+
+    setTimeout(() => {
+        _oscEnableBtnMode = 'idle';
+        oscApplyEnableOutputsButton();
+    }, 3000);
 }
 
 function handleOscParam(data) {
@@ -100,30 +253,32 @@ function handleOscParam(data) {
     const wasNew = !oscParams[name];
     oscParams[name] = { value, type, live: true, hasOutput: true };
 
-    const search = (document.getElementById('oscSearch')?.value || '').toLowerCase();
+    const search = oscCurrentSearch();
     const visible = !search || name.toLowerCase().includes(search);
-    if (!visible) { _updateOscParamCount(); return; }
+    if (!visible) {
+        _updateOscParamCount();
+        oscUpdateStatusText(Object.keys(oscParams).length, Object.values(oscParams).filter(p => p.live).length);
+        return;
+    }
 
-    // Remove placeholder if present
     const empty = document.getElementById('oscEmptyMsg');
     if (empty) empty.remove();
 
     const row = document.querySelector(`[data-osc-param="${CSS.escape(name)}"]`);
     if (row) {
-        // Mark as live if it was pending
-        if (row.classList.contains('osc-row-pending')) {
-            row.classList.remove('osc-row-pending');
-        }
+        if (row.classList.contains('osc-row-pending')) row.classList.remove('osc-row-pending');
         _updateOscParamRowEl(row, name, type, value);
     } else if (wasNew) {
         _insertOscParamRow(name, type, value, true);
     }
+
     _updateOscParamCount();
+    oscUpdateStatusText(Object.keys(oscParams).length, Object.values(oscParams).filter(p => p.live).length);
 }
 
 function _updateOscParamRowEl(row, name, type, value) {
     const activeEl = document.activeElement;
-    if (row.contains(activeEl)) return; // don't clobber while user edits
+    if (row.contains(activeEl)) return;
 
     if (type === 'bool') {
         const inp = row.querySelector('input[type="checkbox"]');
@@ -143,16 +298,18 @@ function _updateOscParamRowEl(row, name, type, value) {
 function _insertOscParamRow(name, type, value, live) {
     const list = document.getElementById('oscParamList');
     if (!list) return;
+
     const html = _oscRowHtml(name, type, value, live);
     const tmp = document.createElement('div');
     tmp.innerHTML = html;
     const newRow = tmp.firstElementChild;
     if (!newRow) return;
+
     const rows = list.querySelectorAll('[data-osc-param]');
     let inserted = false;
-    for (const r of rows) {
-        if (r.getAttribute('data-osc-param').localeCompare(name) > 0) {
-            list.insertBefore(newRow, r);
+    for (const row of rows) {
+        if (row.getAttribute('data-osc-param').localeCompare(name) > 0) {
+            list.insertBefore(newRow, row);
             inserted = true;
             break;
         }
@@ -161,9 +318,9 @@ function _insertOscParamRow(name, type, value, live) {
 }
 
 function _oscRowHtml(name, type, value, live) {
-    const esc_name = esc(name);
+    const escName = esc(name);
     const jsName = jsq(name);
-    const badgeClass = 'osc-' + type;
+    const badgeClass = `osc-${type}`;
     const pendingClass = live ? '' : ' osc-row-pending';
 
     let ctrl = '';
@@ -187,33 +344,34 @@ function _oscRowHtml(name, type, value, live) {
             onchange="oscSetParam('${jsName}','int',parseInt(this.value)||0)">`;
     }
 
-    return `<div class="osc-row${pendingClass}" data-osc-param="${esc_name}">
+    return `<div class="osc-row${pendingClass}" data-osc-param="${escName}">
         <div class="osc-row-left">
             <span class="vrcn-badge ${badgeClass}">${type.toUpperCase()}</span>
-            <span class="osc-param-name" title="${esc_name}">${esc_name}</span>
+            <span class="osc-param-name" title="${escName}">${escName}</span>
         </div>
         <div class="osc-ctrl">${ctrl}</div>
     </div>`;
 }
 
 function filterOscParams() {
-    const search = (document.getElementById('oscSearch')?.value || '').toLowerCase();
-    renderOscParams(search);
+    renderOscParams(oscCurrentSearch());
 }
 
 function renderOscParams(search) {
     const list = document.getElementById('oscParamList');
     if (!list) return;
+
     list.innerHTML = '';
 
     const keys = Object.keys(oscParams).sort((a, b) => a.localeCompare(b));
     const filtered = search ? keys.filter(k => k.toLowerCase().includes(search)) : keys;
 
     if (filtered.length === 0) {
-        const msg = keys.length === 0
-            ? 'No parameters received yet.<br>Connect and load into VRChat.'
-            : 'No parameters match your search.';
-        list.innerHTML = `<div class="osc-empty" id="oscEmptyMsg">${msg}</div>`;
+        if (keys.length === 0) {
+            list.innerHTML = oscConnected ? oscEmptyNoParamsHtml() : oscEmptyConnectHintHtml();
+        } else {
+            list.innerHTML = oscEmptyNoMatchHtml();
+        }
     } else {
         const frag = document.createDocumentFragment();
         for (const name of filtered) {
@@ -224,6 +382,7 @@ function renderOscParams(search) {
         }
         list.appendChild(frag);
     }
+
     _updateOscParamCount();
 }
 
@@ -232,8 +391,15 @@ function _updateOscParamCount() {
     const live = Object.values(oscParams).filter(p => p.live).length;
     const el = document.getElementById('oscParamCount');
     if (!el) return;
-    if (total === 0) { el.textContent = '0 params'; return; }
-    el.textContent = live < total ? `${total} params (${live} live)` : `${total} params`;
+
+    if (total === 0) {
+        el.textContent = oscParamCountZeroText();
+        return;
+    }
+
+    el.textContent = live < total
+        ? oscParamCountLiveText(total, live)
+        : oscParamCountLoadedText(total);
 }
 
 function oscSetParam(name, type, value) {
@@ -243,3 +409,13 @@ function oscSetParam(name, type, value) {
     if (oscParams[name]) oscParams[name].value = value;
     sendToCS({ action: 'oscSend', name, type, value });
 }
+
+function rerenderOscTranslations() {
+    oscUpdateStatusText(Object.keys(oscParams).length, Object.values(oscParams).filter(p => p.live).length);
+    oscApplyConnectButton();
+    oscApplyEnableOutputsButton();
+    oscApplyBannerText();
+    renderOscParams(oscCurrentSearch());
+}
+
+document.documentElement.addEventListener('languagechange', rerenderOscTranslations);

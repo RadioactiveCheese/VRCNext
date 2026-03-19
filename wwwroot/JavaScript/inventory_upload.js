@@ -1,81 +1,119 @@
 /* === Inventory Upload Modal === */
 
-// Upload requirements per tab
 const INV_UPLOAD_REQS = {
-    photos:   { maxMB: 8,  ratioW: null, ratioH: null, minPx: 64, maxPx: 2048, hint: 'PNG • max 8 MB • 64×64 to 2048×2048 • any aspect ratio' },
-    icons:    { maxMB: 8,  ratioW: 1, ratioH: 1, minPx: 64, maxPx: 2048, hint: 'PNG • max 8 MB • 64×64 to 2048×2048 • aspect ratio 1:1 • requires VRC+' },
-    emojis:   { maxMB: 8,  ratioW: 1, ratioH: 1, targetW: 1024, targetH: 1024, hint: 'PNG • max 8 MB • 1024×1024 • aspect ratio 1:1 • max 18 • requires VRC+', hasAnimStyle: true },
-    stickers: { maxMB: 8,  ratioW: 1, ratioH: 1, targetW: 1024, targetH: 1024, hint: 'PNG • max 8 MB • max 1024×1024 • aspect ratio 1:1 • max 18 • requires VRC+' },
+    photos: {
+        maxMB: 8,
+        ratioW: null,
+        ratioH: null,
+        minPx: 64,
+        maxPx: 2048,
+        get hint() { return t('inventory.upload.reqs.photos', 'PNG, max 8 MB, 64x64 to 2048x2048, any aspect ratio'); }
+    },
+    icons: {
+        maxMB: 8,
+        ratioW: 1,
+        ratioH: 1,
+        minPx: 64,
+        maxPx: 2048,
+        get hint() { return t('inventory.upload.reqs.icons', 'PNG, max 8 MB, 64x64 to 2048x2048, aspect ratio 1:1, requires VRC+'); }
+    },
+    emojis: {
+        maxMB: 8,
+        ratioW: 1,
+        ratioH: 1,
+        targetW: 1024,
+        targetH: 1024,
+        hasAnimStyle: true,
+        get hint() { return t('inventory.upload.reqs.emojis', 'PNG, max 8 MB, 1024x1024, aspect ratio 1:1, max 18, requires VRC+'); }
+    },
+    stickers: {
+        maxMB: 8,
+        ratioW: 1,
+        ratioH: 1,
+        targetW: 1024,
+        targetH: 1024,
+        get hint() { return t('inventory.upload.reqs.stickers', 'PNG, max 8 MB, max 1024x1024, aspect ratio 1:1, max 18, requires VRC+'); }
+    }
 };
 
-// All 27 VRChat emoji particle/animation styles
 const IU_ANIM_STYLES = [
-    { value: 'aura',      label: 'Aura' },
-    { value: 'bats',      label: 'Bats' },
-    { value: 'bees',      label: 'Bees' },
-    { value: 'bounce',    label: 'Bounce' },
-    { value: 'cloud',     label: 'Cloud' },
-    { value: 'confetti',  label: 'Confetti' },
-    { value: 'crying',    label: 'Crying' },
-    { value: 'dislike',   label: 'Dislike' },
-    { value: 'fire',      label: 'Fire' },
-    { value: 'idea',      label: 'Idea' },
-    { value: 'lasers',    label: 'Lasers' },
-    { value: 'like',      label: 'Like' },
-    { value: 'magnet',    label: 'Magnet' },
-    { value: 'mistletoe', label: 'Mistletoe' },
-    { value: 'money',     label: 'Money' },
-    { value: 'noise',     label: 'Noise' },
-    { value: 'orbit',     label: 'Orbit' },
-    { value: 'pizza',     label: 'Pizza' },
-    { value: 'rain',      label: 'Rain' },
-    { value: 'rotate',    label: 'Rotate' },
-    { value: 'shake',     label: 'Shake' },
-    { value: 'snow',      label: 'Snow' },
-    { value: 'snowball',  label: 'Snowball' },
-    { value: 'spin',      label: 'Spin' },
-    { value: 'splash',    label: 'Splash' },
-    { value: 'stop',      label: 'Stop' },
-    { value: 'zzz',       label: 'ZZZ' },
+    { value: 'aura', key: 'inventory.upload.anim.aura', fallback: 'Aura' },
+    { value: 'bats', key: 'inventory.upload.anim.bats', fallback: 'Bats' },
+    { value: 'bees', key: 'inventory.upload.anim.bees', fallback: 'Bees' },
+    { value: 'bounce', key: 'inventory.upload.anim.bounce', fallback: 'Bounce' },
+    { value: 'cloud', key: 'inventory.upload.anim.cloud', fallback: 'Cloud' },
+    { value: 'confetti', key: 'inventory.upload.anim.confetti', fallback: 'Confetti' },
+    { value: 'crying', key: 'inventory.upload.anim.crying', fallback: 'Crying' },
+    { value: 'dislike', key: 'inventory.upload.anim.dislike', fallback: 'Dislike' },
+    { value: 'fire', key: 'inventory.upload.anim.fire', fallback: 'Fire' },
+    { value: 'idea', key: 'inventory.upload.anim.idea', fallback: 'Idea' },
+    { value: 'lasers', key: 'inventory.upload.anim.lasers', fallback: 'Lasers' },
+    { value: 'like', key: 'inventory.upload.anim.like', fallback: 'Like' },
+    { value: 'magnet', key: 'inventory.upload.anim.magnet', fallback: 'Magnet' },
+    { value: 'mistletoe', key: 'inventory.upload.anim.mistletoe', fallback: 'Mistletoe' },
+    { value: 'money', key: 'inventory.upload.anim.money', fallback: 'Money' },
+    { value: 'noise', key: 'inventory.upload.anim.noise', fallback: 'Noise' },
+    { value: 'orbit', key: 'inventory.upload.anim.orbit', fallback: 'Orbit' },
+    { value: 'pizza', key: 'inventory.upload.anim.pizza', fallback: 'Pizza' },
+    { value: 'rain', key: 'inventory.upload.anim.rain', fallback: 'Rain' },
+    { value: 'rotate', key: 'inventory.upload.anim.rotate', fallback: 'Rotate' },
+    { value: 'shake', key: 'inventory.upload.anim.shake', fallback: 'Shake' },
+    { value: 'snow', key: 'inventory.upload.anim.snow', fallback: 'Snow' },
+    { value: 'snowball', key: 'inventory.upload.anim.snowball', fallback: 'Snowball' },
+    { value: 'spin', key: 'inventory.upload.anim.spin', fallback: 'Spin' },
+    { value: 'splash', key: 'inventory.upload.anim.splash', fallback: 'Splash' },
+    { value: 'stop', key: 'inventory.upload.anim.stop', fallback: 'Stop' },
+    { value: 'zzz', key: 'inventory.upload.anim.zzz', fallback: 'ZZZ' }
 ];
 
-// maskTag is always "square" — required by VRChat API but not user-selectable
 const IU_MASK_TAG_DEFAULT = 'square';
 
-// State
-let _iuTab        = '';
-let _iuCallback   = null; // optional (file) => void called after successful upload
-let _iuFile       = null;
-let _iuImg        = null;
-let _iuAnimStyle  = 'aura';
-let _iuTooBig     = false; // file exceeded maxMB — image still loaded for compression
+let _iuTab = '';
+let _iuCallback = null;
+let _iuFile = null;
+let _iuImg = null;
+let _iuAnimStyle = 'aura';
+let _iuTooBig = false;
+let _iuWasCropped = false;
+let _iuWasCompressed = false;
+let _iuWasResized = false;
 
-// Canvas editor state
-let _iuCanvas     = null;
-let _iuCtx        = null;
-let _iuScale      = 1;
-let _iuOffX       = 0;
-let _iuOffY       = 0;
-let _iuDragging   = false;
-let _iuDragLast   = { x: 0, y: 0 };
-let _iuCropW      = 0;
-let _iuCropH      = 0;
+let _iuCanvas = null;
+let _iuCtx = null;
+let _iuScale = 1;
+let _iuOffX = 0;
+let _iuOffY = 0;
+let _iuDragging = false;
+let _iuDragLast = { x: 0, y: 0 };
+let _iuCropW = 0;
+let _iuCropH = 0;
 
-// ── Open / Close ──────────────────────────────────────────────────────────────
+function iuUploadButtonHtml(isUploading = false) {
+    return isUploading
+        ? `<span class="msi" style="font-size:14px;">hourglass_empty</span> ${esc(t('inventory.upload.uploading', 'Uploading...'))}`
+        : `<span class="msi" style="font-size:14px;">upload</span> ${esc(t('inventory.actions.upload', 'Upload'))}`;
+}
+
+function iuAnimLabel(style) {
+    return t(style.key, style.fallback);
+}
 
 function openInvUploadModal(tabOverride, callback) {
     const tab = tabOverride || activeInvTab;
     if (!tabOverride && !INV_TABS[tab]?.canUpload) return;
     if (!INV_UPLOAD_REQS[tab]) return;
 
-    _iuTab       = tab;
-    _iuCallback  = callback || null;
-    _iuFile      = null;
-    _iuImg       = null;
+    _iuTab = tab;
+    _iuCallback = callback || null;
+    _iuFile = null;
+    _iuImg = null;
     _iuAnimStyle = 'aura';
-    _iuCanvas    = null;
-    _iuCtx       = null;
-    _iuTooBig    = false;
+    _iuCanvas = null;
+    _iuCtx = null;
+    _iuTooBig = false;
+    _iuWasCropped = false;
+    _iuWasCompressed = false;
+    _iuWasResized = false;
 
     const existing = document.getElementById('invUploadModal');
     if (existing) existing.remove();
@@ -83,44 +121,48 @@ function openInvUploadModal(tabOverride, callback) {
     const overlay = document.createElement('div');
     overlay.className = 'modal-overlay';
     overlay.id = 'invUploadModal';
-    overlay.style.zIndex = '10010'; // always above any modal that opens it
-    overlay.onclick = e => { if (e.target === overlay) closeInvUploadModal(); };
+    overlay.style.zIndex = '10010';
+    overlay.onclick = event => { if (event.target === overlay) closeInvUploadModal(); };
     overlay.innerHTML = _iuBuildHTML(tab);
     document.body.appendChild(overlay);
 
-    const handler = e => {
-        if (e.key === 'Escape') { closeInvUploadModal(); document.removeEventListener('keydown', handler); }
+    const handler = event => {
+        if (event.key === 'Escape') {
+            closeInvUploadModal();
+            document.removeEventListener('keydown', handler);
+        }
     };
+
     document.addEventListener('keydown', handler);
     overlay._kh = handler;
 }
 
 function closeInvUploadModal() {
-    const m = document.getElementById('invUploadModal');
-    if (m) {
-        if (m._kh) document.removeEventListener('keydown', m._kh);
-        m.remove();
+    const modal = document.getElementById('invUploadModal');
+    if (modal) {
+        if (modal._kh) document.removeEventListener('keydown', modal._kh);
+        modal.remove();
     }
     _iuCanvas = null;
-    _iuCtx    = null;
+    _iuCtx = null;
 }
 
-// ── Build initial HTML ────────────────────────────────────────────────────────
-
 function _iuBuildHTML(tab) {
-    const req      = INV_UPLOAD_REQS[tab];
+    const req = INV_UPLOAD_REQS[tab];
     const tabLabel = INV_TABS[tab]?.label || tab;
+    const browseHtml = `<span style="color:var(--accent);">${esc(t('inventory.upload.browse', 'browse'))}</span>`;
+    const dropPrompt = tf('inventory.upload.drop_prompt', { browse: browseHtml }, `Drop image here or ${browseHtml}`);
     const emojiHtml = req?.hasAnimStyle ? `
         <div id="iuEmojiOptions" style="display:none;margin-top:14px;">
-            <div style="font-size:12px;font-weight:600;color:var(--tx2);margin-bottom:8px;">Particle style</div>
+            <div style="font-size:12px;font-weight:600;color:var(--tx2);margin-bottom:8px;">${esc(t('inventory.upload.particle_style', 'Particle style'))}</div>
             <div style="display:flex;gap:6px;flex-wrap:wrap;" id="iuAnimBtns">
-                ${IU_ANIM_STYLES.map(s => `<button class="vrcn-button sub-tab-btn${s.value === 'aura' ? ' active' : ''}" onclick="iuSetAnimStyle('${s.value}',this)">${esc(s.label)}</button>`).join('')}
+                ${IU_ANIM_STYLES.map(style => `<button class="vrcn-button sub-tab-btn${style.value === 'aura' ? ' active' : ''}" onclick="iuSetAnimStyle('${style.value}',this)">${esc(iuAnimLabel(style))}</button>`).join('')}
             </div>
         </div>` : '';
 
     return `<div class="modal-box wide" id="invUploadContent" style="max-width:560px;">
         <div style="margin-bottom:14px;">
-            <div style="font-size:16px;font-weight:700;color:var(--tx0);">Upload to ${esc(tabLabel)}</div>
+            <div style="font-size:16px;font-weight:700;color:var(--tx0);">${esc(tf('inventory.upload.title', { tab: tabLabel }, `Upload to ${tabLabel}`))}</div>
         </div>
         <div style="background:var(--bg-input);border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:12px;color:var(--tx2);">${esc(req?.hint || '')}</div>
         <div id="iuDropZone" class="iu-dropzone"
@@ -129,10 +171,8 @@ function _iuBuildHTML(tab) {
             ondragleave="this.classList.remove('dragover')"
             ondrop="iuDrop(event)">
             <span class="msi" style="font-size:40px;color:var(--tx3);display:block;margin-bottom:10px;pointer-events:none;">upload_file</span>
-            <div style="font-size:14px;font-weight:600;color:var(--tx1);pointer-events:none;">
-                Drop image here or <span style="color:var(--accent);">browse</span>
-            </div>
-            <div style="font-size:11px;color:var(--tx3);margin-top:6px;pointer-events:none;">PNG, JPG, JPEG</div>
+            <div style="font-size:14px;font-weight:600;color:var(--tx1);pointer-events:none;">${dropPrompt}</div>
+            <div style="font-size:11px;color:var(--tx3);margin-top:6px;pointer-events:none;">${esc(t('inventory.upload.file_types', 'PNG, JPG, JPEG'))}</div>
             <input type="file" id="iuFileInput" accept="image/png,image/jpeg" style="display:none;" onchange="iuHandleFileInput(this)">
         </div>
         <div id="iuEditorArea" style="display:none;"></div>
@@ -140,24 +180,20 @@ function _iuBuildHTML(tab) {
         ${emojiHtml}
         <div id="iuError" style="display:none;margin-top:10px;padding:10px 14px;background:rgba(220,50,50,.12);border-radius:8px;font-size:12px;color:#e05252;"></div>
         <div style="display:flex;gap:8px;margin-top:16px;justify-content:flex-end;">
-            <button class="vrcn-button-round" onclick="closeInvUploadModal()">Cancel</button>
-            <button class="vrcn-button-round vrcn-btn-join" id="iuUploadBtn" style="display:none;" onclick="iuDoUpload()">
-                <span class="msi" style="font-size:14px;">upload</span> Upload
-            </button>
+            <button class="vrcn-button-round" onclick="closeInvUploadModal()">${esc(t('common.cancel', 'Cancel'))}</button>
+            <button class="vrcn-button-round vrcn-btn-join" id="iuUploadBtn" style="display:none;" onclick="iuDoUpload()">${iuUploadButtonHtml()}</button>
         </div>
     </div>`;
 }
-
-// ── File input / drop ─────────────────────────────────────────────────────────
 
 function iuBrowse() {
     document.getElementById('iuFileInput')?.click();
 }
 
-function iuDrop(e) {
-    e.preventDefault();
-    e.currentTarget.classList.remove('dragover');
-    const file = e.dataTransfer.files?.[0];
+function iuDrop(event) {
+    event.preventDefault();
+    event.currentTarget.classList.remove('dragover');
+    const file = event.dataTransfer.files?.[0];
     if (file) iuHandleFile(file);
 }
 
@@ -167,16 +203,20 @@ function iuHandleFileInput(input) {
 }
 
 function iuHandleFile(file) {
-    _iuFile   = null;
-    _iuImg    = null;
+    _iuFile = null;
+    _iuImg = null;
     _iuTooBig = false;
     iuClearError();
 
     const nameLower = file.name.toLowerCase();
-    const validType = file.type.includes('png') || file.type.includes('jpeg') ||
-                      nameLower.endsWith('.png') || nameLower.endsWith('.jpg') || nameLower.endsWith('.jpeg');
+    const validType = file.type.includes('png')
+        || file.type.includes('jpeg')
+        || nameLower.endsWith('.png')
+        || nameLower.endsWith('.jpg')
+        || nameLower.endsWith('.jpeg');
+
     if (!validType) {
-        iuShowError('Only PNG, JPG, and JPEG files are supported.');
+        iuShowError(t('inventory.upload.error.invalid_type', 'Only PNG, JPG, and JPEG files are supported.'));
         return;
     }
 
@@ -184,114 +224,129 @@ function iuHandleFile(file) {
     const isTooBig = req && file.size > req.maxMB * 1024 * 1024;
 
     const reader = new FileReader();
-    reader.onload = e => {
+    reader.onload = event => {
         const img = new Image();
         img.onload = () => {
-            _iuFile   = file;
-            _iuImg    = img;
+            _iuFile = file;
+            _iuImg = img;
             _iuTooBig = isTooBig;
+
             if (isTooBig) {
+                const size = (file.size / 1024 / 1024).toFixed(1);
                 iuShowError(
-                    `File too large (${(file.size / 1024 / 1024).toFixed(1)} MB). Maximum is ${req.maxMB} MB.`,
-                    `<button class="vrcn-button-round" style="margin-top:8px;font-size:12px;" onclick="iuCompressAndContinue()"><span class="msi" style="font-size:13px;vertical-align:-2px;">compress</span> Compress Image</button>`
+                    tf('inventory.upload.error.too_large', { size, max: req.maxMB }, `File too large (${size} MB). Maximum is ${req.maxMB} MB.`),
+                    `<button class="vrcn-button-round" style="margin-top:8px;font-size:12px;" onclick="iuCompressAndContinue()"><span class="msi" style="font-size:13px;vertical-align:-2px;">compress</span> ${esc(t('inventory.upload.button.compress_image', 'Compress Image'))}</button>`
                 );
                 return;
             }
+
             _iuValidateAndShow(img, file, req);
         };
-        img.onerror = () => iuShowError('Failed to load image.');
-        img.src = e.target.result;
+        img.onerror = () => iuShowError(t('inventory.upload.error.load_failed', 'Failed to load image.'));
+        img.src = event.target.result;
     };
     reader.readAsDataURL(file);
 }
 
 function _iuValidateAndShow(img, file, req) {
-    if (!req) { _iuShowPreview(img, file, false); return; }
-
-    // Dimension bounds check (photos: 64–2048)
-    if (req.minPx != null && (img.naturalWidth < req.minPx || img.naturalHeight < req.minPx)) {
-        iuShowError(`Image too small. Minimum size is ${req.minPx}×${req.minPx} px.`);
+    if (!req) {
+        _iuShowPreview(img, file, false, false, false);
         return;
     }
+
+    if (req.minPx != null && (img.naturalWidth < req.minPx || img.naturalHeight < req.minPx)) {
+        iuShowError(tf('inventory.upload.error.too_small', { size: req.minPx }, `Image too small. Minimum size is ${req.minPx}x${req.minPx} px.`));
+        return;
+    }
+
     if (req.maxPx != null && (img.naturalWidth > req.maxPx || img.naturalHeight > req.maxPx)) {
         _iuAutoResize(img, req);
         return;
     }
 
-    // No ratio requirement → accept as-is
-    if (req.ratioW == null) { _iuShowPreview(img, file, false); return; }
+    if (req.ratioW == null) {
+        _iuShowPreview(img, file, false, false, false);
+        return;
+    }
 
-    const imgRatio    = img.naturalWidth / img.naturalHeight;
+    const imgRatio = img.naturalWidth / img.naturalHeight;
     const targetRatio = req.ratioW / req.ratioH;
-    const ratioOk     = Math.abs(imgRatio - targetRatio) < 0.02;
+    const ratioOk = Math.abs(imgRatio - targetRatio) < 0.02;
 
     if (!ratioOk) {
         _iuShowEditor(img, req);
     } else {
-        _iuShowPreview(img, file, false);
+        _iuShowPreview(img, file, false, false, false);
     }
 }
 
-// ── Preview ───────────────────────────────────────────────────────────────────
-
 function _iuShowPreview(img, file, wasCropped, wasCompressed, wasResized) {
-    const dz        = document.getElementById('iuDropZone');
-    const ea        = document.getElementById('iuEditorArea');
-    const pa        = document.getElementById('iuPreviewArea');
-    const ub        = document.getElementById('iuUploadBtn');
-    const emojiOpts = document.getElementById('iuEmojiOptions');
+    const dropZone = document.getElementById('iuDropZone');
+    const editorArea = document.getElementById('iuEditorArea');
+    const previewArea = document.getElementById('iuPreviewArea');
+    const uploadBtn = document.getElementById('iuUploadBtn');
+    const emojiOptions = document.getElementById('iuEmojiOptions');
 
-    if (dz) dz.style.display = 'none';
-    if (ea) ea.style.display = 'none';
+    _iuWasCropped = !!wasCropped;
+    _iuWasCompressed = !!wasCompressed;
+    _iuWasResized = !!wasResized;
+
+    if (dropZone) dropZone.style.display = 'none';
+    if (editorArea) editorArea.style.display = 'none';
 
     const sizeStr = file.size < 1024 * 1024
-        ? (file.size / 1024).toFixed(0) + ' KB'
-        : (file.size / 1024 / 1024).toFixed(2) + ' MB';
-    const dimStr = img.naturalWidth + '×' + img.naturalHeight;
+        ? `${(file.size / 1024).toFixed(0)} KB`
+        : `${(file.size / 1024 / 1024).toFixed(2)} MB`;
+    const dimStr = `${img.naturalWidth}x${img.naturalHeight}`;
 
-    if (pa) {
-        pa.style.display  = 'flex';
-        pa.style.gap      = '16px';
-        pa.style.alignItems = 'flex-start';
-        pa.innerHTML = `
+    if (previewArea) {
+        previewArea.style.display = 'flex';
+        previewArea.style.gap = '16px';
+        previewArea.style.alignItems = 'flex-start';
+        previewArea.innerHTML = `
             <div style="flex-shrink:0;width:120px;height:120px;border-radius:8px;overflow:hidden;background:var(--bg-input);display:flex;align-items:center;justify-content:center;">
                 <img src="${esc(img.src)}" style="max-width:100%;max-height:100%;object-fit:contain;">
             </div>
             <div style="flex:1;min-width:0;">
                 <div style="font-weight:600;color:var(--tx1);margin-bottom:4px;word-break:break-all;">${esc(file.name)}</div>
-                <div style="font-size:12px;color:var(--tx3);margin-bottom:4px;">${dimStr} • ${sizeStr}</div>
-                ${wasCropped    ? '<div style="font-size:12px;color:var(--accent);margin-bottom:4px;"><span class="msi" style="font-size:13px;vertical-align:-3px;">crop</span> Cropped to fit</div>' : ''}
-                ${wasResized    ? '<div style="font-size:12px;color:var(--accent);margin-bottom:4px;"><span class="msi" style="font-size:13px;vertical-align:-3px;">photo_size_select_large</span> Resized to fit</div>' : ''}
-                ${wasCompressed ? '<div style="font-size:12px;color:var(--accent);margin-bottom:4px;"><span class="msi" style="font-size:13px;vertical-align:-3px;">compress</span> Compressed</div>' : ''}
-                <div style="font-size:12px;color:#4caf50;"><span class="msi" style="font-size:13px;vertical-align:-3px;">check_circle</span> Ready to upload</div>
-                <button class="vrcn-button-round" style="margin-top:10px;" onclick="iuReset()">Choose different</button>
+                <div style="font-size:12px;color:var(--tx3);margin-bottom:4px;">${dimStr} - ${sizeStr}</div>
+                ${wasCropped ? `<div style="font-size:12px;color:var(--accent);margin-bottom:4px;"><span class="msi" style="font-size:13px;vertical-align:-3px;">crop</span> ${esc(t('inventory.upload.status.cropped', 'Cropped to fit'))}</div>` : ''}
+                ${wasResized ? `<div style="font-size:12px;color:var(--accent);margin-bottom:4px;"><span class="msi" style="font-size:13px;vertical-align:-3px;">photo_size_select_large</span> ${esc(t('inventory.upload.status.resized', 'Resized to fit'))}</div>` : ''}
+                ${wasCompressed ? `<div style="font-size:12px;color:var(--accent);margin-bottom:4px;"><span class="msi" style="font-size:13px;vertical-align:-3px;">compress</span> ${esc(t('inventory.upload.status.compressed', 'Compressed'))}</div>` : ''}
+                <div style="font-size:12px;color:#4caf50;"><span class="msi" style="font-size:13px;vertical-align:-3px;">check_circle</span> ${esc(t('inventory.upload.status.ready', 'Ready to upload'))}</div>
+                <button class="vrcn-button-round" style="margin-top:10px;" onclick="iuReset()">${esc(t('inventory.upload.button.choose_different', 'Choose different'))}</button>
             </div>`;
     }
 
-    if (emojiOpts) emojiOpts.style.display = _iuTab === 'emojis' ? '' : 'none';
-    if (ub) ub.style.display = '';
+    if (emojiOptions) emojiOptions.style.display = _iuTab === 'emojis' ? '' : 'none';
+    if (uploadBtn) {
+        uploadBtn.style.display = '';
+        if (!uploadBtn.disabled) uploadBtn.innerHTML = iuUploadButtonHtml(false);
+    }
 }
 
-// ── Canvas editor / cropper ───────────────────────────────────────────────────
-
 function _iuShowEditor(img, req) {
-    const dz = document.getElementById('iuDropZone');
-    const ea = document.getElementById('iuEditorArea');
-    const pa = document.getElementById('iuPreviewArea');
-    const ub = document.getElementById('iuUploadBtn');
+    const dropZone = document.getElementById('iuDropZone');
+    const editorArea = document.getElementById('iuEditorArea');
+    const previewArea = document.getElementById('iuPreviewArea');
+    const uploadBtn = document.getElementById('iuUploadBtn');
 
-    if (dz) dz.style.display = 'none';
-    if (pa) pa.style.display = 'none';
-    if (ub) ub.style.display = 'none';
+    _iuWasCropped = false;
+    _iuWasCompressed = false;
+    _iuWasResized = false;
+
+    if (dropZone) dropZone.style.display = 'none';
+    if (previewArea) previewArea.style.display = 'none';
+    if (uploadBtn) uploadBtn.style.display = 'none';
 
     const ratio = req.ratioW / req.ratioH;
 
-    if (!ea) return;
-    ea.style.display = '';
-    ea.innerHTML = `
+    if (!editorArea) return;
+    editorArea.style.display = '';
+    editorArea.innerHTML = `
         <div style="font-size:12px;color:var(--tx2);margin-bottom:10px;">
             <span class="msi" style="font-size:13px;vertical-align:-3px;">crop</span>
-            Crop to <strong>${req.ratioW}:${req.ratioH}</strong> — drag to reposition, scroll to zoom
+            ${esc(tf('inventory.upload.editor.crop_hint', { ratio: `${req.ratioW}:${req.ratioH}` }, `Crop to ${req.ratioW}:${req.ratioH} - drag to reposition, scroll to zoom`))}
         </div>
         <canvas id="iuCropCanvas" style="border-radius:8px;cursor:grab;user-select:none;display:block;width:100%;touch-action:none;"></canvas>
         <div style="display:flex;align-items:center;gap:10px;margin-top:10px;">
@@ -300,24 +355,25 @@ function _iuShowEditor(img, req) {
             <span class="msi" style="color:var(--tx3);font-size:16px;">zoom_in</span>
         </div>
         <div style="display:flex;gap:8px;margin-top:10px;justify-content:flex-end;">
-            <button class="vrcn-button-round" style="font-size:12px;" onclick="iuReset()">Choose different</button>
+            <button class="vrcn-button-round" style="font-size:12px;" onclick="iuReset()">${esc(t('inventory.upload.button.choose_different', 'Choose different'))}</button>
             <button class="vrcn-button-round vrcn-btn-join" onclick="iuCropAndContinue()">
-                <span class="msi" style="font-size:14px;">crop</span> Crop & continue
+                <span class="msi" style="font-size:14px;">crop</span> ${esc(t('inventory.upload.button.crop_continue', 'Crop and continue'))}
             </button>
         </div>`;
 
-    const canvas  = document.getElementById('iuCropCanvas');
+    const canvas = document.getElementById('iuCropCanvas');
     _iuCanvas = canvas;
-    _iuCtx    = canvas.getContext('2d');
+    _iuCtx = canvas.getContext('2d');
 
-    const CANVAS_W = 480;
-    const CANVAS_H = Math.min(Math.round(CANVAS_W / ratio), 360);
-    canvas.width  = CANVAS_W;
-    canvas.height = CANVAS_H;
+    const canvasWidth = 480;
+    const canvasHeight = Math.min(Math.round(canvasWidth / ratio), 360);
+    canvas.width = canvasWidth;
+    canvas.height = canvasHeight;
 
-    const pad   = 20;
-    const availW = CANVAS_W - pad * 2;
-    const availH = CANVAS_H - pad * 2;
+    const pad = 20;
+    const availW = canvasWidth - pad * 2;
+    const availH = canvasHeight - pad * 2;
+
     if (availW / ratio <= availH) {
         _iuCropW = availW;
         _iuCropH = Math.round(availW / ratio);
@@ -326,110 +382,106 @@ function _iuShowEditor(img, req) {
         _iuCropW = Math.round(availH * ratio);
     }
 
-    // Initial scale: fill the crop box (cover)
     const scaleX = _iuCropW / img.naturalWidth;
     const scaleY = _iuCropH / img.naturalHeight;
     _iuScale = Math.max(scaleX, scaleY);
 
-    // Center image
-    _iuOffX = (CANVAS_W - img.naturalWidth  * _iuScale) / 2;
-    _iuOffY = (CANVAS_H - img.naturalHeight * _iuScale) / 2;
+    _iuOffX = (canvasWidth - img.naturalWidth * _iuScale) / 2;
+    _iuOffY = (canvasHeight - img.naturalHeight * _iuScale) / 2;
 
     const slider = document.getElementById('iuZoomSlider');
     if (slider) slider.value = Math.round(_iuScale * 100);
 
     _iuDrawCanvas();
 
-    canvas.addEventListener('mousedown',  _iuMouseDown);
-    canvas.addEventListener('mousemove',  _iuMouseMove);
-    canvas.addEventListener('mouseup',    _iuMouseUp);
+    canvas.addEventListener('mousedown', _iuMouseDown);
+    canvas.addEventListener('mousemove', _iuMouseMove);
+    canvas.addEventListener('mouseup', _iuMouseUp);
     canvas.addEventListener('mouseleave', _iuMouseUp);
-    canvas.addEventListener('wheel',      _iuWheel, { passive: false });
+    canvas.addEventListener('wheel', _iuWheel, { passive: false });
 }
 
 function _iuDrawCanvas() {
     if (!_iuCtx || !_iuImg) return;
-    const c   = _iuCanvas;
+
+    const canvas = _iuCanvas;
     const ctx = _iuCtx;
-    const cw  = c.width;
-    const ch  = c.height;
-    const cx  = (cw - _iuCropW) / 2;
-    const cy  = (ch - _iuCropH) / 2;
-    const iw  = _iuImg.naturalWidth  * _iuScale;
-    const ih  = _iuImg.naturalHeight * _iuScale;
+    const canvasWidth = canvas.width;
+    const canvasHeight = canvas.height;
+    const cropX = (canvasWidth - _iuCropW) / 2;
+    const cropY = (canvasHeight - _iuCropH) / 2;
+    const imgW = _iuImg.naturalWidth * _iuScale;
+    const imgH = _iuImg.naturalHeight * _iuScale;
 
-    ctx.clearRect(0, 0, cw, ch);
+    ctx.clearRect(0, 0, canvasWidth, canvasHeight);
 
-    // Background checkerboard (shows transparency)
     ctx.save();
-    for (let y = 0; y < ch; y += 10) {
-        for (let x = 0; x < cw; x += 10) {
+    for (let y = 0; y < canvasHeight; y += 10) {
+        for (let x = 0; x < canvasWidth; x += 10) {
             ctx.fillStyle = ((x + y) / 10 % 2 < 1) ? '#2a2a2a' : '#333';
             ctx.fillRect(x, y, 10, 10);
         }
     }
     ctx.restore();
 
-    // Draw image
-    ctx.drawImage(_iuImg, _iuOffX, _iuOffY, iw, ih);
+    ctx.drawImage(_iuImg, _iuOffX, _iuOffY, imgW, imgH);
 
-    // Dimming overlay outside crop box
     ctx.save();
     ctx.fillStyle = 'rgba(0,0,0,0.55)';
-    ctx.fillRect(0, 0, cw, ch);
+    ctx.fillRect(0, 0, canvasWidth, canvasHeight);
     ctx.globalCompositeOperation = 'destination-out';
     ctx.fillStyle = 'rgba(0,0,0,1)';
-    ctx.fillRect(cx, cy, _iuCropW, _iuCropH);
+    ctx.fillRect(cropX, cropY, _iuCropW, _iuCropH);
     ctx.restore();
 
-    // Redraw image inside crop box only (crisp on top of dim)
     ctx.save();
     ctx.beginPath();
-    ctx.rect(cx, cy, _iuCropW, _iuCropH);
+    ctx.rect(cropX, cropY, _iuCropW, _iuCropH);
     ctx.clip();
-    ctx.drawImage(_iuImg, _iuOffX, _iuOffY, iw, ih);
+    ctx.drawImage(_iuImg, _iuOffX, _iuOffY, imgW, imgH);
     ctx.restore();
 
-    // Crop border + corner handles
     ctx.strokeStyle = 'rgba(255,255,255,0.85)';
-    ctx.lineWidth   = 1.5;
-    ctx.strokeRect(cx, cy, _iuCropW, _iuCropH);
+    ctx.lineWidth = 1.5;
+    ctx.strokeRect(cropX, cropY, _iuCropW, _iuCropH);
 
-    const hs = 10;
+    const handleSize = 10;
     ctx.fillStyle = '#fff';
-    [[cx, cy],[cx + _iuCropW - hs, cy],[cx, cy + _iuCropH - hs],[cx + _iuCropW - hs, cy + _iuCropH - hs]].forEach(([x, y]) => {
-        ctx.fillRect(x, y, hs, hs);
+    [[cropX, cropY], [cropX + _iuCropW - handleSize, cropY], [cropX, cropY + _iuCropH - handleSize], [cropX + _iuCropW - handleSize, cropY + _iuCropH - handleSize]].forEach(([x, y]) => {
+        ctx.fillRect(x, y, handleSize, handleSize);
     });
 
-    // Rule-of-thirds grid lines
     ctx.strokeStyle = 'rgba(255,255,255,0.18)';
-    ctx.lineWidth   = 0.5;
+    ctx.lineWidth = 0.5;
     for (let i = 1; i <= 2; i++) {
         ctx.beginPath();
-        ctx.moveTo(cx + _iuCropW * i / 3, cy);
-        ctx.lineTo(cx + _iuCropW * i / 3, cy + _iuCropH);
+        ctx.moveTo(cropX + _iuCropW * i / 3, cropY);
+        ctx.lineTo(cropX + _iuCropW * i / 3, cropY + _iuCropH);
         ctx.stroke();
+
         ctx.beginPath();
-        ctx.moveTo(cx, cy + _iuCropH * i / 3);
-        ctx.lineTo(cx + _iuCropW, cy + _iuCropH * i / 3);
+        ctx.moveTo(cropX, cropY + _iuCropH * i / 3);
+        ctx.lineTo(cropX + _iuCropW, cropY + _iuCropH * i / 3);
         ctx.stroke();
     }
 }
 
-function _iuMouseDown(e) {
+function _iuMouseDown(event) {
     _iuDragging = true;
-    _iuDragLast = { x: e.clientX, y: e.clientY };
+    _iuDragLast = { x: event.clientX, y: event.clientY };
     _iuCanvas.style.cursor = 'grabbing';
 }
 
-function _iuMouseMove(e) {
+function _iuMouseMove(event) {
     if (!_iuDragging) return;
+
     const rect = _iuCanvas.getBoundingClientRect();
-    const sx   = _iuCanvas.width  / rect.width;
-    const sy   = _iuCanvas.height / rect.height;
-    _iuOffX   += (e.clientX - _iuDragLast.x) * sx;
-    _iuOffY   += (e.clientY - _iuDragLast.y) * sy;
-    _iuDragLast = { x: e.clientX, y: e.clientY };
+    const scaleX = _iuCanvas.width / rect.width;
+    const scaleY = _iuCanvas.height / rect.height;
+
+    _iuOffX += (event.clientX - _iuDragLast.x) * scaleX;
+    _iuOffY += (event.clientY - _iuDragLast.y) * scaleY;
+    _iuDragLast = { x: event.clientX, y: event.clientY };
     _iuDrawCanvas();
 }
 
@@ -438,15 +490,18 @@ function _iuMouseUp() {
     if (_iuCanvas) _iuCanvas.style.cursor = 'grab';
 }
 
-function _iuWheel(e) {
-    e.preventDefault();
-    const factor   = e.deltaY > 0 ? 0.9 : 1.1;
+function _iuWheel(event) {
+    event.preventDefault();
+
+    const factor = event.deltaY > 0 ? 0.9 : 1.1;
     const newScale = Math.max(0.05, Math.min(8, _iuScale * factor));
-    const cx       = _iuCanvas.width  / 2;
-    const cy       = _iuCanvas.height / 2;
-    _iuOffX  = cx - (cx - _iuOffX) * (newScale / _iuScale);
-    _iuOffY  = cy - (cy - _iuOffY) * (newScale / _iuScale);
+    const centerX = _iuCanvas.width / 2;
+    const centerY = _iuCanvas.height / 2;
+
+    _iuOffX = centerX - (centerX - _iuOffX) * (newScale / _iuScale);
+    _iuOffY = centerY - (centerY - _iuOffY) * (newScale / _iuScale);
     _iuScale = newScale;
+
     const slider = document.getElementById('iuZoomSlider');
     if (slider) slider.value = Math.round(_iuScale * 100);
     _iuDrawCanvas();
@@ -455,10 +510,10 @@ function _iuWheel(e) {
 function iuSetZoom(scale) {
     const newScale = Math.max(0.05, Math.min(8, +scale));
     if (_iuCanvas && _iuScale > 0) {
-        const cx = _iuCanvas.width  / 2;
-        const cy = _iuCanvas.height / 2;
-        _iuOffX  = cx - (cx - _iuOffX) * (newScale / _iuScale);
-        _iuOffY  = cy - (cy - _iuOffY) * (newScale / _iuScale);
+        const centerX = _iuCanvas.width / 2;
+        const centerY = _iuCanvas.height / 2;
+        _iuOffX = centerX - (centerX - _iuOffX) * (newScale / _iuScale);
+        _iuOffY = centerY - (centerY - _iuOffY) * (newScale / _iuScale);
     }
     _iuScale = newScale;
     _iuDrawCanvas();
@@ -466,59 +521,66 @@ function iuSetZoom(scale) {
 
 function iuCropAndContinue() {
     if (!_iuImg || !_iuCanvas) return;
-    const req     = INV_UPLOAD_REQS[_iuTab];
+
+    const req = INV_UPLOAD_REQS[_iuTab];
     const targetW = req?.targetW || _iuCropW;
     const targetH = req?.targetH || _iuCropH;
 
-    const cropX = (_iuCanvas.width  - _iuCropW) / 2;
+    const cropX = (_iuCanvas.width - _iuCropW) / 2;
     const cropY = (_iuCanvas.height - _iuCropH) / 2;
 
-    // Compute source region in the ORIGINAL image (no overlay drawn on it)
     const srcX = (cropX - _iuOffX) / _iuScale;
     const srcY = (cropY - _iuOffY) / _iuScale;
     const srcW = _iuCropW / _iuScale;
     const srcH = _iuCropH / _iuScale;
 
     const out = document.createElement('canvas');
-    out.width  = targetW;
+    out.width = targetW;
     out.height = targetH;
     out.getContext('2d').drawImage(_iuImg, srcX, srcY, srcW, srcH, 0, 0, targetW, targetH);
 
     out.toBlob(blob => {
-        if (!blob) { iuShowError('Crop failed.'); return; }
+        if (!blob) {
+            iuShowError(t('inventory.upload.error.crop_failed', 'Crop failed.'));
+            return;
+        }
+
         const url = URL.createObjectURL(blob);
         const img = new Image();
         img.onload = () => {
-            _iuImg  = img;
+            _iuImg = img;
             _iuFile = new File([blob], _iuFile?.name || 'cropped.png', { type: 'image/png' });
-            _iuShowPreview(img, _iuFile, true);
+            _iuShowPreview(img, _iuFile, true, false, false);
         };
         img.src = url;
     }, 'image/png');
 }
 
-// ── Auto-resize (dimensions exceed maxPx) ─────────────────────────────────────
-
 function _iuAutoResize(img, req) {
-    const maxPx  = req.maxPx;
-    const scale  = maxPx / Math.max(img.naturalWidth, img.naturalHeight);
-    const newW   = Math.round(img.naturalWidth  * scale);
-    const newH   = Math.round(img.naturalHeight * scale);
+    const maxPx = req.maxPx;
+    const scale = maxPx / Math.max(img.naturalWidth, img.naturalHeight);
+    const newW = Math.round(img.naturalWidth * scale);
+    const newH = Math.round(img.naturalHeight * scale);
 
     const out = document.createElement('canvas');
-    out.width = newW; out.height = newH;
+    out.width = newW;
+    out.height = newH;
     out.getContext('2d').drawImage(img, 0, 0, newW, newH);
 
     out.toBlob(blob => {
-        if (!blob) { iuShowError('Failed to resize image.'); return; }
+        if (!blob) {
+            iuShowError(t('inventory.upload.error.resize_failed', 'Failed to resize image.'));
+            return;
+        }
+
         const url = URL.createObjectURL(blob);
         const resized = new Image();
         resized.onload = () => {
-            _iuImg  = resized;
+            _iuImg = resized;
             _iuFile = new File([blob], _iuFile?.name || 'resized.png', { type: 'image/png' });
-            // Continue with ratio check (ratio may still require crop)
+
             if (req.ratioW != null) {
-                const imgRatio    = resized.naturalWidth / resized.naturalHeight;
+                const imgRatio = resized.naturalWidth / resized.naturalHeight;
                 const targetRatio = req.ratioW / req.ratioH;
                 if (Math.abs(imgRatio - targetRatio) < 0.02) _iuShowPreview(resized, _iuFile, false, false, true);
                 else _iuShowEditor(resized, req);
@@ -530,62 +592,62 @@ function _iuAutoResize(img, req) {
     }, 'image/png');
 }
 
-// ── Compress oversized file ────────────────────────────────────────────────────
-
 async function iuCompressAndContinue() {
     if (!_iuImg) return;
-    const req      = INV_UPLOAD_REQS[_iuTab];
+
+    const req = INV_UPLOAD_REQS[_iuTab];
     const maxBytes = (req?.maxMB || 8) * 1024 * 1024;
 
-    // Scale dimensions down to maxPx first if needed
     const maxPx = req?.maxPx;
-    let w = _iuImg.naturalWidth;
-    let h = _iuImg.naturalHeight;
-    if (maxPx && (w > maxPx || h > maxPx)) {
-        const s = maxPx / Math.max(w, h);
-        w = Math.round(w * s);
-        h = Math.round(h * s);
+    let width = _iuImg.naturalWidth;
+    let height = _iuImg.naturalHeight;
+    if (maxPx && (width > maxPx || height > maxPx)) {
+        const scale = maxPx / Math.max(width, height);
+        width = Math.round(width * scale);
+        height = Math.round(height * scale);
     }
 
-    // Try progressively lower JPEG quality
     for (const quality of [0.85, 0.75, 0.60, 0.45, 0.30]) {
         const blob = await new Promise(resolve => {
             const out = document.createElement('canvas');
-            out.width = w; out.height = h;
-            out.getContext('2d').drawImage(_iuImg, 0, 0, w, h);
+            out.width = width;
+            out.height = height;
+            out.getContext('2d').drawImage(_iuImg, 0, 0, width, height);
             out.toBlob(resolve, 'image/jpeg', quality);
         });
+
         if (blob && blob.size <= maxBytes) {
             _iuApplyCompressed(blob);
             return;
         }
     }
 
-    // Still too large — shrink dimensions further
     for (const scale of [0.75, 0.5, 0.4]) {
-        const sw = Math.round(_iuImg.naturalWidth * scale);
-        const sh = Math.round(_iuImg.naturalHeight * scale);
+        const scaledWidth = Math.round(_iuImg.naturalWidth * scale);
+        const scaledHeight = Math.round(_iuImg.naturalHeight * scale);
         const blob = await new Promise(resolve => {
             const out = document.createElement('canvas');
-            out.width = sw; out.height = sh;
-            out.getContext('2d').drawImage(_iuImg, 0, 0, sw, sh);
+            out.width = scaledWidth;
+            out.height = scaledHeight;
+            out.getContext('2d').drawImage(_iuImg, 0, 0, scaledWidth, scaledHeight);
             out.toBlob(resolve, 'image/jpeg', 0.45);
         });
+
         if (blob && blob.size <= maxBytes) {
             _iuApplyCompressed(blob);
             return;
         }
     }
 
-    iuShowError('Could not compress the image enough. Please use a smaller image.');
+    iuShowError(t('inventory.upload.error.compress_failed', 'Could not compress the image enough. Please use a smaller image.'));
 }
 
 function _iuApplyCompressed(blob) {
     const url = URL.createObjectURL(blob);
     const img = new Image();
     img.onload = () => {
-        _iuImg    = img;
-        _iuFile   = new File([blob], (_iuFile?.name?.replace(/\.[^.]+$/, '') || 'image') + '.jpg', { type: 'image/jpeg' });
+        _iuImg = img;
+        _iuFile = new File([blob], (_iuFile?.name?.replace(/\.[^.]+$/, '') || 'image') + '.jpg', { type: 'image/jpeg' });
         _iuTooBig = false;
         iuClearError();
         _iuShowPreview(img, _iuFile, false, true, false);
@@ -593,94 +655,125 @@ function _iuApplyCompressed(blob) {
     img.src = url;
 }
 
-// ── Emoji options ─────────────────────────────────────────────────────────────
-
 function iuSetAnimStyle(value, btn) {
     _iuAnimStyle = value;
-    document.querySelectorAll('#iuAnimBtns button').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('#iuAnimBtns button').forEach(button => button.classList.remove('active'));
     btn.classList.add('active');
 }
 
-
-// ── Reset ─────────────────────────────────────────────────────────────────────
-
 function iuReset() {
-    _iuFile   = null;
-    _iuImg    = null;
+    _iuFile = null;
+    _iuImg = null;
     _iuCanvas = null;
-    _iuCtx    = null;
+    _iuCtx = null;
     _iuTooBig = false;
+    _iuWasCropped = false;
+    _iuWasCompressed = false;
+    _iuWasResized = false;
 
-    const dz        = document.getElementById('iuDropZone');
-    const ea        = document.getElementById('iuEditorArea');
-    const pa        = document.getElementById('iuPreviewArea');
-    const ub        = document.getElementById('iuUploadBtn');
-    const emojiOpts = document.getElementById('iuEmojiOptions');
+    const dropZone = document.getElementById('iuDropZone');
+    const editorArea = document.getElementById('iuEditorArea');
+    const previewArea = document.getElementById('iuPreviewArea');
+    const uploadBtn = document.getElementById('iuUploadBtn');
+    const emojiOptions = document.getElementById('iuEmojiOptions');
 
-    if (dz) dz.style.display = '';
-    if (ea) { ea.style.display = 'none'; ea.innerHTML = ''; }
-    if (pa) { pa.style.display = 'none'; pa.innerHTML = ''; }
-    if (ub) ub.style.display = 'none';
-    if (emojiOpts) emojiOpts.style.display = 'none';
+    if (dropZone) dropZone.style.display = '';
+    if (editorArea) {
+        editorArea.style.display = 'none';
+        editorArea.innerHTML = '';
+    }
+    if (previewArea) {
+        previewArea.style.display = 'none';
+        previewArea.innerHTML = '';
+    }
+    if (uploadBtn) uploadBtn.style.display = 'none';
+    if (emojiOptions) emojiOptions.style.display = 'none';
     iuClearError();
 }
-
-// ── Upload ────────────────────────────────────────────────────────────────────
 
 function iuDoUpload() {
     if (!_iuImg) return;
 
-    const ub = document.getElementById('iuUploadBtn');
-    if (ub) { ub.disabled = true; ub.innerHTML = '<span class="msi" style="font-size:14px;">hourglass_empty</span> Uploading…'; }
+    const uploadBtn = document.getElementById('iuUploadBtn');
+    if (uploadBtn) {
+        uploadBtn.disabled = true;
+        uploadBtn.innerHTML = iuUploadButtonHtml(true);
+    }
 
     const req = INV_UPLOAD_REQS[_iuTab];
-
-    // Draw to output canvas at target size
-    const out    = document.createElement('canvas');
+    const out = document.createElement('canvas');
     const targetW = req?.targetW || _iuImg.naturalWidth;
     const targetH = req?.targetH || _iuImg.naturalHeight;
-    out.width  = targetW;
+    out.width = targetW;
     out.height = targetH;
     out.getContext('2d').drawImage(_iuImg, 0, 0, targetW, targetH);
 
     out.toBlob(blob => {
         const reader = new FileReader();
-        reader.onload = e => {
+        reader.onload = event => {
             sendToCS({
-                action:         'invUploadFromData',
-                tag:            INV_TABS[_iuTab]?.tag,
-                data:           e.target.result,
-                animationStyle: _iuTab === 'emojis' ? _iuAnimStyle       : '',
-                maskTag:        _iuTab === 'emojis' ? IU_MASK_TAG_DEFAULT : '',
+                action: 'invUploadFromData',
+                tag: INV_TABS[_iuTab]?.tag,
+                data: event.target.result,
+                animationStyle: _iuTab === 'emojis' ? _iuAnimStyle : '',
+                maskTag: _iuTab === 'emojis' ? IU_MASK_TAG_DEFAULT : ''
             });
         };
         reader.readAsDataURL(blob);
     }, 'image/png');
 }
 
-// Called from messages.js when upload completes
 function iuHandleUploadDone(success, file) {
     if (success) {
-        const cb = _iuCallback;
+        const callback = _iuCallback;
         _iuCallback = null;
         closeInvUploadModal();
-        if (cb && file) cb(file);
-    } else {
-        const ub = document.getElementById('iuUploadBtn');
-        if (ub) { ub.disabled = false; ub.innerHTML = '<span class="msi" style="font-size:14px;">upload</span> Upload'; }
+        if (callback && file) callback(file);
+        return;
+    }
+
+    const uploadBtn = document.getElementById('iuUploadBtn');
+    if (uploadBtn) {
+        uploadBtn.disabled = false;
+        uploadBtn.innerHTML = iuUploadButtonHtml(false);
     }
 }
 
-// ── Error helpers ─────────────────────────────────────────────────────────────
-
 function iuShowError(msg, extraHtml = '') {
-    const el = document.getElementById('iuError');
-    if (el) { el.style.display = ''; el.innerHTML = esc(msg) + (extraHtml ? '<br>' + extraHtml : ''); }
-    const ub = document.getElementById('iuUploadBtn');
-    if (ub) { ub.disabled = false; ub.innerHTML = '<span class="msi" style="font-size:14px;">upload</span> Upload'; }
+    const errorEl = document.getElementById('iuError');
+    if (errorEl) {
+        errorEl.style.display = '';
+        errorEl.innerHTML = esc(msg) + (extraHtml ? `<br>${extraHtml}` : '');
+    }
+
+    const uploadBtn = document.getElementById('iuUploadBtn');
+    if (uploadBtn) {
+        uploadBtn.disabled = false;
+        uploadBtn.innerHTML = iuUploadButtonHtml(false);
+    }
 }
 
 function iuClearError() {
-    const el = document.getElementById('iuError');
-    if (el) el.style.display = 'none';
+    const errorEl = document.getElementById('iuError');
+    if (errorEl) errorEl.style.display = 'none';
 }
+
+function rerenderInventoryUploadTranslations() {
+    const modal = document.getElementById('invUploadModal');
+    if (!modal || !_iuTab) return;
+
+    if (_iuCanvas && _iuImg) {
+        _iuShowEditor(_iuImg, INV_UPLOAD_REQS[_iuTab]);
+        return;
+    }
+
+    if (_iuImg && _iuFile) {
+        _iuShowPreview(_iuImg, _iuFile, _iuWasCropped, _iuWasCompressed, _iuWasResized);
+        return;
+    }
+
+    const content = document.getElementById('invUploadContent');
+    if (content) content.outerHTML = _iuBuildHTML(_iuTab);
+}
+
+document.documentElement.addEventListener('languagechange', rerenderInventoryUploadTranslations);

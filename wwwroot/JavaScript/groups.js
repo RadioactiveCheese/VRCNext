@@ -1,20 +1,39 @@
 /* === Join State === */
+function getJoinStateLabel(js) {
+    const map = {
+        open: ['groups.join_state.open', 'Open'],
+        closed: ['groups.join_state.closed', 'Closed'],
+        invite: ['groups.join_state.invite_only', 'Invite Only'],
+        request: ['groups.join_state.request_invite', 'Request Invite'],
+    };
+    const entry = map[js];
+    return entry ? t(entry[0], entry[1]) : (js || '?');
+}
+
+function getGroupMembersText(count) {
+    return tf('worlds.groups.members', { count }, '{count} members');
+}
+
 function joinStateBadge(js) {
     const map = {
-        open:    { label: 'Open',           cls: 'public'  },
-        closed:  { label: 'Closed',         cls: 'private' },
-        invite:  { label: 'Invite Only',    cls: 'friends' },
-        request: { label: 'Request Invite', cls: 'group'   },
+        open:    { label: getJoinStateLabel('open'), cls: 'public'  },
+        closed:  { label: getJoinStateLabel('closed'), cls: 'private' },
+        invite:  { label: getJoinStateLabel('invite'), cls: 'friends' },
+        request: { label: getJoinStateLabel('request'), cls: 'group'   },
     };
-    const m = map[js] || { label: js || '?', cls: 'hidden' };
+    const m = map[js] || { label: getJoinStateLabel(js), cls: 'hidden' };
     return `<span class="vrcn-badge ${m.cls}">${esc(m.label)}</span>`;
 }
 
 /* === My Groups === */
+
 function _renderGroupListCard(g) {
+    const metaParts = [];
+    if (g.shortCode) metaParts.push(esc(g.shortCode));
+    metaParts.push(`<span class="msi" style="font-size:11px;">group</span> ${esc(getGroupMembersText(g.memberCount || 0))}`);
     return `<div class="s-card" onclick="openGroupDetail('${esc(g.id)}')">
         <div class="s-card-img" style="background-image:url('${cssUrl(g.bannerUrl||g.iconUrl||'')}')"><div class="s-card-icon" style="background-image:url('${cssUrl(g.iconUrl||'')}')"></div></div>
-        <div class="s-card-body"><div class="s-card-title">${esc(g.name)}</div><div class="s-card-sub" style="display:flex;align-items:center;gap:4px;">${esc(g.shortCode)} · <span class="msi" style="font-size:11px;">group</span> ${g.memberCount}${g.joinState ? `<span style="margin-left:auto;">${joinStateBadge(g.joinState)}</span>` : ''}</div></div></div>`;
+        <div class="s-card-body"><div class="s-card-title">${esc(g.name)}</div><div class="s-card-sub" style="display:flex;align-items:center;gap:4px;">${metaParts.join(' &middot; ')}${g.joinState ? `<span style="margin-left:auto;">${joinStateBadge(g.joinState)}</span>` : ''}</div></div></div>`;
 }
 
 function setGroupFilter(filter) {
@@ -26,6 +45,15 @@ function setGroupFilter(filter) {
     if (filter === 'search') document.getElementById('searchGroupsInput')?.focus();
 }
 
+document.documentElement.addEventListener('languagechange', () => {
+    if (typeof myGroupsLoaded !== 'undefined' && myGroupsLoaded && typeof myGroups !== 'undefined' && Array.isArray(myGroups)) {
+        filterMyGroups();
+    }
+    if (document.getElementById('gdTabInfo') && window._currentGroupDetailFull) {
+        renderGroupDetail(window._currentGroupDetailFull);
+    }
+});
+
 function filterMyGroups() {
     const q = (document.getElementById('filterGroupsInput')?.value || '').toLowerCase();
     const el = document.getElementById('myGroupsGrid');
@@ -35,7 +63,7 @@ function filterMyGroups() {
         : myGroups;
     el.innerHTML = filtered.length
         ? filtered.map(_renderGroupListCard).join('')
-        : `<div class="empty-msg">${q ? 'No groups match' : 'No groups joined'}</div>`;
+        : `<div class="empty-msg">${q ? t('groups.mine.empty_match', 'No groups match') : t('groups.mine.empty_joined', 'No groups joined')}</div>`;
 }
 
 function loadMyGroups() {
@@ -64,6 +92,7 @@ function openGroupDetail(groupId) {
 }
 
 function renderGroupDetail(g) {
+    window._currentGroupDetailFull = g;
     window._currentGroupDetail = { id: g.id, canKick: g.canKick === true, canBan: g.canBan === true, canManageRoles: g.canManageRoles === true, canAssignRoles: g.canAssignRoles === true, languages: g.languages || [], links: g.links || [], joinState: g.joinState || '', roles: g.roles || [] };
     window._gdBannedLoaded = false;
     window._gdMemberRoleIds = {};
@@ -71,30 +100,31 @@ function renderGroupDetail(g) {
     const canEdit = g.canEdit === true;
     const gidJs  = jsq(g.id);
     const banner = g.bannerUrl || g.iconUrl || '';
-    const bannerEditBtn = canEdit ? `<button class="myp-edit-btn" style="position:absolute;top:8px;right:8px;z-index:2;" onclick="openImagePicker('group-banner','${gidJs}')" title="Change banner"><span class="msi" style="font-size:13px;">edit</span></button>` : '';
+    const bannerEditBtn = canEdit ? `<button class="myp-edit-btn" style="position:absolute;top:8px;right:8px;z-index:2;" onclick="openImagePicker('group-banner','${gidJs}')" title="${esc(t('groups.images.change_banner', 'Change banner'))}"><span class="msi" style="font-size:13px;">edit</span></button>` : '';
     const bannerHtml = banner
         ? `<div class="fd-banner">${bannerEditBtn}<img src="${banner}" onerror="this.parentElement.style.display='none'"><div class="fd-banner-fade"></div></div>`
-        : (canEdit ? `<div style="display:flex;justify-content:flex-end;padding:4px 0 2px 0;"><button class="myp-edit-btn" onclick="openImagePicker('group-banner','${gidJs}')" title="Add banner"><span class="msi" style="font-size:13px;">edit</span><span style="font-size:11px;margin-left:3px;">Banner</span></button></div>` : '');
+        : (canEdit ? `<div style="display:flex;justify-content:flex-end;padding:4px 0 2px 0;"><button class="myp-edit-btn" onclick="openImagePicker('group-banner','${gidJs}')" title="${esc(t('groups.images.add_banner', 'Add banner'))}"><span class="msi" style="font-size:13px;">edit</span><span style="font-size:11px;margin-left:3px;">${esc(t('groups.images.banner', 'Banner'))}</span></button></div>` : '');
 
     // Header
-    const iconEditBtn = canEdit ? `<button class="myp-edit-btn" style="position:absolute;bottom:-4px;right:-4px;padding:2px;min-width:0;width:18px;height:18px;display:flex;align-items:center;justify-content:center;" onclick="openImagePicker('group-icon','${gidJs}')" title="Change icon"><span class="msi" style="font-size:11px;">edit</span></button>` : '';
+    const iconEditBtn = canEdit ? `<button class="myp-edit-btn" style="position:absolute;bottom:-4px;right:-4px;padding:2px;min-width:0;width:18px;height:18px;display:flex;align-items:center;justify-content:center;" onclick="openImagePicker('group-icon','${gidJs}')" title="${esc(t('groups.images.change_icon', 'Change icon'))}"><span class="msi" style="font-size:11px;">edit</span></button>` : '';
     const iconHtml = g.iconUrl
         ? `<div style="position:relative;display:inline-block;flex-shrink:0;"><img class="fd-avatar" src="${g.iconUrl}" onerror="this.style.display='none'">${iconEditBtn}</div>`
         : (canEdit ? `<div style="position:relative;display:inline-block;flex-shrink:0;"><div class="fd-avatar" style="display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:700;color:var(--tx3);">${esc((g.name||'?')[0])}</div>${iconEditBtn}</div>` : '');
-    const headerHtml = `<div class="fd-content${banner ? ' fd-has-banner' : ''}"><div class="fd-header">${iconHtml}<div style="flex:1;min-width:0;"><div class="fd-name">${esc(g.name)}</div><div class="fd-status">${esc(g.shortCode)} · ${g.memberCount} members</div></div><span id="ggrpHeaderBadge" style="margin-left:auto;flex-shrink:0;">${g.joinState ? joinStateBadge(g.joinState) : ''}</span></div>`;
+    const headerMeta = [g.shortCode ? esc(g.shortCode) : '', esc(getGroupMembersText(g.memberCount || 0))].filter(Boolean).join(' &middot; ');
+    const headerHtml = `<div class="fd-content${banner ? ' fd-has-banner' : ''}"><div class="fd-header">${iconHtml}<div style="flex:1;min-width:0;"><div class="fd-name">${esc(g.name)}</div><div class="fd-status">${headerMeta}</div></div><span id="ggrpHeaderBadge" style="margin-left:auto;flex-shrink:0;">${g.joinState ? joinStateBadge(g.joinState) : ''}</span></div>`;
 
     // Actions - moved to bottom bar
     const canPost  = g.canPost === true;
     const canEvent = g.canEvent === true;
     const createPostBtn = (g.isJoined && canPost)
-        ? `<button class="vrcn-button-round vrcn-btn-join" onclick="openGroupPostModal('${esc(g.id)}')"><span class="msi" style="font-size:16px;vertical-align:middle;margin-right:4px;">edit</span>Post</button>`
+        ? `<button class="vrcn-button-round vrcn-btn-join" onclick="openGroupPostModal('${esc(g.id)}')"><span class="msi" style="font-size:16px;vertical-align:middle;margin-right:4px;">edit</span>${t('groups.actions.post', 'Post')}</button>`
         : '';
     const createEventBtn = (g.isJoined && canEvent)
-        ? `<button class="vrcn-button-round vrcn-btn-join" onclick="openGroupEventModal('${esc(g.id)}')"><span class="msi" style="font-size:16px;vertical-align:middle;margin-right:4px;">event</span>Events</button>`
+        ? `<button class="vrcn-button-round vrcn-btn-join" onclick="openGroupEventModal('${esc(g.id)}')"><span class="msi" style="font-size:16px;vertical-align:middle;margin-right:4px;">event</span>${t('groups.actions.events', 'Events')}</button>`
         : '';
     const leaveJoinBtn = g.isJoined
-        ? `<button class="vrcn-button-round vrcn-btn-danger" onclick="sendToCS({action:'vrcLeaveGroup',groupId:'${esc(g.id)}'});document.getElementById('modalDetail').style.display='none';"><span class="msi" style="font-size:16px;vertical-align:middle;margin-right:4px;">logout</span>Leave Group</button>`
-        : `<button class="vrcn-button-round vrcn-btn-join" onclick="sendToCS({action:'vrcJoinGroup',groupId:'${esc(g.id)}'});document.getElementById('modalDetail').style.display='none';"><span class="msi" style="font-size:16px;vertical-align:middle;margin-right:4px;">group_add</span>Join Group</button>`;
+        ? `<button class="vrcn-button-round vrcn-btn-danger" onclick="sendToCS({action:'vrcLeaveGroup',groupId:'${esc(g.id)}'});document.getElementById('modalDetail').style.display='none';"><span class="msi" style="font-size:16px;vertical-align:middle;margin-right:4px;">logout</span>${t('groups.actions.leave_group', 'Leave Group')}</button>`
+        : `<button class="vrcn-button-round vrcn-btn-join" onclick="sendToCS({action:'vrcJoinGroup',groupId:'${esc(g.id)}'});document.getElementById('modalDetail').style.display='none';"><span class="msi" style="font-size:16px;vertical-align:middle;margin-right:4px;">group_add</span>${t('groups.actions.join_group', 'Join Group')}</button>`;
 
     // Tab: Info
     const gid_e = esc(g.id);
@@ -102,93 +132,93 @@ function renderGroupDetail(g) {
     const grpLinks = (g.links || []).filter(Boolean);
     const grpLangsViewHtml = grpLangs.length
         ? `<div class="fd-lang-tags">${grpLangs.map(l => `<span class="vrcn-badge">${esc(LANG_MAP['language_'+l] || l.toUpperCase())}</span>`).join('')}</div>`
-        : `<div class="myp-empty">No languages set</div>`;
+        : `<div class="myp-empty">${t('profiles.my_profile.empty.no_languages', 'No languages set')}</div>`;
     const grpLinksViewHtml = grpLinks.length
         ? `<div class="fd-bio-links">${grpLinks.map(url => renderBioLink(url)).join('')}</div>`
-        : `<div class="myp-empty">No links added</div>`;
+        : `<div class="myp-empty">${t('profiles.my_profile.empty.no_links', 'No links added')}</div>`;
     const infoTab = `
         <div class="myp-section">
             <div class="myp-section-header">
-                <span class="myp-section-title">Description</span>
+                <span class="myp-section-title">${t('groups.sections.description', 'Description')}</span>
                 ${canEdit ? `<button class="myp-edit-btn" onclick="editGroupField('desc')"><span class="msi" style="font-size:14px;">edit</span></button>` : ''}
             </div>
             <div id="gdescDescView">
-                ${g.description ? `<div class="fd-bio">${esc(g.description)}</div>` : '<div class="myp-empty">No description</div>'}
+                ${g.description ? `<div class="fd-bio">${esc(g.description)}</div>` : `<div class="myp-empty">${t('groups.empty.no_description', 'No description')}</div>`}
             </div>
             ${canEdit ? `<div id="gdescDescEdit" style="display:none;">
-                <textarea id="gdescDescInput" class="myp-textarea" rows="4" maxlength="2000" placeholder="Group description...">${esc(g.description||'')}</textarea>
+                <textarea id="gdescDescInput" class="myp-textarea" rows="4" maxlength="2000" placeholder="${esc(t('groups.placeholders.description', 'Group description...'))}">${esc(g.description||'')}</textarea>
                 <div class="myp-edit-actions">
-                    <button class="vrcn-button" onclick="cancelGroupField('desc')">Cancel</button>
-                    <button class="vrcn-button vrcn-btn-primary" onclick="saveGroupField('desc','${gid_e}')">Save</button>
+                    <button class="vrcn-button" onclick="cancelGroupField('desc')">${t('common.cancel', 'Cancel')}</button>
+                    <button class="vrcn-button vrcn-btn-primary" onclick="saveGroupField('desc','${gid_e}')">${t('common.save', 'Save')}</button>
                 </div>
             </div>` : ''}
         </div>
         <div class="myp-section">
             <div class="myp-section-header">
-                <span class="myp-section-title">Links</span>
+                <span class="myp-section-title">${t('groups.sections.links', 'Links')}</span>
                 ${canEdit ? `<button class="myp-edit-btn" onclick="editGroupField('links')"><span class="msi" style="font-size:14px;">edit</span></button>` : ''}
             </div>
             <div id="ggrpLinksView">${grpLinksViewHtml}</div>
             ${canEdit ? `<div id="ggrpLinksEdit" style="display:none;">
                 <div id="ggrpLinksInputs"></div>
                 <div class="myp-edit-actions">
-                    <button class="vrcn-button" onclick="cancelGroupField('links')">Cancel</button>
-                    <button class="vrcn-button vrcn-btn-primary" onclick="saveGroupField('links','${gid_e}')">Save</button>
+                    <button class="vrcn-button" onclick="cancelGroupField('links')">${t('common.cancel', 'Cancel')}</button>
+                    <button class="vrcn-button vrcn-btn-primary" onclick="saveGroupField('links','${gid_e}')">${t('common.save', 'Save')}</button>
                 </div>
             </div>` : ''}
         </div>
         <div class="myp-section">
             <div class="myp-section-header">
-                <span class="myp-section-title">Languages</span>
+                <span class="myp-section-title">${t('groups.sections.languages', 'Languages')}</span>
                 ${canEdit ? `<button class="myp-edit-btn" onclick="editGroupField('langs')"><span class="msi" style="font-size:14px;">edit</span></button>` : ''}
             </div>
             <div id="ggrpLangsView">${grpLangsViewHtml}</div>
             ${canEdit ? `<div id="ggrpLangsEdit" style="display:none;">
                 <div id="ggrpLangsChips" class="myp-lang-chips"></div>
                 <div class="myp-lang-add-row">
-                    <select id="ggrpLangSelect" class="myp-lang-select"><option value="">Add language...</option></select>
+                    <select id="ggrpLangSelect" class="myp-lang-select"><option value="">${t('profiles.my_profile.add_language', 'Add language...')}</option></select>
                     <button class="myp-add-lang-btn" onclick="addGrpLanguage()"><span class="msi" style="font-size:15px;">add</span></button>
                 </div>
                 <div class="myp-edit-actions">
-                    <button class="vrcn-button" onclick="cancelGroupField('langs')">Cancel</button>
-                    <button class="vrcn-button vrcn-btn-primary" onclick="saveGroupField('langs','${gid_e}')">Save</button>
+                    <button class="vrcn-button" onclick="cancelGroupField('langs')">${t('common.cancel', 'Cancel')}</button>
+                    <button class="vrcn-button vrcn-btn-primary" onclick="saveGroupField('langs','${gid_e}')">${t('common.save', 'Save')}</button>
                 </div>
             </div>` : ''}
         </div>
         <div class="myp-section">
             <div class="myp-section-header">
-                <span class="myp-section-title">Rules</span>
+                <span class="myp-section-title">${t('groups.sections.rules', 'Rules')}</span>
                 ${canEdit ? `<button class="myp-edit-btn" onclick="editGroupField('rules')"><span class="msi" style="font-size:14px;">edit</span></button>` : ''}
             </div>
             <div id="gdescRulesView">
-                ${g.rules ? `<div style="font-size:11px;color:var(--tx3);padding:8px;background:var(--bg-input);border-radius:8px;max-height:120px;overflow-y:auto;white-space:pre-wrap;">${esc(g.rules)}</div>` : '<div class="myp-empty">No rules set</div>'}
+                ${g.rules ? `<div style="font-size:11px;color:var(--tx3);padding:8px;background:var(--bg-input);border-radius:8px;max-height:120px;overflow-y:auto;white-space:pre-wrap;">${esc(g.rules)}</div>` : `<div class="myp-empty">${t('groups.empty.no_rules', 'No rules set')}</div>`}
             </div>
             ${canEdit ? `<div id="gdescRulesEdit" style="display:none;">
-                <textarea id="gdescRulesInput" class="myp-textarea" rows="5" maxlength="2000" placeholder="Group rules...">${esc(g.rules||'')}</textarea>
+                <textarea id="gdescRulesInput" class="myp-textarea" rows="5" maxlength="2000" placeholder="${esc(t('groups.placeholders.rules', 'Group rules...'))}">${esc(g.rules||'')}</textarea>
                 <div class="myp-edit-actions">
-                    <button class="vrcn-button" onclick="cancelGroupField('rules')">Cancel</button>
-                    <button class="vrcn-button vrcn-btn-primary" onclick="saveGroupField('rules','${gid_e}')">Save</button>
+                    <button class="vrcn-button" onclick="cancelGroupField('rules')">${t('common.cancel', 'Cancel')}</button>
+                    <button class="vrcn-button vrcn-btn-primary" onclick="saveGroupField('rules','${gid_e}')">${t('common.save', 'Save')}</button>
                 </div>
             </div>` : ''}
         </div>
         <div class="myp-section">
             <div class="myp-section-header">
-                <span class="myp-section-title">Open to new Members</span>
+                <span class="myp-section-title">${t('groups.sections.open_members', 'Open to new Members')}</span>
                 ${canEdit ? `<button class="myp-edit-btn" onclick="editGroupField('joinState')"><span class="msi" style="font-size:14px;">edit</span></button>` : ''}
             </div>
             <div id="ggrpJoinStateView">
-                ${g.joinState ? joinStateBadge(g.joinState) : '<div class="myp-empty">Not set</div>'}
+                ${g.joinState ? joinStateBadge(g.joinState) : `<div class="myp-empty">${t('groups.empty.not_set', 'Not set')}</div>`}
             </div>
             ${canEdit ? `<div id="ggrpJoinStateEdit" style="display:none;">
                 <select id="ggrpJoinStateSelect" class="myp-lang-select" style="width:100%;margin-bottom:6px;">
-                    <option value="open"    ${g.joinState==='open'    ? 'selected' : ''}>Open</option>
-                    <option value="closed"  ${g.joinState==='closed'  ? 'selected' : ''}>Closed</option>
-                    <option value="invite"  ${g.joinState==='invite'  ? 'selected' : ''}>Invite Only</option>
-                    <option value="request" ${g.joinState==='request' ? 'selected' : ''}>Request Invite</option>
+                    <option value="open"    ${g.joinState==='open'    ? 'selected' : ''}>${t('groups.join_state.open', 'Open')}</option>
+                    <option value="closed"  ${g.joinState==='closed'  ? 'selected' : ''}>${t('groups.join_state.closed', 'Closed')}</option>
+                    <option value="invite"  ${g.joinState==='invite'  ? 'selected' : ''}>${t('groups.join_state.invite_only', 'Invite Only')}</option>
+                    <option value="request" ${g.joinState==='request' ? 'selected' : ''}>${t('groups.join_state.request_invite', 'Request Invite')}</option>
                 </select>
                 <div class="myp-edit-actions">
-                    <button class="vrcn-button" onclick="cancelGroupField('joinState')">Cancel</button>
-                    <button class="vrcn-button vrcn-btn-primary" onclick="saveGroupField('joinState','${gid_e}')">Save</button>
+                    <button class="vrcn-button" onclick="cancelGroupField('joinState')">${t('common.cancel', 'Cancel')}</button>
+                    <button class="vrcn-button vrcn-btn-primary" onclick="saveGroupField('joinState','${gid_e}')">${t('common.save', 'Save')}</button>
                 </div>
             </div>` : ''}
         </div>`;
@@ -197,7 +227,7 @@ function renderGroupDetail(g) {
     const posts = g.posts || [];
     let postsTab = '';
     if (posts.length === 0) {
-        postsTab = '<div style="padding:20px;text-align:center;font-size:12px;color:var(--tx3);">No posts</div>';
+        postsTab = renderGroupEmptyMessage('groups.empty.no_posts', 'No posts');
     } else {
         posts.forEach((p, i) => {
             const date = p.createdAt ? new Date(p.createdAt).toLocaleDateString() : '';
@@ -207,7 +237,7 @@ function renderGroupDetail(g) {
             const preview = isLong ? fullText.slice(0, 120) + '...' : fullText;
             const pid = esc(p.id || ''), gid = esc(g.id || '');
             const delBtn = (canPost && p.id)
-                ? `<button class="gd-post-del" onclick="deleteGroupPost('${gid}','${pid}',this)" title="Delete post"><span class="msi">delete</span></button>`
+                ? `<button class="gd-post-del" onclick="deleteGroupPost('${gid}','${pid}',this)" title="${esc(t('groups.posts.delete_title', 'Delete post'))}"><span class="msi">delete</span></button>`
                 : '';
             postsTab += `<div class="fd-group-card" data-post-id="${pid}" style="display:block;cursor:default;padding:12px;">
                 <div style="display:flex;align-items:center;gap:6px;margin-bottom:2px;">
@@ -216,7 +246,7 @@ function renderGroupDetail(g) {
                 </div>
                 <div style="font-size:10px;color:var(--tx3);margin-bottom:6px;">${date}${p.visibility ? ' · ' + esc(p.visibility) : ''}</div>
                 <div class="gd-post-text" id="gpost${i}" data-full="${esc(fullText).replace(/"/g,'&quot;')}" data-preview="${esc(preview).replace(/"/g,'&quot;')}" style="font-size:12px;color:var(--tx2);line-height:1.4;">${esc(preview)}</div>
-                ${isLong ? `<div style="margin-top:4px;"><span class="gd-expand" onclick="toggleGPost(${i})">Show more</span></div>` : ''}
+                ${isLong ? `<div style="margin-top:4px;"><span class="gd-expand" data-expanded="0" onclick="toggleGPost(${i})">${t('groups.posts.show_more', 'Show more')}</span></div>` : ''}
                 ${imgHtml}
             </div>`;
         });
@@ -226,7 +256,7 @@ function renderGroupDetail(g) {
     const events = g.groupEvents || [];
     let eventsTab = '';
     if (events.length === 0) {
-        eventsTab = '<div style="padding:20px;text-align:center;font-size:12px;color:var(--tx3);">No events</div>';
+        eventsTab = renderGroupEmptyMessage('groups.empty.no_events', 'No events');
     } else {
         events.forEach(e => {
             const startD = e.startsAt ? new Date(e.startsAt) : null;
@@ -243,7 +273,7 @@ function renderGroupDetail(g) {
             const gid = esc(e.ownerId || g.id || '');
             const cid = esc(e.id || '');
             const delEvtBtn = (canEvent && e.id)
-                ? `<button class="gd-post-del" onclick="event.stopPropagation();deleteGroupEvent('${esc(g.id)}','${cid}',this)" title="Delete event"><span class="msi">delete</span></button>`
+                ? `<button class="gd-post-del" onclick="event.stopPropagation();deleteGroupEvent('${esc(g.id)}','${cid}',this)" title="${esc(t('groups.events.delete_title', 'Delete event'))}"><span class="msi">delete</span></button>`
                 : '';
             eventsTab += `<div class="fd-group-card" data-event-id="${cid}" style="display:block;cursor:pointer;padding:12px;" onclick="openEventDetail('${gid}','${cid}')">
                 ${imgHtml}
@@ -261,15 +291,21 @@ function renderGroupDetail(g) {
     const instances = g.groupInstances || [];
     let instancesTab = '';
     if (instances.length === 0) {
-        instancesTab = '<div style="padding:20px;text-align:center;font-size:12px;color:var(--tx3);">No active instances</div>';
+        instancesTab = `<div style="padding:20px;text-align:center;font-size:12px;color:var(--tx3);">${t('groups.empty.no_active_instances', 'No active instances')}</div>`;
     } else {
         instances.forEach(inst => {
             const thumbHtml = inst.worldThumb ? `<img style="width:48px;height:48px;border-radius:8px;object-fit:cover;flex-shrink:0;" src="${inst.worldThumb}" onerror="this.style.display='none'">` : '';
-            const users = inst.userCount > 0 ? (inst.capacity > 0 ? `${inst.userCount}/${inst.capacity}` : inst.userCount + ' users') : '';
+            const users = inst.userCount > 0
+                ? (inst.capacity > 0
+                    ? `${inst.userCount}/${inst.capacity}`
+                    : (inst.userCount === 1
+                        ? tf('groups.instances.user_one', { count: inst.userCount }, '{count} user')
+                        : tf('groups.instances.user_other', { count: inst.userCount }, '{count} users')))
+                : '';
             const loc = (inst.location || '').replace(/'/g, "\\'");
             instancesTab += `<div class="fd-group-card" onclick="sendToCS({action:'vrcJoinFriend',location:'${loc}'})">
-                ${thumbHtml}<div class="fd-group-card-info"><div class="fd-group-card-name">${esc(inst.worldName || 'Unknown World')}</div><div class="fd-group-card-meta">${users}</div></div>
-                <button class="vrcn-button-round vrcn-btn-join" onclick="event.stopPropagation();sendToCS({action:'vrcJoinFriend',location:'${loc}'})"><span class="msi" style="font-size:14px;">login</span>Join</button>
+                ${thumbHtml}<div class="fd-group-card-info"><div class="fd-group-card-name">${esc(inst.worldName || t('dashboard.instances.unknown_world', 'Unknown World'))}</div><div class="fd-group-card-meta">${users}</div></div>
+                <button class="vrcn-button-round vrcn-btn-join" onclick="event.stopPropagation();sendToCS({action:'vrcJoinFriend',location:'${loc}'})"><span class="msi" style="font-size:14px;">login</span>${t('common.join', 'Join')}</button>
             </div>`;
         });
     }
@@ -278,7 +314,7 @@ function renderGroupDetail(g) {
     const gallery = g.galleryImages || [];
     let galleryTab = '';
     if (gallery.length === 0) {
-        galleryTab = '<div style="padding:20px;text-align:center;font-size:12px;color:var(--tx3);">No gallery images</div>';
+        galleryTab = renderGroupEmptyMessage('groups.empty.no_gallery_images', 'No gallery images');
     } else {
         galleryTab = '<div class="gd-gallery-grid">';
         gallery.forEach(img => {
@@ -291,19 +327,19 @@ function renderGroupDetail(g) {
     const members = g.groupMembers || [];
     let membersTab = `<div class="search-bar-row" style="margin-bottom:6px;">
         <span class="msi search-ico">search</span>
-        <input id="gdMembersSearch" type="text" class="vrcn-input" placeholder="Search users by name... hit enter" style="background:var(--bg-input);" onkeydown="if(event.key==='Enter')searchGroupMembers()">
+        <input id="gdMembersSearch" type="text" class="vrcn-input" placeholder="${esc(t('groups.members.search_placeholder', 'Search users by name... hit enter'))}" style="background:var(--bg-input);" onkeydown="if(event.key==='Enter')searchGroupMembers()">
     </div>`;
     membersTab += '<div id="gdMembersList" style="display:grid;grid-template-columns:1fr 1fr;column-gap:6px;">';
     if (members.length === 0) {
-        membersTab += '<div style="padding:20px;text-align:center;font-size:12px;color:var(--tx3);">No members</div>';
+        membersTab += renderGroupEmptyMessage('groups.empty.no_members', 'No members');
     } else {
         members.forEach(m => { membersTab += renderGroupMemberCard(m); });
     }
     membersTab += '</div>';
     membersTab += `<div id="gdMembersLoadMore" style="text-align:center;padding:12px;">` +
         (members.length >= 50
-            ? `<button class="vrcn-button" onclick="loadMoreGroupMembers()">Load More Members</button>`
-            : (members.length > 0 ? `<div style="font-size:11px;color:var(--tx3);">All members loaded</div>` : '')) +
+            ? `<button class="vrcn-button" onclick="loadMoreGroupMembers()">${t('groups.members.load_more', 'Load More Members')}</button>`
+            : (members.length > 0 ? `<div style="font-size:11px;color:var(--tx3);">${t('groups.members.all_loaded', 'All members loaded')}</div>` : '')) +
         `</div>`;
     // Store group id + offset for pagination
     window._gdMembersGroupId = g.id;
@@ -312,15 +348,15 @@ function renderGroupDetail(g) {
 
     // Tabs
     const tabs = [
-        { key: 'info', label: 'Info' },
-        { key: 'posts', label: 'Posts' },
-        { key: 'events', label: 'Events' },
-        { key: 'instances', label: 'Live' },
-        { key: 'gallery', label: 'Gallery' },
-        { key: 'members', label: 'Members' },
+        { key: 'info', label: t('groups.tabs.info', 'Info') },
+        { key: 'posts', label: t('groups.tabs.posts', 'Posts') },
+        { key: 'events', label: t('groups.tabs.events', 'Events') },
+        { key: 'instances', label: t('groups.tabs.live', 'Live') },
+        { key: 'gallery', label: t('groups.tabs.gallery', 'Gallery') },
+        { key: 'members', label: t('groups.tabs.members', 'Members') },
     ];
-    if (g.canManageRoles) tabs.push({ key: 'roles', label: 'Roles' });
-    if (g.canBan)         tabs.push({ key: 'banned', label: 'Banned' });
+    if (g.canManageRoles) tabs.push({ key: 'roles', label: t('groups.tabs.roles', 'Roles') });
+    if (g.canBan)         tabs.push({ key: 'banned', label: t('groups.tabs.banned', 'Banned') });
     const tabsHtml = `<div class="fd-tabs gd-tabs">${tabs.map((t,i) => `<button class="fd-tab${i===0?' active':''}" onclick="switchGdTab('${t.key}',this)">${t.label}</button>`).join('')}</div>`;
 
     const rolesTab   = g.canManageRoles ? _buildRolesTab(g) : '';
@@ -335,8 +371,161 @@ function renderGroupDetail(g) {
         <div id="gdTabMembers" style="display:none;">${membersTab}</div>
         ${g.canManageRoles ? `<div id="gdTabRoles" style="display:none;">${rolesTab}</div>` : ''}
         ${g.canBan ? `<div id="gdTabBanned" style="display:none;">${bannedTab}</div>` : ''}
-        <div style="margin-top:10px;display:flex;justify-content:space-between;align-items:center;"><div style="display:flex;gap:8px;">${createPostBtn}${createEventBtn}${leaveJoinBtn}</div><button class="vrcn-button-round" onclick="document.getElementById('modalDetail').style.display='none'">Close</button></div>
+        <div style="margin-top:10px;display:flex;justify-content:space-between;align-items:center;"><div style="display:flex;gap:8px;">${createPostBtn}${createEventBtn}${leaveJoinBtn}</div><button class="vrcn-button-round" onclick="document.getElementById('modalDetail').style.display='none'">${t('common.close', 'Close')}</button></div>
     </div>`;
+    applyGroupDetailTranslations(g);
+}
+
+function renderGroupEmptyMessage(key, fallback) {
+    return `<div style="padding:20px;text-align:center;font-size:12px;color:var(--tx3);">${t(key, fallback)}</div>`;
+}
+
+function setGroupEditActionLabels(panelId) {
+    const panel = document.getElementById(panelId);
+    if (!panel) return;
+    const buttons = panel.querySelectorAll('.myp-edit-actions button');
+    if (buttons[0]) buttons[0].textContent = t('common.cancel', 'Cancel');
+    if (buttons[1]) buttons[1].textContent = t('common.save', 'Save');
+}
+
+function applyGroupDetailTranslations(g) {
+    const detail = document.getElementById('detailModalContent');
+    if (!detail) return;
+
+    const statusEl = detail.querySelector('.fd-status');
+    if (statusEl) {
+        const parts = [];
+        if (g.shortCode) parts.push(g.shortCode);
+        parts.push(getGroupMembersText(g.memberCount || 0));
+        statusEl.textContent = parts.join(' - ');
+    }
+
+    const tabKeys = [
+        ['info', 'groups.tabs.info', 'Info'],
+        ['posts', 'groups.tabs.posts', 'Posts'],
+        ['events', 'groups.tabs.events', 'Events'],
+        ['instances', 'groups.tabs.live', 'Live'],
+        ['gallery', 'groups.tabs.gallery', 'Gallery'],
+        ['members', 'groups.tabs.members', 'Members'],
+        ['roles', 'groups.tabs.roles', 'Roles'],
+        ['banned', 'groups.tabs.banned', 'Banned'],
+    ];
+    tabKeys.forEach(([key, i18nKey, fallback]) => {
+        const btn = detail.querySelector(`.gd-tabs .fd-tab[onclick*="switchGdTab('${key}'"]`);
+        if (btn) btn.textContent = t(i18nKey, fallback);
+    });
+
+    const titles = detail.querySelectorAll('#gdTabInfo .myp-section-title');
+    if (titles[0]) titles[0].textContent = t('groups.sections.description', 'Description');
+    if (titles[1]) titles[1].textContent = t('groups.sections.links', 'Links');
+    if (titles[2]) titles[2].textContent = t('groups.sections.languages', 'Languages');
+    if (titles[3]) titles[3].textContent = t('groups.sections.rules', 'Rules');
+    if (titles[4]) titles[4].textContent = t('groups.sections.open_members', 'Open to new Members');
+
+    if (!g.description) {
+        const descView = document.getElementById('gdescDescView');
+        if (descView) descView.innerHTML = `<div class="myp-empty">${t('groups.empty.no_description', 'No description')}</div>`;
+    }
+    if (!(g.links || []).filter(Boolean).length) {
+        const linksView = document.getElementById('ggrpLinksView');
+        if (linksView) linksView.innerHTML = `<div class="myp-empty">${t('profiles.my_profile.empty.no_links', 'No links added')}</div>`;
+    }
+    if (!(g.languages || []).length) {
+        const langsView = document.getElementById('ggrpLangsView');
+        if (langsView) langsView.innerHTML = `<div class="myp-empty">${t('profiles.my_profile.empty.no_languages', 'No languages set')}</div>`;
+    }
+    if (!g.rules) {
+        const rulesView = document.getElementById('gdescRulesView');
+        if (rulesView) rulesView.innerHTML = `<div class="myp-empty">${t('groups.empty.no_rules', 'No rules set')}</div>`;
+    }
+    if (!g.joinState) {
+        const joinStateView = document.getElementById('ggrpJoinStateView');
+        if (joinStateView) joinStateView.innerHTML = `<div class="myp-empty">${t('groups.empty.not_set', 'Not set')}</div>`;
+    }
+
+    const descInput = document.getElementById('gdescDescInput');
+    if (descInput) descInput.placeholder = t('groups.placeholders.description', 'Group description...');
+    const rulesInput = document.getElementById('gdescRulesInput');
+    if (rulesInput) rulesInput.placeholder = t('groups.placeholders.rules', 'Group rules...');
+    setGroupEditActionLabels('gdescDescEdit');
+    setGroupEditActionLabels('ggrpLinksEdit');
+    setGroupEditActionLabels('ggrpLangsEdit');
+    setGroupEditActionLabels('gdescRulesEdit');
+    setGroupEditActionLabels('ggrpJoinStateEdit');
+
+    const joinStateSelect = document.getElementById('ggrpJoinStateSelect');
+    if (joinStateSelect) {
+        Array.from(joinStateSelect.options).forEach(opt => {
+            if (opt.value === 'open') opt.textContent = t('groups.join_state.open', 'Open');
+            if (opt.value === 'closed') opt.textContent = t('groups.join_state.closed', 'Closed');
+            if (opt.value === 'invite') opt.textContent = t('groups.join_state.invite_only', 'Invite Only');
+            if (opt.value === 'request') opt.textContent = t('groups.join_state.request_invite', 'Request Invite');
+        });
+    }
+
+    const postBtn = detail.querySelector(`button[onclick*="openGroupPostModal("]`);
+    if (postBtn) postBtn.innerHTML = `<span class="msi" style="font-size:16px;vertical-align:middle;margin-right:4px;">edit</span>${t('groups.actions.post', 'Post')}`;
+    const eventBtn = detail.querySelector(`button[onclick*="openGroupEventModal("]`);
+    if (eventBtn) eventBtn.innerHTML = `<span class="msi" style="font-size:16px;vertical-align:middle;margin-right:4px;">event</span>${t('groups.actions.events', 'Events')}`;
+    const leaveBtn = detail.querySelector(`button[onclick*="vrcLeaveGroup"]`);
+    if (leaveBtn) leaveBtn.innerHTML = `<span class="msi" style="font-size:16px;vertical-align:middle;margin-right:4px;">logout</span>${t('groups.actions.leave_group', 'Leave Group')}`;
+    const joinBtn = detail.querySelector(`button[onclick*="vrcJoinGroup"]`);
+    if (joinBtn) joinBtn.innerHTML = `<span class="msi" style="font-size:16px;vertical-align:middle;margin-right:4px;">group_add</span>${t('groups.actions.join_group', 'Join Group')}`;
+    const footerRow = Array.from(detail.querySelectorAll('div')).find(el => el.getAttribute('style')?.includes('justify-content:space-between'));
+    if (footerRow) {
+        const footerButtons = footerRow.querySelectorAll('button.vrcn-button-round');
+        const closeBtn = footerButtons[footerButtons.length - 1];
+        if (closeBtn) closeBtn.textContent = t('common.close', 'Close');
+    }
+
+    const postsTab = document.getElementById('gdTabPosts');
+    if (postsTab) {
+        if (!(g.posts || []).length) postsTab.innerHTML = renderGroupEmptyMessage('groups.empty.no_posts', 'No posts');
+        postsTab.querySelectorAll('.gd-post-del').forEach(btn => btn.title = t('groups.posts.delete_title', 'Delete post'));
+        postsTab.querySelectorAll('.gd-expand').forEach(link => {
+            if (!link.dataset.expanded) link.dataset.expanded = '0';
+            link.textContent = link.dataset.expanded === '1'
+                ? t('groups.posts.show_less', 'Show less')
+                : t('groups.posts.show_more', 'Show more');
+        });
+    }
+
+    const eventsTab = document.getElementById('gdTabEvents');
+    if (eventsTab) {
+        if (!(g.groupEvents || []).length) eventsTab.innerHTML = renderGroupEmptyMessage('groups.empty.no_events', 'No events');
+        eventsTab.querySelectorAll('.gd-post-del').forEach(btn => btn.title = t('groups.events.delete_title', 'Delete event'));
+    }
+
+    const instancesTab = document.getElementById('gdTabInstances');
+    if (instancesTab) {
+        if (!(g.groupInstances || []).length) {
+            instancesTab.innerHTML = renderGroupEmptyMessage('groups.empty.no_active_instances', 'No active instances');
+        } else {
+            instancesTab.querySelectorAll('.fd-group-card-name').forEach(el => {
+                if (el.textContent.trim() === 'Unknown World') el.textContent = t('dashboard.instances.unknown_world', 'Unknown World');
+            });
+            instancesTab.querySelectorAll('.vrcn-button-round').forEach(btn => {
+                btn.innerHTML = `<span class="msi" style="font-size:14px;">login</span>${t('common.join', 'Join')}`;
+            });
+        }
+    }
+
+    const galleryTab = document.getElementById('gdTabGallery');
+    if (galleryTab && !(g.galleryImages || []).length) galleryTab.innerHTML = renderGroupEmptyMessage('groups.empty.no_gallery_images', 'No gallery images');
+
+    const membersSearch = document.getElementById('gdMembersSearch');
+    if (membersSearch) membersSearch.placeholder = t('groups.members.search_placeholder', 'Search users by name... hit enter');
+    const membersList = document.getElementById('gdMembersList');
+    if (membersList && !(g.groupMembers || []).length) membersList.innerHTML = renderGroupEmptyMessage('groups.empty.no_members', 'No members');
+    const loadMore = document.getElementById('gdMembersLoadMore');
+    if (loadMore) {
+        if ((g.groupMembers || []).length >= 50) {
+            const btn = loadMore.querySelector('button');
+            if (btn) btn.textContent = t('groups.members.load_more', 'Load More Members');
+        } else if ((g.groupMembers || []).length > 0) {
+            loadMore.innerHTML = `<div style="font-size:11px;color:var(--tx3);">${t('groups.members.all_loaded', 'All members loaded')}</div>`;
+        }
+    }
 }
 
 function renderGroupMemberCard(m) {
@@ -419,7 +608,7 @@ function _renderGrpLangsEdit() {
     _renderGrpLangChips(selected, document.getElementById('ggrpLangsChips'));
     const sel = document.getElementById('ggrpLangSelect');
     if (!sel) return;
-    sel.innerHTML = '<option value="">Add language...</option>';
+    sel.innerHTML = `<option value="">${t('profiles.my_profile.add_language', 'Add language...')}</option>`;
     Object.entries(LANG_MAP).forEach(([key, name]) => {
         const code = key.replace('language_', '');
         if (!selected.includes(code))
@@ -457,7 +646,7 @@ function removeGrpLanguage(code) {
 function loadMoreGroupMembers() {
     if (!window._gdMembersGroupId || window._gdMembersSearchActive) return;
     const btn = document.querySelector('#gdMembersLoadMore button');
-    if (btn) { btn.textContent = 'Loading...'; btn.disabled = true; }
+    if (btn) { btn.textContent = t('common.loading', 'Loading...'); btn.disabled = true; }
     sendToCS({ action: 'vrcGetGroupMembers', groupId: window._gdMembersGroupId, offset: window._gdMembersOffset || 0 });
 }
 
@@ -469,7 +658,7 @@ function searchGroupMembers() {
         window._gdMembersSearchActive = false;
         window._gdMembersOffset = 0;
         const list = document.getElementById('gdMembersList');
-        if (list) list.innerHTML = '<div style="padding:16px;text-align:center;font-size:12px;color:var(--tx3);">Loading...</div>';
+        if (list) list.innerHTML = renderGroupEmptyMessage('common.loading', 'Loading...');
         const lm = document.getElementById('gdMembersLoadMore');
         if (lm) lm.innerHTML = '';
         sendToCS({ action: 'vrcGetGroupMembers', groupId: window._gdMembersGroupId, offset: 0 });
@@ -477,7 +666,7 @@ function searchGroupMembers() {
     }
     window._gdMembersSearchActive = true;
     const list = document.getElementById('gdMembersList');
-    if (list) list.innerHTML = '<div style="padding:16px;text-align:center;font-size:12px;color:var(--tx3);">Searching...</div>';
+    if (list) list.innerHTML = renderGroupEmptyMessage('groups.members.searching', 'Searching...');
     const lm = document.getElementById('gdMembersLoadMore');
     if (lm) lm.innerHTML = '';
     sendToCS({ action: 'vrcSearchGroupMembers', groupId: window._gdMembersGroupId, query: q });
@@ -497,12 +686,15 @@ function toggleGPost(i) {
     const el = document.getElementById('gpost' + i);
     const link = el?.parentElement?.querySelector('.gd-expand');
     if (!el || !link) return;
-    if (link.textContent === 'Show more') {
+    const expanded = link.dataset.expanded === '1';
+    if (!expanded) {
         el.textContent = el.dataset.full;
-        link.textContent = 'Show less';
+        link.dataset.expanded = '1';
+        link.textContent = t('groups.posts.show_less', 'Show less');
     } else {
         el.textContent = el.dataset.preview;
-        link.textContent = 'Show more';
+        link.dataset.expanded = '0';
+        link.textContent = t('groups.posts.show_more', 'Show more');
     }
 }
 
@@ -527,6 +719,10 @@ let _groupPostGroupId = null;
 let _groupPostImageBase64 = null;
 let _groupPostSelectedFileId = null; // file_xxx from library picker
 
+function renderGroupImageUploadTile(onclickHandler) {
+    return `<div style="width:100%;aspect-ratio:1;border-radius:6px;cursor:pointer;background:var(--bg-input);border:1.5px dashed var(--border);display:flex;align-items:center;justify-content:center;flex-shrink:0;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'" onclick="${onclickHandler}()" title="${esc(t('groups.common.upload_new_photo', 'Upload new photo'))}"><span class="msi" style="font-size:22px;color:var(--tx3);pointer-events:none;">add_photo_alternate</span></div>`;
+}
+
 function openGroupPostModal(groupId) {
     _groupPostGroupId = groupId;
     _groupPostImageBase64 = null;
@@ -540,39 +736,39 @@ function openGroupPostModal(groupId) {
         document.body.appendChild(overlay);
     }
     overlay.innerHTML = `
-    <div class="gp-modal" role="dialog" aria-label="Create Group Post">
+    <div class="gp-modal" role="dialog" aria-label="${esc(t('groups.posts.modal.aria_label', 'Create Group Post'))}">
         <div class="gp-modal-header">
             <span class="msi" style="font-size:20px;color:var(--accent);">edit</span>
-            <span>Create Group Post</span>
+            <span>${t('groups.posts.modal.title', 'Create Group Post')}</span>
         </div>
         <div class="gp-modal-body">
-            <label class="gp-label">Title</label>
-            <input id="gpTitle" class="vrcn-edit-field" type="text" placeholder="Post title..." maxlength="200" style="width:100%;">
-            <label class="gp-label" style="margin-top:12px;">Content</label>
-            <textarea id="gpText" class="gp-textarea" placeholder="What's on your mind?" rows="5" maxlength="2000"></textarea>
+            <label class="gp-label">${t('groups.posts.fields.title', 'Title')}</label>
+            <input id="gpTitle" class="vrcn-edit-field" type="text" placeholder="${esc(t('groups.posts.fields.title_placeholder', 'Post title...'))}" maxlength="200" style="width:100%;">
+            <label class="gp-label" style="margin-top:12px;">${t('groups.posts.fields.content', 'Content')}</label>
+            <textarea id="gpText" class="gp-textarea" placeholder="${esc(t('groups.posts.fields.content_placeholder', "What's on your mind?"))}" rows="5" maxlength="2000"></textarea>
             <div style="display:flex;gap:12px;margin-top:12px;flex-wrap:wrap;">
                 <div style="flex:1;min-width:130px;">
-                    <label class="gp-label">Visibility</label>
+                    <label class="gp-label">${t('groups.posts.fields.visibility', 'Visibility')}</label>
                     <select id="gpVisibility" class="wd-create-select" style="width:100%">
-                        <option value="group">Group only</option>
-                        <option value="public">Public</option>
+                        <option value="group">${t('groups.common.group_only', 'Group only')}</option>
+                        <option value="public">${t('groups.common.public', 'Public')}</option>
                     </select>
                 </div>
                 <div style="flex:1;min-width:130px;">
-                    <label class="gp-label">Notification</label>
+                    <label class="gp-label">${t('groups.posts.fields.notification', 'Notification')}</label>
                     <select id="gpNotify" class="wd-create-select" style="width:100%">
-                        <option value="0">No notification</option>
-                        <option value="1">Send notification</option>
+                        <option value="0">${t('groups.common.no_notification', 'No notification')}</option>
+                        <option value="1">${t('groups.common.send_notification', 'Send notification')}</option>
                     </select>
                 </div>
             </div>
-            <label class="gp-label" style="margin-top:12px;">Image <span style="color:var(--tx3);font-weight:400;">(optional)</span></label>
+            <label class="gp-label" style="margin-top:12px;">${t('groups.posts.fields.image', 'Image')} <span style="color:var(--tx3);font-weight:400;">(${t('groups.common.optional', 'optional')})</span></label>
             <div id="gpImgGrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(72px,1fr));gap:6px;max-height:180px;overflow-y:auto;padding:4px 0;"></div>
             <div id="gpError" style="display:none;margin-top:8px;padding:8px 10px;background:rgba(255,80,80,.12);border-radius:8px;color:var(--err);font-size:12px;"></div>
         </div>
         <div class="gp-modal-footer">
-            <button class="vrcn-button-round vrcn-btn-join" id="gpSubmitBtn" onclick="submitGroupPost()"><span class="msi" style="font-size:16px;vertical-align:middle;margin-right:4px;">send</span>Post</button>
-            <button class="vrcn-button-round" onclick="closeGroupPostModal()" style="margin-left:auto;">Cancel</button>
+            <button class="vrcn-button-round vrcn-btn-join" id="gpSubmitBtn" onclick="submitGroupPost()"><span class="msi" style="font-size:16px;vertical-align:middle;margin-right:4px;">send</span>${t('groups.posts.submit', 'Post')}</button>
+            <button class="vrcn-button-round" onclick="closeGroupPostModal()" style="margin-left:auto;">${t('common.cancel', 'Cancel')}</button>
         </div>
     </div>`;
     initAllVnSelects();
@@ -583,13 +779,12 @@ function openGroupPostModal(groupId) {
     else sendToCS({ action: 'invGetFiles', tag: 'gallery' });
 }
 
-const _GP_PLUS_TILE = `<div style="width:100%;aspect-ratio:1;border-radius:6px;cursor:pointer;background:var(--bg-input);border:1.5px dashed var(--border);display:flex;align-items:center;justify-content:center;flex-shrink:0;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'" onclick="gpOpenUpload()" title="Upload new photo"><span class="msi" style="font-size:22px;color:var(--tx3);pointer-events:none;">add_photo_alternate</span></div>`;
-
 function renderGpImgGrid(files) {
     const grid = document.getElementById('gpImgGrid');
     if (!grid) return;
-    if (!files || !files.length) { grid.innerHTML = _GP_PLUS_TILE; return; }
-    grid.innerHTML = _GP_PLUS_TILE + files.map(f => {
+    const plusTile = renderGroupImageUploadTile('gpOpenUpload');
+    if (!files || !files.length) { grid.innerHTML = plusTile; return; }
+    grid.innerHTML = plusTile + files.map(f => {
         const url = f.fileUrl || '';
         if (!url) return '';
         const fid = jsq(f.id || '');
@@ -637,12 +832,12 @@ function submitGroupPost() {
     const sendNotification = document.getElementById('gpNotify')?.value === '1';
     const errEl = document.getElementById('gpError');
 
-    if (!title) { if (errEl) { errEl.textContent = 'Title is required.'; errEl.style.display = ''; } return; }
-    if (!text) { if (errEl) { errEl.textContent = 'Content is required.'; errEl.style.display = ''; } return; }
+    if (!title) { if (errEl) { errEl.textContent = t('groups.posts.validation.title_required', 'Title is required.'); errEl.style.display = ''; } return; }
+    if (!text) { if (errEl) { errEl.textContent = t('groups.posts.validation.content_required', 'Content is required.'); errEl.style.display = ''; } return; }
     if (errEl) errEl.style.display = 'none';
 
     const btn = document.getElementById('gpSubmitBtn');
-    if (btn) { btn.disabled = true; btn.innerHTML = '<span class="msi" style="font-size:16px;vertical-align:middle;margin-right:4px;">hourglass_empty</span>Posting...'; }
+    if (btn) { btn.disabled = true; btn.innerHTML = `<span class="msi" style="font-size:16px;vertical-align:middle;margin-right:4px;">hourglass_empty</span>${t('groups.posts.submitting', 'Posting...')}`; }
 
     const payload = {
         action: 'vrcCreateGroupPost',
@@ -667,11 +862,44 @@ let _gevDpHour = 12;   // 0-23 (internal always 24h)
 let _gevDpMin  = 0;
 let _gevDp24h  = false;
 
-const _GEV_DP_MONTHS = ['January','February','March','April','May','June',
-                        'July','August','September','October','November','December'];
+function _gevDpDateLocale() {
+    return t('clock.date_locale', 'en-US');
+}
+
+function _gevDpTimeLocale() {
+    return t('clock.time_locale', _gevDpDateLocale());
+}
+
+function _gevDpAmLabel() {
+    return t('groups.date_picker.am', 'AM');
+}
+
+function _gevDpPmLabel() {
+    return t('groups.date_picker.pm', 'PM');
+}
+
+function _gevDpWeekdaysHtml() {
+    const fmt = new Intl.DateTimeFormat(_gevDpDateLocale(), { weekday: 'short' });
+    return Array.from({ length: 7 }, (_, index) => fmt.format(new Date(2024, 0, 7 + index)))
+        .map(label => `<div class="tl-dp-wd">${esc(label)}</div>`)
+        .join('');
+}
+
+function _gevDpMonthLabel(year, month) {
+    return new Intl.DateTimeFormat(_gevDpDateLocale(), { month: 'long', year: 'numeric' }).format(new Date(year, month, 1));
+}
 
 function _ensureGevDp() {
-    if (document.getElementById('gevDatePicker')) return;
+    const existing = document.getElementById('gevDatePicker');
+    if (existing) {
+        const weekdays = existing.querySelector('.tl-dp-weekdays');
+        if (weekdays) weekdays.innerHTML = _gevDpWeekdaysHtml();
+        const nowBtn = existing.querySelector('[data-gev-now]');
+        if (nowBtn) nowBtn.textContent = t('groups.date_picker.now', 'Now');
+        const okBtn = existing.querySelector('[data-gev-confirm]');
+        if (okBtn) okBtn.textContent = t('groups.date_picker.confirm', 'OK');
+        return;
+    }
     const el = document.createElement('div');
     el.id = 'gevDatePicker';
     el.className = 'tl-date-picker';
@@ -682,22 +910,19 @@ function _ensureGevDp() {
             <span id="gevDpMonthLabel" class="tl-dp-month-label"></span>
             <button class="tl-dp-nav" onclick="gevDpNavMonth(1)"><span class="msi" style="font-size:16px;">chevron_right</span></button>
         </div>
-        <div class="tl-dp-weekdays">
-            <div class="tl-dp-wd">Su</div><div class="tl-dp-wd">Mo</div><div class="tl-dp-wd">Tu</div>
-            <div class="tl-dp-wd">We</div><div class="tl-dp-wd">Th</div><div class="tl-dp-wd">Fr</div><div class="tl-dp-wd">Sa</div>
-        </div>
+        <div class="tl-dp-weekdays">${_gevDpWeekdaysHtml()}</div>
         <div id="gevDpDaysGrid" class="tl-dp-days"></div>
         <div style="display:flex;align-items:center;gap:6px;margin-top:10px;padding-top:10px;border-top:1px solid var(--brd);">
             <span class="msi" style="font-size:15px;color:var(--tx3);">schedule</span>
             <input id="gevDpHourInput" class="gev-dp-time-input" type="number" min="1" max="12" oninput="gevDpTimeChanged()">
             <span style="color:var(--tx2);font-weight:700;font-size:15px;">:</span>
             <input id="gevDpMinInput" class="gev-dp-time-input" type="number" min="0" max="59" oninput="gevDpTimeChanged()">
-            <button id="gevDpAmPmBtn" class="gev-dp-ampm-btn" onclick="gevDpToggleAmPm()">AM</button>
+            <button id="gevDpAmPmBtn" class="gev-dp-ampm-btn" onclick="gevDpToggleAmPm()">${t('groups.date_picker.am', 'AM')}</button>
             <button id="gevDp24hBtn" class="gev-dp-24h-btn" onclick="gevDpToggle24h()">24h</button>
         </div>
         <div class="tl-dp-footer">
-            <button class="vrcn-button-round" style="flex:1;justify-content:center;" onclick="gevDpNow()">Now</button>
-            <button class="vrcn-button-round vrcn-btn-join" style="flex:1;justify-content:center;" onclick="gevDpConfirm()">OK</button>
+            <button class="vrcn-button-round" style="flex:1;justify-content:center;" onclick="gevDpNow()" data-gev-now>${t('groups.date_picker.now', 'Now')}</button>
+            <button class="vrcn-button-round vrcn-btn-join" style="flex:1;justify-content:center;" onclick="gevDpConfirm()" data-gev-confirm>${t('groups.date_picker.confirm', 'OK')}</button>
         </div>`;
     document.body.appendChild(el);
 }
@@ -707,41 +932,6 @@ function _gevDpFmtDate(year, month, day) {
     return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
 }
 
-function _gevDpFormatDisplay(dateStr, hour, min, use24) {
-    const d   = new Date(dateStr + 'T00:00:00');
-    const dow = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][d.getDay()];
-    const mon = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][d.getMonth()];
-    let timeStr;
-    if (use24) {
-        timeStr = `${String(hour).padStart(2,'0')}:${String(min).padStart(2,'0')}`;
-    } else {
-        const ap = hour < 12 ? 'AM' : 'PM';
-        let h12 = hour % 12; if (h12 === 0) h12 = 12;
-        timeStr = `${h12}:${String(min).padStart(2,'0')} ${ap}`;
-    }
-    return `${dow}, ${mon} ${d.getDate()} · ${timeStr}`;
-}
-
-function _gevDpSyncTimeInputs() {
-    const hInput  = document.getElementById('gevDpHourInput');
-    const mInput  = document.getElementById('gevDpMinInput');
-    const ampmBtn = document.getElementById('gevDpAmPmBtn');
-    const h24Btn  = document.getElementById('gevDp24hBtn');
-    if (!hInput) return;
-    if (_gevDp24h) {
-        hInput.min = '0'; hInput.max = '23';
-        hInput.value = String(_gevDpHour).padStart(2,'0');
-        if (ampmBtn) ampmBtn.style.display = 'none';
-        if (h24Btn)  h24Btn.classList.add('active');
-    } else {
-        hInput.min = '1'; hInput.max = '12';
-        let h12 = _gevDpHour % 12; if (h12 === 0) h12 = 12;
-        hInput.value = h12;
-        if (ampmBtn) { ampmBtn.textContent = _gevDpHour < 12 ? 'AM' : 'PM'; ampmBtn.style.display = ''; }
-        if (h24Btn)  h24Btn.classList.remove('active');
-    }
-    if (mInput) mInput.value = String(_gevDpMin).padStart(2,'0');
-}
 
 function openGevDp(target) {
     _ensureGevDp();
@@ -790,16 +980,71 @@ function _gevDpOutside(e) {
     }
 }
 
+function gevDpNavMonth(dir) {
+    _gevDpMonth += dir;
+    if (_gevDpMonth < 0)  { _gevDpMonth = 11; _gevDpYear--; }
+    if (_gevDpMonth > 11) { _gevDpMonth = 0;  _gevDpYear++; }
+    renderGevDpCalendar();
+}
+
+function gevDpSelectDate(ds) { _gevDpSelDate = ds; renderGevDpCalendar(); }
+
+function gevDpToggle24h() {
+    gevDpTimeChanged();
+    _gevDp24h = !_gevDp24h;
+    _gevDpSyncTimeInputs();
+}
+
+function _gevDpFormatDisplay(dateStr, hour, min, use24) {
+    const d = new Date(dateStr + 'T00:00:00');
+    d.setHours(hour, min, 0, 0);
+    return new Intl.DateTimeFormat(use24 ? _gevDpDateLocale() : _gevDpTimeLocale(), {
+        weekday: 'short',
+        month: 'short',
+        day: 'numeric',
+        hour: 'numeric',
+        minute: '2-digit',
+        hour12: !use24,
+    }).format(d);
+}
+
+function _gevDpSyncTimeInputs() {
+    const hInput  = document.getElementById('gevDpHourInput');
+    const mInput  = document.getElementById('gevDpMinInput');
+    const ampmBtn = document.getElementById('gevDpAmPmBtn');
+    const h24Btn  = document.getElementById('gevDp24hBtn');
+    if (!hInput) return;
+    if (_gevDp24h) {
+        hInput.min = '0';
+        hInput.max = '23';
+        hInput.value = String(_gevDpHour).padStart(2, '0');
+        if (ampmBtn) ampmBtn.style.display = 'none';
+        if (h24Btn) h24Btn.classList.add('active');
+    } else {
+        hInput.min = '1';
+        hInput.max = '12';
+        let h12 = _gevDpHour % 12;
+        if (h12 === 0) h12 = 12;
+        hInput.value = h12;
+        if (ampmBtn) {
+            ampmBtn.textContent = _gevDpHour < 12 ? _gevDpAmLabel() : _gevDpPmLabel();
+            ampmBtn.style.display = '';
+        }
+        if (h24Btn) h24Btn.classList.remove('active');
+    }
+    if (mInput) mInput.value = String(_gevDpMin).padStart(2, '0');
+}
+
 function renderGevDpCalendar() {
     const label = document.getElementById('gevDpMonthLabel');
-    const grid  = document.getElementById('gevDpDaysGrid');
+    const grid = document.getElementById('gevDpDaysGrid');
     if (!label || !grid) return;
-    label.textContent = _GEV_DP_MONTHS[_gevDpMonth] + ' ' + _gevDpYear;
-    const today    = new Date();
+    label.textContent = _gevDpMonthLabel(_gevDpYear, _gevDpMonth);
+    const today = new Date();
     const todayStr = _gevDpFmtDate(today.getFullYear(), today.getMonth(), today.getDate());
-    const firstDow    = new Date(_gevDpYear, _gevDpMonth, 1).getDay();
+    const firstDow = new Date(_gevDpYear, _gevDpMonth, 1).getDay();
     const daysInMonth = new Date(_gevDpYear, _gevDpMonth + 1, 0).getDate();
-    const daysInPrev  = new Date(_gevDpYear, _gevDpMonth, 0).getDate();
+    const daysInPrev = new Date(_gevDpYear, _gevDpMonth, 0).getDate();
     let html = '';
     for (let i = firstDow - 1; i >= 0; i--) {
         const d = daysInPrev - i;
@@ -807,7 +1052,7 @@ function renderGevDpCalendar() {
         html += `<button class="tl-dp-day other-month${ds === _gevDpSelDate ? ' selected' : ''}" onclick="gevDpSelectDate('${ds}')">${d}</button>`;
     }
     for (let d = 1; d <= daysInMonth; d++) {
-        const ds  = _gevDpFmtDate(_gevDpYear, _gevDpMonth, d);
+        const ds = _gevDpFmtDate(_gevDpYear, _gevDpMonth, d);
         const cls = (ds === todayStr ? ' today' : '') + (ds === _gevDpSelDate ? ' selected' : '');
         html += `<button class="tl-dp-day${cls}" onclick="gevDpSelectDate('${ds}')">${d}</button>`;
     }
@@ -820,26 +1065,17 @@ function renderGevDpCalendar() {
     grid.innerHTML = html;
 }
 
-function gevDpNavMonth(dir) {
-    _gevDpMonth += dir;
-    if (_gevDpMonth < 0)  { _gevDpMonth = 11; _gevDpYear--; }
-    if (_gevDpMonth > 11) { _gevDpMonth = 0;  _gevDpYear++; }
-    renderGevDpCalendar();
-}
-
-function gevDpSelectDate(ds) { _gevDpSelDate = ds; renderGevDpCalendar(); }
-
 function gevDpTimeChanged() {
     const hInput = document.getElementById('gevDpHourInput');
     const mInput = document.getElementById('gevDpMinInput');
     if (!hInput) return;
     let h = parseInt(hInput.value) || 0;
-    let m = Math.max(0, Math.min(59, parseInt(mInput.value) || 0));
+    const m = Math.max(0, Math.min(59, parseInt(mInput.value) || 0));
     if (_gevDp24h) {
         _gevDpHour = Math.max(0, Math.min(23, h));
     } else {
         h = Math.max(1, Math.min(12, h));
-        const isAm = document.getElementById('gevDpAmPmBtn')?.textContent === 'AM';
+        const isAm = document.getElementById('gevDpAmPmBtn')?.textContent === _gevDpAmLabel();
         _gevDpHour = (h === 12 ? 0 : h) + (isAm ? 0 : 12);
     }
     _gevDpMin = m;
@@ -848,14 +1084,13 @@ function gevDpTimeChanged() {
 function gevDpToggleAmPm() {
     const btn = document.getElementById('gevDpAmPmBtn');
     if (!btn) return;
-    if (_gevDpHour < 12) { _gevDpHour += 12; btn.textContent = 'PM'; }
-    else                  { _gevDpHour -= 12; btn.textContent = 'AM'; }
-}
-
-function gevDpToggle24h() {
-    gevDpTimeChanged();
-    _gevDp24h = !_gevDp24h;
-    _gevDpSyncTimeInputs();
+    if (_gevDpHour < 12) {
+        _gevDpHour += 12;
+        btn.textContent = _gevDpPmLabel();
+    } else {
+        _gevDpHour -= 12;
+        btn.textContent = _gevDpAmLabel();
+    }
 }
 
 function gevDpNow() {
@@ -918,26 +1153,26 @@ function openGroupEventModal(groupId) {
         document.body.appendChild(overlay);
     }
     overlay.innerHTML = `
-    <div class="gp-modal" role="dialog" aria-label="Create Group Event" style="max-height:calc(100vh - 32px);overflow-y:auto;">
+    <div class="gp-modal" role="dialog" aria-label="${esc(t('groups.events.modal.aria_label', 'Create Group Event'))}" style="max-height:calc(100vh - 32px);overflow-y:auto;">
         <div class="gp-modal-header">
             <span class="msi" style="font-size:20px;color:var(--accent);">event</span>
-            <span>Create Group Event</span>
+            <span>${t('groups.events.modal.title', 'Create Group Event')}</span>
         </div>
         <div class="gp-modal-body">
-            <label class="gp-label">Event Name</label>
-            <input id="gevName" class="vrcn-edit-field" type="text" placeholder="Event name..." maxlength="64" style="width:100%;">
+            <label class="gp-label">${t('groups.events.fields.name', 'Event Name')}</label>
+            <input id="gevName" class="vrcn-edit-field" type="text" placeholder="${esc(t('groups.events.fields.name_placeholder', 'Event name...'))}" maxlength="64" style="width:100%;">
 
-            <label class="gp-label" style="margin-top:12px;">Description</label>
-            <textarea id="gevDesc" class="gp-textarea" placeholder="What's happening?" rows="4" maxlength="2000"></textarea>
+            <label class="gp-label" style="margin-top:12px;">${t('groups.events.fields.description', 'Description')}</label>
+            <textarea id="gevDesc" class="gp-textarea" placeholder="${esc(t('groups.events.fields.description_placeholder', "What's happening?"))}" rows="4" maxlength="2000"></textarea>
 
             <div style="display:flex;gap:12px;margin-top:12px;flex-wrap:wrap;">
                 <div style="flex:1;min-width:160px;">
-                    <label class="gp-label">Start</label>
+                    <label class="gp-label">${t('groups.events.fields.start', 'Start')}</label>
                     <div class="gp-input gev-dt-trigger" id="gevStartDisplay" onclick="openGevDp('start')"></div>
                     <input type="hidden" id="gevStart">
                 </div>
                 <div style="flex:1;min-width:160px;">
-                    <label class="gp-label">End</label>
+                    <label class="gp-label">${t('groups.events.fields.end', 'End')}</label>
                     <div class="gp-input gev-dt-trigger" id="gevEndDisplay" onclick="openGevDp('end')"></div>
                     <input type="hidden" id="gevEnd">
                 </div>
@@ -945,48 +1180,48 @@ function openGroupEventModal(groupId) {
 
             <div style="display:flex;gap:12px;margin-top:12px;flex-wrap:wrap;">
                 <div style="flex:1;min-width:130px;">
-                    <label class="gp-label">Category</label>
+                    <label class="gp-label">${t('groups.events.fields.category', 'Category')}</label>
                     <select id="gevCategory" class="wd-create-select" style="width:100%">
-                        <option value="hangout">Hangout</option>
-                        <option value="gaming">Gaming</option>
-                        <option value="music">Music</option>
-                        <option value="dance">Dance</option>
-                        <option value="performance">Performance</option>
-                        <option value="arts">Arts</option>
-                        <option value="education">Education</option>
-                        <option value="exploration">Exploration</option>
-                        <option value="film_media">Film & Media</option>
-                        <option value="roleplaying">Roleplaying</option>
-                        <option value="wellness">Wellness</option>
-                        <option value="avatars">Avatars</option>
-                        <option value="other">Other</option>
+                        <option value="hangout">${t('groups.events.categories.hangout', 'Hangout')}</option>
+                        <option value="gaming">${t('groups.events.categories.gaming', 'Gaming')}</option>
+                        <option value="music">${t('groups.events.categories.music', 'Music')}</option>
+                        <option value="dance">${t('groups.events.categories.dance', 'Dance')}</option>
+                        <option value="performance">${t('groups.events.categories.performance', 'Performance')}</option>
+                        <option value="arts">${t('groups.events.categories.arts', 'Arts')}</option>
+                        <option value="education">${t('groups.events.categories.education', 'Education')}</option>
+                        <option value="exploration">${t('groups.events.categories.exploration', 'Exploration')}</option>
+                        <option value="film_media">${t('groups.events.categories.film_media', 'Film & Media')}</option>
+                        <option value="roleplaying">${t('groups.events.categories.roleplaying', 'Roleplaying')}</option>
+                        <option value="wellness">${t('groups.events.categories.wellness', 'Wellness')}</option>
+                        <option value="avatars">${t('groups.events.categories.avatars', 'Avatars')}</option>
+                        <option value="other">${t('groups.events.categories.other', 'Other')}</option>
                     </select>
                 </div>
                 <div style="flex:1;min-width:130px;">
-                    <label class="gp-label">Access Type</label>
+                    <label class="gp-label">${t('groups.events.fields.access_type', 'Access Type')}</label>
                     <select id="gevAccess" class="wd-create-select" style="width:100%">
-                        <option value="group">Group only</option>
-                        <option value="public">Public</option>
+                        <option value="group">${t('groups.common.group_only', 'Group only')}</option>
+                        <option value="public">${t('groups.common.public', 'Public')}</option>
                     </select>
                 </div>
             </div>
 
             <div style="margin-top:12px;">
-                <label class="gp-label">Notification</label>
+                <label class="gp-label">${t('groups.events.fields.notification', 'Notification')}</label>
                 <select id="gevNotify" class="wd-create-select" style="width:100%">
-                    <option value="0">No notification</option>
-                    <option value="1">Send notification</option>
+                    <option value="0">${t('groups.common.no_notification', 'No notification')}</option>
+                    <option value="1">${t('groups.common.send_notification', 'Send notification')}</option>
                 </select>
             </div>
 
-            <label class="gp-label" style="margin-top:12px;">Image <span style="color:var(--tx3);font-weight:400;">(optional)</span></label>
+            <label class="gp-label" style="margin-top:12px;">${t('groups.events.fields.image', 'Image')} <span style="color:var(--tx3);font-weight:400;">(${t('groups.common.optional', 'optional')})</span></label>
             <div id="gevImgGrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(72px,1fr));gap:6px;max-height:180px;overflow-y:auto;padding:4px 0;"></div>
 
             <div id="gevError" style="display:none;margin-top:8px;padding:8px 10px;background:rgba(255,80,80,.12);border-radius:8px;color:var(--err);font-size:12px;"></div>
         </div>
         <div class="gp-modal-footer">
-            <button class="vrcn-button-round vrcn-btn-join" id="gevSubmitBtn" onclick="submitGroupEvent()"><span class="msi" style="font-size:16px;vertical-align:middle;margin-right:4px;">event</span>Create Event</button>
-            <button class="vrcn-button-round" onclick="closeGroupEventModal()" style="margin-left:auto;">Cancel</button>
+            <button class="vrcn-button-round vrcn-btn-join" id="gevSubmitBtn" onclick="submitGroupEvent()"><span class="msi" style="font-size:16px;vertical-align:middle;margin-right:4px;">event</span>${t('groups.events.submit', 'Create Event')}</button>
+            <button class="vrcn-button-round" onclick="closeGroupEventModal()" style="margin-left:auto;">${t('common.cancel', 'Cancel')}</button>
         </div>
     </div>`;
     initAllVnSelects();
@@ -999,13 +1234,12 @@ function openGroupEventModal(groupId) {
     else sendToCS({ action: 'invGetFiles', tag: 'gallery' });
 }
 
-const _GEV_PLUS_TILE = `<div style="width:100%;aspect-ratio:1;border-radius:6px;cursor:pointer;background:var(--bg-input);border:1.5px dashed var(--border);display:flex;align-items:center;justify-content:center;flex-shrink:0;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'" onclick="gevOpenUpload()" title="Upload new photo"><span class="msi" style="font-size:22px;color:var(--tx3);pointer-events:none;">add_photo_alternate</span></div>`;
-
 function renderGevImgGrid(files) {
     const grid = document.getElementById('gevImgGrid');
     if (!grid) return;
-    if (!files || !files.length) { grid.innerHTML = _GEV_PLUS_TILE; return; }
-    grid.innerHTML = _GEV_PLUS_TILE + files.map(f => {
+    const plusTile = renderGroupImageUploadTile('gevOpenUpload');
+    if (!files || !files.length) { grid.innerHTML = plusTile; return; }
+    grid.innerHTML = plusTile + files.map(f => {
         const url = f.fileUrl || '';
         if (!url) return '';
         const fid = jsq(f.id || '');
@@ -1056,15 +1290,15 @@ function submitGroupEvent() {
     const sendCreationNotification = document.getElementById('gevNotify')?.value === '1';
     const errEl = document.getElementById('gevError');
 
-    if (!title) { if (errEl) { errEl.textContent = 'Event name is required.'; errEl.style.display = ''; } return; }
-    if (!description) { if (errEl) { errEl.textContent = 'Description is required.'; errEl.style.display = ''; } return; }
-    if (!startVal) { if (errEl) { errEl.textContent = 'Start date/time is required.'; errEl.style.display = ''; } return; }
-    if (!endVal) { if (errEl) { errEl.textContent = 'End date/time is required.'; errEl.style.display = ''; } return; }
-    if (new Date(endVal) <= new Date(startVal)) { if (errEl) { errEl.textContent = 'End must be after start.'; errEl.style.display = ''; } return; }
+    if (!title) { if (errEl) { errEl.textContent = t('groups.events.validation.name_required', 'Event name is required.'); errEl.style.display = ''; } return; }
+    if (!description) { if (errEl) { errEl.textContent = t('groups.events.validation.description_required', 'Description is required.'); errEl.style.display = ''; } return; }
+    if (!startVal) { if (errEl) { errEl.textContent = t('groups.events.validation.start_required', 'Start date/time is required.'); errEl.style.display = ''; } return; }
+    if (!endVal) { if (errEl) { errEl.textContent = t('groups.events.validation.end_required', 'End date/time is required.'); errEl.style.display = ''; } return; }
+    if (new Date(endVal) <= new Date(startVal)) { if (errEl) { errEl.textContent = t('groups.events.validation.end_after_start', 'End must be after start.'); errEl.style.display = ''; } return; }
     if (errEl) errEl.style.display = 'none';
 
     const btn = document.getElementById('gevSubmitBtn');
-    if (btn) { btn.disabled = true; btn.innerHTML = '<span class="msi" style="font-size:16px;vertical-align:middle;margin-right:4px;">hourglass_empty</span>Creating...'; }
+    if (btn) { btn.disabled = true; btn.innerHTML = `<span class="msi" style="font-size:16px;vertical-align:middle;margin-right:4px;">hourglass_empty</span>${t('groups.events.submitting', 'Creating...')}`; }
 
     const payload = {
         action: 'vrcCreateGroupEvent',
@@ -1115,6 +1349,27 @@ const ROLE_PERM_DEFS = [
     { key: 'group-instance-join',                label: 'Join Group Instances',                desc: 'Join group instances.' },
 ];
 
+function getRolePermissionLabel(def) {
+    return t(`groups.roles.permissions.${def.key}.label`, def.label);
+}
+
+function getRolePermissionDescription(def) {
+    return t(`groups.roles.permissions.${def.key}.desc`, def.desc);
+}
+
+function getRoleMetaText(role) {
+    const parts = [];
+    if ((role.permissions || []).includes('*')) {
+        parts.push(`* (${t('groups.roles.meta.all', 'all')})`);
+    } else {
+        const count = (role.permissions || []).length;
+        parts.push(`${count} ${t(count === 1 ? 'groups.roles.meta.permission_one' : 'groups.roles.meta.permission_other', count === 1 ? 'permission' : 'permissions')}`);
+    }
+    if (role.isAddedOnJoin) parts.push(t('groups.roles.meta.auto_join', 'Auto-join'));
+    if (role.isSelfAssignable) parts.push(t('groups.roles.meta.self_assign', 'Self-assign'));
+    return parts.join(' - ');
+}
+
 function _buildRoleEditor(role, groupId, canManage, isSystemRole) {
     const rid = esc(role.id);
     const gid = jsq(groupId);
@@ -1122,28 +1377,28 @@ function _buildRoleEditor(role, groupId, canManage, isSystemRole) {
     const dis = (canManage && !isOwner) ? '' : 'disabled';
     const generalHtml = `
     <div class="gd-role-section">
-        <div class="gd-role-section-title">General</div>
+        <div class="gd-role-section-title">${t('groups.roles.general', 'General')}</div>
         <div class="sf-row" style="margin-bottom:8px;">
-            <label style="font-size:12px;color:var(--tx2);min-width:50px;">Name</label>
+            <label style="font-size:12px;color:var(--tx2);min-width:50px;">${t('groups.roles.name', 'Name')}</label>
             <input id="grole-name-${rid}" class="vrcn-edit-field" value="${esc(role.name)}" maxlength="64" style="flex:1;" ${dis}>
         </div>
-        <div class="sf-toggle-row"><span>Assign On Join</span>
+        <div class="sf-toggle-row"><span>${t('groups.roles.assign_on_join', 'Assign On Join')}</span>
             <label class="toggle"><input type="checkbox" id="grole-join-${rid}" ${role.isAddedOnJoin ? 'checked' : ''} ${dis}><div class="toggle-track"><div class="toggle-knob"></div></div></label></div>
-        <div class="sf-toggle-row"><span>Self Assignable</span>
+        <div class="sf-toggle-row"><span>${t('groups.roles.self_assignable', 'Self Assignable')}</span>
             <label class="toggle"><input type="checkbox" id="grole-self-${rid}" ${role.isSelfAssignable ? 'checked' : ''} ${dis}><div class="toggle-track"><div class="toggle-knob"></div></div></label></div>
-        <div class="sf-toggle-row"><span>Require Two Factor Authentication</span>
+        <div class="sf-toggle-row"><span>${t('groups.roles.require_2fa', 'Require Two Factor Authentication')}</span>
             <label class="toggle"><input type="checkbox" id="grole-tfa-${rid}" ${role.requiresTwoFactor ? 'checked' : ''} ${dis}><div class="toggle-track"><div class="toggle-knob"></div></div></label></div>
     </div>`;
     const hasWildcard = (role.permissions || []).includes('*');
     const permsHtml = `
     <div class="gd-role-section">
-        <div class="gd-role-section-title">Permissions</div>
+        <div class="gd-role-section-title">${t('groups.roles.permissions', 'Permissions')}</div>
         ${hasWildcard
-            ? `<div style="padding:8px 0;font-size:12px;color:var(--tx2);">This role has full access (all permissions).</div>`
+            ? `<div style="padding:8px 0;font-size:12px;color:var(--tx2);">${t('groups.roles.full_access', 'This role has full access (all permissions).')}</div>`
             : ROLE_PERM_DEFS.map(p => {
                 const checked = (role.permissions || []).includes(p.key);
                 return `<div class="gd-perm-row">
-                    <div class="gd-perm-info"><div class="gd-perm-label">${p.label}</div><div class="gd-perm-desc">${p.desc}</div></div>
+                    <div class="gd-perm-info"><div class="gd-perm-label">${getRolePermissionLabel(p)}</div><div class="gd-perm-desc">${getRolePermissionDescription(p)}</div></div>
                     <label class="toggle" style="flex-shrink:0;margin-left:12px;"><input type="checkbox" data-perm-key="${p.key}" ${checked ? 'checked' : ''} ${dis}><div class="toggle-track"><div class="toggle-knob"></div></div></label>
                 </div>`;
             }).join('')}
@@ -1151,37 +1406,31 @@ function _buildRoleEditor(role, groupId, canManage, isSystemRole) {
     const canSave = canManage && !isOwner;
     const actionBtns = canSave ? `
     <div style="display:flex;gap:8px;margin-top:14px;justify-content:space-between;">
-        ${!isSystemRole ? `<button class="vrcn-button-round vrcn-btn-danger" style="font-size:11px;" onclick="deleteGroupRole('${jsq(role.id)}','${gid}')"><span class="msi" style="font-size:14px;">delete</span> Delete</button>` : '<div></div>'}
-        <button class="vrcn-button-round vrcn-btn-join" style="font-size:11px;" onclick="saveGroupRole('${jsq(role.id)}','${gid}')"><span class="msi" style="font-size:14px;">save</span> Save Changes</button>
+        ${!isSystemRole ? `<button class="vrcn-button-round vrcn-btn-danger" style="font-size:11px;" onclick="deleteGroupRole('${jsq(role.id)}','${gid}')"><span class="msi" style="font-size:14px;">delete</span> ${t('groups.roles.delete', 'Delete')}</button>` : '<div></div>'}
+        <button class="vrcn-button-round vrcn-btn-join" style="font-size:11px;" onclick="saveGroupRole('${jsq(role.id)}','${gid}')"><span class="msi" style="font-size:14px;">save</span> ${t('groups.roles.save_changes', 'Save Changes')}</button>
     </div>` : '';
     return generalHtml + permsHtml + actionBtns;
 }
 
 function _buildRoleCard(role, groupId, canManage) {
     const rid = esc(role.id);
-    const permCount = (role.permissions || []).includes('*') ? '∗' : (role.permissions || []).length;
-    const meta = [
-        permCount + (permCount === '∗' ? ' (all)' : permCount === 1 ? ' permission' : ' permissions'),
-        role.isAddedOnJoin   ? 'Auto-join'   : '',
-        role.isSelfAssignable? 'Self-assign' : '',
-    ].filter(Boolean).join(' · ');
-    const badge = role.isManagementRole ? `<span class="vrcn-badge" style="margin-right:6px;">System</span>` : '';
+    const badge = role.isManagementRole ? `<span class="vrcn-badge" style="margin-right:6px;">${t('groups.roles.system', 'System')}</span>` : '';
     return `<div class="gd-role-card" id="gdrole-${rid}">
         <div class="gd-role-header" onclick="toggleGdRoleExpand('${rid}')">
-            <div style="flex:1;"><div class="gd-role-name">${badge}${esc(role.name)}</div><div class="gd-role-meta">${meta}</div></div>
+            <div style="flex:1;"><div class="gd-role-name">${badge}${esc(role.name)}</div><div class="gd-role-meta">${getRoleMetaText(role)}</div></div>
             <span class="msi gd-role-chevron" style="font-size:18px;color:var(--tx3);transition:transform .2s;">expand_more</span>
         </div>
         <div class="gd-role-body" id="gdrole-body-${rid}" style="display:none;">
             <div class="fd-tabs gd-tabs" style="margin:10px 14px 0;">
-                <button class="fd-tab active" onclick="switchGdRoleTab('${rid}','settings',this)">Settings</button>
-                <button class="fd-tab" onclick="switchGdRoleTab('${rid}','members',this)">Members</button>
+                <button class="fd-tab active" onclick="switchGdRoleTab('${rid}','settings',this)">${t('groups.roles.tabs.settings', 'Settings')}</button>
+                <button class="fd-tab" onclick="switchGdRoleTab('${rid}','members',this)">${t('groups.roles.tabs.members', 'Members')}</button>
             </div>
             <div id="gdrole-settings-${rid}">
                 ${_buildRoleEditor(role, groupId, canManage, role.isManagementRole)}
             </div>
             <div id="gdrole-members-${rid}" style="display:none;">
                 <div id="gdrole-members-list-${rid}" style="padding:8px 0;">
-                    <div style="padding:16px;text-align:center;font-size:12px;color:var(--tx3);">Click to load members...</div>
+                    <div style="padding:16px;text-align:center;font-size:12px;color:var(--tx3);">${t('groups.roles.click_load_members', 'Click to load members...')}</div>
                 </div>
             </div>
         </div>
@@ -1192,25 +1441,25 @@ function _buildCreateRoleForm(groupId) {
     const gid = jsq(groupId);
     return `<div id="gdRoleCreateForm" style="display:none;margin-bottom:10px;">
         <div class="gd-role-card" style="border:1.5px dashed var(--accent);">
-            <div style="padding:12px 14px 0;"><div class="gd-role-section-title">New Role</div>
+            <div style="padding:12px 14px 0;"><div class="gd-role-section-title">${t('groups.roles.new_role', 'New Role')}</div>
             <div class="sf-row" style="margin-bottom:8px;">
-                <label style="font-size:12px;color:var(--tx2);min-width:50px;">Name</label>
-                <input id="gdNewRoleName" class="vrcn-edit-field" placeholder="Role name..." maxlength="64" style="flex:1;">
+                <label style="font-size:12px;color:var(--tx2);min-width:50px;">${t('groups.roles.name', 'Name')}</label>
+                <input id="gdNewRoleName" class="vrcn-edit-field" placeholder="${esc(t('groups.roles.name_placeholder', 'Role name...'))}" maxlength="64" style="flex:1;">
             </div>
-            <div class="sf-toggle-row"><span>Assign On Join</span>
+            <div class="sf-toggle-row"><span>${t('groups.roles.assign_on_join', 'Assign On Join')}</span>
                 <label class="toggle"><input type="checkbox" id="gdNewRoleJoin"><div class="toggle-track"><div class="toggle-knob"></div></div></label></div>
-            <div class="sf-toggle-row"><span>Self Assignable</span>
+            <div class="sf-toggle-row"><span>${t('groups.roles.self_assignable', 'Self Assignable')}</span>
                 <label class="toggle"><input type="checkbox" id="gdNewRoleSelf"><div class="toggle-track"><div class="toggle-knob"></div></div></label></div>
-            <div class="sf-toggle-row"><span>Require Two Factor Authentication</span>
+            <div class="sf-toggle-row"><span>${t('groups.roles.require_2fa', 'Require Two Factor Authentication')}</span>
                 <label class="toggle"><input type="checkbox" id="gdNewRoleTfa"><div class="toggle-track"><div class="toggle-knob"></div></div></label></div>
-            <div class="gd-role-section-title" style="margin-top:14px;">Permissions</div>
+            <div class="gd-role-section-title" style="margin-top:14px;">${t('groups.roles.permissions', 'Permissions')}</div>
             ${ROLE_PERM_DEFS.map(p => `<div class="gd-perm-row">
-                <div class="gd-perm-info"><div class="gd-perm-label">${p.label}</div><div class="gd-perm-desc">${p.desc}</div></div>
+                <div class="gd-perm-info"><div class="gd-perm-label">${getRolePermissionLabel(p)}</div><div class="gd-perm-desc">${getRolePermissionDescription(p)}</div></div>
                 <label class="toggle" style="flex-shrink:0;margin-left:12px;"><input type="checkbox" class="gdNewRolePerm" data-perm-key="${p.key}"><div class="toggle-track"><div class="toggle-knob"></div></div></label>
             </div>`).join('')}
             <div style="display:flex;gap:8px;margin-top:14px;padding-bottom:14px;">
-                <button class="vrcn-button-round" style="font-size:11px;" onclick="closeCreateRoleForm()">Cancel</button>
-                <button class="vrcn-button-round vrcn-btn-join" style="font-size:11px;margin-left:auto;" onclick="submitCreateRole('${gid}')"><span class="msi" style="font-size:14px;">add</span> Create Role</button>
+                <button class="vrcn-button-round" style="font-size:11px;" onclick="closeCreateRoleForm()">${t('common.cancel', 'Cancel')}</button>
+                <button class="vrcn-button-round vrcn-btn-join" style="font-size:11px;margin-left:auto;" onclick="submitCreateRole('${gid}')"><span class="msi" style="font-size:14px;">add</span> ${t('groups.roles.create_role', 'Create Role')}</button>
             </div></div>
         </div>
     </div>`;
@@ -1219,11 +1468,11 @@ function _buildCreateRoleForm(groupId) {
 function _buildRolesTab(g) {
     const canManage = g.canManageRoles === true;
     const roles = g.roles || [];
-    const createBtn = `<button class="vrcn-button-round" style="margin-bottom:10px;" onclick="openCreateRoleForm()"><span class="msi" style="font-size:14px;">add</span> Create Role</button>`;
+    const createBtn = `<button class="vrcn-button-round" style="margin-bottom:10px;" onclick="openCreateRoleForm()"><span class="msi" style="font-size:14px;">add</span> ${t('groups.roles.create_role', 'Create Role')}</button>`;
     const createForm = _buildCreateRoleForm(g.id);
     const roleCards = roles.length
         ? roles.map(r => _buildRoleCard(r, g.id, canManage)).join('')
-        : '<div style="padding:20px;text-align:center;font-size:12px;color:var(--tx3);">No roles found</div>';
+        : `<div style="padding:20px;text-align:center;font-size:12px;color:var(--tx3);">${t('groups.roles.empty', 'No roles found')}</div>`;
     return `${createBtn}${createForm}<div id="gdRolesList">${roleCards}</div>`;
 }
 
@@ -1244,7 +1493,7 @@ function switchGdRoleTab(roleId, tab, btn) {
         const listEl = document.getElementById('gdrole-members-list-' + roleId);
         if (listEl && !listEl.dataset.loaded) {
             listEl.dataset.loaded = '1';
-            listEl.innerHTML = '<div style="padding:16px;text-align:center;font-size:12px;color:var(--tx3);">Loading...</div>';
+            listEl.innerHTML = renderGroupEmptyMessage('common.loading', 'Loading...');
             const g = window._currentGroupDetail;
             if (g) sendToCS({ action: 'vrcGetGroupRoleMembers', groupId: g.id, roleId });
         }
@@ -1255,7 +1504,7 @@ function onGroupRoleMembers(data) {
     const listEl = document.getElementById('gdrole-members-list-' + data.roleId);
     if (!listEl) return;
     if (!data.members || data.members.length === 0) {
-        listEl.innerHTML = '<div style="padding:16px;text-align:center;font-size:12px;color:var(--tx3);">No members with this role.</div>';
+        listEl.innerHTML = renderGroupEmptyMessage('groups.roles.no_members', 'No members with this role.');
         return;
     }
     listEl.innerHTML = data.members.map(m => renderGroupMemberCard(m)).join('');
@@ -1273,7 +1522,7 @@ function closeCreateRoleForm() {
 
 function submitCreateRole(groupId) {
     const name = document.getElementById('gdNewRoleName')?.value.trim() || '';
-    if (!name) { showToast(false, 'Role name is required'); return; }
+    if (!name) { showToast(false, t('groups.roles.validation.name_required', 'Role name is required')); return; }
     const perms = Array.from(document.querySelectorAll('.gdNewRolePerm:checked')).map(el => el.dataset.permKey);
     sendToCS({
         action: 'vrcCreateGroupRole', groupId, name, description: '',
@@ -1286,7 +1535,7 @@ function submitCreateRole(groupId) {
 
 function saveGroupRole(roleId, groupId) {
     const name = document.getElementById('grole-name-' + roleId)?.value.trim() || '';
-    if (!name) { showToast(false, 'Role name is required'); return; }
+    if (!name) { showToast(false, t('groups.roles.validation.name_required', 'Role name is required')); return; }
     const perms = Array.from(document.querySelectorAll(`#gdrole-body-${roleId} [data-perm-key]:checked`)).map(el => el.dataset.permKey);
     sendToCS({
         action: 'vrcUpdateGroupRole', groupId, roleId, name, permissions: perms,
@@ -1304,7 +1553,11 @@ function deleteGroupRole(roleId, groupId) {
 
 function onGroupRoleResult(payload) {
     if (!payload.success) {
-        const msg = { create: 'Failed to create role', update: 'Failed to save role', delete: 'Failed to delete role' }[payload.action] || 'Role action failed';
+        const msg = {
+            create: t('groups.roles.result.create_failed', 'Failed to create role'),
+            update: t('groups.roles.result.update_failed', 'Failed to save role'),
+            delete: t('groups.roles.result.delete_failed', 'Failed to delete role'),
+        }[payload.action] || t('groups.roles.result.action_failed', 'Role action failed');
         showToast(false, msg);
         if (payload.action === 'delete') {
             const card = document.getElementById('gdrole-' + payload.roleId);
@@ -1313,19 +1566,36 @@ function onGroupRoleResult(payload) {
         return;
     }
     if (payload.action === 'create') {
-        showToast(true, 'Role created');
+        showToast(true, t('groups.roles.result.created', 'Role created'));
         closeCreateRoleForm();
         if (payload.role && window._currentGroupDetail) {
             window._currentGroupDetail.roles = [...(window._currentGroupDetail.roles || []), payload.role];
+            if (window._currentGroupDetailFull) {
+                window._currentGroupDetailFull.roles = [...(window._currentGroupDetailFull.roles || []), payload.role];
+            }
             const list = document.getElementById('gdRolesList');
             if (list) list.insertAdjacentHTML('beforeend', _buildRoleCard(payload.role, payload.groupId, true));
         }
     } else if (payload.action === 'update') {
-        showToast(true, 'Role saved');
+        showToast(true, t('groups.roles.result.saved', 'Role saved'));
+        const updatedRole = {
+            id: payload.roleId,
+            name: document.getElementById('grole-name-' + payload.roleId)?.value.trim() || '',
+            permissions: Array.from(document.querySelectorAll(`#gdrole-body-${payload.roleId} [data-perm-key]:checked`)).map(el => el.dataset.permKey),
+            isAddedOnJoin: document.getElementById('grole-join-' + payload.roleId)?.checked || false,
+            isSelfAssignable: document.getElementById('grole-self-' + payload.roleId)?.checked || false,
+            requiresTwoFactor: document.getElementById('grole-tfa-' + payload.roleId)?.checked || false,
+        };
+        [window._currentGroupDetail, window._currentGroupDetailFull].forEach(group => {
+            if (!group?.roles) return;
+            group.roles = group.roles.map(role => role.id === payload.roleId ? { ...role, ...updatedRole } : role);
+        });
     } else if (payload.action === 'delete') {
-        showToast(true, 'Role deleted');
+        showToast(true, t('groups.roles.result.deleted', 'Role deleted'));
         if (window._currentGroupDetail)
             window._currentGroupDetail.roles = (window._currentGroupDetail.roles || []).filter(r => r.id !== payload.roleId);
+        if (window._currentGroupDetailFull)
+            window._currentGroupDetailFull.roles = (window._currentGroupDetailFull.roles || []).filter(r => r.id !== payload.roleId);
         document.getElementById('gdrole-' + payload.roleId)?.remove();
     }
 }
@@ -1335,7 +1605,7 @@ function onGroupRoleResult(payload) {
    ============================================================ */
 
 function _buildBannedTab() {
-    return `<div id="gdBannedList"><div style="padding:20px;text-align:center;font-size:12px;color:var(--tx3);">Loading...</div></div>`;
+    return `<div id="gdBannedList">${renderGroupEmptyMessage('common.loading', 'Loading...')}</div>`;
 }
 
 function loadGroupBans() {
@@ -1348,7 +1618,7 @@ function renderGroupBans(groupId, bans) {
     const list = document.getElementById('gdBannedList');
     if (!list) return;
     if (!bans || bans.length === 0) {
-        list.innerHTML = '<div style="padding:20px;text-align:center;font-size:12px;color:var(--tx3);">No banned members</div>';
+        list.innerHTML = renderGroupEmptyMessage('groups.empty.no_banned_members', 'No banned members');
         return;
     }
     list.innerHTML = bans.map(b => renderProfileItem(b, `closeDetailModal();openFriendDetail('${jsq(b.id || '')}')`)).join('');

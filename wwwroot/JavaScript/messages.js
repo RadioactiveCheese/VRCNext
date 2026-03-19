@@ -2,6 +2,7 @@
 window.external.receiveMessage(rawMsg => {
     const { type, payload } = JSON.parse(rawMsg);
     switch (type) {
+            case 'translationData': handleTranslationData(payload); break;
             case 'loadSettings': loadSettingsToUI(payload); break;
             case 'cursorFiles': _localHttpPort = payload.port || _localHttpPort; renderCursorThemeChips(payload.files); applyCursorTheme(currentCursorTheme); break;
             case 'vrcLaunched': {
@@ -60,8 +61,8 @@ window.external.receiveMessage(rawMsg => {
                 if (payload.success) {
                     postedFiles = postedFiles.filter(f => f.messageId !== payload.messageId);
                     renderFileList();
-                    addLog('Deleted from Discord', 'ok');
-                } else addLog('Delete failed', 'err');
+                    addLog(t('messages.relay.deleted_from_discord', 'Deleted from Discord'), 'ok');
+                } else addLog(t('messages.delete_failed', 'Delete failed'), 'err');
                 break;
             case 'folderAdded':
                 if (!settings.folders) settings.folders = [];
@@ -97,12 +98,11 @@ window.external.receiveMessage(rawMsg => {
                 document.getElementById('vrcLoginPrompt') && (document.getElementById('vrcLoginPrompt').style.display = 'none');
                 document.getElementById('btnVrcLogin').style.display = 'none';
                 document.getElementById('btnVrcLogout').style.display = '';
-                document.getElementById('vrcLoginStatus').textContent = 'Connected as ' + payload.displayName;
+                document.getElementById('vrcLoginStatus').textContent = t('settings.login.connected_as', 'Connected as {name}').replace('{name}', payload.displayName);
                 document.getElementById('modal2FA').style.display = 'none';
-                // Show friend skeleton cards in sidebar while friends load
                 if (!vrcFriendsLoaded) {
                     const fsl = document.getElementById('vrcFriendsList');
-                    if (fsl) fsl.innerHTML = '<div class="vrc-section-label">IN-GAME — ···</div>' + sk('friend', 10);
+                    if (fsl) fsl.innerHTML = `<div class="vrc-section-label">${t('profiles.friends.sections.loading', 'IN-GAME - ...')}</div>` + sk('friend', 10);
                 }
                 renderDashboard();
                 fetchWorldTabs();
@@ -132,9 +132,9 @@ window.external.receiveMessage(rawMsg => {
                 break;
             case 'vrcNeeds2FA': show2FAModal(payload.type || 'totp'); break;
             case 'vrcLoginError':
-                document.getElementById('modal2FAError').textContent = payload.error || 'Login failed';
-                document.getElementById('vrcQuickError').textContent = payload.error || 'Login failed';
-                document.getElementById('vrcLoginStatus').textContent = payload.error || 'Login failed';
+                document.getElementById('modal2FAError').textContent = payload.error || t('profiles.login.failed', 'Login failed');
+                document.getElementById('vrcQuickError').textContent = payload.error || t('profiles.login.failed', 'Login failed');
+                document.getElementById('vrcLoginStatus').textContent = payload.error || t('profiles.login.failed', 'Login failed');
                 break;
             case 'vrcLoggedOut':
                 vrcFriendsLoaded = false;
@@ -153,7 +153,7 @@ window.external.receiveMessage(rawMsg => {
             case 'vrcFavoriteFriends': renderFavFriends(payload); break;
             case 'vrcFavoriteFriendToggled': handleFavFriendToggled(payload); break;
             case 'vrcFriendDetailError':
-                document.getElementById('friendDetailContent').innerHTML = `<div class="fd-loading" style="color:var(--err);">${esc(payload.error || 'Error loading profile')}</div><div style="margin-top:10px;text-align:right;"><button class="vrcn-button-round" onclick="closeFriendDetail()">Close</button></div>`;
+                document.getElementById('friendDetailContent').innerHTML = `<div class="fd-loading" style="color:var(--err);">${esc(payload.error || t('profiles.friend_detail.error_loading', 'Error loading profile'))}</div><div style="margin-top:10px;text-align:right;"><button class="vrcn-button-round" onclick="closeFriendDetail()">${t('common.close', 'Close')}</button></div>`;
                 break;
             case 'vrcActionResult':
                 if (payload.action === 'sendChatMessage') { if (typeof handleChatActionResult === 'function') handleChatActionResult(payload); break; }
@@ -163,7 +163,7 @@ window.external.receiveMessage(rawMsg => {
                     if (payload.success) {
                         const card = document.querySelector(`.fd-group-card[data-event-id="${payload.eventId}"]`);
                         if (card) card.remove();
-                        showToast(true, 'Group event deleted.');
+                        showToast(true, t('groups.toast.event_deleted', 'Group event deleted.'));
                     } else {
                         const card = document.querySelector(`.fd-group-card[data-event-id="${payload.eventId}"]`);
                         if (card) {
@@ -172,13 +172,13 @@ window.external.receiveMessage(rawMsg => {
                             const btn = card.querySelector('.gd-post-del');
                             if (btn) { btn.disabled = false; btn.querySelector('.msi').textContent = 'delete'; }
                         }
-                        showToast(false, 'Delete failed.');
+                        showToast(false, t('messages.delete_failed', 'Delete failed.'));
                     }
                 } else if (payload.action === 'deleteGroupPost') {
                     if (payload.success) {
                         const card = document.querySelector(`.fd-group-card[data-post-id="${payload.postId}"]`);
                         if (card) card.remove();
-                        showToast(true, 'Group post deleted.');
+                        showToast(true, t('groups.toast.post_deleted', 'Group post deleted.'));
                     } else {
                         const card = document.querySelector(`.fd-group-card[data-post-id="${payload.postId}"]`);
                         if (card) {
@@ -187,7 +187,7 @@ window.external.receiveMessage(rawMsg => {
                             const btn = card.querySelector('.gd-post-del');
                             if (btn) { btn.disabled = false; btn.querySelector('.msi').textContent = 'delete'; }
                         }
-                        showToast(false, 'Delete failed.');
+                        showToast(false, t('messages.delete_failed', 'Delete failed.'));
                     }
                 } else if (payload.action === 'addGroupMemberRole' || payload.action === 'removeGroupMemberRole') {
                     showToast(payload.success, payload.message);
@@ -212,7 +212,7 @@ window.external.receiveMessage(rawMsg => {
                                 if (card.innerHTML.includes(`openFriendDetail('${payload.userId}')`)) card.remove();
                             });
                             if (!bannedList.querySelector('.vrcn-profile-item'))
-                                bannedList.innerHTML = '<div style="padding:20px;text-align:center;font-size:12px;color:var(--tx3);">No banned members</div>';
+                                bannedList.innerHTML = `<div style="padding:20px;text-align:center;font-size:12px;color:var(--tx3);">${t('groups.empty.no_banned_members', 'No banned members')}</div>`;
                         }
                     }
                 } else {
@@ -238,21 +238,21 @@ window.external.receiveMessage(rawMsg => {
                     const jsv = document.getElementById('ggrpJoinStateView');
                     if (dv && payload.description != null) dv.innerHTML = payload.description
                         ? `<div class="fd-bio">${esc(payload.description)}</div>`
-                        : '<div class="myp-empty">No description</div>';
+                        : `<div class="myp-empty">${t('groups.empty.no_description', 'No description')}</div>`;
                     if (rv && payload.rules != null) rv.innerHTML = payload.rules
                         ? `<div style="font-size:11px;color:var(--tx3);padding:8px;background:var(--bg-input);border-radius:8px;max-height:120px;overflow-y:auto;white-space:pre-wrap;">${esc(payload.rules)}</div>`
-                        : '<div class="myp-empty">No rules set</div>';
+                        : `<div class="myp-empty">${t('groups.empty.no_rules', 'No rules set')}</div>`;
                     if (lnv && payload.links != null) {
                         const links = (payload.links || []).filter(Boolean);
                         lnv.innerHTML = links.length
                             ? `<div class="fd-bio-links">${links.map(url => renderBioLink(url)).join('')}</div>`
-                            : '<div class="myp-empty">No links added</div>';
+                            : `<div class="myp-empty">${t('profiles.my_profile.empty.no_links', 'No links added')}</div>`;
                     }
                     if (lav && payload.languages != null) {
                         const langs = payload.languages || [];
                         lav.innerHTML = langs.length
                             ? `<div class="fd-lang-tags">${langs.map(l => `<span class="vrcn-badge">${esc(LANG_MAP['language_'+l] || l.toUpperCase())}</span>`).join('')}</div>`
-                            : '<div class="myp-empty">No languages set</div>';
+                            : `<div class="myp-empty">${t('profiles.my_profile.empty.no_languages', 'No languages set')}</div>`;
                     }
                     if (jsv && payload.joinState != null) {
                         jsv.innerHTML = joinStateBadge(payload.joinState);
@@ -270,23 +270,29 @@ window.external.receiveMessage(rawMsg => {
                     if (payload.links != null) cancelGroupField('links');
                     if (payload.languages != null) cancelGroupField('langs');
                     if (payload.joinState != null) cancelGroupField('joinState');
-                    showToast(true, 'Group updated!');
+                    showToast(true, t('groups.updated', 'Group updated!'));
                 } else {
                     document.querySelectorAll('#gdescDescEdit .vrcn-btn-primary, #gdescRulesEdit .vrcn-btn-primary, #ggrpLinksEdit .vrcn-btn-primary, #ggrpLangsEdit .vrcn-btn-primary, #ggrpJoinStateEdit .vrcn-btn-primary').forEach(b => b.disabled = false);
-                    showToast(false, 'Update failed.');
+                    showToast(false, t('common.update_failed', 'Update failed'));
                 }
                 break;
             case 'vrcProfileUpdated':
                 if (payload.success) {
                     renderMyProfileContent();
-                    showToast(true, 'Saved!');
+                    showToast(true, t('profiles.my_profile.saved', 'Saved!'));
                 } else {
                     document.querySelectorAll('#mypBox .vrcn-btn-primary').forEach(b => b.disabled = false);
-                    showToast(false, payload.error || 'Update failed');
+                    showToast(false, payload.error || t('common.update_failed', 'Update failed'));
                 }
                 break;
             case 'vrcNoteUpdated':
                 const savedEl = document.getElementById('fdNoteSaved');
+                if (savedEl) {
+                    if (payload.success) { savedEl.textContent = t('profiles.notes.saved', 'Saved'); savedEl.style.color = 'var(--ok)'; }
+                    else { savedEl.textContent = t('profiles.notes.failed', 'Failed'); savedEl.style.color = 'var(--err)'; }
+                    setTimeout(() => { if (savedEl) savedEl.textContent = ''; }, 3000);
+                }
+                return;
                 if (savedEl) {
                     if (payload.success) { savedEl.textContent = '✓ Saved'; savedEl.style.color = 'var(--ok)'; }
                     else { savedEl.textContent = '✗ Failed'; savedEl.style.color = 'var(--err)'; }
@@ -337,7 +343,9 @@ window.external.receiveMessage(rawMsg => {
                 const btn = document.getElementById(modType === 'block' ? 'fdBlockBtn' : 'fdMuteBtn');
                 if (btn) {
                     btn.classList.toggle('active', modActive);
-                    btn.title = modActive ? (modType === 'block' ? 'Unblock' : 'Unmute') : (modType === 'block' ? 'Block' : 'Mute');
+                    btn.title = modActive
+                        ? (modType === 'block' ? t('profiles.actions.unblock', 'Unblock') : t('profiles.actions.unmute', 'Unmute'))
+                        : (modType === 'block' ? t('profiles.actions.block', 'Block') : t('profiles.actions.mute', 'Mute'));
                     const icon = btn.querySelector('.msi');
                     if (icon) icon.textContent = modType === 'block' ? (modActive ? 'block' : 'shield') : (modActive ? 'mic_off' : 'mic');
                 }
@@ -409,7 +417,7 @@ window.external.receiveMessage(rawMsg => {
                 onGroupRoleMembers(payload);
                 break;
             case 'vrcGroupDetailError':
-                document.getElementById('detailModalContent').innerHTML = `<div style="padding:30px;text-align:center;color:var(--err);">${esc(payload.error || 'Error loading group')}</div><div style="text-align:center;margin-top:10px;"><button class="vrcn-button-round" onclick="document.getElementById('modalDetail').style.display='none'">Close</button></div>`;
+                document.getElementById('detailModalContent').innerHTML = `<div style="padding:30px;text-align:center;color:var(--err);">${esc(payload.error || t('groups.error.loading_detail', 'Error loading group'))}</div><div style="text-align:center;margin-top:10px;"><button class="vrcn-button-round" onclick="document.getElementById('modalDetail').style.display='none'">${t('common.close', 'Close')}</button></div>`;
                 break;
             case 'vrcGroupMembersPage':
                 {
@@ -418,7 +426,7 @@ window.external.receiveMessage(rawMsg => {
                         // offset=0 means fresh load (reset), append otherwise
                         if (payload.offset === 0) {
                             list.innerHTML = payload.members.map(m => renderGroupMemberCard(m)).join('')
-                                || '<div style="padding:16px;text-align:center;font-size:12px;color:var(--tx3);">No members</div>';
+                                || `<div style="padding:16px;text-align:center;font-size:12px;color:var(--tx3);">${t('groups.empty.no_members', 'No members')}</div>`;
                             window._gdMembersOffset = payload.members.length;
                         } else {
                             payload.members.forEach(m => { list.insertAdjacentHTML('beforeend', renderGroupMemberCard(m)); });
@@ -428,9 +436,9 @@ window.external.receiveMessage(rawMsg => {
                     const loadMoreDiv = document.getElementById('gdMembersLoadMore');
                     if (loadMoreDiv) {
                         if (payload.hasMore) {
-                            loadMoreDiv.innerHTML = '<button class="vrcn-button" onclick="loadMoreGroupMembers()">Load More Members</button>';
+                            loadMoreDiv.innerHTML = `<button class="vrcn-button" onclick="loadMoreGroupMembers()">${t('groups.members.load_more', 'Load More Members')}</button>`;
                         } else {
-                            loadMoreDiv.innerHTML = '<div style="font-size:11px;color:var(--tx3);padding:6px;">All members loaded</div>';
+                            loadMoreDiv.innerHTML = `<div style="font-size:11px;color:var(--tx3);padding:6px;">${t('groups.members.all_loaded', 'All members loaded')}</div>`;
                         }
                     }
                 }
@@ -441,7 +449,7 @@ window.external.receiveMessage(rawMsg => {
                     if (list) {
                         list.innerHTML = payload.members && payload.members.length > 0
                             ? payload.members.map(m => renderGroupMemberCard(m)).join('')
-                            : `<div style="padding:16px;text-align:center;font-size:12px;color:var(--tx3);">No members found for "<em>${esc(payload.query || '')}</em>"</div>`;
+                            : `<div style="padding:16px;text-align:center;font-size:12px;color:var(--tx3);">${t('groups.members.search_no_results', 'No members found for')} "<em>${esc(payload.query || '')}</em>"</div>`;
                     }
                     const loadMoreDiv = document.getElementById('gdMembersLoadMore');
                     if (loadMoreDiv) loadMoreDiv.innerHTML = '';
@@ -462,7 +470,7 @@ window.external.receiveMessage(rawMsg => {
                 break;
             case 'vrcAvatarDetailError':
                 { const ac = document.getElementById('avatarDetailContent');
-                  if (ac) ac.innerHTML = `<div style="padding:30px;text-align:center;color:var(--err);">${esc(payload.error || 'Error loading avatar')}</div><div style="text-align:center;margin-top:10px;"><button class="vrcn-button-round" onclick="closeAvatarDetail()">Close</button></div>`; }
+                  if (ac) ac.innerHTML = `<div style="padding:30px;text-align:center;color:var(--err);">${esc(payload.error || t('avatars.error.loading_detail', 'Error loading avatar'))}</div><div style="text-align:center;margin-top:10px;"><button class="vrcn-button-round" onclick="closeAvatarDetail()">${t('common.close', 'Close')}</button></div>`; }
                 break;
             case 'customColors':
                 loadCustomThemes(payload);
@@ -502,7 +510,7 @@ case 'popularWorlds':
                 onRecentWorlds(payload.worlds);
                 break;
             case 'vrcWorldDetailError':
-                document.getElementById('detailModalContent').innerHTML = `<div style="padding:30px;text-align:center;color:var(--err);">${esc(payload.error || 'Error loading world')}</div><div style="text-align:center;margin-top:10px;"><button class="vrcn-button-round" onclick="document.getElementById('modalDetail').style.display='none'">Close</button></div>`;
+                document.getElementById('detailModalContent').innerHTML = `<div style="padding:30px;text-align:center;color:var(--err);">${esc(payload.error || t('worlds.error.loading_detail', 'Error loading world'))}</div><div style="text-align:center;margin-top:10px;"><button class="vrcn-button-round" onclick="document.getElementById('modalDetail').style.display='none'">${t('common.close', 'Close')}</button></div>`;
                 break;
             case 'vrcChatHistory':
                 if (typeof handleChatHistory === 'function') handleChatHistory(payload);
@@ -618,16 +626,12 @@ case 'popularWorlds':
                     if (payload.tag === 'gallery' && typeof _invModalOnGalleryLoaded === 'function')
                         _invModalOnGalleryLoaded(payload.files || []);
                 } else {
-                    const g = document.getElementById('invGrid');
-                    if (g) g.innerHTML = `<div class="empty-msg" style="color:var(--err);">Error: ${esc(payload.error)}<br><span style="font-size:11px;color:var(--tx3);">This feature may require VRC+ or a VRChat login.</span></div>`;
+                    renderInvFetchError(payload.error, 'inventory.error.requires_login');
                 }
                 break;
             case 'invPrints':
                 if (!payload.error) renderInvPrints(payload.prints || []);
-                else {
-                    const g2 = document.getElementById('invGrid');
-                    if (g2) g2.innerHTML = `<div class="empty-msg" style="color:var(--err);">Error: ${esc(payload.error)}</div>`;
-                }
+                else renderInvFetchError(payload.error);
                 break;
             case 'invUploadResult': handleInvUploadResult(payload); break;
             case 'invDeleteResult': handleInvDeleteResult(payload); break;
@@ -646,7 +650,7 @@ case 'popularWorlds':
             if (payload?.isLinux) {
                 document.querySelectorAll('[data-windows-only]').forEach(el => el.style.display = 'none');
                 const lbl = document.getElementById('labelStartWithSystem');
-                if (lbl) lbl.textContent = 'Auto-start VRCNext with system';
+                if (lbl) lbl.textContent = t('settings.system.autostart_with_system', 'Auto-start VRCNext with system');
                 const vrcPathInput = document.getElementById('setVrcPath');
                 if (vrcPathInput) { vrcPathInput.value = 'steam://rungameid/438100'; vrcPathInput.readOnly = true; vrcPathInput.style.opacity = '0.5'; }
                 const browseVrcBtn = document.getElementById('browseVrcBtn');

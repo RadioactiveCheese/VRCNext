@@ -5,41 +5,151 @@ let _invPendingDelete = null; // { type: 'file'|'print', id, versionId }
 
 // VRChat deletes file versions asynchronously. Keep local filter sets so
 // deleted items stay hidden even if the API still returns them after refresh.
-const _invPendingFileDeletes  = new Set(); // fileIds
+const _invPendingFileDeletes = new Set(); // fileIds
 const _invPendingPrintDeletes = new Set(); // printIds
 
 const INV_TABS = {
-    photos:    { tag: 'gallery',  label: 'Photos',    canUpload: true,  icon: 'photo_library',  hint: 'PNG, recommended 1200×900 (4:3)' },
-    icons:     { tag: 'icon',     label: 'Icons',     canUpload: true,  icon: 'account_circle', hint: 'PNG, 1024×1024 (requires VRC+)' },
-    emojis:    { tag: 'emoji',    label: 'Emojis',    canUpload: true,  icon: 'emoji_emotions', hint: 'PNG, 1024×1024 (requires VRC+, max 18)' },
-    stickers:  { tag: 'sticker',  label: 'Stickers',  canUpload: true,  icon: 'sticky_note_2',  hint: 'PNG, max 1024×1024 (requires VRC+, max 18)' },
-    prints:    { tag: null,       label: 'Prints',    canUpload: false, icon: 'print',           hint: 'In-game prints from VRChat' },
-    inventory: { tag: null,       label: 'Inventory', canUpload: false, icon: 'inventory_2',     hint: null },
+    photos: {
+        tag: 'gallery',
+        canUpload: true,
+        icon: 'photo_library',
+        get label() { return t('inventory.tabs.photos', 'Photos'); },
+        get hint() { return t('inventory.hint.photos', 'PNG, recommended 1200x900 (4:3)'); }
+    },
+    icons: {
+        tag: 'icon',
+        canUpload: true,
+        icon: 'account_circle',
+        get label() { return t('inventory.tabs.icons', 'Icons'); },
+        get hint() { return t('inventory.hint.icons', 'PNG, 1024x1024 (requires VRC+)'); }
+    },
+    emojis: {
+        tag: 'emoji',
+        canUpload: true,
+        icon: 'emoji_emotions',
+        get label() { return t('inventory.tabs.emojis', 'Emojis'); },
+        get hint() { return t('inventory.hint.emojis', 'PNG, 1024x1024 (requires VRC+, max 18)'); }
+    },
+    stickers: {
+        tag: 'sticker',
+        canUpload: true,
+        icon: 'sticky_note_2',
+        get label() { return t('inventory.tabs.stickers', 'Stickers'); },
+        get hint() { return t('inventory.hint.stickers', 'PNG, max 1024x1024 (requires VRC+, max 18)'); }
+    },
+    prints: {
+        tag: null,
+        canUpload: false,
+        icon: 'print',
+        get label() { return t('inventory.tabs.prints', 'Prints'); },
+        get hint() { return t('inventory.hint.prints', 'In-game prints from VRChat'); }
+    },
+    inventory: {
+        tag: null,
+        canUpload: false,
+        icon: 'inventory_2',
+        get label() { return t('inventory.tabs.inventory', 'Inventory'); },
+        get hint() { return ''; }
+    }
 };
+
+function invDateLocale() {
+    return t('clock.date_locale', 'en-US');
+}
+
+function invTimeLocale() {
+    return t('clock.time_locale', 'en-GB');
+}
+
+function invTabLabel(tab) {
+    return INV_TABS[tab]?.label || tab;
+}
+
+function invTabHint(tab) {
+    return INV_TABS[tab]?.hint || '';
+}
+
+function invCountText(kind, count) {
+    const form = count === 1 ? 'one' : 'other';
+    if (kind === 'prints') {
+        return tf(`inventory.count.prints.${form}`, { count }, `${count} print${count === 1 ? '' : 's'}`);
+    }
+    return tf(`inventory.count.items.${form}`, { count }, `${count} item${count === 1 ? '' : 's'}`);
+}
+
+function invGroupDateLabel(value) {
+    const date = value ? new Date(value) : new Date(0);
+    if (isNaN(date.getTime())) return t('inventory.date.unknown', 'Unknown date');
+
+    try {
+        return date.toLocaleDateString(invDateLocale(), {
+            weekday: 'long',
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric'
+        });
+    } catch {
+        return date.toLocaleDateString('en-US', {
+            weekday: 'long',
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric'
+        });
+    }
+}
+
+function invTimeLabel(value) {
+    const date = value ? new Date(value) : null;
+    if (!date || isNaN(date.getTime())) return '';
+
+    try {
+        return date.toLocaleTimeString(invTimeLocale(), { hour: '2-digit', minute: '2-digit' });
+    } catch {
+        return date.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+    }
+}
+
+function invNoPreviewMarkup() {
+    return `<div class="inv-no-preview">${esc(t('inventory.empty.no_preview', 'No Preview'))}</div>`;
+}
+
+function renderInvFetchError(message, hintKey = '') {
+    const grid = document.getElementById('invGrid');
+    if (!grid) return;
+
+    const msg = tf('inventory.error.message', { message: esc(message) }, `Error: ${esc(message)}`);
+    const hint = hintKey
+        ? `<br><span style="font-size:11px;color:var(--tx3);">${esc(t(hintKey, ''))}</span>`
+        : '';
+    grid.innerHTML = `<div class="empty-msg" style="color:var(--err);">${msg}${hint}</div>`;
+}
 
 function switchInvTab(tab) {
     activeInvTab = tab;
-    // Update filter button active states
-    Object.keys(INV_TABS).forEach(t => {
-        const btn = document.getElementById('invF' + t.charAt(0).toUpperCase() + t.slice(1));
-        if (btn) btn.classList.toggle('active', t === tab);
+
+    Object.keys(INV_TABS).forEach(key => {
+        const btn = document.getElementById('invF' + key.charAt(0).toUpperCase() + key.slice(1));
+        if (btn) btn.classList.toggle('active', key === tab);
     });
-    // Show/hide upload button
+
     const info = INV_TABS[tab];
     const uploadBtn = document.getElementById('invUploadBtn');
     if (uploadBtn) uploadBtn.style.display = info?.canUpload ? '' : 'none';
 
-    // Show cached data immediately, then refresh if empty
-    const cached = tab === 'prints'    ? invPrintsCache :
-                   tab === 'inventory' ? invInventoryCache :
-                   (invFilesCache[info?.tag] || null);
-    if (cached && cached.length > 0) {
+    const cached = tab === 'prints'
+        ? invPrintsCache
+        : tab === 'inventory'
+            ? invInventoryCache
+            : (invFilesCache[info?.tag] || null);
+
+    if (Array.isArray(cached) && cached.length > 0) {
         if (tab === 'prints') renderInvPrints(cached);
         else if (tab === 'inventory') renderInvInventory(cached);
         else renderInvFiles(cached, tab);
-    } else {
-        refreshInventory();
+        return;
     }
+
+    refreshInventory();
 }
 
 function refreshInventory() {
@@ -48,9 +158,10 @@ function refreshInventory() {
     const grid = document.getElementById('invGrid');
     if (!grid) return;
 
-    // Show loading skeleton
     grid.innerHTML = sk('feed', 6);
-    document.getElementById('invCount').textContent = '';
+
+    const count = document.getElementById('invCount');
+    if (count) count.textContent = '';
 
     if (tab === 'prints') {
         sendToCS({ action: 'invGetPrints' });
@@ -61,12 +172,11 @@ function refreshInventory() {
     }
 }
 
-// Render files (photos / icons / emojis / stickers)
-
 function renderInvFiles(files, tab) {
-    // Filter out locally-deleted files (VRChat deletion is async, API may still return them)
-    if (_invPendingFileDeletes.size > 0)
-        files = files.filter(f => !_invPendingFileDeletes.has(f.id));
+    if (_invPendingFileDeletes.size > 0) {
+        files = files.filter(file => !_invPendingFileDeletes.has(file.id));
+    }
+
     const tag = INV_TABS[tab]?.tag;
     if (tag) invFilesCache[tag] = files;
 
@@ -74,60 +184,59 @@ function renderInvFiles(files, tab) {
     if (!grid) return;
 
     const count = document.getElementById('invCount');
-    if (count) count.textContent = files.length + ' item' + (files.length !== 1 ? 's' : '');
+    if (count) count.textContent = invCountText('items', files.length);
 
     if (!files.length) {
-        const hint = INV_TABS[tab]?.hint || '';
-        grid.innerHTML = `<div class="empty-msg">No ${INV_TABS[tab]?.label || 'items'} found.<br><span style="font-size:11px;color:var(--tx3);">${esc(hint)}</span></div>`;
+        const hint = invTabHint(tab);
+        grid.innerHTML = `<div class="empty-msg">${t(`inventory.empty.${tab}`, `No ${invTabLabel(tab)} found.`)}${hint ? `<br><span style="font-size:11px;color:var(--tx3);">${esc(hint)}</span>` : ''}</div>`;
         return;
     }
 
-    // Group by date
     const groups = {};
-    files.forEach(f => {
-        const d = f.createdAt ? new Date(f.createdAt) : new Date(0);
-        const k = isNaN(d.getTime()) ? 'Unknown date'
-            : d.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
-        if (!groups[k]) groups[k] = [];
-        groups[k].push(f);
+    files.forEach(file => {
+        const key = invGroupDateLabel(file.createdAt);
+        if (!groups[key]) groups[key] = [];
+        groups[key].push(file);
     });
 
-    let h = '';
-    for (const [dt, items] of Object.entries(groups)) {
-        h += `<div class="lib-date-group">${esc(dt)}</div>`;
-        items.forEach(f => {
-            h += buildInvFileCard(f, tab);
+    let html = '';
+    for (const [groupLabel, items] of Object.entries(groups)) {
+        html += `<div class="lib-date-group">${esc(groupLabel)}</div>`;
+        items.forEach(file => {
+            html += buildInvFileCard(file);
         });
     }
-    grid.innerHTML = h;
+    grid.innerHTML = html;
 }
 
-function buildInvFileCard(f, _tab) {
-    const imgUrl = f.fileUrl || '';
+function buildInvFileCard(file) {
+    const imgUrl = file.fileUrl || '';
     const imgAttr = esc(imgUrl);
     const imgJs = jsq(imgUrl);
-    const fileId = jsq(f.id || '');
-    const fileName = jsq((f.name || 'image') + '.png');
-    const sizeStr = formatFileSize(f.sizeBytes || 0);
-    const _fd = f.createdAt ? new Date(f.createdAt) : null;
-    const timeStr = _fd && !isNaN(_fd.getTime()) ? _fd.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }) : '';
-    const nameDisp = esc(f.name || 'Unnamed');
+    const fileId = jsq(file.id || '');
+    const defaultFileBase = file.name || t('inventory.card.image', 'image');
+    const fileName = jsq(defaultFileBase + '.png');
+    const sizeStr = formatFileSize(file.sizeBytes || 0);
+    const timeStr = invTimeLabel(file.createdAt);
+    const nameDisp = esc(file.name || t('inventory.card.unnamed', 'Unnamed'));
+    const noPreviewHtml = `<div class=\\'inv-no-preview\\'>${esc(t('inventory.empty.no_preview', 'No Preview'))}</div>`;
 
-    // Animated badge
-    const isAnim = (f.tags || []).includes('emojianimated');
-    const animBadge = isAnim ? '<span class="inv-anim-badge vrcn-badge accent">ANIM</span>' : '';
+    const isAnim = (file.tags || []).includes('emojianimated');
+    const animBadge = isAnim
+        ? `<span class="inv-anim-badge vrcn-badge accent">${esc(t('inventory.badge.anim', 'ANIM'))}</span>`
+        : '';
 
-    const acts = `<div class="lib-actions">
-        <button class="vrcn-lib-button clip" onclick="event.stopPropagation();invDownload('${imgJs}','${fileName}')" title="Download"><span class="msi" style="font-size:16px;">download</span></button>
-        <button class="vrcn-lib-button del" onclick="event.stopPropagation();invConfirmDeleteFile('${fileId}')" title="Delete"><span class="msi" style="font-size:16px;">delete</span></button>
+    const actions = `<div class="lib-actions">
+        <button class="vrcn-lib-button clip" onclick="event.stopPropagation();invDownload('${imgJs}','${fileName}')" title="${esc(t('inventory.actions.download', 'Download'))}"><span class="msi" style="font-size:16px;">download</span></button>
+        <button class="vrcn-lib-button del" onclick="event.stopPropagation();invConfirmDeleteFile('${fileId}')" title="${esc(t('inventory.actions.delete', 'Delete'))}"><span class="msi" style="font-size:16px;">delete</span></button>
     </div>`;
 
     return `<div class="lib-card inv-card">
-        ${acts}
+        ${actions}
         <div class="lib-thumb-wrap" onclick="openLightbox('${imgJs}','image')">
             ${imgUrl
-                ? `<img class="lib-thumb" src="${imgAttr}" loading="lazy" onerror="this.outerHTML='<div class=\\'inv-no-preview\\'>No Preview</div>'">`
-                : '<div class="inv-no-preview">No Preview</div>'
+                ? `<img class="lib-thumb" src="${imgAttr}" loading="lazy" onerror="this.outerHTML='${noPreviewHtml}'">`
+                : invNoPreviewMarkup()
             }
             ${animBadge}
         </div>
@@ -138,56 +247,54 @@ function buildInvFileCard(f, _tab) {
     </div>`;
 }
 
-// Render prints
-
 function renderInvPrints(prints) {
-    // Filter out locally-deleted prints
-    if (_invPendingPrintDeletes.size > 0)
-        prints = prints.filter(p => !_invPendingPrintDeletes.has(p.id));
+    if (_invPendingPrintDeletes.size > 0) {
+        prints = prints.filter(print => !_invPendingPrintDeletes.has(print.id));
+    }
+
     invPrintsCache = prints;
+
     const grid = document.getElementById('invGrid');
     if (!grid) return;
 
     const count = document.getElementById('invCount');
-    if (count) count.textContent = prints.length + ' print' + (prints.length !== 1 ? 's' : '');
+    if (count) count.textContent = invCountText('prints', prints.length);
 
     if (!prints.length) {
-        grid.innerHTML = '<div class="empty-msg">No prints found.<br><span style="font-size:11px;color:var(--tx3);">Prints are photos taken inside VRChat.</span></div>';
+        grid.innerHTML = `<div class="empty-msg">${t('inventory.empty.prints', 'No prints found.')}<br><span style="font-size:11px;color:var(--tx3);">${esc(t('inventory.empty.prints_desc', 'Prints are photos taken inside VRChat.'))}</span></div>`;
         return;
     }
 
     const groups = {};
-    prints.forEach(p => {
-        const d = p.createdAt ? new Date(p.createdAt) : new Date(0);
-        const k = isNaN(d.getTime()) ? 'Unknown date'
-            : d.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
-        if (!groups[k]) groups[k] = [];
-        groups[k].push(p);
+    prints.forEach(print => {
+        const key = invGroupDateLabel(print.createdAt);
+        if (!groups[key]) groups[key] = [];
+        groups[key].push(print);
     });
 
-    let h = '';
-    for (const [dt, items] of Object.entries(groups)) {
-        h += `<div class="lib-date-group">${esc(dt)}</div>`;
-        items.forEach(p => {
-            h += buildInvPrintCard(p);
+    let html = '';
+    for (const [groupLabel, items] of Object.entries(groups)) {
+        html += `<div class="lib-date-group">${esc(groupLabel)}</div>`;
+        items.forEach(print => {
+            html += buildInvPrintCard(print);
         });
     }
-    grid.innerHTML = h;
+    grid.innerHTML = html;
 }
 
-function buildInvPrintCard(p) {
-    const imgUrl = p.imageUrl || '';
+function buildInvPrintCard(print) {
+    const imgUrl = print.imageUrl || '';
     const imgAttr = esc(imgUrl);
     const imgJs = jsq(imgUrl);
-    const printId = jsq(p.id || '');
-    const _pd = p.createdAt ? new Date(p.createdAt) : null;
-    const timeStr = _pd && !isNaN(_pd.getTime()) ? _pd.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }) : '';
-    const worldName = esc(p.worldName || '');
-    const note = esc(p.note || '');
+    const printId = jsq(print.id || '');
+    const timeStr = invTimeLabel(print.createdAt);
+    const worldName = esc(print.worldName || '');
+    const note = esc(print.note || '');
+    const noPreviewHtml = `<div class=\\'inv-no-preview\\'>${esc(t('inventory.empty.no_preview', 'No Preview'))}</div>`;
 
-    const acts = `<div class="lib-actions">
-        ${imgUrl ? `<button class="vrcn-lib-button clip" onclick="event.stopPropagation();invDownload('${imgJs}','print.png')" title="Download"><span class="msi" style="font-size:16px;">download</span></button>` : ''}
-        <button class="vrcn-lib-button del" onclick="event.stopPropagation();invConfirmDeletePrint('${printId}')" title="Delete"><span class="msi" style="font-size:16px;">delete</span></button>
+    const actions = `<div class="lib-actions">
+        ${imgUrl ? `<button class="vrcn-lib-button clip" onclick="event.stopPropagation();invDownload('${imgJs}','print.png')" title="${esc(t('inventory.actions.download', 'Download'))}"><span class="msi" style="font-size:16px;">download</span></button>` : ''}
+        <button class="vrcn-lib-button del" onclick="event.stopPropagation();invConfirmDeletePrint('${printId}')" title="${esc(t('inventory.actions.delete', 'Delete'))}"><span class="msi" style="font-size:16px;">delete</span></button>
     </div>`;
 
     const metaParts = [];
@@ -195,52 +302,54 @@ function buildInvPrintCard(p) {
     if (timeStr) metaParts.push(`<span>${timeStr}</span>`);
 
     return `<div class="lib-card inv-card">
-        ${acts}
+        ${actions}
         <div class="lib-thumb-wrap" onclick="${imgUrl ? `openLightbox('${imgJs}','image')` : ''}">
             ${imgUrl
-                ? `<img class="lib-thumb" src="${imgAttr}" loading="lazy" onerror="this.outerHTML='<div class=\\'inv-no-preview\\'>No Preview</div>'">`
-                : '<div class="inv-no-preview">No Preview</div>'
+                ? `<img class="lib-thumb" src="${imgAttr}" loading="lazy" onerror="this.outerHTML='${noPreviewHtml}'">`
+                : invNoPreviewMarkup()
             }
         </div>
         <div class="lib-info">
-            <div class="lib-name">${note || 'Print'}</div>
+            <div class="lib-name">${note || esc(t('inventory.card.print', 'Print'))}</div>
             <div class="lib-meta">${metaParts.join('')}</div>
         </div>
     </div>`;
 }
 
-// Inventory items
-
 function renderInvInventory(items) {
     invInventoryCache = items;
+
     const grid = document.getElementById('invGrid');
     if (!grid) return;
 
     const count = document.getElementById('invCount');
-    if (count) count.textContent = items.length + ' item' + (items.length !== 1 ? 's' : '');
+    if (count) count.textContent = invCountText('items', items.length);
 
     if (!items.length) {
-        grid.innerHTML = '<div class="empty-msg">No inventory items found.<br><span style="font-size:11px;color:var(--tx3);">Items you own appear here (props, emojis, stickers from bundles).</span></div>';
+        grid.innerHTML = `<div class="empty-msg">${t('inventory.empty.inventory', 'No inventory items found.')}<br><span style="font-size:11px;color:var(--tx3);">${esc(t('inventory.empty.inventory_desc', 'Items you own appear here (props, emojis, stickers from bundles).'))}</span></div>`;
         return;
     }
 
-    let h = '';
-    items.forEach(item => { h += buildInvItemCard(item); });
-    grid.innerHTML = h;
+    let html = '';
+    items.forEach(item => {
+        html += buildInvItemCard(item);
+    });
+    grid.innerHTML = html;
 }
 
 function buildInvItemCard(item) {
     const imgUrl = item.imageUrl || '';
     const imgAttr = esc(imgUrl);
     const imgJs = jsq(imgUrl);
-    const nameDisp = esc(item.name || 'Item');
+    const nameDisp = esc(item.name || t('inventory.card.item', 'Item'));
     const typeLabel = esc(item.itemType || '');
+    const noPreviewHtml = `<div class=\\'inv-no-preview\\'>${esc(t('inventory.empty.no_preview', 'No Preview'))}</div>`;
 
     return `<div class="lib-card inv-card">
         <div class="lib-thumb-wrap" onclick="${imgUrl ? `openLightbox('${imgJs}','image')` : ''}">
             ${imgUrl
-                ? `<img class="lib-thumb" src="${imgAttr}" loading="lazy" onerror="this.outerHTML='<div class=\\'inv-no-preview\\'>No Preview</div>'">`
-                : '<div class="inv-no-preview">No Preview</div>'
+                ? `<img class="lib-thumb" src="${imgAttr}" loading="lazy" onerror="this.outerHTML='${noPreviewHtml}'">`
+                : invNoPreviewMarkup()
             }
             ${typeLabel ? `<span class="inv-anim-badge vrcn-badge accent">${typeLabel.toUpperCase()}</span>` : ''}
         </div>
@@ -252,14 +361,11 @@ function buildInvItemCard(item) {
 
 function handleInvInventoryResult(payload) {
     if (payload.error) {
-        const grid = document.getElementById('invGrid');
-        if (grid) grid.innerHTML = `<div class="empty-msg">Error: ${esc(payload.error)}</div>`;
+        renderInvFetchError(payload.error);
         return;
     }
     renderInvInventory(payload.items || []);
 }
-
-// Upload
 
 function invBrowseUpload() {
     const info = INV_TABS[activeInvTab];
@@ -267,7 +373,6 @@ function invBrowseUpload() {
     sendToCS({ action: 'invBrowseUpload', tag: info.tag });
 }
 
-// Called from messages.js when upload completes
 function handleInvUploadResult(payload) {
     if (payload.success && payload.file) {
         const tag = payload.tag;
@@ -277,73 +382,86 @@ function handleInvUploadResult(payload) {
             renderInvFiles(invFilesCache[tag], activeInvTab);
         }
         iuHandleUploadDone(true, payload.file);
-        showToast(true, 'Uploaded successfully!');
-    } else {
-        iuHandleUploadDone(false, null);
-        showToast(false, payload.error || 'Upload failed');
+        showToast(true, t('inventory.toast.upload_success', 'Uploaded successfully!'));
+        return;
     }
+
+    iuHandleUploadDone(false, null);
+    showToast(false, payload.error || t('inventory.toast.upload_failed', 'Upload failed'));
 }
 
-// Delete
-
 function invConfirmDeleteFile(fileId) {
-    const tag  = INV_TABS[activeInvTab]?.tag;
-    const file = tag && invFilesCache[tag] ? invFilesCache[tag].find(f => f.id === fileId) : null;
-    showInvDeleteModal('file', fileId, null, file?.name || 'this item');
+    const tag = INV_TABS[activeInvTab]?.tag;
+    const file = tag && invFilesCache[tag] ? invFilesCache[tag].find(entry => entry.id === fileId) : null;
+    showInvDeleteModal('file', fileId, null, file?.name || t('inventory.delete.this_item', 'this item'));
 }
 
 function invConfirmDeletePrint(printId) {
-    const p = invPrintsCache.find(x => x.id === printId);
-    showInvDeleteModal('print', printId, null, p?.note || 'this print');
+    const print = invPrintsCache.find(entry => entry.id === printId);
+    showInvDeleteModal('print', printId, null, print?.note || t('inventory.delete.this_print', 'this print'));
 }
 
 function showInvDeleteModal(type, id, versionId, name) {
     _invPendingDelete = { type, id, versionId };
-    const x = document.getElementById('invDeleteModal');
-    if (x) x.remove();
-    const o = document.createElement('div');
-    o.className = 'modal-overlay';
-    o.id = 'invDeleteModal';
-    o.onclick = e => { if (e.target === o) closeInvDeleteModal(); };
-    o.innerHTML = `<div class="modal-box"><div class="modal-icon danger"><span class="msi" style="font-size:22px;">delete</span></div><div class="modal-title">Delete Item</div><div class="modal-msg">Permanently delete from VRChat:<br><span class="modal-fname">${esc(name)}</span><br><span style="font-size:11px;color:var(--tx3);">This cannot be undone.</span></div><div class="modal-btns"><button id="invDelCancelBtn" class="vrcn-button-round" onclick="closeInvDeleteModal()">Cancel</button><button class="vrcn-button-round vrcn-btn-danger" onclick="confirmInvDelete()">Delete</button></div></div>`;
-    document.body.appendChild(o);
-    o.querySelector('#invDelCancelBtn').focus();
-    const handler = e => {
-        if (e.key === 'Escape') { closeInvDeleteModal(); document.removeEventListener('keydown', handler); }
-        if (e.key === 'Enter')  { confirmInvDelete();    document.removeEventListener('keydown', handler); }
+
+    const existing = document.getElementById('invDeleteModal');
+    if (existing) existing.remove();
+
+    const overlay = document.createElement('div');
+    overlay.className = 'modal-overlay';
+    overlay.id = 'invDeleteModal';
+    overlay.onclick = event => { if (event.target === overlay) closeInvDeleteModal(); };
+    overlay.innerHTML = `<div class="modal-box"><div class="modal-icon danger"><span class="msi" style="font-size:22px;">delete</span></div><div class="modal-title">${esc(t('inventory.modal.delete_title', 'Delete Item'))}</div><div class="modal-msg">${esc(t('inventory.modal.delete_message', 'Permanently delete from VRChat:'))}<br><span class="modal-fname">${esc(name)}</span><br><span style="font-size:11px;color:var(--tx3);">${esc(t('inventory.modal.delete_irreversible', 'This cannot be undone.'))}</span></div><div class="modal-btns"><button id="invDelCancelBtn" class="vrcn-button-round" onclick="closeInvDeleteModal()">${esc(t('common.cancel', 'Cancel'))}</button><button class="vrcn-button-round vrcn-btn-danger" onclick="confirmInvDelete()">${esc(t('inventory.actions.delete', 'Delete'))}</button></div></div>`;
+    document.body.appendChild(overlay);
+
+    overlay.querySelector('#invDelCancelBtn').focus();
+
+    const handler = event => {
+        if (event.key === 'Escape') {
+            closeInvDeleteModal();
+            document.removeEventListener('keydown', handler);
+        }
+        if (event.key === 'Enter') {
+            confirmInvDelete();
+            document.removeEventListener('keydown', handler);
+        }
     };
     document.addEventListener('keydown', handler);
 }
 
 function closeInvDeleteModal() {
     _invPendingDelete = null;
-    const m = document.getElementById('invDeleteModal');
-    if (m) m.remove();
+    const modal = document.getElementById('invDeleteModal');
+    if (modal) modal.remove();
 }
 
 function confirmInvDelete() {
-    if (!_invPendingDelete) { closeInvDeleteModal(); return; }
+    if (!_invPendingDelete) {
+        closeInvDeleteModal();
+        return;
+    }
+
     const { type, id } = _invPendingDelete;
-    if (type === 'file')  sendToCS({ action: 'invDeleteFile',  fileId: id });
+    if (type === 'file') sendToCS({ action: 'invDeleteFile', fileId: id });
     if (type === 'print') sendToCS({ action: 'invDeletePrint', printId: id });
     closeInvDeleteModal();
 }
 
 function handleInvDeleteResult(payload) {
     if (payload.success) {
-        // Add to pending set; clear after 10 min (enough for VRChat's async deletion)
         _invPendingFileDeletes.add(payload.fileId);
         setTimeout(() => _invPendingFileDeletes.delete(payload.fileId), 10 * 60 * 1000);
 
         const tag = INV_TABS[activeInvTab]?.tag;
         if (tag && invFilesCache[tag]) {
-            invFilesCache[tag] = invFilesCache[tag].filter(f => f.id !== payload.fileId);
+            invFilesCache[tag] = invFilesCache[tag].filter(file => file.id !== payload.fileId);
             renderInvFiles(invFilesCache[tag], activeInvTab);
         }
-        showToast(true, 'Deleted');
-    } else {
-        showToast(false, 'Delete failed');
+        showToast(true, t('inventory.toast.deleted', 'Deleted'));
+        return;
     }
+
+    showToast(false, t('inventory.toast.delete_failed', 'Delete failed'));
 }
 
 function handleInvPrintDeleteResult(payload) {
@@ -351,21 +469,43 @@ function handleInvPrintDeleteResult(payload) {
         _invPendingPrintDeletes.add(payload.printId);
         setTimeout(() => _invPendingPrintDeletes.delete(payload.printId), 10 * 60 * 1000);
 
-        invPrintsCache = invPrintsCache.filter(p => p.id !== payload.printId);
+        invPrintsCache = invPrintsCache.filter(print => print.id !== payload.printId);
         renderInvPrints(invPrintsCache);
-        showToast(true, 'Print deleted');
-    } else {
-        showToast(false, 'Delete failed');
+        showToast(true, t('inventory.toast.print_deleted', 'Print deleted'));
+        return;
     }
-}
 
-// Download
+    showToast(false, t('inventory.toast.delete_failed', 'Delete failed'));
+}
 
 function invDownload(url, fileName) {
     sendToCS({ action: 'invDownload', url, fileName });
 }
 
-// Helpers
+function rerenderInventoryTranslations() {
+    const grid = document.getElementById('invGrid');
+    if (!grid) return;
+
+    const tab = activeInvTab || 'photos';
+    const info = INV_TABS[tab];
+    const cached = tab === 'prints'
+        ? (Array.isArray(invPrintsCache) ? invPrintsCache : null)
+        : tab === 'inventory'
+            ? (Array.isArray(invInventoryCache) ? invInventoryCache : null)
+            : (info?.tag && Array.isArray(invFilesCache[info.tag]) ? invFilesCache[info.tag] : null);
+
+    if (cached) {
+        if (tab === 'prints') renderInvPrints(cached);
+        else if (tab === 'inventory') renderInvInventory(cached);
+        else renderInvFiles(cached, tab);
+        return;
+    }
+
+    const empty = grid.querySelector('.empty-msg');
+    if (empty) empty.textContent = t('inventory.select_category', 'Select a category above');
+}
+
+document.documentElement.addEventListener('languagechange', rerenderInventoryTranslations);
 
 function formatFileSize(bytes) {
     if (!bytes || bytes === 0) return '';
@@ -373,4 +513,3 @@ function formatFileSize(bytes) {
     if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
     return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
 }
-

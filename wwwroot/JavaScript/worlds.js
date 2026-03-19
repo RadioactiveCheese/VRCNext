@@ -2,6 +2,7 @@
 /* === World Tab: Favorites / Search filter === */
 let _favRefreshTimer = null;
 let _wdLiveTimer = null;
+let _favWorldsLoaded = false;
 function _scheduleBgFavRefresh() {
     clearTimeout(_favRefreshTimer);
     _favRefreshTimer = setTimeout(() => sendToCS({ action: 'vrcGetFavoriteWorlds' }), 2000);
@@ -12,6 +13,29 @@ function refreshFavWorlds() {
     sendToCS({ action: 'vrcGetFavoriteWorlds' });
 }
 let _myWorldsLoaded = false;
+
+function getWorldRegionLabel(region) {
+    const key = (region || '').toLowerCase();
+    const labels = {
+        eu: t('worlds.regions.eu', 'Europe'),
+        us: t('worlds.regions.us', 'US West'),
+        use: t('worlds.regions.use', 'US East'),
+        jp: t('worlds.regions.jp', 'Japan')
+    };
+    return labels[key] || String(region || '').toUpperCase();
+}
+
+function getWorldPlayersLabel(count) {
+    const key = count === 1 ? 'worlds.meta.players.one' : 'worlds.meta.players.other';
+    const fallback = count === 1 ? '{count} player' : '{count} players';
+    return tf(key, { count }, fallback);
+}
+
+function getWorldVisitCountLabel(count) {
+    const key = count === 1 ? 'worlds.time_spent.visits.one' : 'worlds.time_spent.visits.other';
+    const fallback = count === 1 ? '{count} visit' : '{count} visits';
+    return tf(key, { count }, fallback);
+}
 
 function setWorldFilter(filter) {
     worldFilter = filter;
@@ -32,7 +56,7 @@ function renderMyWorlds(worlds) {
     const el = document.getElementById('worldMineGrid');
     if (!el) return;
     if (!Array.isArray(worlds) || worlds.length === 0) {
-        el.innerHTML = '<div class="empty-msg">No worlds uploaded yet</div>';
+        el.innerHTML = `<div class="empty-msg">${t('worlds.mine.empty', 'No worlds uploaded yet')}</div>`;
         return;
     }
     el.innerHTML = worlds.map(w => renderWorldCard(w)).join('');
@@ -52,6 +76,7 @@ function renderFavWorlds(payload) {
     // payload is { worlds: [...], groups: [...] }
     const worlds = payload?.worlds || payload || [];
     const groups = payload?.groups || [];
+    _favWorldsLoaded = true;
     favWorldsData = worlds;
     favWorldGroups = groups;
     // Populate world info cache for library badges
@@ -62,7 +87,7 @@ function renderFavWorlds(payload) {
     const sel = document.getElementById('favWorldGroupFilter');
     if (sel) {
         const prev = favWorldGroupFilter;
-        sel.innerHTML = '<option value="">All Favorites</option>' +
+        sel.innerHTML = `<option value="">${t('worlds.favorites.group.all', 'All Favorites')}</option>` +
             groups.map(g => `<option value="${esc(g.name)}">${_wdGroupOptionLabel(g)}</option>`).join('');
         const stillValid = groups.some(g => g.name === prev);
         favWorldGroupFilter = stillValid ? prev : '';
@@ -86,7 +111,7 @@ function updateFavWorldGroupHeader() {
     const badge = document.getElementById('favWorldGroupVrcPlusBadge');
     if (!label) return;
     if (!favWorldGroupFilter) {
-        label.textContent = 'All Favorites';
+        label.textContent = t('worlds.favorites.group.all', 'All Favorites');
         if (editBtn) editBtn.style.display = 'none';
         if (badge) badge.style.display = 'none';
     } else {
@@ -113,7 +138,7 @@ function cancelEditWorldGroupName() {
     const row = document.getElementById('favWorldGroupRenameRow');
     if (row) row.style.display = 'none';
     const saveBtn = document.querySelector('#favWorldGroupRenameRow .vrcn-btn-primary');
-    if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = 'Save'; }
+    if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = t('common.save', 'Save'); }
 }
 
 function saveWorldGroupName() {
@@ -123,7 +148,7 @@ function saveWorldGroupName() {
     const newName = (input?.value || '').trim();
     if (!newName) return;
     const saveBtn = document.querySelector('#favWorldGroupRenameRow .vrcn-btn-primary');
-    if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = 'Saving...'; }
+    if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = t('common.saving', 'Saving...'); }
     sendToCS({ action: 'vrcUpdateFavoriteGroup', groupType: g.type, groupName: g.name, displayName: newName });
 }
 
@@ -165,7 +190,9 @@ function filterFavWorlds() {
     if (q) filtered = filtered.filter(w => (w.name||'').toLowerCase().includes(q) || (w.authorName||'').toLowerCase().includes(q));
     const el = document.getElementById('favWorldsGrid');
     if (!filtered.length) {
-        el.innerHTML = `<div class="empty-msg">${q || favWorldGroupFilter ? 'No favorites match your filter' : 'No favorite worlds found'}</div>`;
+        el.innerHTML = `<div class="empty-msg">${q || favWorldGroupFilter
+            ? t('worlds.favorites.no_match', 'No favorites match your filter')
+            : t('worlds.favorites.empty', 'No favorite worlds found')}</div>`;
         return;
     }
     el.innerHTML = filtered.map(w => renderWorldCard(w)).join('');
@@ -197,9 +224,6 @@ function renderWorldSearchDetail(w) {
         const allTags = [...authorTags, ...systemTags].slice(0, 12);
         tagsHtml = `<div class="fd-lang-tags">${allTags.map(t => `<span class="vrcn-badge">${esc(t)}</span>`).join('')}</div>`;
     }
-
-    // Active instances HTML
-    const regionLabels = { us: 'US West', use: 'US East', eu: 'Europe', jp: 'Japan' };
 
     // Build friend-by-location map for this world (for friend badges + inferred instances)
     const worldFriendsByLoc = {};
@@ -240,7 +264,7 @@ function renderWorldSearchDetail(w) {
 
     let instancesHtml = '';
     if (allInstances.length > 0) {
-        instancesHtml = `<div class="wd-section-label" style="margin-top:4px;">ACTIVE INSTANCES (${allInstances.length})</div><div class="wd-instances-list">`;
+        instancesHtml = `<div class="wd-section-label" style="margin-top:4px;">${tf('worlds.instances.active_title', { count: allInstances.length }, 'ACTIVE INSTANCES ({count})')}</div><div class="wd-instances-list">`;
         allInstances.forEach(inst => {
             instancesHtml += renderInstanceItem({
                 instanceType: inst.type,
@@ -248,7 +272,7 @@ function renderWorldSearchDetail(w) {
                 owner:        inst.ownerName  || '',
                 ownerGroup:   inst.ownerGroup || '',
                 ownerId:      inst.ownerId    || '',
-                region:       regionLabels[inst.region] || inst.region.toUpperCase(),
+                region:       getWorldRegionLabel(inst.region),
                 userCount:    inst.users,
                 capacity:     w.capacity || 0,
                 friends:      worldFriendsByLoc[inst.location] || [],
@@ -257,59 +281,59 @@ function renderWorldSearchDetail(w) {
         });
         instancesHtml += '</div>';
     } else {
-        instancesHtml = '<div style="font-size:11px;color:var(--tx3);margin-bottom:14px;">No active instances</div>';
+        instancesHtml = `<div style="font-size:11px;color:var(--tx3);margin-bottom:14px;">${t('worlds.instances.none_active', 'No active instances')}</div>`;
     }
 
     // Create instance UI
-    const createHtml = `<div class="wd-section-label" style="margin-top:6px;">CREATE INSTANCE</div>
+    const createHtml = `<div class="wd-section-label" style="margin-top:6px;">${t('worlds.instances.create_title', 'CREATE INSTANCE')}</div>
         <div class="wd-create-row">
             <select id="ciType" class="wd-create-select" onchange="onCiTypeChange()">
-                <option value="public">Public</option>
-                <option value="friends">Friends</option>
-                <option value="hidden">Friends+</option>
-                <option value="invite_plus">Invite+</option>
-                <option value="private">Invite</option>
-                <optgroup label="─────────"></optgroup>
-                <option value="group_public">Group Public</option>
-                <option value="group_members">Group</option>
-                <option value="group_plus">Group+</option>
+                <option value="public">${t('worlds.instances.types.public', 'Public')}</option>
+                <option value="friends">${t('worlds.instances.types.friends', 'Friends')}</option>
+                <option value="hidden">${t('worlds.instances.types.friends_plus', 'Friends+')}</option>
+                <option value="invite_plus">${t('worlds.instances.types.invite_plus', 'Invite+')}</option>
+                <option value="private">${t('worlds.instances.types.invite', 'Invite')}</option>
+                <optgroup label="---------"></optgroup>
+                <option value="group_public">${t('worlds.instances.types.group_public', 'Group Public')}</option>
+                <option value="group_members">${t('worlds.instances.types.group', 'Group')}</option>
+                <option value="group_plus">${t('worlds.instances.types.group_plus', 'Group+')}</option>
             </select>
             <select id="ciRegion" class="wd-create-select">
-                <option value="eu">Europe</option>
-                <option value="us">US West</option>
-                <option value="use">US East</option>
-                <option value="jp">Japan</option>
+                <option value="eu">${getWorldRegionLabel('eu')}</option>
+                <option value="us">${getWorldRegionLabel('us')}</option>
+                <option value="use">${getWorldRegionLabel('use')}</option>
+                <option value="jp">${getWorldRegionLabel('jp')}</option>
             </select>
-            <button class="vrcn-button" id="ciBtn" onclick="createWorldInstance('${esc(w.id)}')" style="background:var(--accent);color:#fff;"><span class="msi" style="font-size:14px;">add</span> Create & Join</button>
+            <button class="vrcn-button" id="ciBtn" onclick="createWorldInstance('${esc(w.id)}')" style="background:var(--accent);color:#fff;"><span class="msi" style="font-size:14px;">add</span> ${t('worlds.instances.create_join', 'Create & Join')}</button>
         </div>
         <div id="ciGroupRow" style="display:none;margin-top:8px;">
-            <div style="font-size:11px;color:var(--tx3);margin-bottom:6px;">Select group for this instance:</div>
+            <div style="font-size:11px;color:var(--tx3);margin-bottom:6px;">${t('worlds.instances.select_group', 'Select group for this instance:')}</div>
             <input type="hidden" id="ciGroupId" value="">
             <div class="ci-group-list" id="ciGroupList"></div>
         </div>`;
 
     const isFavWorld = favWorldsData.some(fw => fw.id === w.id);
     const favBtnLabel = isFavWorld
-        ? '<span class="msi" style="font-size:16px;">star</span>Unfavorite'
-        : '<span class="msi" style="font-size:16px;">star_outline</span>Favorite';
+        ? `<span class="msi" style="font-size:16px;">star</span>${t('worlds.favorites.unfavorite', 'Unfavorite')}`
+        : `<span class="msi" style="font-size:16px;">star_outline</span>${t('worlds.favorites.favorite', 'Favorite')}`;
 
     const isOwnWorld = currentVrcUser && w.authorId === currentVrcUser.id;
     _wdCurrentWorldId = wid;
 
     // Tab pills (only for own worlds)
     const tabsHtml = isOwnWorld ? `<div class="fd-tabs" style="margin-bottom:14px;">
-        <button class="fd-tab active" onclick="switchWdTab('info',this)">Info</button>
-        <button class="fd-tab" onclick="switchWdTab('insights',this)">Insights</button>
+        <button class="fd-tab active" onclick="switchWdTab('info',this)">${t('worlds.tabs.info', 'Info')}</button>
+        <button class="fd-tab" onclick="switchWdTab('insights',this)">${t('worlds.tabs.insights', 'Insights')}</button>
     </div>` : '';
 
     el.innerHTML = `${thumb ? `<div class="fd-banner"><img src="${thumb}" onerror="this.parentElement.style.display='none'"><div class="fd-banner-fade"></div></div>` : ''}
         <div class="fd-content${thumb ? ' fd-has-banner' : ''}" style="padding:20px;">
         <h2 style="margin:0 0 4px;color:var(--tx0);font-size:18px;">${esc(w.name)}</h2>
-        <div style="font-size:12px;color:var(--tx3);margin-bottom:12px;">by ${w.authorId ? `<span onclick="document.getElementById('modalDetail').style.display='none';openFriendDetail('${esc(w.authorId)}')" style="display:inline-flex;align-items:center;padding:1px 8px;border-radius:20px;background:var(--bg-hover);font-size:11px;font-weight:600;color:var(--tx1);cursor:pointer;line-height:1.8;">${esc(w.authorName)}</span>` : esc(w.authorName)}</div>
+        <div style="font-size:12px;color:var(--tx3);margin-bottom:12px;">${t('worlds.meta.by', 'by')} ${w.authorId ? `<span onclick="document.getElementById('modalDetail').style.display='none';openFriendDetail('${esc(w.authorId)}')" style="display:inline-flex;align-items:center;padding:1px 8px;border-radius:20px;background:var(--bg-hover);font-size:11px;font-weight:600;color:var(--tx1);cursor:pointer;line-height:1.8;">${esc(w.authorName)}</span>` : esc(w.authorName)}</div>
         ${tabsHtml}
         <div id="wdTabInfo">
         <div class="fd-badges-row">
-            <span class="vrcn-badge"><span class="msi" style="font-size:11px;">person</span> ${w.occupants} Active</span>
+            <span class="vrcn-badge"><span class="msi" style="font-size:11px;">person</span> ${w.occupants} ${t('worlds.meta.active', 'Active')}</span>
             <span class="vrcn-badge"><span class="msi" style="font-size:11px;">star</span> ${w.favorites}</span>
             <span class="vrcn-badge"><span class="msi" style="font-size:11px;">visibility</span> ${w.visits}</span>
         </div>
@@ -317,22 +341,22 @@ function renderWorldSearchDetail(w) {
             <button class="vrcn-button-round${isFavWorld ? ' active' : ''}" id="wdFavBtn" onclick="toggleWorldFavPicker('${wid}')" style="margin-left:auto;">${favBtnLabel}</button>
         </div>
         <div id="wdFavPicker" style="display:none;margin-bottom:14px;">
-            <div class="wd-section-label" style="margin-bottom:6px;">ADD TO FAVORITE GROUP</div>
-            <div class="ci-group-list" id="wdFavGroupList"><div style="font-size:11px;color:var(--tx3);padding:8px 0;">Loading groups…</div></div>
+            <div class="wd-section-label" style="margin-bottom:6px;">${t('worlds.favorites.add_group_title', 'ADD TO FAVORITE GROUP')}</div>
+            <div class="ci-group-list" id="wdFavGroupList"><div style="font-size:11px;color:var(--tx3);padding:8px 0;">${t('worlds.favorites.loading_groups', 'Loading groups...')}</div></div>
         </div>
-        ${(w.worldTimeSeconds > 0 || currentInstanceData?.worldId === wid) ? `<div class="wd-your-time"><span class="msi" style="font-size:15px;">schedule</span><div><div style="font-size:12px;font-weight:600;color:var(--tx1);">Your Time Spent</div><div style="font-size:11px;color:var(--tx3);"><span id="wdTimeSpent">${formatDuration(w.worldTimeSeconds || 0)}</span>${w.worldVisitCount > 0 ? ' · ' + w.worldVisitCount + ' visit' + (w.worldVisitCount > 1 ? 's' : '') : ''}</div></div></div>` : ''}
+        ${(w.worldTimeSeconds > 0 || currentInstanceData?.worldId === wid) ? `<div class="wd-your-time"><span class="msi" style="font-size:15px;">schedule</span><div><div style="font-size:12px;font-weight:600;color:var(--tx1);">${t('worlds.time_spent.label', 'Your Time Spent')}</div><div style="font-size:11px;color:var(--tx3);"><span id="wdTimeSpent">${formatDuration(w.worldTimeSeconds || 0)}</span>${w.worldVisitCount > 0 ? ' &middot; ' + getWorldVisitCountLabel(w.worldVisitCount) : ''}</div></div></div>` : ''}
         <div style="margin-bottom:10px;">${idBadge(wid)}</div>
         ${desc ? `<div style="font-size:12px;color:var(--tx2);margin-bottom:14px;max-height:150px;overflow-y:auto;line-height:1.5;white-space:pre-wrap;">${esc(desc)}</div>` : ''}
         ${tagsHtml}
         <div class="fd-meta" style="margin-bottom:14px;">
-            ${w.recommendedCapacity ? `<div class="fd-meta-row"><span class="fd-meta-label">Recommended</span><span>${w.recommendedCapacity} Players</span></div>` : ''}
-            <div class="fd-meta-row"><span class="fd-meta-label">Max Capacity</span><span>${w.capacity} Players</span></div>
+            ${w.recommendedCapacity ? `<div class="fd-meta-row"><span class="fd-meta-label">${t('worlds.meta.recommended', 'Recommended')}</span><span>${getWorldPlayersLabel(w.recommendedCapacity)}</span></div>` : ''}
+            <div class="fd-meta-row"><span class="fd-meta-label">${t('worlds.meta.max_capacity', 'Max Capacity')}</span><span>${getWorldPlayersLabel(w.capacity)}</span></div>
         </div>
         ${instancesHtml}
         ${createHtml}
         </div>
         ${isOwnWorld ? `<div id="wdTabInsights" style="display:none;"><div id="wiContainer"></div></div>` : ''}
-        <div style="margin-top:14px;text-align:right;"><button class="vrcn-button-round" onclick="closeWorldSearchDetail()">Close</button></div>
+        <div style="margin-top:14px;text-align:right;"><button class="vrcn-button-round" onclick="closeWorldSearchDetail()">${t('common.close', 'Close')}</button></div>
         </div>`;
 
     document.querySelectorAll('#ciType, #ciRegion').forEach(initVnSelect);
@@ -397,7 +421,7 @@ function onWorldUnfavoriteResult(data) {
         if (btn) {
             btn.disabled = false;
             btn.classList.remove('active');
-            btn.innerHTML = '<span class="msi" style="font-size:16px;">star_outline</span>Favorite';
+            btn.innerHTML = `<span class="msi" style="font-size:16px;">star_outline</span>${t('worlds.favorites.favorite', 'Favorite')}`;
         }
         filterFavWorlds();
         _scheduleBgFavRefresh();
@@ -411,7 +435,7 @@ function renderWorldFavPicker(worldId) {
     if (!list) return;
     // If groups not loaded yet, request them
     if (favWorldGroups.length === 0) {
-        list.innerHTML = '<div style="font-size:11px;color:var(--tx3);padding:8px 0;">Loading groups…</div>';
+        list.innerHTML = `<div style="font-size:11px;color:var(--tx3);padding:8px 0;">${t('worlds.favorites.loading_groups', 'Loading groups...')}</div>`;
         sendToCS({ action: 'vrcGetWorldFavGroups' });
         // Store pending worldId so we can render when groups arrive
         list.dataset.pendingWorldId = worldId;
@@ -438,7 +462,7 @@ function renderWorldFavPicker(worldId) {
                     <span style="font-size:12px;font-weight:600;color:var(--tx1);">${esc(g.displayName || g.name)}</span>
                     ${vrcBadge}
                 </div>
-                <div style="font-size:10px;color:var(--tx3);margin-top:1px;">${count}/100 worlds</div>
+                <div style="font-size:10px;color:var(--tx3);margin-top:1px;">${tf('worlds.favorites.group_count', { count }, '{count}/100 worlds')}</div>
             </div>
             ${check}
         </div>`;
@@ -463,7 +487,12 @@ function onWorldFavoriteResult(data) {
         const worldName  = cached.name || favWorldsData.find(w => w.id === data.worldId)?.name || '';
         const group      = (typeof favWorldGroups !== 'undefined') && favWorldGroups.find(g => g.name === data.groupName);
         const groupLabel = group?.displayName || data.groupName;
-        showToast(true, worldName ? `"${worldName}" saved to ${groupLabel}` : `Saved to ${groupLabel}`);
+        showToast(
+            true,
+            worldName
+                ? tf('worlds.favorites.saved_to_group.named', { world: worldName, group: groupLabel }, '"{world}" saved to {group}')
+                : tf('worlds.favorites.saved_to_group.unnamed', { group: groupLabel }, 'Saved to {group}')
+        );
 
         const existing = favWorldsData.find(w => w.id === data.worldId);
         if (existing) {
@@ -491,7 +520,7 @@ function onWorldFavoriteResult(data) {
         const btn = document.getElementById('wdFavBtn');
         if (btn) {
             btn.classList.add('active');
-            btn.innerHTML = '<span class="msi" style="font-size:16px;">star</span>Unfavorite';
+            btn.innerHTML = `<span class="msi" style="font-size:16px;">star</span>${t('worlds.favorites.unfavorite', 'Unfavorite')}`;
         }
         const list = document.getElementById('wdFavGroupList');
         if (list) renderWorldFavPicker(data.worldId);
@@ -500,7 +529,7 @@ function onWorldFavoriteResult(data) {
     } else {
         const list = document.getElementById('wdFavGroupList');
         if (list) {
-            list.innerHTML = '<div style="font-size:11px;color:var(--err,#e55);padding:6px 0;">Failed to add to favorites. Try again.</div>';
+            list.innerHTML = `<div style="font-size:11px;color:var(--err,#e55);padding:6px 0;">${t('worlds.favorites.failed_add', 'Failed to add to favorites. Try again.')}</div>`;
             setTimeout(() => { if (document.getElementById('wdFavGroupList')) renderWorldFavPicker(data.worldId); }, 1800);
         }
     }
@@ -538,10 +567,13 @@ function onCiTypeChange() {
 function renderCiGroupPicker(groups) {
     const el = document.getElementById('ciGroupList');
     if (!el) return;
-    if (groups === null) { el.innerHTML = '<div style="font-size:11px;color:var(--tx3);padding:6px 0;">Loading groups...</div>'; return; }
+    if (groups === null) {
+        el.innerHTML = `<div style="font-size:11px;color:var(--tx3);padding:6px 0;">${t('worlds.groups.loading', 'Loading groups...')}</div>`;
+        return;
+    }
     const validGroups = groups.filter(g => g.canCreateInstance !== false);
     if (!validGroups.length) {
-        el.innerHTML = '<div style="font-size:11px;color:var(--tx3);padding:6px 0;">No groups with instance creation rights</div>';
+        el.innerHTML = `<div style="font-size:11px;color:var(--tx3);padding:6px 0;">${t('worlds.groups.none_create_rights', 'No groups with instance creation rights')}</div>`;
         return;
     }
     el.innerHTML = validGroups.map(g => {
@@ -552,7 +584,7 @@ function renderCiGroupPicker(groups) {
             ${icon}
             <div class="fd-group-card-info">
                 <div class="fd-group-card-name">${esc(g.name)}</div>
-                <div class="fd-group-card-meta">${esc(g.shortCode || '')} · ${g.memberCount || 0} members</div>
+                <div class="fd-group-card-meta">${esc(g.shortCode || '')} &middot; ${tf('worlds.groups.members', { count: g.memberCount || 0 }, '{count} members')}</div>
             </div>
         </div>`;
     }).join('');
@@ -572,12 +604,12 @@ function createWorldInstance(worldId) {
     const type = document.getElementById('ciType').value;
     const region = document.getElementById('ciRegion').value;
     const btn = document.getElementById('ciBtn');
-    if (btn) { btn.disabled = true; btn.innerHTML = '<span class="msi" style="font-size:14px;">hourglass_empty</span> Creating...'; }
+    if (btn) { btn.disabled = true; btn.innerHTML = `<span class="msi" style="font-size:14px;">hourglass_empty</span> ${t('worlds.instances.creating', 'Creating...')}`; }
 
     if (type.startsWith('group_')) {
         const groupId = document.getElementById('ciGroupId')?.value || '';
         if (!groupId) {
-            if (btn) { btn.disabled = false; btn.innerHTML = '<span class="msi" style="font-size:14px;">add</span> Create & Join'; }
+            if (btn) { btn.disabled = false; btn.innerHTML = `<span class="msi" style="font-size:14px;">add</span> ${t('worlds.instances.create_join', 'Create & Join')}`; }
             return;
         }
         // group_public → "public", group_members → "members", group_plus → "plus"
@@ -650,7 +682,9 @@ function openWorldDetail(worldId) {
     const otherInstList = Object.values(otherInstMap);
     const totalSections = (myInst ? 1 : 0) + otherInstList.length;
 
-    let friendsHtml = `<div class="wd-friends-label">${totalSections > 1 ? `FRIENDS IN THIS WORLD (${totalSections} instances)` : 'FRIENDS IN THIS INSTANCE'}</div>`;
+    let friendsHtml = `<div class="wd-friends-label">${totalSections > 1
+        ? tf('instance.sections.friends_in_world', { count: totalSections }, 'FRIENDS IN THIS WORLD ({count} instances)')
+        : t('instance.sections.friends_here', 'FRIENDS IN THIS INSTANCE')}</div>`;
 
     // Render MY instance first (always, if it exists)
     if (myInst) {
@@ -674,8 +708,8 @@ function openWorldDetail(worldId) {
             friendsHtml += `<div class="vrcn-profile-item" style="pointer-events:none;opacity:0.55;">
                 <div class="fd-profile-item-avatar" style="display:flex;align-items:center;justify-content:center;"><span class="msi" style="font-size:20px;color:var(--tx3);">person</span></div>
                 <div class="fd-profile-item-info">
-                    <div class="fd-profile-item-name">No friends here yet!</div>
-                    <div class="fd-profile-item-status">Invite friends to this instance!</div>
+                    <div class="fd-profile-item-name">${t('dashboard.instances.no_friends_title', 'No friends here yet!')}</div>
+                    <div class="fd-profile-item-status">${t('dashboard.instances.no_friends_desc', 'Invite friends to this instance!')}</div>
                 </div>
             </div>`;
         }
@@ -695,7 +729,7 @@ function openWorldDetail(worldId) {
             friendsHtml += `<div class="wd-instance-header">
                 <span class="vrcn-badge ${iCls}">${iLabel}</span>
                 ${instCopyBadge}
-                ${canJoinInst ? `<button class="vrcn-button-round vrcn-btn-join" style="margin-left:auto;" onclick="worldJoinAction('${instLoc}')">Join</button>` : ''}
+                ${canJoinInst ? `<button class="vrcn-button-round vrcn-btn-join" style="margin-left:auto;" onclick="worldJoinAction('${instLoc}')">${t('common.join', 'Join')}</button>` : ''}
             </div>`;
         }
         friendsHtml += '<div class="wd-friends-list">';
@@ -723,9 +757,9 @@ function openWorldDetail(worldId) {
         : '';
 
     let actionsHtml = '<div class="fd-actions">';
-    if (canJoin) actionsHtml += `<button class="vrcn-button-round vrcn-btn-join" onclick="worldJoinAction('${loc}')">Join World</button>`;
-    actionsHtml += `<button class="vrcn-button-round" onclick="closeWorldDetail();openWorldSearchDetail('${wid}')">Open World</button>`;
-    actionsHtml += `<button class="vrcn-button-round" style="margin-left:auto;" onclick="closeWorldDetail()">Close</button>`;
+    if (canJoin) actionsHtml += `<button class="vrcn-button-round vrcn-btn-join" onclick="worldJoinAction('${loc}')">${t('dashboard.instances.join_world', 'Join World')}</button>`;
+    actionsHtml += `<button class="vrcn-button-round" onclick="closeWorldDetail();openWorldSearchDetail('${wid}')">${t('dashboard.instances.open_world', 'Open World')}</button>`;
+    actionsHtml += `<button class="vrcn-button-round" style="margin-left:auto;" onclick="closeWorldDetail()">${t('common.close', 'Close')}</button>`;
     actionsHtml += '</div>';
 
     c.innerHTML = `${bannerHtml}<div class="fd-content${thumb ? ' fd-has-banner' : ''}" style="padding:16px;">

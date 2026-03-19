@@ -60,7 +60,7 @@ function forceRefreshLibrary() {
     if (g) {
         g.querySelectorAll('.lib-thumb').forEach(img => { img.src = PLACEHOLDER; });
         g.querySelectorAll('video').forEach(v => { try { v.pause(); } catch {} v.src = ''; });
-        g.innerHTML = '<div class="empty-msg">Scanning…</div>';
+        g.innerHTML = `<div class="empty-msg">${t('library.scanning', 'Scanning...')}</div>`;
     }
     _setLibPaginator('');
     sendToCS({ action: 'scanLibraryForce' });
@@ -141,7 +141,7 @@ function applyLibraryWorldIds(dict) {
         const wrap = card.querySelector('.lib-thumb-wrap');
         if (!wrap || wrap.querySelector('.lib-world-badge')) continue;
         const wInfo = worldInfoCache[worldId];
-        const wName  = wInfo ? esc(wInfo.name) : 'View World';
+        const wName  = wInfo ? esc(wInfo.name) : t('library.view_world', 'View World');
         const wThumb = wInfo?.thumbnailImageUrl || '';
         wrap.insertAdjacentHTML('beforeend',
             `<button class="lib-world-badge" data-wid="${esc(worldId)}" onclick="event.stopPropagation();openWorldSearchDetail('${esc(worldId)}')" title="${wName}"><span class="lib-world-badge-thumb" style="${wThumb ? `background-image:url('${cssUrl(wThumb)}')` : ''}"></span><span class="lib-world-badge-text">${wName}</span></button>`);
@@ -181,7 +181,11 @@ function _renderLibPage() {
         const isFiltered = showFavOnly
             || (document.getElementById('libFolderFilter')?.value ?? '__all__') !== '__all__'
             || (document.getElementById('libTypeFilter')?.value ?? 'all') !== 'all';
-        g.innerHTML = '<div class="empty-msg">' + (showFavOnly ? 'No favorites yet.' : isFiltered ? 'No media files found.' : 'Add watch folders in Settings.') + '</div>';
+        g.innerHTML = '<div class="empty-msg">' + (showFavOnly
+            ? t('library.empty.favorites', 'No favorites yet.')
+            : isFiltered
+                ? t('library.empty.filtered', 'No media files found.')
+                : t('library.empty.watch_folders', 'Add watch folders in Settings.')) + '</div>';
         _setLibPaginator('');
         return;
     }
@@ -189,7 +193,7 @@ function _renderLibPage() {
     const groups = {};
     pageItems.forEach(x => {
         const d = new Date(x.modified);
-        const k = d.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+        const k = d.toLocaleDateString(t('clock.date_locale', 'en-US'), { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
         if (!groups[k]) groups[k] = [];
         groups[k].push(x);
     });
@@ -210,7 +214,7 @@ function buildLibPagination(page, totalPages) {
     if (totalPages <= 1) return '';
     const prevDis  = page === 0 ? 'disabled' : '';
     const nextDis  = page >= totalPages - 1 ? 'disabled' : '';
-    const countInfo = `<span style="font-size:11px;color:var(--tx3);padding:0 8px;">${_libFiltered.length.toLocaleString()} files</span>`;
+    const countInfo = `<span style="font-size:11px;color:var(--tx3);padding:0 8px;">${tf('library.pagination.files', { count: _libFiltered.length.toLocaleString() }, '{count} files')}</span>`;
     return `<button class="vrcn-button" ${prevDis} onclick="libGoPage(${page - 1})"><span class="msi" style="font-size:16px;">chevron_left</span></button>
         ${_buildPaginatorBtns(page, totalPages, 'libGoPage')}
         <button class="vrcn-button" ${nextDis} onclick="libGoPage(${page + 1})"><span class="msi" style="font-size:16px;">chevron_right</span></button>
@@ -263,7 +267,7 @@ function _buildLibCard(x) {
     const iF     = favorites.has(x.path),  fc = iF ? ' active' : '';
     const iH     = hiddenMedia.has(x.path), hc = iH ? ' active' : '';
     const ac     = ['lib-actions', iF ? 'has-fav' : '', iH ? 'has-hidden' : ''].filter(Boolean).join(' ');
-    const acts   = `<div class="${ac}"><button class="vrcn-lib-button clip" onclick="event.stopPropagation();copyToClipboard('${suJs}','${sp}','${x.type}')" title="Copy to clipboard"><span class="msi" style="font-size:16px;">content_copy</span></button><button class="vrcn-lib-button fav${fc}" onclick="event.stopPropagation();toggleFavorite('${sp}')" title="Favorite"><span class="msi" style="font-size:16px;">star</span></button><button class="vrcn-lib-button hide${hc}" onclick="event.stopPropagation();toggleHidden('${sp}')" title="${iH ? 'Unhide' : 'Hide'}"><span class="msi" style="font-size:16px;">${iH ? 'visibility' : 'visibility_off'}</span></button><button class="vrcn-lib-button del" onclick="event.stopPropagation();showDeleteModal('${sp}','${sn}')"><span class="msi" style="font-size:16px;">delete</span></button></div>`;
+    const acts   = `<div class="${ac}"><button class="vrcn-lib-button clip" onclick="event.stopPropagation();copyToClipboard('${suJs}','${sp}','${x.type}')" title="${esc(t('library.actions.copy_clipboard', 'Copy to clipboard'))}"><span class="msi" style="font-size:16px;">content_copy</span></button><button class="vrcn-lib-button fav${fc}" onclick="event.stopPropagation();toggleFavorite('${sp}')" title="${esc(t('library.actions.favorite', 'Favorite'))}"><span class="msi" style="font-size:16px;">star</span></button><button class="vrcn-lib-button hide${hc}" onclick="event.stopPropagation();toggleHidden('${sp}')" title="${esc(iH ? t('library.actions.unhide', 'Unhide') : t('library.actions.hide', 'Hide'))}"><span class="msi" style="font-size:16px;">${iH ? 'visibility' : 'visibility_off'}</span></button><button class="vrcn-lib-button del" onclick="event.stopPropagation();showDeleteModal('${sp}','${sn}')"><span class="msi" style="font-size:16px;">delete</span></button></div>`;
     const blurClass = iH ? ' lib-blurred' : '';
     const idx       = libraryFiles.indexOf(x);
 
@@ -271,7 +275,7 @@ function _buildLibCard(x) {
         let worldBadge = '';
         if (x.worldId) {
             const wInfo  = worldInfoCache[x.worldId];
-            const wName  = wInfo ? esc(wInfo.name) : 'View World';
+            const wName  = wInfo ? esc(wInfo.name) : t('library.view_world', 'View World');
             const wThumb = wInfo?.thumbnailImageUrl || '';
             worldBadge   = `<button class="lib-world-badge" data-wid="${esc(x.worldId)}" onclick="event.stopPropagation();openWorldSearchDetail('${esc(x.worldId)}')" title="${wName}"><span class="lib-world-badge-thumb" style="${wThumb ? `background-image:url('${cssUrl(wThumb)}')` : ''}"></span><span class="lib-world-badge-text">${wName}</span></button>`;
         }
@@ -292,14 +296,14 @@ function _buildLibCard(x) {
                 `</div>`;
         }
         const thumbSrc = suAttr ? suAttr + '?thumb=1' : '';
-        return `<div class="lib-card" data-path="${esc(x.path||'')}" data-url="${suAttr}" data-type="image" data-name="${esc(x.name||'')}">${acts}<div class="lib-thumb-wrap${blurClass}" onclick="openLightbox('${suJs}','image')"><img class="lib-thumb" src="${thumbSrc}" loading="lazy" onerror="this.outerHTML='<div style=\\'width:100%;height:100%;display:flex;align-items:center;justify-content:center;color:var(--tx3);font-size:11px;font-weight:700\\'>No Preview</div>'">${iH ? '<div class="lib-blur-hint"><span class="msi" style="font-size:18px;">visibility_off</span></div>' : ''}${worldBadge}${playersOverlay}</div><div class="lib-info" onclick="event.stopPropagation();openPhotoDetail(${idx})" style="cursor:pointer;"><div class="lib-name">${esc(x.name)}</div><div class="lib-meta"><span>${x.size}</span><span>${x.time}</span></div></div></div>`;
+        return `<div class="lib-card" data-path="${esc(x.path||'')}" data-url="${suAttr}" data-type="image" data-name="${esc(x.name||'')}">${acts}<div class="lib-thumb-wrap${blurClass}" onclick="openLightbox('${suJs}','image')"><img class="lib-thumb" src="${thumbSrc}" loading="lazy" onerror="this.outerHTML='<div style=\\'width:100%;height:100%;display:flex;align-items:center;justify-content:center;color:var(--tx3);font-size:11px;font-weight:700\\'>${jsq(t('library.no_preview', 'No Preview'))}</div>'">${iH ? '<div class="lib-blur-hint"><span class="msi" style="font-size:18px;">visibility_off</span></div>' : ''}${worldBadge}${playersOverlay}</div><div class="lib-info" onclick="event.stopPropagation();openPhotoDetail(${idx})" style="cursor:pointer;"><div class="lib-name">${esc(x.name)}</div><div class="lib-meta"><span>${x.size}</span><span>${x.time}</span></div></div></div>`;
     } else {
         const ck     = x.path || '';
         const cached = thumbCache[ck];
         const th     = cached
             ? `<img class="lib-thumb" src="${cached}">`
-            : `<video class="lib-vid-thumb-video" src="${suAttr}" preload="metadata" muted onloadeddata="cacheVidThumb(this,'${sp}')" onerror="this.outerHTML='<div class=\\'lib-vid-thumb-fallback\\'>VIDEO</div>'"></video>`;
-        return `<div class="lib-card" data-path="${esc(x.path||'')}" data-url="${suAttr}" data-type="video" data-name="${esc(x.name||'')}">${acts}<div class="lib-thumb-wrap${blurClass}" onclick="openLightbox('${suJs}','video')">${th}<div class="lib-vid-overlay"><div class="lib-play-icon"><span class="msi" style="font-size:22px;">play_arrow</span></div></div><span class="lib-vid-badge">VIDEO</span>${iH ? '<div class="lib-blur-hint"><span class="msi" style="font-size:18px;">visibility_off</span></div>' : ''}</div><div class="lib-info"><div class="lib-name">${esc(x.name)}</div><div class="lib-meta"><span>${x.size}</span><span>${x.time}</span></div></div></div>`;
+            : `<video class="lib-vid-thumb-video" src="${suAttr}" preload="metadata" muted onloadeddata="cacheVidThumb(this,'${sp}')" onerror="this.outerHTML='<div class=\\'lib-vid-thumb-fallback\\'>${jsq(t('library.video_badge', 'VIDEO'))}</div>'"></video>`;
+        return `<div class="lib-card" data-path="${esc(x.path||'')}" data-url="${suAttr}" data-type="video" data-name="${esc(x.name||'')}">${acts}<div class="lib-thumb-wrap${blurClass}" onclick="openLightbox('${suJs}','video')">${th}<div class="lib-vid-overlay"><div class="lib-play-icon"><span class="msi" style="font-size:22px;">play_arrow</span></div></div><span class="lib-vid-badge">${t('library.video_badge', 'VIDEO')}</span>${iH ? '<div class="lib-blur-hint"><span class="msi" style="font-size:18px;">visibility_off</span></div>' : ''}</div><div class="lib-info"><div class="lib-name">${esc(x.name)}</div><div class="lib-meta"><span>${x.size}</span><span>${x.time}</span></div></div></div>`;
     }
 }
 
@@ -318,7 +322,7 @@ function onWorldsResolved(dict) {
             const thumbEl = btn.querySelector('.lib-world-badge-thumb');
             const textEl  = btn.querySelector('.lib-world-badge-text');
             if (thumbEl && info.thumbnailImageUrl) thumbEl.style.backgroundImage = `url('${info.thumbnailImageUrl}')`;
-            if (textEl) textEl.textContent = info.name || 'View World';
+            if (textEl) textEl.textContent = info.name || t('library.view_world', 'View World');
         }
     });
 }
@@ -326,7 +330,7 @@ function onWorldsResolved(dict) {
 // ── Folder filter ──────────────────────────────────────────────────────────
 function updateFolderFilterOptions(fs) {
     const s = document.getElementById('libFolderFilter'), c = s.value;
-    s.innerHTML = '<option value="__all__">All Folders</option>';
+    s.innerHTML = `<option value="__all__">${t('library.filters.all_folders', 'All Folders')}</option>`;
     (fs || []).forEach(f => {
         const n = f.split(/[\\\\/]/).pop() || f;
         s.innerHTML += `<option value="${esc(f)}">${esc(n)}</option>`;
@@ -370,7 +374,7 @@ function setLibItemAsDashBg(path) {
     if (nameEl) nameEl.textContent = path.split(/[/\\]/).pop();
     renderDashboard();
     autoSave();
-    showToast(true, 'Background updated');
+    showToast(true, t('library.background_updated', 'Background updated'));
 }
 
 // ── Video thumbnail ────────────────────────────────────────────────────────
@@ -406,25 +410,25 @@ function openPhotoDetail(idx) {
     const wInfo   = worldId ? worldInfoCache[worldId] : null;
     const worldName = wInfo?.name || worldId || '';
     const date    = new Date(x.modified);
-    const dateStr = date.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
-    const timeStr = date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+    const dateStr = date.toLocaleDateString(t('clock.date_locale', 'en-US'), { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+    const timeStr = date.toLocaleTimeString(t('clock.time_locale', 'en-US'), { hour: '2-digit', minute: '2-digit' });
 
     // Use thumbnail for banner — avoids loading full-res image (30-100 MB) into RAM for a modal
     const thumbUrl  = imgUrl ? imgUrl + '?thumb=1' : '';
     const bannerHtml = thumbUrl ? `<div class="fd-banner"><img src="${thumbUrl}" onerror="this.parentElement.style.display='none'"><div class="fd-banner-fade"></div></div>` : '';
 
     let metaHtml = `<div class="fd-meta">
-        <div class="fd-meta-row"><span class="fd-meta-label">Date</span><span>${esc(dateStr)}</span></div>
-        <div class="fd-meta-row"><span class="fd-meta-label">Time</span><span>${esc(timeStr)}</span></div>
-        <div class="fd-meta-row"><span class="fd-meta-label">Size</span><span>${esc(x.size)}</span></div>`;
+        <div class="fd-meta-row"><span class="fd-meta-label">${t('library.detail.date', 'Date')}</span><span>${esc(dateStr)}</span></div>
+        <div class="fd-meta-row"><span class="fd-meta-label">${t('library.detail.time', 'Time')}</span><span>${esc(timeStr)}</span></div>
+        <div class="fd-meta-row"><span class="fd-meta-label">${t('library.detail.size', 'Size')}</span><span>${esc(x.size)}</span></div>`;
     if (worldName) {
-        metaHtml += `<div class="fd-meta-row" style="cursor:pointer;" onclick="document.getElementById('modalDetail').style.display='none';openWorldSearchDetail('${esc(worldId)}')"><span class="fd-meta-label">World</span><span style="color:var(--accent-lt);">${esc(worldName)}</span></div>`;
+        metaHtml += `<div class="fd-meta-row" style="cursor:pointer;" onclick="document.getElementById('modalDetail').style.display='none';openWorldSearchDetail('${esc(worldId)}')"><span class="fd-meta-label">${t('library.detail.world', 'World')}</span><span style="color:var(--accent-lt);">${esc(worldName)}</span></div>`;
     }
     metaHtml += `</div>`;
 
     let playersHtml = '';
     if (players.length > 0) {
-        playersHtml = `<div style="font-size:10px;font-weight:700;color:var(--tx3);padding:8px 0 4px;letter-spacing:.05em;">PLAYERS IN INSTANCE (${players.length})</div><div class="photo-players-list">`;
+        playersHtml = `<div style="font-size:10px;font-weight:700;color:var(--tx3);padding:8px 0 4px;letter-spacing:.05em;">${tf('library.detail.players_title', { count: players.length }, 'PLAYERS IN INSTANCE ({count})')}</div><div class="photo-players-list">`;
         players.forEach(p => {
             const onclick = p.userId ? `document.getElementById('modalDetail').style.display='none';openFriendDetail('${jsq(p.userId)}')` : '';
             playersHtml += renderProfileItemSmall({ id: p.userId, displayName: p.displayName, image: p.image }, onclick);
@@ -435,7 +439,7 @@ function openPhotoDetail(idx) {
     el.innerHTML = `${bannerHtml}<div class="fd-content${imgUrl ? ' fd-has-banner' : ''}" style="padding:20px;">
         <h2 style="margin:0 0 12px;color:var(--tx0);font-size:16px;">${esc(x.name)}</h2>
         ${metaHtml}${playersHtml}
-        <div style="margin-top:14px;text-align:right;"><button class="vrcn-button-round" onclick="document.getElementById('modalDetail').style.display='none'">Close</button></div>
+        <div style="margin-top:14px;text-align:right;"><button class="vrcn-button-round" onclick="document.getElementById('modalDetail').style.display='none'">${t('common.close', 'Close')}</button></div>
     </div>`;
     document.getElementById('modalDetail').style.display = 'flex';
 }
@@ -477,7 +481,7 @@ function showDeleteModal(fp, fn) {
     o.className = 'modal-overlay';
     o.id        = 'deleteModal';
     o.onclick   = e => { if (e.target === o) closeDeleteModal(); };
-    o.innerHTML = `<div class="modal-box"><div class="modal-icon danger"><span class="msi" style="font-size:22px;">delete</span></div><div class="modal-title">Delete File</div><div class="modal-msg">Permanently delete from disk:<br><span class="modal-fname">${esc(fn)}</span></div><div class="modal-btns"><button id="libDelCancelBtn" class="vrcn-button-round" onclick="closeDeleteModal()">Cancel</button><button class="vrcn-button-round vrcn-btn-danger" onclick="confirmDelete()">Delete</button></div></div>`;
+    o.innerHTML = `<div class="modal-box"><div class="modal-icon danger"><span class="msi" style="font-size:22px;">delete</span></div><div class="modal-title">${t('library.delete.title', 'Delete File')}</div><div class="modal-msg">${t('library.delete.message', 'Permanently delete from disk:')}<br><span class="modal-fname">${esc(fn)}</span></div><div class="modal-btns"><button id="libDelCancelBtn" class="vrcn-button-round" onclick="closeDeleteModal()">${t('common.cancel', 'Cancel')}</button><button class="vrcn-button-round vrcn-btn-danger" onclick="confirmDelete()">${t('library.delete.confirm', 'Delete')}</button></div></div>`;
     document.body.appendChild(o);
     o.querySelector('#libDelCancelBtn').focus();
     const ok = e => {
@@ -509,7 +513,7 @@ function showDeleteAllModal() {
     o.className = 'modal-overlay';
     o.id        = 'deleteModal';
     o.onclick   = e => { if (e.target === o) closeDeleteModal(); };
-    o.innerHTML = `<div class="modal-box"><div class="modal-icon danger"><span class="msi" style="font-size:22px;">delete</span></div><div class="modal-title">Delete All Posts</div><div class="modal-msg">Delete all <strong>${postedFiles.length}</strong> post(s) from Discord?</div><div class="modal-btns"><button class="vrcn-button-round" onclick="closeDeleteModal()">Cancel</button><button class="vrcn-button-round vrcn-btn-danger" onclick="confirmDeleteAll()">Delete All</button></div></div>`;
+    o.innerHTML = `<div class="modal-box"><div class="modal-icon danger"><span class="msi" style="font-size:22px;">delete</span></div><div class="modal-title">${t('library.delete_all.title', 'Delete All Posts')}</div><div class="modal-msg">${tf('library.delete_all.message', { count: postedFiles.length }, 'Delete all {count} post(s) from Discord?')}</div><div class="modal-btns"><button class="vrcn-button-round" onclick="closeDeleteModal()">${t('common.cancel', 'Cancel')}</button><button class="vrcn-button-round vrcn-btn-danger" onclick="confirmDeleteAll()">${t('library.delete_all.confirm', 'Delete All')}</button></div></div>`;
     document.body.appendChild(o);
 }
 
@@ -526,8 +530,8 @@ function copyToClipboard(_url, path, type) {
         sendToCS({ action: 'copyImageToClipboard', path });
     } else {
         navigator.clipboard.writeText(path).then(
-            () => showToast(true, 'Path copied to clipboard'),
-            () => showToast(false, 'Clipboard copy failed')
+            () => showToast(true, t('library.clipboard.success', 'Path copied to clipboard')),
+            () => showToast(false, t('library.clipboard.failed', 'Clipboard copy failed'))
         );
     }
 }

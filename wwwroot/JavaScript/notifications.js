@@ -26,6 +26,65 @@ function refreshNotifications() {
     sendToCS({ action: 'vrcGetNotifications' });
 }
 
+function getNotificationTypeMeta(type) {
+    switch (type) {
+        case 'friendRequest': return { icon: 'person_add', label: t('notifications.types.friend_request', 'Friend Request') };
+        case 'invite': return { icon: 'mail', label: t('notifications.types.world_invite', 'World Invite') };
+        case 'requestInvite': return { icon: 'forward_to_inbox', label: t('notifications.types.invite_request', 'Invite Request') };
+        case 'inviteResponse': return { icon: 'reply', label: t('notifications.types.invite_response', 'Invite Response') };
+        case 'requestInviteResponse': return { icon: 'reply_all', label: t('notifications.types.invite_request_response', 'Invite Req. Response') };
+        case 'votetokick': return { icon: 'gavel', label: t('notifications.types.vote_to_kick', 'Vote to Kick') };
+        case 'boop': return { icon: 'waving_hand', label: t('notifications.types.boop', 'Boop') };
+        case 'message': return { icon: 'chat', label: t('notifications.types.message', 'Message') };
+        case 'group.announcement': return { icon: 'campaign', label: t('notifications.types.group_announcement', 'Group Announcement') };
+        case 'group.invite': return { icon: 'group_add', label: t('notifications.types.group_invite', 'Group Invite') };
+        case 'group.joinRequest': return { icon: 'group', label: t('notifications.types.group_join_request', 'Group Join Request') };
+        case 'group.informationRequest': return { icon: 'info', label: t('notifications.types.group_info_request', 'Group Info Request') };
+        case 'group.transfer': return { icon: 'swap_horiz', label: t('notifications.types.group_transfer', 'Group Transfer') };
+        case 'group.informative': return { icon: 'info', label: t('notifications.types.group_info', 'Group Info') };
+        case 'group.post': return { icon: 'article', label: t('notifications.types.group_post', 'Group Post') };
+        case 'group.event.created': return { icon: 'event_note', label: t('notifications.types.group_event', 'Group Event') };
+        case 'group.event.starting': return { icon: 'event_available', label: t('notifications.types.group_event_starting', 'Group Event Starting') };
+        case 'avatarreview.success': return { icon: 'check_circle', label: t('notifications.types.avatar_approved', 'Avatar Approved') };
+        case 'avatarreview.failure': return { icon: 'cancel', label: t('notifications.types.avatar_rejected', 'Avatar Rejected') };
+        case 'badge.earned': return { icon: 'military_tech', label: t('notifications.types.badge_earned', 'Badge Earned') };
+        case 'economy.alert': return { icon: 'account_balance_wallet', label: t('notifications.types.economy_alert', 'Economy Alert') };
+        case 'economy.received.gift': return { icon: 'card_giftcard', label: t('notifications.types.gift_received', 'Gift Received') };
+        case 'event.announcement': return { icon: 'event', label: t('notifications.types.event', 'Event') };
+        case 'invite.instance.contentGated': return { icon: 'lock', label: t('notifications.types.content_gated_invite', 'Content Gated Invite') };
+        case 'moderation.contentrestriction': return { icon: 'shield', label: t('notifications.types.content_restriction', 'Content Restriction') };
+        case 'moderation.notice': return { icon: 'policy', label: t('notifications.types.moderation_notice', 'Moderation Notice') };
+        case 'moderation.report.closed': return { icon: 'task_alt', label: t('notifications.types.report_closed', 'Report Closed') };
+        case 'moderation.warning.group': return { icon: 'warning', label: t('notifications.types.group_warning', 'Group Warning') };
+        case 'promo.redeem': return { icon: 'local_offer', label: t('notifications.types.promo_redeemed', 'Promo Redeemed') };
+        case 'text.adventure': return { icon: 'auto_stories', label: t('notifications.types.text_adventure', 'Text Adventure') };
+        case 'vrcplus.gift': return { icon: 'volunteer_activism', label: t('notifications.types.vrcplus_gift', 'VRC+ Gift') };
+        default:
+            if (type && type.startsWith('group.')) {
+                return {
+                    icon: 'groups',
+                    label: tf('notifications.types.group_default', { name: type.replace('group.', '') }, 'Group: {name}')
+                };
+            }
+            return { icon: 'notifications', label: type || t('common.notifications', 'Notifications') };
+    }
+}
+
+function getNotificationTime(createdAt) {
+    const locale = t('clock.date_locale', 'en-US');
+    return createdAt ? new Date(createdAt).toLocaleString(locale) : '';
+}
+
+function formatInstanceTimer(joinedAt, now) {
+    if (!joinedAt) return '';
+    const seconds = Math.max(0, Math.floor((now - joinedAt) / 1000));
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    if (hours > 0) return tf('instance.timer.hours_minutes', { hours, minutes }, '{hours}h {minutes}m');
+    if (minutes > 0) return tf('instance.timer.minutes', { minutes }, '{minutes}m');
+    return t('instance.timer.less_than_minute', '<1m');
+}
+
 function renderNotifications(list) {
     notifications = (list || []).filter(n => n.type !== 'boop'); // boops only in messenger
     const unseen = notifications.filter(n => !n.seen).length;
@@ -34,81 +93,49 @@ function renderNotifications(list) {
     else badge.style.display = 'none';
 
     const el = document.getElementById('notifList');
-    if (notifications.length === 0) { el.innerHTML = '<div class="empty-msg">No notifications</div>'; return; }
+    if (notifications.length === 0) {
+        el.innerHTML = `<div class="empty-msg">${t('notifications.empty', 'No notifications')}</div>`;
+        return;
+    }
     el.innerHTML = notifications.map(n => {
-        // Map notification type → icon + label
-        let icon = 'notifications', label = n.type;
-        switch (n.type) {
-            // v1 types
-            case 'friendRequest':          icon = 'person_add';          label = 'Friend Request'; break;
-            case 'invite':                 icon = 'mail';                 label = 'World Invite'; break;
-            case 'requestInvite':          icon = 'forward_to_inbox';    label = 'Invite Request'; break;
-            case 'inviteResponse':         icon = 'reply';                label = 'Invite Response'; break;
-            case 'requestInviteResponse':  icon = 'reply_all';            label = 'Invite Req. Response'; break;
-            case 'votetokick':             icon = 'gavel';                label = 'Vote to Kick'; break;
-            case 'boop':                   icon = 'waving_hand';          label = 'Boop'; break;
-            case 'message':                icon = 'chat';                 label = 'Message'; break;
-            // group types (v1 + v2)
-            case 'group.announcement':     icon = 'campaign';             label = 'Group Announcement'; break;
-            case 'group.invite':           icon = 'group_add';            label = 'Group Invite'; break;
-            case 'group.joinRequest':      icon = 'group';                label = 'Group Join Request'; break;
-            case 'group.informationRequest': icon = 'info';               label = 'Group Info Request'; break;
-            case 'group.transfer':         icon = 'swap_horiz';           label = 'Group Transfer'; break;
-            case 'group.informative':      icon = 'info';                 label = 'Group Info'; break;
-            case 'group.post':             icon = 'article';              label = 'Group Post'; break;
-            case 'group.event.created':    icon = 'event_note';           label = 'Group Event'; break;
-            case 'group.event.starting':   icon = 'event_available';      label = 'Group Event Starting'; break;
-            // v2-only types
-            case 'avatarreview.success':   icon = 'check_circle';         label = 'Avatar Approved'; break;
-            case 'avatarreview.failure':   icon = 'cancel';               label = 'Avatar Rejected'; break;
-            case 'badge.earned':           icon = 'military_tech';        label = 'Badge Earned'; break;
-            case 'economy.alert':          icon = 'account_balance_wallet'; label = 'Economy Alert'; break;
-            case 'economy.received.gift':  icon = 'card_giftcard';        label = 'Gift Received'; break;
-            case 'event.announcement':     icon = 'event';                label = 'Event'; break;
-            case 'invite.instance.contentGated': icon = 'lock';           label = 'Content Gated Invite'; break;
-            case 'moderation.contentrestriction': icon = 'shield';        label = 'Content Restriction'; break;
-            case 'moderation.notice':      icon = 'policy';               label = 'Moderation Notice'; break;
-            case 'moderation.report.closed': icon = 'task_alt';           label = 'Report Closed'; break;
-            case 'moderation.warning.group': icon = 'warning';            label = 'Group Warning'; break;
-            case 'promo.redeem':           icon = 'local_offer';          label = 'Promo Redeemed'; break;
-            case 'text.adventure':         icon = 'auto_stories';         label = 'Text Adventure'; break;
-            case 'vrcplus.gift':           icon = 'volunteer_activism';   label = 'VRC+ Gift'; break;
-            default: if (n.type && n.type.startsWith('group.')) { icon = 'groups'; label = n.type.replace('group.', 'Group: '); }
-        }
-        const time = n.created_at ? new Date(n.created_at).toLocaleString() : '';
-        const canAccept = ['friendRequest','invite','requestInvite','group.invite','group.joinRequest'].includes(n.type);
+        const { icon, label } = getNotificationTypeMeta(n.type);
+        const time = getNotificationTime(n.created_at);
+        const canAccept = ['friendRequest', 'invite', 'requestInvite', 'group.invite', 'group.joinRequest'].includes(n.type);
         const nid = esc(n.id);
         const senderLink = n.senderUserId
             ? `<strong style="cursor:pointer;" onclick="toggleNotifPanel();openFriendDetail('${esc(n.senderUserId)}')">${esc(n.senderUsername || n.senderUserId)}</strong>`
             : (n.senderUsername ? `<strong>${esc(n.senderUsername)}</strong>` : '');
-        // VRChat REST API sends `details` as a stringified JSON string — parse it
         const det = typeof n.details === 'string' ? (() => { try { return JSON.parse(n.details); } catch { return {}; } })() : (n.details || {});
-        let titleHtml, bodyHtml = '';
+        let titleHtml;
+        let bodyHtml = '';
         if (n._v2 && n._title) {
-            // v2: VRChat provides a pre-built title — use it directly
             titleHtml = esc(n._title);
             if (n.message) bodyHtml = `<div class="notif-msg">${esc(n.message)}</div>`;
         } else if (n.type === 'invite') {
-            const worldName = det.worldName ? esc(det.worldName) : 'unknown world';
+            const worldName = det.worldName ? esc(det.worldName) : t('notifications.unknown_world', 'unknown world');
             const wid = det.worldId ? det.worldId.split(':')[0] : '';
             const worldLink = wid
                 ? `<strong style="cursor:pointer;" onclick="toggleNotifPanel();openWorldDetail('${esc(wid)}')">${worldName}</strong>`
                 : `<strong>${worldName}</strong>`;
             const msg = det.inviteMessage || '';
-            titleHtml = `${senderLink} <span style="color:var(--tx2);font-weight:400;">invited you to</span> ${worldLink}`;
+            titleHtml = `${senderLink} <span style="color:var(--tx2);font-weight:400;">${t('notifications.title.invited_you_to', 'invited you to')}</span> ${worldLink}`;
             if (msg) bodyHtml = `<div class="notif-msg">${esc(msg)}</div>`;
         } else if (n.type === 'requestInvite') {
             const msg = det.requestMessage || '';
-            titleHtml = `${senderLink} <span style="color:var(--tx2);font-weight:400;">wants an invite</span>`;
+            titleHtml = `${senderLink} <span style="color:var(--tx2);font-weight:400;">${t('notifications.title.wants_invite', 'wants an invite')}</span>`;
             if (msg) bodyHtml = `<div class="notif-msg">${esc(msg)}</div>`;
         } else if (n.type === 'boop') {
-            titleHtml = `${senderLink} <span style="color:var(--tx2);font-weight:400;">booped you</span>`;
+            titleHtml = `${senderLink} <span style="color:var(--tx2);font-weight:400;">${t('notifications.title.booped_you', 'booped you')}</span>`;
         } else if (n.type === 'inviteResponse' || n.type === 'requestInviteResponse') {
-            titleHtml = senderLink ? `${esc(label)} from ${senderLink}` : esc(label);
+            titleHtml = senderLink
+                ? tf('notifications.title.from', { label: esc(label), sender: senderLink }, '{label} from {sender}')
+                : esc(label);
             const msg = det.responseMessage || det.requestMessage || det.inviteMessage || n.message || '';
             if (msg) bodyHtml = `<div class="notif-msg">${esc(msg)}</div>`;
         } else {
-            titleHtml = senderLink ? `${esc(label)} from ${senderLink}` : esc(label);
+            titleHtml = senderLink
+                ? tf('notifications.title.from', { label: esc(label), sender: senderLink }, '{label} from {sender}')
+                : esc(label);
             if (n.message) bodyHtml = `<div class="notif-msg">${esc(n.message)}</div>`;
         }
         return `<div class="notif-item ${n.seen && !canAccept ? 'notif-seen' : ''}">
@@ -119,8 +146,8 @@ function renderNotifications(list) {
                 <div class="notif-time">${time}</div>
             </div>
             <div class="notif-actions">
-                ${canAccept ? `<button class="vrcn-notify-button primary notif-accept-btn" onclick="acceptNotif('${nid}',this)"><span class="msi">check</span> Accept</button>` : ''}
-                ${(canAccept || !n.seen) ? `<button class="vrcn-notify-button danger notif-decline-btn" onclick="declineNotif('${nid}',this)" title="Decline"><span class="msi">close</span></button>` : ''}
+                ${canAccept ? `<button class="vrcn-notify-button primary notif-accept-btn" onclick="acceptNotif('${nid}',this)"><span class="msi">check</span> ${t('notifications.actions.accept', 'Accept')}</button>` : ''}
+                ${(canAccept || !n.seen) ? `<button class="vrcn-notify-button danger notif-decline-btn" onclick="declineNotif('${nid}',this)" title="${t('notifications.actions.decline', 'Decline')}"><span class="msi">close</span></button>` : ''}
             </div>
         </div>`;
     }).join('');
@@ -146,17 +173,17 @@ function showLaunchModal(location, steamVrOpen) {
     el.style.zIndex = '10003';
     el.innerHTML = `
         <div class="modal-box launch-modal">
-            <div class="launch-modal-title">VRChat is not open</div>
-            <div class="launch-modal-sub">How do you want to play?</div>
+            <div class="launch-modal-title">${t('notifications.launch.title', 'VRChat is not open')}</div>
+            <div class="launch-modal-sub">${t('notifications.launch.subtitle', 'How do you want to play?')}</div>
             <div class="launch-modal-btns">
                 <button class="vrcn-button${steamVrOpen ? ' vrcn-btn-primary' : ''}" onclick="launchAndJoin('${location}',true)">
-                    <span class="msi">visibility</span> Play in VR
+                    <span class="msi">visibility</span> ${t('notifications.launch.play_vr', 'Play in VR')}
                 </button>
                 <button class="vrcn-button${!steamVrOpen ? ' vrcn-btn-primary' : ''}" onclick="launchAndJoin('${location}',false)">
-                    <span class="msi">desktop_windows</span> Play on Desktop
+                    <span class="msi">desktop_windows</span> ${t('notifications.launch.play_desktop', 'Play on Desktop')}
                 </button>
             </div>
-            <button class="launch-modal-cancel" onclick="closeLaunchModal()">Cancel</button>
+            <button class="launch-modal-cancel" onclick="closeLaunchModal()">${t('common.cancel', 'Cancel')}</button>
         </div>`;
     el.addEventListener('click', e => { if (e.target === el) closeLaunchModal(); });
     document.body.appendChild(el);
@@ -213,7 +240,7 @@ function renderCurrentInstance(data) {
     }
     if (!data.worldName && !data.worldId) { el.innerHTML = ''; return; }
 
-    const name = data.worldName || data.worldId || 'Unknown World';
+    const name = data.worldName || data.worldId || t('instance.unknown_world', 'Unknown World');
     let users = data.users || [];
 
     // Build friend lookup maps
@@ -263,16 +290,16 @@ function renderCurrentInstance(data) {
     if (users.length > 0) {
         usersHtml = `<div class="inst-users">`;
         if (friendUsers.length > 0) {
-            usersHtml += `<div style="${lbl}">FRIENDS IN INSTANCE (${friendUsers.length})</div>`;
+            usersHtml += `<div style="${lbl}">${tf('instance.sections.friends_in_instance', { count: friendUsers.length }, 'FRIENDS IN INSTANCE ({count})')}</div>`;
             usersHtml += friendUsers.map(u => renderSidebarRow(u)).join('');
         }
         if (otherUsers.length > 0) {
-            usersHtml += `<div style="${lbl}">PLAYERS IN INSTANCE (${otherUsers.length})</div>`;
+            usersHtml += `<div style="${lbl}">${tf('instance.sections.players_in_instance', { count: otherUsers.length }, 'PLAYERS IN INSTANCE ({count})')}</div>`;
             usersHtml += otherUsers.map(u => renderSidebarRow(u)).join('');
         }
         usersHtml += `</div>`;
     } else {
-        usersHtml = `<div style="font-size:11px;color:var(--tx3);padding:8px 10px;">No player data</div>`;
+        usersHtml = `<div style="font-size:11px;color:var(--tx3);padding:8px 10px;">${t('instance.no_player_data', 'No player data')}</div>`;
     }
 
     const { cls: _instCls, label: _instLabel } = getInstanceBadge(data.instanceType);
@@ -293,7 +320,7 @@ function renderCurrentInstance(data) {
         ${usersHtml}
         <div class="inst-invite-bar">
             <button class="vrcn-button inst-invite-btn" onclick="openInviteModal()">
-                <span class="msi">person_add</span> Invite Friends
+                <span class="msi">person_add</span> ${t('dashboard.instances.invite_friends', 'Invite Friends')}
             </button>
         </div>
     </div>
@@ -318,7 +345,7 @@ function openInstanceInfoModal() {
     if (!m || !c) return;
 
     const thumb = data.worldThumb || '';
-    const name  = data.worldName || data.worldId || 'Unknown World';
+    const name  = data.worldName || data.worldId || t('instance.unknown_world', 'Unknown World');
     const { cls: instCls, label: instLabel } = getInstanceBadge(data.instanceType);
     const instNum = (data.location || '').match(/:(\d+)/)?.[1] || '';
 
@@ -357,24 +384,20 @@ function openInstanceInfoModal() {
     const hasTimers = enriched.some(u => u.joinedAt);
 
     function fmtTimer(joinedAt) {
-        if (!joinedAt) return '';
-        const s  = Math.max(0, Math.floor((now - joinedAt) / 1000));
-        const h  = Math.floor(s / 3600);
-        const mn = Math.floor((s % 3600) / 60);
-        return h > 0 ? `${h}h ${mn}m` : `${mn || '<1'}m`;
+        return formatInstanceTimer(joinedAt, now);
     }
 
 
-    const timerTh = hasTimers ? `<th style="text-align:right;padding-right:10px;">Timer</th>` : '';
+    const timerTh = hasTimers ? `<th style="text-align:right;padding-right:10px;">${t('instance.table.timer', 'Timer')}</th>` : '';
     const thead = `<thead><tr>
-        <th style="width:40px;">Profile</th>
+        <th style="width:40px;">${t('instance.table.profile', 'Profile')}</th>
         ${timerTh}
-        <th>Display Name</th>
-        <th style="width:110px;">Rank</th>
-        <th>Status</th>
+        <th>${t('instance.table.display_name', 'Display Name')}</th>
+        <th style="width:110px;">${t('instance.table.rank', 'Rank')}</th>
+        <th>${t('instance.table.status', 'Status')}</th>
         <th style="width:46px;text-align:center;">18+</th>
-        <th style="width:60px;text-align:center;">Platform</th>
-        <th style="min-width:70px;">Language</th>
+        <th style="width:60px;text-align:center;">${t('instance.table.platform', 'Platform')}</th>
+        <th style="min-width:70px;">${t('instance.table.language', 'Language')}</th>
     </tr></thead>`;
 
     const copyBadge = instNum
@@ -410,8 +433,8 @@ function openInstanceInfoModal() {
             <span style="font-size:11px;">${esc(statusDesc || statusLabel(status))}</span>
         </div></td>`;
         let platIcon = '';
-        if      (platform === 'standalonewindows') platIcon = `<span class="msi" title="PC" style="font-size:16px;color:var(--tx2);">computer</span>`;
-        else if (platform === 'android')           platIcon = `<span class="msi" title="Quest" style="font-size:16px;color:var(--tx2);">view_in_ar</span>`;
+        if      (platform === 'standalonewindows') platIcon = `<span class="msi" title="${t('instance.platform.pc', 'PC')}" style="font-size:16px;color:var(--tx2);">computer</span>`;
+        else if (platform === 'android')           platIcon = `<span class="msi" title="${t('instance.platform.quest', 'Quest')}" style="font-size:16px;color:var(--tx2);">view_in_ar</span>`;
         const platformTd = `<td style="text-align:center;">${platIcon}</td>`;
         const langTags  = tags.filter(t => t.startsWith('language_'));
         const langsHtml = langTags.map(t =>
@@ -428,13 +451,13 @@ function openInstanceInfoModal() {
     const colSpan = hasTimers ? 8 : 7;
     let bodyRows = '';
     if (friendsEnriched.length > 0)
-        bodyRows += `<tr><td colspan="${colSpan}" style="padding:10px 10px 4px;${secLbl}">FRIENDS IN INSTANCE (${friendsEnriched.length})</td></tr>` + friendsEnriched.map(makeRow).join('');
+        bodyRows += `<tr><td colspan="${colSpan}" style="padding:10px 10px 4px;${secLbl}">${tf('instance.sections.friends_in_instance', { count: friendsEnriched.length }, 'FRIENDS IN INSTANCE ({count})')}</td></tr>` + friendsEnriched.map(makeRow).join('');
     if (othersEnriched.length > 0)
-        bodyRows += `<tr><td colspan="${colSpan}" style="padding:10px 10px 4px;${secLbl}">PLAYERS IN INSTANCE (${othersEnriched.length})</td></tr>` + othersEnriched.map(makeRow).join('');
+        bodyRows += `<tr><td colspan="${colSpan}" style="padding:10px 10px 4px;${secLbl}">${tf('instance.sections.players_in_instance', { count: othersEnriched.length }, 'PLAYERS IN INSTANCE ({count})')}</td></tr>` + othersEnriched.map(makeRow).join('');
 
     const tableHtml = enriched.length > 0
         ? `<div class="iim-scroll"><table class="iim-table">${thead}<tbody>${bodyRows}</tbody></table></div>`
-        : `<div style="padding:14px 0;color:var(--tx3);font-size:12px;">No player data available.</div>`;
+        : `<div style="padding:14px 0;color:var(--tx3);font-size:12px;">${t('instance.no_player_data_available', 'No player data available.')}</div>`;
 
     const prevIimScroll = c.querySelector('.iim-scroll')?.scrollTop || 0;
     c.innerHTML = `${bannerHtml}
@@ -447,9 +470,9 @@ function openInstanceInfoModal() {
         </div>
         ${tableHtml}
         <div class="fd-actions">
-            <button class="vrcn-button-round" onclick="closeInstanceInfoModal();openInviteModal()"><span class="msi">person_add</span> Invite</button>
-            <button class="vrcn-button-round" onclick="closeInstanceInfoModal();openWorldSearchDetail('${wid}')">Open World</button>
-            <button class="vrcn-button-round" style="margin-left:auto;" onclick="closeInstanceInfoModal()">Close</button>
+            <button class="vrcn-button-round" onclick="closeInstanceInfoModal();openInviteModal()"><span class="msi">person_add</span> ${t('instance.actions.invite', 'Invite')}</button>
+            <button class="vrcn-button-round" onclick="closeInstanceInfoModal();openWorldSearchDetail('${wid}')">${t('dashboard.instances.open_world', 'Open World')}</button>
+            <button class="vrcn-button-round" style="margin-left:auto;" onclick="closeInstanceInfoModal()">${t('common.close', 'Close')}</button>
         </div>
     </div>`;
 

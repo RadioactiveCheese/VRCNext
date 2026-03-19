@@ -1303,6 +1303,19 @@ html.cursor-custom * { cursor: var(--cursor-url, auto) !important; }
     flex-shrink: 0;
 }
 
+.theme-flag {
+    width: 18px;
+    height: 18px;
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    line-height: 1;
+    border-radius: 4px;
+    background: color-mix(in srgb, var(--bg-card) 70%, transparent);
+}
+
 .theme-chip-del {
     visibility: hidden;
     margin-left: 2px;

@@ -1,21 +1,30 @@
 /* === Context Menu Service ===
  * External, self-contained right-click menu with submenu support.
- * Uses event delegation — no modifications to other JS files needed.
+ * Uses event delegation; no modifications to other JS files needed.
  * Entity IDs are extracted from existing onclick attributes via regex.
  */
 (function () {
-    const menu    = document.createElement('div');
+    const menu = document.createElement('div');
     const submenu = document.createElement('div');
-    menu.id    = 'vn-ctx-menu';
+    menu.id = 'vn-ctx-menu';
     submenu.id = 'vn-ctx-submenu';
     document.body.appendChild(menu);
     document.body.appendChild(submenu);
 
-    let callbacks     = [];
-    let confirmState  = null; // { idx, timer }
-    let submenuTimer  = null;
+    let callbacks = [];
+    let confirmState = null; // { idx, timer }
+    let submenuTimer = null;
 
-    /* ── Dismiss ── */
+    function cm(key, fallback = '') {
+        return typeof t === 'function' ? t(`context_menu.${key}`, fallback) : fallback;
+    }
+
+    function copyWithToast(text, toastKey, fallback) {
+        navigator.clipboard.writeText(text);
+        showToast(true, cm(toastKey, fallback));
+    }
+
+    /* Dismiss */
     document.addEventListener('click', e => {
         if (!menu.contains(e.target) && !submenu.contains(e.target)) hideMenu();
     });
@@ -23,7 +32,7 @@
         if (e.key === 'Escape') hideMenu();
     });
 
-    /* ── Main listener ── */
+    /* Main listener */
     document.addEventListener('contextmenu', e => {
         hideMenu();
         const cfg = getMenuConfig(e);
@@ -32,27 +41,28 @@
         showMenu(e.clientX, e.clientY, cfg);
     });
 
-    /* ── Submenu hover persistence ── */
+    /* Submenu hover persistence */
     submenu.addEventListener('mouseenter', () => clearTimeout(submenuTimer));
     submenu.addEventListener('mouseleave', () => {
         submenuTimer = setTimeout(hideSubmenu, 150);
     });
 
-    /* ── Show / Hide ── */
+    /* Show / Hide */
     function showMenu(x, y, items) {
         callbacks = [];
         menu.innerHTML = buildHTML(items);
 
         menu.style.visibility = 'hidden';
         menu.style.display = 'block';
-        const mw = menu.offsetWidth, mh = menu.offsetHeight;
+        const mw = menu.offsetWidth;
+        const mh = menu.offsetHeight;
         menu.style.visibility = '';
 
-        const vw = window.innerWidth, vh = window.innerHeight;
+        const vw = window.innerWidth;
+        const vh = window.innerHeight;
         menu.style.left = ((x + mw > vw - 6) ? Math.max(4, x - mw) : x) + 'px';
-        menu.style.top  = ((y + mh > vh - 6) ? Math.max(4, y - mh) : y) + 'px';
+        menu.style.top = ((y + mh > vh - 6) ? Math.max(4, y - mh) : y) + 'px';
 
-        // Regular items
         menu.querySelectorAll('.vn-ctx-item[data-idx]:not(.has-sub)').forEach(btn => {
             btn.addEventListener('mouseenter', () => {
                 submenuTimer = setTimeout(hideSubmenu, 100);
@@ -62,11 +72,13 @@
                 const item = callbacks[+btn.dataset.idx];
                 if (!item) return;
                 if (item.confirm) handleConfirm(btn, item, +btn.dataset.idx);
-                else { item.action(); hideMenu(); }
+                else {
+                    item.action();
+                    hideMenu();
+                }
             });
         });
 
-        // Submenu trigger items
         menu.querySelectorAll('.vn-ctx-item.has-sub').forEach(btn => {
             const open = () => {
                 clearTimeout(submenuTimer);
@@ -74,7 +86,10 @@
                 callbacks[+btn.dataset.idx]?.submenuFn?.(btn);
             };
             btn.addEventListener('mouseenter', open);
-            btn.addEventListener('click', e => { e.stopPropagation(); open(); });
+            btn.addEventListener('click', e => {
+                e.stopPropagation();
+                open();
+            });
             btn.addEventListener('mouseleave', () => {
                 submenuTimer = setTimeout(hideSubmenu, 150);
             });
@@ -83,7 +98,10 @@
 
     function hideMenu() {
         hideSubmenu();
-        if (confirmState) { clearTimeout(confirmState.timer); confirmState = null; }
+        if (confirmState) {
+            clearTimeout(confirmState.timer);
+            confirmState = null;
+        }
         menu.style.display = 'none';
         menu.innerHTML = '';
         callbacks = [];
@@ -95,13 +113,13 @@
         submenu.innerHTML = '';
     }
 
-    /* ── Favorites submenu ── */
+    /* Favorites submenu */
     function showFavGroupSubmenu(worldId, parentBtn) {
         const groups = (typeof favWorldGroups !== 'undefined') ? favWorldGroups : [];
 
         if (groups.length === 0) {
             submenu.innerHTML = `<div class="vn-ctx-loading">
-                <span class="msi">hourglass_empty</span><span>Loading groups…</span>
+                <span class="msi">hourglass_empty</span><span>${esc(cm('loading_groups', 'Loading groups...'))}</span>
             </div>`;
         } else {
             submenu.innerHTML = groups.map(g => {
@@ -119,7 +137,13 @@
             submenu.querySelectorAll('[data-fav-name]').forEach(btn => {
                 btn.addEventListener('click', e => {
                     e.stopPropagation();
-                    sendToCS({ action: 'vrcAddWorldFavorite', worldId: btn.dataset.wid, groupName: btn.dataset.favName, groupType: btn.dataset.favType, oldFvrtId: '' });
+                    sendToCS({
+                        action: 'vrcAddWorldFavorite',
+                        worldId: btn.dataset.wid,
+                        groupName: btn.dataset.favName,
+                        groupType: btn.dataset.favType,
+                        oldFvrtId: ''
+                    });
                     hideMenu();
                 });
                 btn.addEventListener('mouseenter', () => clearTimeout(submenuTimer));
@@ -131,20 +155,22 @@
 
     function positionSubmenu(parentBtn) {
         const rect = parentBtn.getBoundingClientRect();
-        const vw = window.innerWidth, vh = window.innerHeight;
+        const vw = window.innerWidth;
+        const vh = window.innerHeight;
         submenu.style.visibility = 'hidden';
         submenu.style.display = 'block';
-        const sw = submenu.offsetWidth, sh = submenu.offsetHeight;
+        const sw = submenu.offsetWidth;
+        const sh = submenu.offsetHeight;
         submenu.style.visibility = '';
         let left = rect.right + 4;
         if (left + sw > vw - 6) left = rect.left - sw - 4;
         let top = rect.top;
         if (top + sh > vh - 6) top = Math.max(4, vh - sh - 6);
         submenu.style.left = left + 'px';
-        submenu.style.top  = top  + 'px';
+        submenu.style.top = top + 'px';
     }
 
-    /* ── Two-step confirm ── */
+    /* Two-step confirm */
     function handleConfirm(btn, item, idx) {
         if (confirmState && confirmState.idx === idx) {
             clearTimeout(confirmState.timer);
@@ -152,11 +178,17 @@
             item.action();
             hideMenu();
         } else {
-            if (confirmState) { clearTimeout(confirmState.timer); resetConfirmBtn(confirmState.idx); }
+            if (confirmState) {
+                clearTimeout(confirmState.timer);
+                resetConfirmBtn(confirmState.idx);
+            }
             btn.classList.add('confirm-pending');
-            btn.querySelector('.vn-ctx-label').textContent = 'Confirm?';
+            btn.querySelector('.vn-ctx-label').textContent = cm('confirm', 'Confirm?');
             const timer = setTimeout(() => {
-                if (confirmState?.idx === idx) { resetConfirmBtn(idx); confirmState = null; }
+                if (confirmState?.idx === idx) {
+                    resetConfirmBtn(idx);
+                    confirmState = null;
+                }
             }, 3500);
             confirmState = { idx, timer };
         }
@@ -169,7 +201,7 @@
         btn.querySelector('.vn-ctx-label').textContent = callbacks[idx]?.label || '';
     }
 
-    /* ── HTML builder ── */
+    /* HTML builder */
     function buildHTML(items) {
         return items.map(item => {
             if (item === 'sep') return '<div class="vn-ctx-sep"></div>';
@@ -177,33 +209,32 @@
             callbacks.push(item);
             const hasSub = !!item.submenuFn;
             const cls = [item.danger ? 'danger' : '', hasSub ? 'has-sub' : ''].filter(Boolean).join(' ');
-            const arrow  = hasSub      ? '<span class="msi vn-ctx-arrow">chevron_right</span>' : '';
-            const check  = item.checked ? '<span class="msi vn-ctx-check">check</span>' : '';
+            const arrow = hasSub ? '<span class="msi vn-ctx-arrow">chevron_right</span>' : '';
+            const check = item.checked ? '<span class="msi vn-ctx-check">check</span>' : '';
             const iconEl = item.dotColor
                 ? `<span class="vn-ctx-dot" style="background:${item.dotColor}"></span>`
                 : `<span class="msi">${item.icon}</span>`;
             return `<button class="vn-ctx-item${cls ? ' ' + cls : ''}" data-idx="${idx}">
                 ${iconEl}
-                <span class="vn-ctx-label">${item.label}</span>${check}${arrow}
+                <span class="vn-ctx-label">${esc(item.label)}</span>${check}${arrow}
             </button>`;
         }).join('');
     }
 
-    /* ── Entity detection ── */
+    /* Entity detection */
     function getMenuConfig(e) {
         const el = e.target;
 
-        // Network graph canvas — hit-test against the current graph
         if (el.id === 'netCanvas' && typeof _netGraph !== 'undefined' && _netGraph) {
             const rect = el.getBoundingClientRect();
-            const wx = (e.clientX - rect.left  - _netGraph.tx) / _netGraph.scale;
-            const wy = (e.clientY - rect.top   - _netGraph.ty) / _netGraph.scale;
+            const wx = (e.clientX - rect.left - _netGraph.tx) / _netGraph.scale;
+            const wy = (e.clientY - rect.top - _netGraph.ty) / _netGraph.scale;
             const hit = _netGraph._hitTest(wx, wy);
             if (hit >= 0) {
                 const nd = _netGraph.nodes[hit];
                 if (nd?.id) return buildFriendItems(nd.id);
             }
-            return null; // right-click on empty canvas space — no menu
+            return null;
         }
 
         if (el.closest('#vrcProfileArea') && (typeof currentVrcUser !== 'undefined') && currentVrcUser) {
@@ -213,7 +244,7 @@
         const libCard = el.closest('.lib-card');
         if (libCard) {
             const path = libCard.dataset.path || '';
-            const url  = libCard.dataset.url  || '';
+            const url = libCard.dataset.url || '';
             const type = libCard.dataset.type || 'image';
             const name = libCard.dataset.name || '';
             if (path) return buildLibCardItems(path, url, type, name);
@@ -252,11 +283,17 @@
         const bannedCard = el.closest('#gdTabBanned .vrcn-profile-item');
         if (bannedCard && window._currentGroupDetail?.canBan) {
             const id = extractId(bannedCard, /openFriendDetail\('([^']+)'\)/);
-            if (id) return [
-                { icon: 'lock_open', label: 'Unban Member', action: () => sendToCS({ action: 'vrcUnbanGroupMember', groupId: window._currentGroupDetail.id, userId: id }) },
-                'sep',
-                ...buildFriendItems(id),
-            ];
+            if (id) {
+                return [
+                    {
+                        icon: 'lock_open',
+                        label: cm('group.unban_member', 'Unban Member'),
+                        action: () => sendToCS({ action: 'vrcUnbanGroupMember', groupId: window._currentGroupDetail.id, userId: id })
+                    },
+                    'sep',
+                    ...buildFriendItems(id)
+                ];
+            }
         }
 
         const memberCard = el.closest('#gdTabMembers .vrcn-profile-item, #gdTabRoles .vrcn-profile-item');
@@ -287,34 +324,52 @@
         return (el.getAttribute('onclick') || '').match(pattern)?.[1] || null;
     }
 
-    /* ── Menu item builders ── */
-
+    /* Menu item builders */
     function buildGroupItems(id) {
         const g = (typeof myGroups !== 'undefined') && myGroups.find(x => x.id === id);
-        const canPost  = g && g.canPost === true;
+        const canPost = g && g.canPost === true;
         const canEvent = g && g.canEvent === true;
         const items = [
-            { icon: 'open_in_new', label: 'Open Details', action: () => openGroupDetail(id) },
-            { icon: 'share', label: 'Share Group', action: () => { navigator.clipboard.writeText('https://vrchat.com/home/group/' + id); showToast(true, 'Group link copied to clipboard'); } },
+            { icon: 'open_in_new', label: cm('group.open_details', 'Open Details'), action: () => openGroupDetail(id) },
+            { icon: 'share', label: cm('group.share', 'Share Group'), action: () => copyWithToast('https://vrchat.com/home/group/' + id, 'group.share_copied', 'Group link copied to clipboard') },
             'sep',
         ];
-        if (canPost)  items.push({ icon: 'edit_note', label: 'Post', action: () => openGroupPostModal(id) });
-        if (canEvent) items.push({ icon: 'event', label: 'Events', action: () => openGroupEventModal(id) });
+        if (canPost) items.push({ icon: 'edit_note', label: cm('group.post', 'Post'), action: () => openGroupPostModal(id) });
+        if (canEvent) items.push({ icon: 'event', label: cm('group.events', 'Events'), action: () => openGroupEventModal(id) });
         if (canPost || canEvent) items.push('sep');
-        items.push({ icon: 'logout', label: 'Leave Group', action: () => sendToCS({ action: 'vrcLeaveGroup', groupId: id }), danger: true, confirm: true });
+        items.push({ icon: 'logout', label: cm('group.leave', 'Leave Group'), action: () => sendToCS({ action: 'vrcLeaveGroup', groupId: id }), danger: true, confirm: true });
         return items;
     }
 
     function buildGroupMemberItems(userId, grpCtx, memberRoleIds = []) {
         const modItems = [];
-        if (grpCtx.canKick) modItems.push({ icon: 'person_remove', label: 'Kick from group', danger: true, confirm: true,
-            action: () => sendToCS({ action: 'vrcKickGroupMember', groupId: grpCtx.id, userId }) });
-        if (grpCtx.canBan)  modItems.push({ icon: 'block', label: 'Ban from group', danger: true, confirm: true,
-            action: () => sendToCS({ action: 'vrcBanGroupMember', groupId: grpCtx.id, userId }) });
+        if (grpCtx.canKick) {
+            modItems.push({
+                icon: 'person_remove',
+                label: cm('group.kick_member', 'Kick from group'),
+                danger: true,
+                confirm: true,
+                action: () => sendToCS({ action: 'vrcKickGroupMember', groupId: grpCtx.id, userId })
+            });
+        }
+        if (grpCtx.canBan) {
+            modItems.push({
+                icon: 'block',
+                label: cm('group.ban_member', 'Ban from group'),
+                danger: true,
+                confirm: true,
+                action: () => sendToCS({ action: 'vrcBanGroupMember', groupId: grpCtx.id, userId })
+            });
+        }
         if (grpCtx.canAssignRoles) {
             const assignable = (grpCtx.roles || []).filter(r => !(r.permissions || []).includes('*'));
-            if (assignable.length > 0)
-                modItems.push({ icon: 'badge', label: 'Assign Role', submenuFn: btn => showRoleAssignSubmenu(userId, grpCtx, memberRoleIds, btn) });
+            if (assignable.length > 0) {
+                modItems.push({
+                    icon: 'badge',
+                    label: cm('group.assign_role', 'Assign Role'),
+                    submenuFn: btn => showRoleAssignSubmenu(userId, grpCtx, memberRoleIds, btn)
+                });
+            }
         }
         const friendItems = buildFriendItems(userId);
         if (modItems.length > 0) return [...modItems, 'sep', ...friendItems];
@@ -344,35 +399,35 @@
 
     function buildAvatarItems(id) {
         return [
-            { icon: 'info', label: 'Show Avatar', action: () => openAvatarDetail(id) },
-            { icon: 'share', label: 'Share Avatar', action: () => { navigator.clipboard.writeText('https://vrchat.com/home/avatar/' + id); showToast(true, 'Avatar link copied to clipboard'); } },
-            { icon: 'checkroom', label: 'Use Avatar', action: () => sendToCS({ action: 'vrcSelectAvatar', avatarId: id }) },
+            { icon: 'info', label: cm('avatar.show', 'Show Avatar'), action: () => openAvatarDetail(id) },
+            { icon: 'share', label: cm('avatar.share', 'Share Avatar'), action: () => copyWithToast('https://vrchat.com/home/avatar/' + id, 'avatar.share_copied', 'Avatar link copied to clipboard') },
+            { icon: 'checkroom', label: cm('avatar.use', 'Use Avatar'), action: () => sendToCS({ action: 'vrcSelectAvatar', avatarId: id }) },
             'sep',
-            { icon: 'style', label: 'Similar Avatars', action: () => { showTab(4); setAvatarFilter('search'); setTimeout(() => { const inp = document.getElementById('avatarSearchInput'); if (inp) { inp.value = 'similar: ' + id; doAvatarSearch(); } }, 100); } },
+            { icon: 'style', label: cm('avatar.similar', 'Similar Avatars'), action: () => { showTab(4); setAvatarFilter('search'); setTimeout(() => { const inp = document.getElementById('avatarSearchInput'); if (inp) { inp.value = 'similar: ' + id; doAvatarSearch(); } }, 100); } },
         ];
     }
 
     function buildMyInstanceItems(loc) {
         const inst = (typeof _myInstancesData !== 'undefined') && _myInstancesData.find(i => i.location === loc);
         const worldId = inst?.worldId || '';
-        const wn  = inst?.worldName  || '';
-        const wt  = inst?.worldThumb || '';
-        const it  = inst?.instanceType || '';
+        const wn = inst?.worldName || '';
+        const wt = inst?.worldThumb || '';
+        const it = inst?.instanceType || '';
         const favEntry = (typeof favWorldsData !== 'undefined') && favWorldsData.find(fw => fw.id === worldId);
         const items = [];
         if (loc) {
-            items.push({ icon: 'person_add', label: 'Invite Friends', action: () => openInviteModalForLocation(loc, wn, wt, it) });
-            items.push({ icon: 'close', label: 'Close Instance', action: () => removeMyInstance(loc), danger: true, confirm: true });
+            items.push({ icon: 'person_add', label: cm('instance.invite_friends', 'Invite Friends'), action: () => openInviteModalForLocation(loc, wn, wt, it) });
+            items.push({ icon: 'close', label: cm('instance.close', 'Close Instance'), action: () => removeMyInstance(loc), danger: true, confirm: true });
             items.push('sep');
         }
-        items.push({ icon: 'open_in_new', label: 'Open Details', action: () => openWorldSearchDetail(worldId) });
-        items.push({ icon: 'share', label: 'Share World', action: () => { navigator.clipboard.writeText('https://vrchat.com/home/world/' + worldId); showToast(true, 'World link copied to clipboard'); } });
-        items.push({ icon: 'home', label: 'Set as Home', action: () => sendToCS({ action: 'vrcSetHomeWorld', worldId }), confirm: true });
+        items.push({ icon: 'open_in_new', label: cm('world.open_details', 'Open Details'), action: () => openWorldSearchDetail(worldId) });
+        items.push({ icon: 'share', label: cm('world.share', 'Share World'), action: () => copyWithToast('https://vrchat.com/home/world/' + worldId, 'world.share_copied', 'World link copied to clipboard') });
+        items.push({ icon: 'home', label: cm('world.set_home', 'Set as Home'), action: () => sendToCS({ action: 'vrcSetHomeWorld', worldId }), confirm: true });
         items.push('sep');
         if (favEntry) {
-            items.push({ icon: 'star_border', label: 'Remove from Favorites', action: () => removeWorldFavorite(worldId, favEntry.favoriteId) });
+            items.push({ icon: 'star_border', label: cm('world.remove_favorites', 'Remove from Favorites'), action: () => removeWorldFavorite(worldId, favEntry.favoriteId) });
         } else {
-            items.push({ icon: 'star', label: 'Add to Favorites', submenuFn: btn => showFavGroupSubmenu(worldId, btn) });
+            items.push({ icon: 'star', label: cm('world.add_favorites', 'Add to Favorites'), submenuFn: btn => showFavGroupSubmenu(worldId, btn) });
         }
         return items;
     }
@@ -380,23 +435,23 @@
     function buildWorldItems(id) {
         const favEntry = (typeof favWorldsData !== 'undefined') && favWorldsData.find(fw => fw.id === id);
         const items = [
-            { icon: 'open_in_new', label: 'Open Details', action: () => openWorldSearchDetail(id) },
-            { icon: 'share', label: 'Share World', action: () => { navigator.clipboard.writeText('https://vrchat.com/home/world/' + id); showToast(true, 'World link copied to clipboard'); } },
-            { icon: 'home', label: 'Set as Home', action: () => sendToCS({ action: 'vrcSetHomeWorld', worldId: id }), confirm: true },
+            { icon: 'open_in_new', label: cm('world.open_details', 'Open Details'), action: () => openWorldSearchDetail(id) },
+            { icon: 'share', label: cm('world.share', 'Share World'), action: () => copyWithToast('https://vrchat.com/home/world/' + id, 'world.share_copied', 'World link copied to clipboard') },
+            { icon: 'home', label: cm('world.set_home', 'Set as Home'), action: () => sendToCS({ action: 'vrcSetHomeWorld', worldId: id }), confirm: true },
             'sep',
         ];
         if (favEntry) {
-            items.push({ icon: 'star_border', label: 'Remove from Favorites', action: () => removeWorldFavorite(id, favEntry.favoriteId) });
+            items.push({ icon: 'star_border', label: cm('world.remove_favorites', 'Remove from Favorites'), action: () => removeWorldFavorite(id, favEntry.favoriteId) });
         } else {
-            items.push({ icon: 'star', label: 'Add to Favorites', submenuFn: btn => showFavGroupSubmenu(id, btn) });
+            items.push({ icon: 'star', label: cm('world.add_favorites', 'Add to Favorites'), submenuFn: btn => showFavGroupSubmenu(id, btn) });
         }
         return items;
     }
 
     function buildFriendItems(id) {
         const items = [
-            { icon: 'person', label: 'View Profile', action: () => openFriendDetail(id) },
-            { icon: 'share', label: 'Share Profile', action: () => { navigator.clipboard.writeText('https://vrchat.com/home/user/' + id); showToast(true, 'Profile link copied to clipboard'); } },
+            { icon: 'person', label: cm('friend.view_profile', 'View Profile'), action: () => openFriendDetail(id) },
+            { icon: 'share', label: cm('friend.share_profile', 'Share Profile'), action: () => copyWithToast('https://vrchat.com/home/user/' + id, 'friend.share_copied', 'Profile link copied to clipboard') },
         ];
 
         const f = (typeof vrcFriendsData !== 'undefined') && vrcFriendsData.find(x => x.id === id);
@@ -404,93 +459,93 @@
             const loc = f.location || '';
             const { instanceType } = parseFriendLocation(loc);
             const isInWorld = loc && loc !== 'offline' && loc !== 'private' && loc !== 'traveling';
-            const joinable  = ['public','friends','friends+','hidden','group-public','group-plus','group-members','group'];
-            const canJoin          = isInWorld && joinable.includes(instanceType);
+            const joinable = ['public', 'friends', 'friends+', 'hidden', 'group-public', 'group-plus', 'group-members', 'group'];
+            const canJoin = isInWorld && joinable.includes(instanceType);
             const canRequestInvite = instanceType === 'private';
-            const myInInstance     = (typeof currentInstanceData !== 'undefined')
-                                  && currentInstanceData && currentInstanceData.location
-                                  && !currentInstanceData.empty && !currentInstanceData.error;
+            const myInInstance = (typeof currentInstanceData !== 'undefined')
+                && currentInstanceData && currentInstanceData.location
+                && !currentInstanceData.empty && !currentInstanceData.error;
 
             const actionItems = [];
-            if (canJoin)          actionItems.push({ icon: 'login',            label: 'Join',                 action: () => friendAction('join', loc, id) });
-            if (canRequestInvite) actionItems.push({ icon: 'mail',             label: 'Request Invite',       action: () => friendAction('requestInvite', loc, id) });
+            if (canJoin) actionItems.push({ icon: 'login', label: cm('friend.join', 'Join'), action: () => friendAction('join', loc, id) });
+            if (canRequestInvite) actionItems.push({ icon: 'mail', label: cm('friend.request_invite', 'Request Invite'), action: () => friendAction('requestInvite', loc, id) });
             if (myInInstance) {
                 const hasVrcPlus = Array.isArray(currentVrcUser?.tags) && currentVrcUser.tags.includes('system_supporter');
-                actionItems.push({ icon: 'send',             label: 'Invite',              action: () => sendToCS({ action: 'vrcInviteFriend', userId: id }) });
-                actionItems.push({ icon: 'forward_to_inbox', label: 'Invite with Message', action: () => openFriendInviteModal(id, f.displayName || id, 'message') });
-                if (hasVrcPlus) actionItems.push({ icon: 'add_photo_alternate', label: 'Invite with Image', action: () => openFriendInviteModal(id, f.displayName || id, 'photo') });
+                actionItems.push({ icon: 'send', label: cm('friend.invite', 'Invite'), action: () => sendToCS({ action: 'vrcInviteFriend', userId: id }) });
+                actionItems.push({ icon: 'forward_to_inbox', label: cm('friend.invite_message', 'Invite with Message'), action: () => openFriendInviteModal(id, f.displayName || id, 'message') });
+                if (hasVrcPlus) actionItems.push({ icon: 'add_photo_alternate', label: cm('friend.invite_image', 'Invite with Image'), action: () => openFriendInviteModal(id, f.displayName || id, 'photo') });
             }
-            actionItems.push({ icon: 'waving_hand', label: 'Boop!',     action: () => { if (typeof msgrRegisterBoopSent === 'function') msgrRegisterBoopSent(id); sendToCS({ action: 'vrcBoop', userId: id }); } });
-            actionItems.push({ icon: 'chat',        label: 'Messenger', action: () => openMessenger(id, f.displayName || id, f.image || '', f.status || '', f.statusDescription || '') });
-            if (actionItems.length) { items.push('sep'); actionItems.forEach(i => items.push(i)); }
+            actionItems.push({ icon: 'waving_hand', label: cm('friend.boop', 'Boop!'), action: () => { if (typeof msgrRegisterBoopSent === 'function') msgrRegisterBoopSent(id); sendToCS({ action: 'vrcBoop', userId: id }); } });
+            actionItems.push({ icon: 'chat', label: cm('friend.messenger', 'Messenger'), action: () => openMessenger(id, f.displayName || id, f.image || '', f.status || '', f.statusDescription || '') });
+            if (actionItems.length) {
+                items.push('sep');
+                actionItems.forEach(i => items.push(i));
+            }
         }
 
         if (f) {
-            // Favorite / Unfavorite
-            const isFav    = Array.isArray(favFriendsData) && favFriendsData.some(x => x.favoriteId === id);
+            const isFav = Array.isArray(favFriendsData) && favFriendsData.some(x => x.favoriteId === id);
             const favEntry = isFav ? favFriendsData.find(x => x.favoriteId === id) : null;
             items.push('sep');
             items.push(isFav
-                ? { icon: 'star_border', label: 'Unfavorite', action: () => sendToCS({ action: 'vrcRemoveFavoriteFriend', userId: id, fvrtId: favEntry?.fvrtId || '' }) }
-                : { icon: 'star',        label: 'Favorite',   action: () => sendToCS({ action: 'vrcAddFavoriteFriend',    userId: id }) }
+                ? { icon: 'star_border', label: cm('friend.unfavorite', 'Unfavorite'), action: () => sendToCS({ action: 'vrcRemoveFavoriteFriend', userId: id, fvrtId: favEntry?.fvrtId || '' }) }
+                : { icon: 'star', label: cm('friend.favorite', 'Favorite'), action: () => sendToCS({ action: 'vrcAddFavoriteFriend', userId: id }) }
             );
 
-            // Mute / Block / Unfriend
-            const isMuted   = Array.isArray(mutedData)   && mutedData.some(x => x.targetUserId === id);
+            const isMuted = Array.isArray(mutedData) && mutedData.some(x => x.targetUserId === id);
             const isBlocked = Array.isArray(blockedData) && blockedData.some(x => x.targetUserId === id);
             items.push('sep');
             items.push(isMuted
-                ? { icon: 'mic',       label: 'Unmute',  action: () => sendToCS({ action: 'vrcUnmute',  userId: id }) }
-                : { icon: 'mic_off',   label: 'Mute',    action: () => sendToCS({ action: 'vrcMute',    userId: id }) }
+                ? { icon: 'mic', label: cm('friend.unmute', 'Unmute'), action: () => sendToCS({ action: 'vrcUnmute', userId: id }) }
+                : { icon: 'mic_off', label: cm('friend.mute', 'Mute'), action: () => sendToCS({ action: 'vrcMute', userId: id }) }
             );
             items.push(isBlocked
-                ? { icon: 'lock_open', label: 'Unblock', action: () => sendToCS({ action: 'vrcUnblock', userId: id }) }
-                : { icon: 'block',     label: 'Block',   action: () => sendToCS({ action: 'vrcBlock',   userId: id }), danger: true, confirm: true }
+                ? { icon: 'lock_open', label: cm('friend.unblock', 'Unblock'), action: () => sendToCS({ action: 'vrcUnblock', userId: id }) }
+                : { icon: 'block', label: cm('friend.block', 'Block'), action: () => sendToCS({ action: 'vrcBlock', userId: id }), danger: true, confirm: true }
             );
-            items.push({ icon: 'person_remove', label: 'Unfriend', action: () => sendToCS({ action: 'vrcUnfriend', userId: id }), danger: true, confirm: true });
+            items.push({ icon: 'person_remove', label: cm('friend.unfriend', 'Unfriend'), action: () => sendToCS({ action: 'vrcUnfriend', userId: id }), danger: true, confirm: true });
         } else {
-            // Not a friend — offer to add
             items.push('sep');
-            items.push({ icon: 'person_add', label: 'Send Friend Request', action: () => sendToCS({ action: 'vrcSendFriendRequest', userId: id }) });
+            items.push({ icon: 'person_add', label: cm('friend.send_request', 'Send Friend Request'), action: () => sendToCS({ action: 'vrcSendFriendRequest', userId: id }) });
         }
         return items;
     }
 
     function buildLibCardItems(path, url, type, name) {
-        const isFav    = (typeof favorites    !== 'undefined') && favorites.has(path);
-        const isHidden = (typeof hiddenMedia  !== 'undefined') && hiddenMedia.has(path);
+        const isFav = (typeof favorites !== 'undefined') && favorites.has(path);
+        const isHidden = (typeof hiddenMedia !== 'undefined') && hiddenMedia.has(path);
         const items = [
-            { icon: 'content_copy', label: 'Copy to Clipboard', action: () => copyToClipboard(url, path, type) },
+            { icon: 'content_copy', label: cm('library.copy', 'Copy to Clipboard'), action: () => copyToClipboard(url, path, type) },
         ];
         if (type === 'image') {
-            items.push({ icon: 'wallpaper', label: 'Set as Background', action: () => setLibItemAsDashBg(path) });
+            items.push({ icon: 'wallpaper', label: cm('library.set_background', 'Set as Background'), action: () => setLibItemAsDashBg(path) });
         }
         items.push('sep');
         items.push(isFav
-            ? { icon: 'star_border', label: 'Remove Favorite', action: () => toggleFavorite(path) }
-            : { icon: 'star',        label: 'Favorite',        action: () => toggleFavorite(path) }
+            ? { icon: 'star_border', label: cm('library.remove_favorite', 'Remove Favorite'), action: () => toggleFavorite(path) }
+            : { icon: 'star', label: cm('library.favorite', 'Favorite'), action: () => toggleFavorite(path) }
         );
         items.push(isHidden
-            ? { icon: 'visibility',     label: 'Unhide', action: () => toggleHidden(path) }
-            : { icon: 'visibility_off', label: 'Hide',   action: () => toggleHidden(path) }
+            ? { icon: 'visibility', label: cm('library.unhide', 'Unhide'), action: () => toggleHidden(path) }
+            : { icon: 'visibility_off', label: cm('library.hide', 'Hide'), action: () => toggleHidden(path) }
         );
         items.push('sep');
-        items.push({ icon: 'delete', label: 'Delete', danger: true, action: () => showDeleteModal(path, name) });
+        items.push({ icon: 'delete', label: cm('library.delete', 'Delete'), danger: true, action: () => showDeleteModal(path, name) });
         return items;
     }
 
     function buildSelfItems() {
         const curStatus = currentVrcUser?.status || 'active';
         const items = [
-            { icon: 'manage_accounts', label: 'View Profile', action: () => openMyProfileModal() },
+            { icon: 'manage_accounts', label: cm('friend.view_profile', 'View Profile'), action: () => openMyProfileModal() },
             'sep',
         ];
         STATUS_LIST.forEach(s => {
             items.push({
                 dotColor: s.color,
-                label:    s.label,
-                checked:  curStatus === s.key,
-                action:   () => sendToCS({ action: 'vrcUpdateStatus', status: s.key, statusDescription: currentVrcUser?.statusDescription || '' }),
+                label: t(s.labelKey || '', s.label),
+                checked: curStatus === s.key,
+                action: () => sendToCS({ action: 'vrcUpdateStatus', status: s.key, statusDescription: currentVrcUser?.statusDescription || '' }),
             });
         });
         return items;

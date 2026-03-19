@@ -1,4 +1,4 @@
-function addFileToList(f) {
+﻿function addFileToList(f) {
     postedFiles.unshift(f);
     renderFileList();
 }
@@ -6,11 +6,11 @@ function addFileToList(f) {
 function renderFileList() {
     const e = document.getElementById('fileList');
     if (!postedFiles.length) {
-        e.innerHTML = '<div class="empty-msg">No files posted yet</div>';
+        e.innerHTML = `<div class="empty-msg">${t('relay.empty.posted_files', 'No files posted yet')}</div>`;
         return;
     }
     e.innerHTML = postedFiles.map((f, i) =>
-        `<div class="file-row"><span class="file-name">${esc(f.name)}</span><span class="file-channel">${esc(f.channel)}</span><span class="file-size">${f.size}</span><span class="file-time">${f.time}</span><button class="file-del" onclick="deleteFile(${i})" title="Delete"><span class="msi" style="font-size:16px;">delete</span></button></div>`
+        `<div class="file-row"><span class="file-name">${esc(f.name)}</span><span class="file-channel">${esc(f.channel)}</span><span class="file-size">${f.size}</span><span class="file-time">${f.time}</span><button class="file-del" onclick="deleteFile(${i})" title="${esc(t('common.delete', 'Delete'))}"><span class="msi" style="font-size:16px;">delete</span></button></div>`
     ).join('');
 }
 
@@ -23,18 +23,18 @@ function renderWebhookCards(w) {
     const e = document.getElementById('whCards'), s = (w || []).slice(0, 4);
     while (s.length < 4) s.push({});
     e.innerHTML = s.map((w, i) =>
-        `<div class="wh-card"><div class="wh-top"><span class="wh-num">#${i + 1}</span><input class="vrcn-edit-field" id="whName${i}" value="${esc(w.Name || w.name || '')}" placeholder="Channel ${i + 1}" style="width:120px;"><label class="toggle"><input type="checkbox" id="whOn${i}" ${(w.Enabled || w.enabled) ? 'checked' : ''}><div class="toggle-track"><div class="toggle-knob"></div></div></label></div><input class="vrcn-edit-field" id="whUrl${i}" value="${esc(w.Url || w.url || '')}" placeholder="https://discord.com/api/webhooks/..." style="width:100%;"></div>`
+        `<div class="wh-card"><div class="wh-top"><span class="wh-num">#${i + 1}</span><input class="vrcn-edit-field" id="whName${i}" value="${esc(w.Name || w.name || '')}" placeholder="${esc(tf('relay.webhook.channel_placeholder', { index: i + 1 }, `Channel ${i + 1}`))}" style="width:120px;"><label class="toggle"><input type="checkbox" id="whOn${i}" ${(w.Enabled || w.enabled) ? 'checked' : ''}><div class="toggle-track"><div class="toggle-knob"></div></div></label></div><input class="vrcn-edit-field" id="whUrl${i}" value="${esc(w.Url || w.url || '')}" placeholder="${esc(t('relay.webhook.url_placeholder', 'https://discord.com/api/webhooks/...'))}" style="width:100%;"></div>`
     ).join('');
 }
 
 function renderFolders(f) {
     const e = document.getElementById('folderList');
     if (!f || !f.length) {
-        e.innerHTML = '<div class="folder-empty">No folders</div>';
+        e.innerHTML = `<div class="folder-empty">${t('settings.watch_folders.empty', 'No folders added')}</div>`;
         return;
     }
     e.innerHTML = f.map((x, i) =>
-        `<div class="folder-item" onclick="selectedFolderIdx=${i}" style="${selectedFolderIdx === i ? 'background:var(--bg-hover)' : ''}"><span>${esc(x)}</span><button class="folder-remove" onclick="event.stopPropagation();removeFolderAt(${i})" title="Remove"><span class="msi" style="font-size:16px;">close</span></button></div>`
+        `<div class="folder-item" onclick="selectedFolderIdx=${i}" style="${selectedFolderIdx === i ? 'background:var(--bg-hover)' : ''}"><span>${esc(x)}</span><button class="folder-remove" onclick="event.stopPropagation();removeFolderAt(${i})" title="${esc(t('common.remove', 'Remove'))}"><span class="msi" style="font-size:16px;">close</span></button></div>`
     ).join('');
 }
 
@@ -63,11 +63,11 @@ function removeFolderAt(i) {
 function renderExtraExe(l) {
     const e = document.getElementById('extraExeList');
     if (!l || !l.length) {
-        e.innerHTML = '<div class="folder-empty">None</div>';
+        e.innerHTML = `<div class="folder-empty">${t('common.none', 'None')}</div>`;
         return;
     }
     e.innerHTML = l.map((x, i) =>
-        `<div class="exe-item"><span>${esc(x.split(/[\\\\/]/).pop())}</span><button class="exe-remove" onclick="removeExtraExe(${i})" title="Remove"><span class="msi" style="font-size:16px;">close</span></button></div>`
+        `<div class="exe-item"><span>${esc(x.split(/[\\\\/]/).pop())}</span><button class="exe-remove" onclick="removeExtraExe(${i})" title="${esc(t('common.remove', 'Remove'))}"><span class="msi" style="font-size:16px;">close</span></button></div>`
     ).join('');
 }
 
@@ -104,15 +104,16 @@ function saveSettings() {
             folders: settings.folders || [],
             vrcPath: document.getElementById('setVrcPath').value,
             extraExe: settings.extraExe || [],
-            autoStart: false, // legacy — kept for JSON compat
+            autoStart: false, // legacy â€” kept for JSON compat
             relayAutoStartVR:        document.getElementById('setAutoStartVR')?.checked       ?? false,
             relayAutoStartDesktop:   document.getElementById('setAutoStartDesktop')?.checked  ?? false,
             startWithWindows: document.getElementById('setStartWithWindows').checked,
-            notifySound: false, // legacy — kept for JSON compat
+            notifySound: false, // legacy â€” kept for JSON compat
             notifySoundEnabled: document.getElementById('setNotifySoundEnabled').checked,
             messageSoundEnabled: document.getElementById('setMessageSoundEnabled').checked,
             mediaRelaySoundEnabled: document.getElementById('setMediaRelaySoundEnabled').checked,
             steamOverlaySoundEnabled: document.getElementById('setSteamOverlaySoundEnabled')?.checked ?? true,
+            language: currentLanguage,
             theme: currentTheme,
             specialTheme: currentSpecialTheme,
             autoColorAccuracy: autoColorAccuracy,
@@ -239,6 +240,9 @@ function loadSettingsToUI(s) {
     // Debug: log webhook data received from C#
     const wh = s.Webhooks || s.webhooks || [];
     console.log('[LOAD] Settings received. Webhooks:', JSON.stringify(wh));
+    currentLanguage = normalizeUiLanguage((s.Language || s.language || currentLanguage || 'en').toLowerCase());
+    renderLanguageChips();
+    requestTranslation(currentLanguage);
     document.getElementById('setBotName').value = s.BotName || s.botName || '';
     document.getElementById('setBotAvatar').value = s.BotAvatarUrl || s.botAvatarUrl || '';
     document.getElementById('setVrcPath').value = s.VrcPath || s.vrcPath || '';
@@ -415,16 +419,106 @@ function updateImgCacheUi() {
     document.getElementById('imgCacheLimitRow').style.display = enabled ? '' : 'none';
 }
 
-// ── VRCX Import ──────────────────────────────────────────────────────────────
+// â”€â”€ VRCX Import â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+let _vrcxPreviewData = null;
+let _vrcxLastProgress = null;
+let _vrcxLastDone = null;
+let _vrcxLastError = null;
+
+function settingsUiLocale() {
+    return getLanguageLocale();
+}
+
+function formatSettingsNumber(value) {
+    return Number(value ?? 0).toLocaleString(settingsUiLocale());
+}
+
+function vrcxSelectBtnHtml(selecting = false) {
+    return selecting
+        ? `<span class="msi" style="font-size:16px;">hourglass_empty</span> ${t('settings.vrcx.selecting', 'Selecting...')}`
+        : `<span class="msi" style="font-size:16px;">storage</span> ${t('settings.vrcx.select_db', 'Select VRCX Database')}`;
+}
+
+function vrcxStartBtnHtml(retry = false) {
+    return retry
+        ? `<span class="msi" style="font-size:16px;">upload</span> ${t('settings.vrcx.retry_import', 'Retry Import')}`
+        : `<span class="msi" style="font-size:16px;">upload</span> ${t('settings.vrcx.start_import', 'Start Import')}`;
+}
+
+function translateVrcxStatus(status) {
+    switch (status) {
+        case 'Reading database...':
+            return t('settings.vrcx.progress.reading_database', 'Reading database...');
+        case 'Reading friend data...':
+            return t('settings.vrcx.progress.reading_friend_data', 'Reading friend data...');
+        case 'Reading timeline events...':
+            return t('settings.vrcx.progress.reading_timeline_events', 'Reading timeline events...');
+        case 'Reading friend events...':
+            return t('settings.vrcx.progress.reading_friend_events', 'Reading friend events...');
+        case 'Generating meet events...':
+            return t('settings.vrcx.progress.generating_meet_events', 'Generating meet events...');
+        case 'Merging into VRCNext...':
+            return t('settings.vrcx.progress.merging', 'Merging into VRCNext...');
+        case 'Saving timeline...':
+            return t('settings.vrcx.progress.saving_timeline', 'Saving timeline...');
+        case 'Done':
+            return t('common.done', 'Done');
+        default:
+            return status || '';
+    }
+}
+
+function renderVrcxPreviewRows(p) {
+    const rows = [
+        [t('settings.vrcx.preview.worlds_tracked', 'Worlds tracked'), p.worlds],
+        [t('settings.vrcx.preview.location_visits', 'Location visits'), p.locations],
+        [t('settings.vrcx.preview.friends_time', 'Friends (time)'), p.friendTimes],
+        [t('settings.vrcx.preview.gps_events', 'GPS events'), p.gps],
+        [t('settings.vrcx.preview.online_offline', 'Online / Offline'), p.onlineOffline],
+        [t('settings.vrcx.preview.status_changes', 'Status changes'), p.statuses],
+        [t('settings.vrcx.preview.bio_changes', 'Bio changes'), p.bios],
+    ];
+    document.getElementById('vrcxPreviewRows').innerHTML = rows.map(([label, val]) =>
+        `<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 8px;background:var(--bg-input);border-radius:6px;">
+            <span style="font-size:12px;opacity:.7;">${esc(label)}</span>
+            <span style="font-size:12px;font-weight:600;">${formatSettingsNumber(val)}</span>
+        </div>`
+    ).join('');
+}
+
+function renderVrcxSuccessDetail(p) {
+    const el = document.getElementById('vrcxSuccessDetail');
+    if (!el) return;
+    el.textContent = tf('settings.vrcx.success.summary', {
+        worlds: formatSettingsNumber(p.worlds),
+        friends: formatSettingsNumber(p.friends),
+        joins: formatSettingsNumber(p.timelineJoins),
+        friend_events: formatSettingsNumber(p.friendEvents),
+        meets: formatSettingsNumber(p.meetEvents),
+    }, `${formatSettingsNumber(p.worlds)} worlds, ${formatSettingsNumber(p.friends)} friends, ${formatSettingsNumber(p.timelineJoins)} joins, ${formatSettingsNumber(p.friendEvents)} friend events, ${formatSettingsNumber(p.meetEvents)} meets`);
+}
+
+function renderVrcxError(err) {
+    const el = document.getElementById('vrcxImportError');
+    if (!el) return;
+    el.textContent = tf('settings.vrcx.error.message', {
+        error: err || t('settings.vrcx.error.unknown', 'Unknown error'),
+    }, `Error: ${err || 'Unknown error'}`);
+}
 
 function vrcxSelectFile() {
     const btn = document.getElementById('vrcxSelectBtn');
     btn.disabled = true;
-    btn.innerHTML = '<span class="msi" style="font-size:16px;">hourglass_empty</span> Selecting...';
+    btn.innerHTML = vrcxSelectBtnHtml(true);
     sendToCS({ action: 'importVrcxSelect' });
 }
 
 function vrcxReset() {
+    _vrcxPreviewData = null;
+    _vrcxLastProgress = null;
+    _vrcxLastDone = null;
+    _vrcxLastError = null;
     document.getElementById('vrcxPreviewBox').style.display = 'none';
     document.getElementById('vrcxProgressWrap').style.display = 'none';
     document.getElementById('vrcxSuccessCard').style.display = 'none';
@@ -434,30 +528,20 @@ function vrcxReset() {
     const btn = document.getElementById('vrcxSelectBtn');
     btn.style.display = '';
     btn.disabled = false;
-    btn.innerHTML = '<span class="msi" style="font-size:16px;">storage</span> Select VRCX Database';
+    btn.innerHTML = vrcxSelectBtnHtml(false);
     const start = document.getElementById('vrcxStartBtn');
     start.disabled = false;
-    start.innerHTML = '<span class="msi" style="font-size:16px;">upload</span> Start Import';
+    start.innerHTML = vrcxStartBtnHtml(false);
 }
 
 function vrcxShowPreview(p) {
+    _vrcxPreviewData = p;
+    _vrcxLastProgress = null;
+    _vrcxLastDone = null;
+    _vrcxLastError = null;
     document.getElementById('vrcxSelectBtn').style.display = 'none';
     document.getElementById('vrcxFileName').textContent = p.path || 'VRCX.sqlite3';
-    const rows = [
-        ['Worlds tracked',    p.worlds],
-        ['Location visits',   p.locations],
-        ['Friends (time)',    p.friendTimes],
-        ['GPS events',        p.gps],
-        ['Online / Offline',  p.onlineOffline],
-        ['Status changes',    p.statuses],
-        ['Bio changes',       p.bios],
-    ];
-    document.getElementById('vrcxPreviewRows').innerHTML = rows.map(([label, val]) =>
-        `<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 8px;background:var(--bg-input);border-radius:6px;">
-            <span style="font-size:12px;opacity:.7;">${label}</span>
-            <span style="font-size:12px;font-weight:600;">${(val ?? 0).toLocaleString()}</span>
-        </div>`
-    ).join('');
+    renderVrcxPreviewRows(p);
     document.getElementById('vrcxProgressWrap').style.display = 'none';
     document.getElementById('vrcxSuccessCard').style.display = 'none';
     document.getElementById('vrcxImportError').style.display = 'none';
@@ -465,11 +549,14 @@ function vrcxShowPreview(p) {
     document.getElementById('vrcxDoneBtn').style.display = 'none';
     const start = document.getElementById('vrcxStartBtn');
     start.disabled = false;
-    start.innerHTML = '<span class="msi" style="font-size:16px;">upload</span> Start Import';
+    start.innerHTML = vrcxStartBtnHtml(false);
     document.getElementById('vrcxPreviewBox').style.display = '';
 }
 
 function vrcxStartImport() {
+    _vrcxLastDone = null;
+    _vrcxLastError = null;
+    _vrcxLastProgress = { percent: 5, status: 'Reading database...' };
     document.getElementById('vrcxActionBtns').style.display = 'none';
     document.getElementById('vrcxImportError').style.display = 'none';
     _vrcxSetProgress(5, 'Reading database...');
@@ -479,37 +566,46 @@ function vrcxStartImport() {
 
 function _vrcxSetProgress(pct, label) {
     document.getElementById('vrcxProgressBar').style.width = pct + '%';
-    document.getElementById('vrcxProgressLabel').textContent = label || '';
+    const progressLabel = document.getElementById('vrcxProgressLabel');
+    progressLabel.dataset.rawLabel = label || '';
+    progressLabel.textContent = translateVrcxStatus(label || '');
 }
 
 function vrcxShowProgress(p) {
+    _vrcxLastProgress = p;
     _vrcxSetProgress(p.percent ?? 0, p.status ?? '');
 }
 
 function vrcxShowDone(p) {
+    _vrcxLastDone = p;
+    _vrcxLastError = null;
+    _vrcxLastProgress = { percent: 100, status: 'Done' };
     _vrcxSetProgress(100, 'Done');
     setTimeout(() => {
         document.getElementById('vrcxProgressWrap').style.display = 'none';
         document.getElementById('vrcxSuccessDetail').innerHTML =
-            `${(p.worlds ?? 0).toLocaleString()} worlds &nbsp;·&nbsp; ` +
-            `${(p.friends ?? 0).toLocaleString()} friends &nbsp;·&nbsp; ` +
-            `${(p.timelineJoins ?? 0).toLocaleString()} joins &nbsp;·&nbsp; ` +
-            `${(p.friendEvents ?? 0).toLocaleString()} friend events &nbsp;·&nbsp; ` +
+            `${(p.worlds ?? 0).toLocaleString()} worlds &nbsp;Â·&nbsp; ` +
+            `${(p.friends ?? 0).toLocaleString()} friends &nbsp;Â·&nbsp; ` +
+            `${(p.timelineJoins ?? 0).toLocaleString()} joins &nbsp;Â·&nbsp; ` +
+            `${(p.friendEvents ?? 0).toLocaleString()} friend events &nbsp;Â·&nbsp; ` +
             `${(p.meetEvents ?? 0).toLocaleString()} meets`;
+        renderVrcxSuccessDetail(p);
         document.getElementById('vrcxSuccessCard').style.display = '';
         document.getElementById('vrcxDoneBtn').style.display = '';
     }, 400);
 }
 
 function vrcxShowError(err) {
+    _vrcxLastDone = null;
+    _vrcxLastError = err || '';
+    _vrcxLastProgress = null;
     document.getElementById('vrcxProgressWrap').style.display = 'none';
-    const el = document.getElementById('vrcxImportError');
-    el.textContent = 'Error: ' + (err || 'Unknown error');
-    el.style.display = '';
+    renderVrcxError(err);
+    document.getElementById('vrcxImportError').style.display = '';
     document.getElementById('vrcxActionBtns').style.display = 'flex';
     const start = document.getElementById('vrcxStartBtn');
     start.disabled = false;
-    start.innerHTML = '<span class="msi" style="font-size:16px;">upload</span> Retry Import';
+    start.innerHTML = vrcxStartBtnHtml(true);
 }
 
 // === Avtrdb Community Support ===
@@ -543,8 +639,7 @@ function avtrdbCollecting(count) {
 }
 
 function addAvtrdbReport(count, enqueued, invalid, ticket, type) {
-    const time = new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-    _avtrdbReports.push({ time, count, enqueued, invalid, ticket, type: type || 'deletion' });
+    _avtrdbReports.push({ ts: Date.now(), count, enqueued, invalid, ticket, type: type || 'deletion' });
     // Clear collecting state
     _avtrdbCollecting = 0;
     _avtrdbCollectEnd = 0;
@@ -564,31 +659,72 @@ function renderAvtrdbReports() {
         html += `<div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:rgba(var(--accent-rgb,100,140,255),.12);border:1px solid rgba(var(--accent-rgb,100,140,255),.25);border-radius:8px;margin-bottom:10px;">
             <span class="msi" style="font-size:18px;color:var(--accent);">hourglass_top</span>
             <div style="flex:1;">
-                <div style="font-size:12px;font-weight:600;color:var(--tx1);">Collecting Data</div>
-                <div style="font-size:11px;color:var(--tx3);margin-top:2px;">${_avtrdbCollecting} deleted avatar(s) queued — sending in ${secsLeft}s</div>
+                <div style="font-size:12px;font-weight:600;color:var(--tx1);">${t('settings.avtrdb.reports.collecting_title', 'Collecting Data')}</div>
+                <div style="font-size:11px;color:var(--tx3);margin-top:2px;">${tf('settings.avtrdb.reports.collecting_desc', { count: _avtrdbCollecting, seconds: secsLeft }, `${_avtrdbCollecting} deleted avatar(s) queued, sending in ${secsLeft}s`)}</div>
             </div>
         </div>`;
     }
 
     if (!_avtrdbReports.length && !html) {
-        el.innerHTML = '<div class="empty-msg">No reports sent yet this session.</div>';
+        el.innerHTML = `<div class="empty-msg">${t('settings.avtrdb.reports.empty', 'No reports sent yet this session.')}</div>`;
         return;
     }
 
     html += _avtrdbReports.slice().reverse().map(r => {
         const isDeletion = r.type === 'deletion';
-        const typeLabel = isDeletion ? 'Mark for deletion' : 'Submitted Avatar';
+        const typeLabel = isDeletion
+            ? t('settings.avtrdb.reports.type.deletion', 'Mark for deletion')
+            : t('settings.avtrdb.reports.type.submitted', 'Submitted Avatar');
         const typeColor = isDeletion ? 'var(--err)' : 'var(--ok)';
         const typeIcon = isDeletion ? 'delete' : 'upload';
+        const time = new Date(r.ts || Date.now()).toLocaleTimeString(settingsUiLocale(), { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+        const summaryParts = [tf('settings.avtrdb.reports.enqueued', { count: r.enqueued }, `${r.enqueued} enqueued`)];
+        if (r.invalid > 0) {
+            summaryParts.push(tf('settings.avtrdb.reports.invalid', { count: r.invalid }, `${r.invalid} invalid`));
+        }
         return `<div style="display:flex;align-items:center;gap:10px;padding:8px 10px;background:var(--bg-input);border-radius:8px;margin-bottom:6px;">
-        <span style="font-size:11px;color:var(--tx3);white-space:nowrap;">${esc(r.time)}</span>
-        <span class="vrcn-badge" style="font-size:10px;color:${typeColor};flex-shrink:0;"><span class="msi" style="font-size:10px;">${typeIcon}</span> ${typeLabel}</span>
-        <span style="font-size:12px;color:var(--tx1);flex:1;">${r.enqueued} enqueued${r.invalid > 0 ? `, ${r.invalid} invalid` : ''}</span>
+        <span style="font-size:11px;color:var(--tx3);white-space:nowrap;">${esc(time)}</span>
+        <span class="vrcn-badge" style="font-size:10px;color:${typeColor};flex-shrink:0;"><span class="msi" style="font-size:10px;">${typeIcon}</span> ${esc(typeLabel)}</span>
+        <span style="font-size:12px;color:var(--tx1);flex:1;">${esc(summaryParts.join(', '))}</span>
         <button class="vrcn-button-round" style="font-size:11px;padding:4px 10px;" onclick="sendToCS({action:'openUrl',url:'https://avtrdb.com/check_ticket_status/${esc(r.ticket)}'})">
-            <span class="msi" style="font-size:13px;">open_in_new</span> Ticket
+            <span class="msi" style="font-size:13px;">open_in_new</span> ${t('settings.avtrdb.reports.ticket', 'Ticket')}
         </button>
     </div>`;
     }).join('');
 
     el.innerHTML = html;
 }
+
+function rerenderSettingsTranslations() {
+    renderFileList();
+    renderAvtrdbReports();
+
+    const selectBtn = document.getElementById('vrcxSelectBtn');
+    if (selectBtn && selectBtn.style.display !== 'none') {
+        selectBtn.innerHTML = vrcxSelectBtnHtml(selectBtn.disabled);
+    }
+
+    const startBtn = document.getElementById('vrcxStartBtn');
+    const actionBtns = document.getElementById('vrcxActionBtns');
+    if (startBtn && actionBtns && actionBtns.style.display !== 'none') {
+        startBtn.innerHTML = vrcxStartBtnHtml(!!_vrcxLastError);
+    }
+
+    if (_vrcxPreviewData && document.getElementById('vrcxPreviewBox')?.style.display !== 'none') {
+        renderVrcxPreviewRows(_vrcxPreviewData);
+    }
+
+    if (_vrcxLastProgress && document.getElementById('vrcxProgressWrap')?.style.display !== 'none') {
+        _vrcxSetProgress(_vrcxLastProgress.percent ?? 0, _vrcxLastProgress.status ?? '');
+    }
+
+    if (_vrcxLastDone && document.getElementById('vrcxSuccessCard')?.style.display !== 'none') {
+        renderVrcxSuccessDetail(_vrcxLastDone);
+    }
+
+    if (document.getElementById('vrcxImportError')?.style.display !== 'none') {
+        renderVrcxError(_vrcxLastError);
+    }
+}
+
+document.documentElement.addEventListener('languagechange', rerenderSettingsTranslations);

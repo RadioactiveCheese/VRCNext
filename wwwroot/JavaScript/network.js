@@ -7,6 +7,10 @@ let _netGraph        = null;
 let _mutualCache     = {};      // userId → { mutualIds[], optedOut }
 let _cacheLoadPending = false;  // waiting for JSON load from disk
 
+function networkProgressText(done, total) {
+    return tf('network.progress', { done, total }, `Loading connections: ${done} / ${total}`);
+}
+
 function initNetwork() {
     const canvas = document.getElementById('netCanvas');
     if (!canvas) return;
@@ -240,7 +244,7 @@ class MutualGraph {
         if (!bar) return;
         if (this.fetchTotal === 0) { bar.style.display = 'none'; return; }
         bar.style.display = 'flex';
-        if (text) text.textContent = `Loading connections: ${this.fetchDone} / ${this.fetchTotal}`;
+        if (text) text.textContent = networkProgressText(this.fetchDone, this.fetchTotal);
     }
     _hideProgress() {
         const bar = document.getElementById('netProgress');
@@ -578,3 +582,9 @@ class MutualGraph {
         this._render();
     }
 }
+
+function rerenderNetworkTranslations() {
+    if (_netGraph) _netGraph._updateProgress();
+}
+
+document.documentElement.addEventListener('languagechange', rerenderNetworkTranslations);

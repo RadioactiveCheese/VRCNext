@@ -200,6 +200,7 @@ public class AppSettings
     public bool MediaRelaySoundEnabled { get; set; }
     public bool SteamOverlaySoundEnabled { get; set; } = true;
     public bool MinimizeToTray { get; set; }
+    public string Language { get; set; } = "en";
     public string Theme { get; set; } = "midnight";
     public string SpecialTheme { get; set; } = "";
     public int AutoColorAccuracy { get; set; } = 50;
@@ -517,6 +518,9 @@ public class UserTimeTracker : IDisposable
     public DateTime LastTick => _lastTick;
 
     private readonly SqliteConnection _db;
+    private readonly object _lock = new();
+    private System.Threading.Timer? _autoFlushTimer;
+    private Func<bool>? _isVrcRunning;
     private bool _disposed;
     private string _myCurrentLocation = "";
     private DateTime _lastTick = DateTime.UtcNow;
@@ -528,13 +532,17 @@ public class UserTimeTracker : IDisposable
 
     private UserTimeTracker(SqliteConnection db) { _db = db; }
 
-    public static UserTimeTracker Load()
+    public static UserTimeTracker Load(Func<bool>? isVrcRunning = null)
     {
         var conn = Database.OpenConnection();
         var tracker = new UserTimeTracker(conn);
+        tracker._isVrcRunning = isVrcRunning;
         tracker.InitSchema();
         tracker.MigrateFromJson();
         tracker.LoadFromDb();
+        tracker._autoFlushTimer = new System.Threading.Timer(
+            tracker.AutoFlushTick, null,
+            TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1));
         return tracker;
     }
 
@@ -619,29 +627,33 @@ public class UserTimeTracker : IDisposable
     // stores display name and image so non-friend users still appear in the Time Spent list
     public void UpdateUserInfo(string userId, string displayName, string image)
     {
-        if (string.IsNullOrEmpty(userId) || string.IsNullOrEmpty(displayName)) return;
-        if (!Users.TryGetValue(userId, out var rec))
+        lock (_lock)
         {
-            rec = new UserRecord();
-            Users[userId] = rec;
+            if (_disposed) return;
+            if (string.IsNullOrEmpty(userId) || string.IsNullOrEmpty(displayName)) return;
+            if (!Users.TryGetValue(userId, out var rec))
+            {
+                rec = new UserRecord();
+                Users[userId] = rec;
+            }
+            if (rec.DisplayName == displayName && rec.Image == image) return;
+            rec.DisplayName = displayName;
+            if (!string.IsNullOrEmpty(image)) rec.Image = image;
+            try
+            {
+                using var cmd = _db.CreateCommand();
+                cmd.CommandText = @"INSERT INTO user_tracking(user_id,total_seconds,last_seen,last_seen_location,display_name,image)
+                    VALUES($uid,0,'','', $dn,$img)
+                    ON CONFLICT(user_id) DO UPDATE SET
+                        display_name=CASE WHEN excluded.display_name!='' THEN excluded.display_name ELSE user_tracking.display_name END,
+                        image=CASE WHEN excluded.image!='' THEN excluded.image ELSE user_tracking.image END";
+                cmd.Parameters.AddWithValue("$uid", userId);
+                cmd.Parameters.AddWithValue("$dn",  rec.DisplayName);
+                cmd.Parameters.AddWithValue("$img", rec.Image);
+                cmd.ExecuteNonQuery();
+            }
+            catch { }
         }
-        if (rec.DisplayName == displayName && rec.Image == image) return;
-        rec.DisplayName = displayName;
-        if (!string.IsNullOrEmpty(image)) rec.Image = image;
-        try
-        {
-            using var cmd = _db.CreateCommand();
-            cmd.CommandText = @"INSERT INTO user_tracking(user_id,total_seconds,last_seen,last_seen_location,display_name,image)
-                VALUES($uid,0,'','', $dn,$img)
-                ON CONFLICT(user_id) DO UPDATE SET
-                    display_name=CASE WHEN excluded.display_name!='' THEN excluded.display_name ELSE user_tracking.display_name END,
-                    image=CASE WHEN excluded.image!='' THEN excluded.image ELSE user_tracking.image END";
-            cmd.Parameters.AddWithValue("$uid", userId);
-            cmd.Parameters.AddWithValue("$dn",  rec.DisplayName);
-            cmd.Parameters.AddWithValue("$img", rec.Image);
-            cmd.ExecuteNonQuery();
-        }
-        catch { }
     }
 
     public void SetMyLocation(string location) => _myCurrentLocation = location ?? "";
@@ -649,138 +661,144 @@ public class UserTimeTracker : IDisposable
     // called every poll tick. updates in-memory cache and persists changed records.
     public void Tick(IEnumerable<(string userId, string location, string presence)> onlineFriends)
     {
-        var now = DateTime.UtcNow;
-        var elapsed = (long)(now - _lastTick).TotalSeconds;
-        _lastTick = now;
-
-        var changed = new List<(string userId, UserRecord rec)>();
-        var newCoPresentIds = new HashSet<string>();
-
-        foreach (var (userId, location, presence) in onlineFriends)
+        lock (_lock)
         {
-            if (string.IsNullOrEmpty(userId)) continue;
+            if (_disposed) return;
+            var now = DateTime.UtcNow;
+            var elapsed = (long)(now - _lastTick).TotalSeconds;
 
-            if (!Users.TryGetValue(userId, out var rec))
-            {
-                rec = new UserRecord();
-                Users[userId] = rec;
-            }
-
-            if (presence != "offline")
-            {
-                rec.LastSeen = now.ToString("o");
-                if (!string.IsNullOrEmpty(location) && location != "offline" && location != "private")
-                    rec.LastSeenLocation = location;
-            }
-
-            if (elapsed > 0 && elapsed <= 3600 // cap at 1h to handle sleep/pause
+            var changed = new List<(string userId, UserRecord rec)>();
+            var newCoPresentIds = new HashSet<string>();
+            var locationValid = elapsed > 0 && elapsed <= 3600
                 && !string.IsNullOrEmpty(_myCurrentLocation)
                 && _myCurrentLocation != "offline"
                 && _myCurrentLocation != "private"
-                && _myCurrentLocation != "traveling"
-                && location == _myCurrentLocation)
+                && _myCurrentLocation != "traveling";
+
+            foreach (var (userId, location, presence) in onlineFriends)
             {
-                rec.TotalSeconds += elapsed;
-                newCoPresentIds.Add(userId);
+                if (string.IsNullOrEmpty(userId)) continue;
+
+                if (!Users.TryGetValue(userId, out var rec))
+                {
+                    rec = new UserRecord();
+                    Users[userId] = rec;
+                }
+
+                if (presence != "offline")
+                {
+                    rec.LastSeen = now.ToString("o");
+                    if (!string.IsNullOrEmpty(location) && location != "offline" && location != "private")
+                        rec.LastSeenLocation = location;
+                }
+
+                if (locationValid && location == _myCurrentLocation)
+                    newCoPresentIds.Add(userId);
+
+                changed.Add((userId, rec));
             }
 
-            changed.Add((userId, rec));
-        }
+            // Only update the co-present set when location is valid.
+            // If location is empty/offline/traveling, keep previous set intact
+            // so AutoFlushTick doesn't lose track of who was co-present.
+            if (locationValid)
+                _lastCoPresentIds = newCoPresentIds;
 
-        // Only update the co-present set when elapsed was valid.
-        // If elapsed was 0 or >cap (e.g. rapid WS-triggered tick), the set would be empty
-        // and the previous co-present state is still the correct one for flush-on-close.
-        if (elapsed > 0 && elapsed <= 3600)
-            _lastCoPresentIds = newCoPresentIds;
-
-        if (changed.Count == 0) return;
-        try
-        {
-            using var tx = _db.BeginTransaction();
-            using var cmd = _db.CreateCommand();
-            cmd.Transaction = tx;
-            cmd.CommandText = @"INSERT INTO user_tracking(user_id,total_seconds,last_seen,last_seen_location,display_name,image)
-                VALUES($uid,$ts,$ls,$lsl,$dn,$img)
-                ON CONFLICT(user_id) DO UPDATE SET
-                    total_seconds=excluded.total_seconds,
-                    last_seen=excluded.last_seen,
-                    last_seen_location=excluded.last_seen_location,
-                    display_name=CASE WHEN excluded.display_name!='' THEN excluded.display_name ELSE user_tracking.display_name END,
-                    image=CASE WHEN excluded.image!='' THEN excluded.image ELSE user_tracking.image END";
-            var pUid = cmd.Parameters.Add("$uid", SqliteType.Text);
-            var pTs  = cmd.Parameters.Add("$ts",  SqliteType.Integer);
-            var pLs  = cmd.Parameters.Add("$ls",  SqliteType.Text);
-            var pLsl = cmd.Parameters.Add("$lsl", SqliteType.Text);
-            var pDn  = cmd.Parameters.Add("$dn",  SqliteType.Text);
-            var pImg = cmd.Parameters.Add("$img", SqliteType.Text);
-            foreach (var (userId, rec) in changed)
+            if (changed.Count == 0) return;
+            try
             {
-                pUid.Value = userId;
-                pTs.Value  = rec.TotalSeconds;
-                pLs.Value  = rec.LastSeen;
-                pLsl.Value = rec.LastSeenLocation;
-                pDn.Value  = rec.DisplayName;
-                pImg.Value = rec.Image;
-                cmd.ExecuteNonQuery();
+                using var tx = _db.BeginTransaction();
+                using var cmd = _db.CreateCommand();
+                cmd.Transaction = tx;
+                cmd.CommandText = @"INSERT INTO user_tracking(user_id,total_seconds,last_seen,last_seen_location,display_name,image)
+                    VALUES($uid,$ts,$ls,$lsl,$dn,$img)
+                    ON CONFLICT(user_id) DO UPDATE SET
+                        total_seconds=excluded.total_seconds,
+                        last_seen=excluded.last_seen,
+                        last_seen_location=excluded.last_seen_location,
+                        display_name=CASE WHEN excluded.display_name!='' THEN excluded.display_name ELSE user_tracking.display_name END,
+                        image=CASE WHEN excluded.image!='' THEN excluded.image ELSE user_tracking.image END";
+                var pUid = cmd.Parameters.Add("$uid", SqliteType.Text);
+                var pTs  = cmd.Parameters.Add("$ts",  SqliteType.Integer);
+                var pLs  = cmd.Parameters.Add("$ls",  SqliteType.Text);
+                var pLsl = cmd.Parameters.Add("$lsl", SqliteType.Text);
+                var pDn  = cmd.Parameters.Add("$dn",  SqliteType.Text);
+                var pImg = cmd.Parameters.Add("$img", SqliteType.Text);
+                foreach (var (userId, rec) in changed)
+                {
+                    pUid.Value = userId;
+                    pTs.Value  = rec.TotalSeconds;
+                    pLs.Value  = rec.LastSeen;
+                    pLsl.Value = rec.LastSeenLocation;
+                    pDn.Value  = rec.DisplayName;
+                    pImg.Value = rec.Image;
+                    cmd.ExecuteNonQuery();
+                }
+                tx.Commit();
             }
-            tx.Commit();
+            catch { }
         }
-        catch { }
     }
 
     public (long totalSeconds, string lastSeen) GetUserStats(string userId, bool isCoPresent = false)
     {
-        if (!Users.TryGetValue(userId, out var rec))
-            return (0, "");
-
-        var total = rec.TotalSeconds;
-
-        // Add live pending time if currently co-present (time since last Tick not yet counted).
-        // isCoPresent is determined by the log watcher (reliable), not the VRC API location
-        // (which often returns "private" even for players in the same instance).
-        if (isCoPresent)
+        lock (_lock)
         {
-            var liveElapsed = (long)(DateTime.UtcNow - _lastTick).TotalSeconds;
-            if (liveElapsed > 0 && liveElapsed <= 3600)
-                total += liveElapsed;
-        }
+            if (!Users.TryGetValue(userId, out var rec))
+                return (0, "");
 
-        return (total, rec.LastSeen);
+            var total = rec.TotalSeconds;
+
+            // Add live pending time only if VRChat is running and user is co-present.
+            // Never add liveElapsed when VRChat is not running — prevents counting after Alt+F4.
+            if (isCoPresent && _isVrcRunning?.Invoke() == true)
+            {
+                var liveElapsed = (long)(DateTime.UtcNow - _lastTick).TotalSeconds;
+                if (liveElapsed > 0 && liveElapsed <= 3600)
+                    total += liveElapsed;
+            }
+
+            return (total, rec.LastSeen);
+        }
     }
 
     // merges imported friend-time data (e.g. from VRCX). adds to existing totals.
     public void BulkMerge(IEnumerable<(string userId, string displayName, long seconds, string lastSeen)> entries)
     {
-        try
+        lock (_lock)
         {
-            using var tx  = _db.BeginTransaction();
-            using var cmd = _db.CreateCommand();
-            cmd.Transaction = tx;
-            cmd.CommandText = @"INSERT INTO user_tracking(user_id,total_seconds,last_seen,last_seen_location,display_name,image)
-                VALUES($uid,$ts,$ls,'',$dn,'')
-                ON CONFLICT(user_id) DO UPDATE SET
-                    total_seconds = user_tracking.total_seconds + excluded.total_seconds,
-                    last_seen = CASE WHEN excluded.last_seen > user_tracking.last_seen THEN excluded.last_seen ELSE user_tracking.last_seen END,
-                    display_name = CASE WHEN excluded.display_name != '' AND user_tracking.display_name = '' THEN excluded.display_name ELSE user_tracking.display_name END";
-            var pUid = cmd.Parameters.Add("$uid", SqliteType.Text);
-            var pTs  = cmd.Parameters.Add("$ts",  SqliteType.Integer);
-            var pLs  = cmd.Parameters.Add("$ls",  SqliteType.Text);
-            var pDn  = cmd.Parameters.Add("$dn",  SqliteType.Text);
-            foreach (var (userId, displayName, seconds, lastSeen) in entries)
+            if (_disposed) return;
+            try
             {
-                pUid.Value = userId;
-                pTs.Value  = seconds;
-                pLs.Value  = lastSeen;
-                pDn.Value  = displayName;
-                cmd.ExecuteNonQuery();
-                if (!Users.TryGetValue(userId, out var rec)) { rec = new UserRecord(); Users[userId] = rec; }
-                rec.TotalSeconds += seconds;
-                if (string.IsNullOrEmpty(rec.DisplayName) && !string.IsNullOrEmpty(displayName)) rec.DisplayName = displayName;
-                if (string.Compare(lastSeen, rec.LastSeen, StringComparison.Ordinal) > 0) rec.LastSeen = lastSeen;
+                using var tx  = _db.BeginTransaction();
+                using var cmd = _db.CreateCommand();
+                cmd.Transaction = tx;
+                cmd.CommandText = @"INSERT INTO user_tracking(user_id,total_seconds,last_seen,last_seen_location,display_name,image)
+                    VALUES($uid,$ts,$ls,'',$dn,'')
+                    ON CONFLICT(user_id) DO UPDATE SET
+                        total_seconds = user_tracking.total_seconds + excluded.total_seconds,
+                        last_seen = CASE WHEN excluded.last_seen > user_tracking.last_seen THEN excluded.last_seen ELSE user_tracking.last_seen END,
+                        display_name = CASE WHEN excluded.display_name != '' AND user_tracking.display_name = '' THEN excluded.display_name ELSE user_tracking.display_name END";
+                var pUid = cmd.Parameters.Add("$uid", SqliteType.Text);
+                var pTs  = cmd.Parameters.Add("$ts",  SqliteType.Integer);
+                var pLs  = cmd.Parameters.Add("$ls",  SqliteType.Text);
+                var pDn  = cmd.Parameters.Add("$dn",  SqliteType.Text);
+                foreach (var (userId, displayName, seconds, lastSeen) in entries)
+                {
+                    pUid.Value = userId;
+                    pTs.Value  = seconds;
+                    pLs.Value  = lastSeen;
+                    pDn.Value  = displayName;
+                    cmd.ExecuteNonQuery();
+                    if (!Users.TryGetValue(userId, out var rec)) { rec = new UserRecord(); Users[userId] = rec; }
+                    rec.TotalSeconds += seconds;
+                    if (string.IsNullOrEmpty(rec.DisplayName) && !string.IsNullOrEmpty(displayName)) rec.DisplayName = displayName;
+                    if (string.Compare(lastSeen, rec.LastSeen, StringComparison.Ordinal) > 0) rec.LastSeen = lastSeen;
+                }
+                tx.Commit();
             }
-            tx.Commit();
+            catch { }
         }
-        catch { }
     }
 
     public void Save() { }
@@ -789,6 +807,8 @@ public class UserTimeTracker : IDisposable
     {
         if (_disposed) return;
         _disposed = true;
+        _autoFlushTimer?.Dispose();
+        _autoFlushTimer = null;
         FlushCoPresentUsers();
         try { _db.Close(); } catch { }
         _db.Dispose();
@@ -797,41 +817,100 @@ public class UserTimeTracker : IDisposable
     // saves pending elapsed time for all co-present users on app close
     private void FlushCoPresentUsers()
     {
-        if (_lastCoPresentIds.Count == 0) return;
-        var elapsed = (long)(DateTime.UtcNow - _lastTick).TotalSeconds;
-        if (elapsed <= 0 || elapsed > 3600) return;
-
-        try
+        lock (_lock)
         {
-            using var tx = _db.BeginTransaction();
-            using var cmd = _db.CreateCommand();
-            cmd.Transaction = tx;
-            cmd.CommandText = @"INSERT INTO user_tracking(user_id,total_seconds,last_seen,last_seen_location)
-                VALUES($uid,$ts,$ls,$lsl)
-                ON CONFLICT(user_id) DO UPDATE SET
-                    total_seconds=excluded.total_seconds,
-                    last_seen=excluded.last_seen,
-                    last_seen_location=excluded.last_seen_location";
-            var pUid = cmd.Parameters.Add("$uid", SqliteType.Text);
-            var pTs  = cmd.Parameters.Add("$ts",  SqliteType.Integer);
-            var pLs  = cmd.Parameters.Add("$ls",  SqliteType.Text);
-            var pLsl = cmd.Parameters.Add("$lsl", SqliteType.Text);
+            if (_lastCoPresentIds.Count == 0) return;
+            var elapsed = (long)(DateTime.UtcNow - _lastTick).TotalSeconds;
+            if (elapsed <= 0 || elapsed > 3600) return;
 
-            var now = DateTime.UtcNow.ToString("o");
-            foreach (var userId in _lastCoPresentIds)
+            try
             {
-                if (!Users.TryGetValue(userId, out var rec)) continue;
-                rec.TotalSeconds += elapsed;
-                pUid.Value = userId;
-                pTs.Value  = rec.TotalSeconds;
-                pLs.Value  = now;
-                pLsl.Value = rec.LastSeenLocation;
-                cmd.ExecuteNonQuery();
+                using var tx = _db.BeginTransaction();
+                using var cmd = _db.CreateCommand();
+                cmd.Transaction = tx;
+                cmd.CommandText = @"INSERT INTO user_tracking(user_id,total_seconds,last_seen,last_seen_location)
+                    VALUES($uid,$ts,$ls,$lsl)
+                    ON CONFLICT(user_id) DO UPDATE SET
+                        total_seconds=excluded.total_seconds,
+                        last_seen=excluded.last_seen,
+                        last_seen_location=excluded.last_seen_location";
+                var pUid = cmd.Parameters.Add("$uid", SqliteType.Text);
+                var pTs  = cmd.Parameters.Add("$ts",  SqliteType.Integer);
+                var pLs  = cmd.Parameters.Add("$ls",  SqliteType.Text);
+                var pLsl = cmd.Parameters.Add("$lsl", SqliteType.Text);
+
+                var now = DateTime.UtcNow.ToString("o");
+                foreach (var userId in _lastCoPresentIds)
+                {
+                    if (!Users.TryGetValue(userId, out var rec)) continue;
+                    rec.TotalSeconds += elapsed;
+                    pUid.Value = userId;
+                    pTs.Value  = rec.TotalSeconds;
+                    pLs.Value  = now;
+                    pLsl.Value = rec.LastSeenLocation;
+                    cmd.ExecuteNonQuery();
+                }
+                tx.Commit();
+                _lastTick = DateTime.UtcNow; // prevent double-flush
             }
-            tx.Commit();
-            _lastTick = DateTime.UtcNow; // prevent double-flush
+            catch { }
         }
-        catch { }
+    }
+
+    private void AutoFlushTick(object? state)
+    {
+        lock (_lock)
+        {
+            if (_disposed) return;
+            if (_isVrcRunning?.Invoke() != true) return;
+            if (string.IsNullOrEmpty(_myCurrentLocation)
+                || _myCurrentLocation == "offline"
+                || _myCurrentLocation == "private"
+                || _myCurrentLocation == "traveling") return;
+            if (_lastCoPresentIds.Count == 0) return;
+
+            var now = DateTime.UtcNow;
+            var elapsed = (long)(now - _lastTick).TotalSeconds;
+            if (elapsed <= 0 || elapsed > 3600) return;
+
+            foreach (var userId in _lastCoPresentIds)
+                if (Users.TryGetValue(userId, out var rec))
+                    rec.TotalSeconds += elapsed;
+
+            _lastTick = now; // before DB write — no double-counting on error
+
+            try
+            {
+                using var tx = _db.BeginTransaction();
+                using var cmd = _db.CreateCommand();
+                cmd.Transaction = tx;
+                cmd.CommandText = @"INSERT INTO user_tracking(user_id,total_seconds,last_seen,last_seen_location,display_name,image)
+                    VALUES($uid,$ts,$ls,$lsl,$dn,$img)
+                    ON CONFLICT(user_id) DO UPDATE SET
+                        total_seconds=excluded.total_seconds,
+                        last_seen=excluded.last_seen,
+                        last_seen_location=excluded.last_seen_location,
+                        display_name=CASE WHEN excluded.display_name!='' THEN excluded.display_name ELSE user_tracking.display_name END,
+                        image=CASE WHEN excluded.image!='' THEN excluded.image ELSE user_tracking.image END";
+                var pUid = cmd.Parameters.Add("$uid", SqliteType.Text);
+                var pTs  = cmd.Parameters.Add("$ts",  SqliteType.Integer);
+                var pLs  = cmd.Parameters.Add("$ls",  SqliteType.Text);
+                var pLsl = cmd.Parameters.Add("$lsl", SqliteType.Text);
+                var pDn  = cmd.Parameters.Add("$dn",  SqliteType.Text);
+                var pImg = cmd.Parameters.Add("$img", SqliteType.Text);
+                var nowStr = now.ToString("o");
+                foreach (var userId in _lastCoPresentIds)
+                {
+                    if (!Users.TryGetValue(userId, out var rec)) continue;
+                    pUid.Value = userId; pTs.Value = rec.TotalSeconds;
+                    pLs.Value = nowStr;  pLsl.Value = rec.LastSeenLocation;
+                    pDn.Value = rec.DisplayName; pImg.Value = rec.Image;
+                    cmd.ExecuteNonQuery();
+                }
+                tx.Commit();
+            }
+            catch { }
+        }
     }
 
     private class UserTimeTracker_Legacy
@@ -856,6 +935,9 @@ public class WorldTimeTracker : IDisposable
     public Dictionary<string, WorldRecord> Worlds { get; } = new();
 
     private readonly SqliteConnection _db;
+    private readonly object _lock = new();
+    private System.Threading.Timer? _autoFlushTimer;
+    private Func<bool>? _isVrcRunning;
     private bool _disposed;
     private string _currentWorldId = "";
     private DateTime _lastTick = DateTime.UtcNow;
@@ -866,13 +948,17 @@ public class WorldTimeTracker : IDisposable
 
     private WorldTimeTracker(SqliteConnection db) { _db = db; }
 
-    public static WorldTimeTracker Load()
+    public static WorldTimeTracker Load(Func<bool>? isVrcRunning = null)
     {
         var conn = Database.OpenConnection();
         var tracker = new WorldTimeTracker(conn);
+        tracker._isVrcRunning = isVrcRunning;
         tracker.InitSchema();
         tracker.MigrateFromJson();
         tracker.LoadFromDb();
+        tracker._autoFlushTimer = new System.Threading.Timer(
+            tracker.AutoFlushTick, null,
+            TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1));
         return tracker;
     }
 
@@ -955,55 +1041,71 @@ public class WorldTimeTracker : IDisposable
 
     public void SetCurrentWorld(string worldId)
     {
-        FlushCurrentWorld();
-        _currentWorldId = worldId ?? "";
-        _lastTick = DateTime.UtcNow;
-
-        if (string.IsNullOrEmpty(_currentWorldId) || !_currentWorldId.StartsWith("wrld_")) return;
-
-        if (!Worlds.TryGetValue(_currentWorldId, out var rec))
+        lock (_lock)
         {
-            rec = new WorldRecord();
-            Worlds[_currentWorldId] = rec;
+            if (_disposed) return;
+            FlushCurrentWorldLocked();
+            _currentWorldId = worldId ?? "";
+            _lastTick = DateTime.UtcNow;
+
+            if (string.IsNullOrEmpty(_currentWorldId) || !_currentWorldId.StartsWith("wrld_")) return;
+
+            if (!Worlds.TryGetValue(_currentWorldId, out var rec))
+            {
+                rec = new WorldRecord();
+                Worlds[_currentWorldId] = rec;
+            }
+            rec.VisitCount++;
+            rec.LastVisited = DateTime.UtcNow.ToString("o");
+            UpsertWorld(_currentWorldId, rec);
         }
-        rec.VisitCount++;
-        rec.LastVisited = DateTime.UtcNow.ToString("o");
-        UpsertWorld(_currentWorldId, rec);
     }
 
     // resume tracking a world after app restart, does not increment visit count
     public void ResumeWorld(string worldId)
     {
-        _currentWorldId = worldId ?? "";
-        _lastTick = DateTime.UtcNow;
+        lock (_lock)
+        {
+            _currentWorldId = worldId ?? "";
+            _lastTick = DateTime.UtcNow;
+        }
     }
 
     public void Tick()
     {
-        if (string.IsNullOrEmpty(_currentWorldId) || !_currentWorldId.StartsWith("wrld_"))
-            return;
-        var now = DateTime.UtcNow;
-        var elapsed = (long)(now - _lastTick).TotalSeconds;
-        _lastTick = now;
-        if (elapsed <= 0 || elapsed > 3600) return; // cap at 1h to handle sleep/pause
-        if (!Worlds.TryGetValue(_currentWorldId, out var rec))
+        lock (_lock)
         {
-            rec = new WorldRecord();
-            Worlds[_currentWorldId] = rec;
+            if (_disposed) return;
+            if (string.IsNullOrEmpty(_currentWorldId) || !_currentWorldId.StartsWith("wrld_"))
+                return;
+            var now = DateTime.UtcNow;
+            var elapsed = (long)(now - _lastTick).TotalSeconds;
+            if (elapsed <= 0 || elapsed > 3600) return; // cap at 1h to handle sleep/pause
+            if (!Worlds.TryGetValue(_currentWorldId, out var rec))
+            {
+                rec = new WorldRecord();
+                Worlds[_currentWorldId] = rec;
+            }
+            rec.TotalSeconds += elapsed;
+            rec.LastVisited = now.ToString("o");
+            _lastTick = now;
+            UpsertWorld(_currentWorldId, rec);
         }
-        rec.TotalSeconds += elapsed;
-        rec.LastVisited = now.ToString("o");
-        UpsertWorld(_currentWorldId, rec);
     }
 
     private void FlushCurrentWorld()
+    {
+        lock (_lock) { FlushCurrentWorldLocked(); }
+    }
+
+    private void FlushCurrentWorldLocked()
     {
         if (string.IsNullOrEmpty(_currentWorldId) || !_currentWorldId.StartsWith("wrld_"))
             return;
         var now = DateTime.UtcNow;
         var elapsed = (long)(now - _lastTick).TotalSeconds;
         _lastTick = now;
-        if (elapsed <= 0 || elapsed > 3600) return; // same cap as Tick
+        if (elapsed <= 0 || elapsed > 3600) return;
         if (!Worlds.TryGetValue(_currentWorldId, out var rec)) return;
         rec.TotalSeconds += elapsed;
         rec.LastVisited = now.ToString("o");
@@ -1046,59 +1148,66 @@ public class WorldTimeTracker : IDisposable
 
     public (long totalSeconds, int visitCount, string lastVisited) GetWorldStats(string worldId)
     {
-        if (!Worlds.TryGetValue(worldId, out var rec))
-            return (0, 0, "");
-
-        var total = rec.TotalSeconds;
-
-        // Add live pending time if this is the current world (time since last Tick not yet counted)
-        if (worldId == _currentWorldId)
+        lock (_lock)
         {
-            var liveElapsed = (long)(DateTime.UtcNow - _lastTick).TotalSeconds;
-            if (liveElapsed > 0 && liveElapsed <= 3600)
-                total += liveElapsed;
-        }
+            if (!Worlds.TryGetValue(worldId, out var rec))
+                return (0, 0, "");
 
-        return (total, rec.VisitCount, rec.LastVisited);
+            var total = rec.TotalSeconds;
+
+            // Add live pending time only if VRChat is running and this is the current world.
+            if (worldId == _currentWorldId && _isVrcRunning?.Invoke() == true)
+            {
+                var liveElapsed = (long)(DateTime.UtcNow - _lastTick).TotalSeconds;
+                if (liveElapsed > 0 && liveElapsed <= 3600)
+                    total += liveElapsed;
+            }
+
+            return (total, rec.VisitCount, rec.LastVisited);
+        }
     }
 
     // merges imported world-time data (e.g. from VRCX). adds to existing totals.
     public void BulkMerge(IEnumerable<(string worldId, string worldName, long seconds, int visitCount, string lastVisited)> entries)
     {
-        try
+        lock (_lock)
         {
-            using var tx  = _db.BeginTransaction();
-            using var cmd = _db.CreateCommand();
-            cmd.Transaction = tx;
-            cmd.CommandText = @"INSERT INTO world_tracking(world_id,total_seconds,visit_count,last_visited,world_name,world_thumb)
-                VALUES($wid,$ts,$vc,$lv,$wn,'')
-                ON CONFLICT(world_id) DO UPDATE SET
-                    total_seconds = world_tracking.total_seconds + excluded.total_seconds,
-                    visit_count   = world_tracking.visit_count   + excluded.visit_count,
-                    last_visited  = CASE WHEN excluded.last_visited > world_tracking.last_visited THEN excluded.last_visited ELSE world_tracking.last_visited END,
-                    world_name    = CASE WHEN excluded.world_name != '' AND world_tracking.world_name = '' THEN excluded.world_name ELSE world_tracking.world_name END";
-            var pWid = cmd.Parameters.Add("$wid", SqliteType.Text);
-            var pTs  = cmd.Parameters.Add("$ts",  SqliteType.Integer);
-            var pVc  = cmd.Parameters.Add("$vc",  SqliteType.Integer);
-            var pLv  = cmd.Parameters.Add("$lv",  SqliteType.Text);
-            var pWn  = cmd.Parameters.Add("$wn",  SqliteType.Text);
-            foreach (var (worldId, worldName, seconds, visitCount, lastVisited) in entries)
+            if (_disposed) return;
+            try
             {
-                pWid.Value = worldId;
-                pTs.Value  = seconds;
-                pVc.Value  = visitCount;
-                pLv.Value  = lastVisited;
-                pWn.Value  = worldName;
-                cmd.ExecuteNonQuery();
-                if (!Worlds.TryGetValue(worldId, out var rec)) { rec = new WorldRecord(); Worlds[worldId] = rec; }
-                rec.TotalSeconds += seconds;
-                rec.VisitCount   += visitCount;
-                if (string.IsNullOrEmpty(rec.WorldName) && !string.IsNullOrEmpty(worldName)) rec.WorldName = worldName;
-                if (string.Compare(lastVisited, rec.LastVisited, StringComparison.Ordinal) > 0) rec.LastVisited = lastVisited;
+                using var tx  = _db.BeginTransaction();
+                using var cmd = _db.CreateCommand();
+                cmd.Transaction = tx;
+                cmd.CommandText = @"INSERT INTO world_tracking(world_id,total_seconds,visit_count,last_visited,world_name,world_thumb)
+                    VALUES($wid,$ts,$vc,$lv,$wn,'')
+                    ON CONFLICT(world_id) DO UPDATE SET
+                        total_seconds = world_tracking.total_seconds + excluded.total_seconds,
+                        visit_count   = world_tracking.visit_count   + excluded.visit_count,
+                        last_visited  = CASE WHEN excluded.last_visited > world_tracking.last_visited THEN excluded.last_visited ELSE world_tracking.last_visited END,
+                        world_name    = CASE WHEN excluded.world_name != '' AND world_tracking.world_name = '' THEN excluded.world_name ELSE world_tracking.world_name END";
+                var pWid = cmd.Parameters.Add("$wid", SqliteType.Text);
+                var pTs  = cmd.Parameters.Add("$ts",  SqliteType.Integer);
+                var pVc  = cmd.Parameters.Add("$vc",  SqliteType.Integer);
+                var pLv  = cmd.Parameters.Add("$lv",  SqliteType.Text);
+                var pWn  = cmd.Parameters.Add("$wn",  SqliteType.Text);
+                foreach (var (worldId, worldName, seconds, visitCount, lastVisited) in entries)
+                {
+                    pWid.Value = worldId;
+                    pTs.Value  = seconds;
+                    pVc.Value  = visitCount;
+                    pLv.Value  = lastVisited;
+                    pWn.Value  = worldName;
+                    cmd.ExecuteNonQuery();
+                    if (!Worlds.TryGetValue(worldId, out var rec)) { rec = new WorldRecord(); Worlds[worldId] = rec; }
+                    rec.TotalSeconds += seconds;
+                    rec.VisitCount   += visitCount;
+                    if (string.IsNullOrEmpty(rec.WorldName) && !string.IsNullOrEmpty(worldName)) rec.WorldName = worldName;
+                    if (string.Compare(lastVisited, rec.LastVisited, StringComparison.Ordinal) > 0) rec.LastVisited = lastVisited;
+                }
+                tx.Commit();
             }
-            tx.Commit();
+            catch { }
         }
-        catch { }
     }
 
     public void Save() { }
@@ -1107,9 +1216,35 @@ public class WorldTimeTracker : IDisposable
     {
         if (_disposed) return;
         _disposed = true;
+        _autoFlushTimer?.Dispose();
+        _autoFlushTimer = null;
         FlushCurrentWorld();
         try { _db.Close(); } catch { }
         _db.Dispose();
+    }
+
+    private void AutoFlushTick(object? state)
+    {
+        lock (_lock)
+        {
+            if (_disposed) return;
+            if (_isVrcRunning?.Invoke() != true) return;
+            if (string.IsNullOrEmpty(_currentWorldId) || !_currentWorldId.StartsWith("wrld_")) return;
+
+            var now = DateTime.UtcNow;
+            var elapsed = (long)(now - _lastTick).TotalSeconds;
+            if (elapsed <= 0 || elapsed > 3600) return;
+
+            if (!Worlds.TryGetValue(_currentWorldId, out var rec))
+            {
+                rec = new WorldRecord();
+                Worlds[_currentWorldId] = rec;
+            }
+            rec.TotalSeconds += elapsed;
+            rec.LastVisited = now.ToString("o");
+            _lastTick = now;
+            UpsertWorld(_currentWorldId, rec);
+        }
     }
 
     private class WorldTimeTracker_Legacy

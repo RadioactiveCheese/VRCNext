@@ -76,52 +76,124 @@ const TL_TYPE_COLOR = {
 
 // Type labels and icons
 const TL_TYPE_META = {
-    instance_join: { icon: 'travel_explore', label: 'Instance Join' },
-    photo:         { icon: 'camera',         label: 'Photo'         },
-    first_meet:    { icon: 'person_add',     label: 'First Meet'    },
-    meet_again:    { icon: 'person_check',   label: 'Meet Again'    },
-    notification:  { icon: 'notifications',  label: 'Notification'  },
-    avatar_switch: { icon: 'checkroom',      label: 'Avatar Switch' },
-    video_url:     { icon: 'link',           label: 'URL'           },
+    instance_join: { icon: 'travel_explore', key: 'timeline.types.instance_join', fallback: 'Instance Join' },
+    photo:         { icon: 'camera',         key: 'timeline.types.photo',         fallback: 'Photo' },
+    first_meet:    { icon: 'person_add',     key: 'timeline.types.first_meet',    fallback: 'First Meet' },
+    meet_again:    { icon: 'person_check',   key: 'timeline.types.meet_again',    fallback: 'Meet Again' },
+    notification:  { icon: 'notifications',  key: 'timeline.types.notification',  fallback: 'Notification' },
+    avatar_switch: { icon: 'checkroom',      key: 'timeline.types.avatar_switch', fallback: 'Avatar Switch' },
+    video_url:     { icon: 'link',           key: 'timeline.types.video_url',     fallback: 'URL' },
 };
 
-// Notification type labels
-const NOTIF_TYPE_LABELS = {
-    // v1
-    friendRequest:              'Friend Request',
-    invite:                     'World Invite',
-    requestInvite:              'Invite Request',
-    inviteResponse:             'Invite Response',
-    requestInviteResponse:      'Invite Req. Response',
-    votetokick:                 'Vote to Kick',
-    boop:                       'Boop',
-    message:                    'Message',
-    halted:                     'Instance Closed',
-    // group
-    'group.announcement':       'Group Announcement',
-    'group.invite':             'Group Invite',
-    'group.joinRequest':        'Group Join Request',
-    'group.informationRequest': 'Group Info Request',
-    'group.transfer':           'Group Transfer',
-    'group.informative':        'Group Info',
-    'group.post':               'Group Post',
-    'group.event.created':      'Group Event Created',
-    'group.event.starting':     'Group Event Starting',
-    // v2-only
-    'avatarreview.success':     'Avatar Approved',
-    'avatarreview.failure':     'Avatar Rejected',
-    'badge.earned':             'Badge Earned',
-    'economy.alert':            'Economy Alert',
-    'economy.received.gift':    'Gift Received',
-    'event.announcement':       'Event Announcement',
-    'invite.instance.contentGated': 'Content Gated Invite',
-    'moderation.contentrestriction': 'Content Restriction',
-    'moderation.notice':        'Moderation Notice',
-    'moderation.report.closed': 'Report Closed',
-    'moderation.warning.group': 'Group Warning',
-    'promo.redeem':             'Promo Redeemed',
-    'vrcplus.gift':             'VRC+ Gift',
+const TL_NOTIF_TYPE_META = {
+    friendRequest: { key: 'timeline.notif.friend_request', fallback: 'Friend Request' },
+    invite: { key: 'timeline.notif.world_invite', fallback: 'World Invite' },
+    requestInvite: { key: 'timeline.notif.invite_request', fallback: 'Invite Request' },
+    inviteResponse: { key: 'timeline.notif.invite_response', fallback: 'Invite Response' },
+    requestInviteResponse: { key: 'timeline.notif.invite_request_response', fallback: 'Invite Req. Response' },
+    votetokick: { key: 'timeline.notif.vote_to_kick', fallback: 'Vote to Kick' },
+    boop: { key: 'timeline.notif.boop', fallback: 'Boop' },
+    message: { key: 'timeline.notif.message', fallback: 'Message' },
+    halted: { key: 'timeline.notif.instance_closed', fallback: 'Instance Closed' },
+    'group.announcement': { key: 'timeline.notif.group_announcement', fallback: 'Group Announcement' },
+    'group.invite': { key: 'timeline.notif.group_invite', fallback: 'Group Invite' },
+    'group.joinRequest': { key: 'timeline.notif.group_join_request', fallback: 'Group Join Request' },
+    'group.informationRequest': { key: 'timeline.notif.group_info_request', fallback: 'Group Info Request' },
+    'group.transfer': { key: 'timeline.notif.group_transfer', fallback: 'Group Transfer' },
+    'group.informative': { key: 'timeline.notif.group_info', fallback: 'Group Info' },
+    'group.post': { key: 'timeline.notif.group_post', fallback: 'Group Post' },
+    'group.event.created': { key: 'timeline.notif.group_event_created', fallback: 'Group Event Created' },
+    'group.event.starting': { key: 'timeline.notif.group_event_starting', fallback: 'Group Event Starting' },
+    'avatarreview.success': { key: 'timeline.notif.avatar_approved', fallback: 'Avatar Approved' },
+    'avatarreview.failure': { key: 'timeline.notif.avatar_rejected', fallback: 'Avatar Rejected' },
+    'badge.earned': { key: 'timeline.notif.badge_earned', fallback: 'Badge Earned' },
+    'economy.alert': { key: 'timeline.notif.economy_alert', fallback: 'Economy Alert' },
+    'economy.received.gift': { key: 'timeline.notif.gift_received', fallback: 'Gift Received' },
+    'event.announcement': { key: 'timeline.notif.event_announcement', fallback: 'Event Announcement' },
+    'invite.instance.contentGated': { key: 'timeline.notif.content_gated_invite', fallback: 'Content Gated Invite' },
+    'moderation.contentrestriction': { key: 'timeline.notif.content_restriction', fallback: 'Content Restriction' },
+    'moderation.notice': { key: 'timeline.notif.moderation_notice', fallback: 'Moderation Notice' },
+    'moderation.report.closed': { key: 'timeline.notif.report_closed', fallback: 'Report Closed' },
+    'moderation.warning.group': { key: 'timeline.notif.group_warning', fallback: 'Group Warning' },
+    'promo.redeem': { key: 'timeline.notif.promo_redeemed', fallback: 'Promo Redeemed' },
+    'vrcplus.gift': { key: 'timeline.notif.vrcplus_gift', fallback: 'VRC+ Gift' },
 };
+
+function tlDateLocale() {
+    return t('clock.date_locale', 'en-US');
+}
+
+function tlTimeLocale() {
+    return t('clock.time_locale', tlDateLocale());
+}
+
+function tlFormatLongDate(value) {
+    return new Date(value).toLocaleDateString(tlDateLocale(), { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+}
+
+function tlFormatShortDate(value) {
+    return new Date(value).toLocaleDateString(tlDateLocale(), { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+function tlFormatTime(value) {
+    return new Date(value).toLocaleTimeString(tlTimeLocale(), { hour: '2-digit', minute: '2-digit' });
+}
+
+function tlFormatDateFilterLabel(dateStr) {
+    return new Date(dateStr + 'T00:00:00').toLocaleDateString(tlDateLocale(), { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+function tlTypeMeta(type) {
+    const meta = TL_TYPE_META[type] ?? { icon: 'circle', key: `timeline.types.${type}`, fallback: type };
+    return {
+        icon: meta.icon,
+        label: t(meta.key, meta.fallback || type),
+    };
+}
+
+function ftTypeMeta(type) {
+    const meta = FT_TYPE_META[type] ?? { icon: 'circle', key: `timeline.friend_types.${type}`, fallback: type };
+    return {
+        icon: meta.icon,
+        label: t(meta.key, meta.fallback || type),
+    };
+}
+
+function tlNotifTypeLabel(type) {
+    const meta = TL_NOTIF_TYPE_META[type];
+    if (!meta) return type || t('timeline.types.notification', 'Notification');
+    return t(meta.key, meta.fallback);
+}
+
+function tlPlayersLabel(count) {
+    return count === 1
+        ? tf('timeline.players.one', { count }, `${count} player`)
+        : tf('timeline.players.other', { count }, `${count} players`);
+}
+
+function tlSearchNoResults(search) {
+    return tf('timeline.search.no_results', { query: search }, `No results for "${search}".`);
+}
+
+function tlSearchSummary(count, search) {
+    return tf('timeline.search.results', { count: count.toLocaleString(), query: search }, `${count.toLocaleString()} results for "${search}"`);
+}
+
+function tlTotalSummary(count) {
+    return tf('timeline.paginator.total', { count: count.toLocaleString() }, `${count.toLocaleString()} total`);
+}
+
+function tlListNaHtml() {
+    return `<span class="tl-list-na">${esc(t('timeline.list.na', '-'))}</span>`;
+}
+
+function tlClearedHtml() {
+    return `<span class="tl-list-na">${esc(t('timeline.value.cleared', '(cleared)'))}</span>`;
+}
+
+function tlDetailClearedHtml() {
+    return `<em style="color:var(--tx3)">${esc(t('timeline.value.cleared', '(cleared)'))}</em>`;
+}
 
 // Public API
 
@@ -352,7 +424,7 @@ function _renderTlSearchResults(search) {
     const events = _tlSearchEvents; // already type-filtered by server (type sent in request)
 
     if (!events.length) {
-        c.innerHTML = `<div class="empty-msg">No results for "<b>${esc(search)}</b>".</div>`;
+        c.innerHTML = `<div class="empty-msg">${esc(tlSearchNoResults(search))}</div>`;
         _setTlPaginator('');
         return;
     }
@@ -360,7 +432,7 @@ function _renderTlSearchResults(search) {
     const total      = _tlSearchTotal;
     const totalPages = total > 0 ? Math.ceil(total / 100) : 1;
     const banner = `<div style="padding:6px 12px;font-size:11px;color:var(--tx3);border-bottom:1px solid var(--brd);">`
-        + `${total.toLocaleString()} result${total !== 1 ? 's' : ''} for "<b>${esc(search)}</b>"</div>`;
+        + `${esc(tlSearchSummary(total, search))}</div>`;
     let html = banner + (tlViewMode === 'list' ? buildPersonalListHtml(events) : buildTimelineHtml(events));
     c.innerHTML = html;
     _setTlPaginator(buildSearchPagination(_tlSearchPage, totalPages, 'tlGoSearchPage'));
@@ -434,7 +506,7 @@ function loadMoreTimeline() {
     if (!tlHasMore) return;
     tlLoading = true;
     const btn = document.getElementById('tlLoadMoreBtn');
-    if (btn) { btn.disabled = true; btn.innerHTML = '<span class="msi" style="font-size:16px;">hourglass_empty</span> Loading…'; }
+    if (btn) { btn.disabled = true; btn.innerHTML = `<span class="msi" style="font-size:16px;">hourglass_empty</span> ${esc(t('timeline.load_more.loading', 'Loading...'))}`; }
     sendToCS({ action: 'getTimelinePage', offset: tlOffset, type: tlFilter === 'all' ? '' : tlFilter });
 }
 
@@ -447,7 +519,7 @@ function buildTlPagination(page, totalPages, hasMore) {
     if (totalPages <= 1 && !hasMore) return '';
     const prevDis = page === 0 ? 'disabled' : '';
     const nextDis = (page >= totalPages - 1 && !hasMore) ? 'disabled' : '';
-    const countInfo = tlTotal > 0 ? `<span style="font-size:11px;color:var(--tx3);padding:0 8px;">${tlTotal.toLocaleString()} total</span>` : '';
+    const countInfo = tlTotal > 0 ? `<span style="font-size:11px;color:var(--tx3);padding:0 8px;">${esc(tlTotalSummary(tlTotal))}</span>` : '';
     return `<button class="vrcn-button" ${prevDis} onclick="tlGoPage(${page - 1})"><span class="msi" style="font-size:16px;">chevron_left</span></button>
         ${_buildPaginatorBtns(page, totalPages, 'tlGoPage')}
         <button class="vrcn-button" ${nextDis} onclick="tlGoPage(${page + 1})"><span class="msi" style="font-size:16px;">chevron_right</span></button>
@@ -526,13 +598,11 @@ function _closeDpOutside(e) {
 }
 
 function renderDatePickerCalendar() {
-    const monthNames = ['January','February','March','April','May','June',
-                        'July','August','September','October','November','December'];
     const label = document.getElementById('tlDpMonthLabel');
     const grid  = document.getElementById('tlDpDaysGrid');
     if (!label || !grid) return;
 
-    label.textContent = monthNames[_dpMonth] + ' ' + _dpYear;
+    label.textContent = new Date(_dpYear, _dpMonth, 1).toLocaleDateString(tlDateLocale(), { month: 'long', year: 'numeric' });
 
     const today    = new Date();
     const todayStr = _dpFmt(today.getFullYear(), today.getMonth(), today.getDate());
@@ -604,8 +674,7 @@ function applyTlDateFilter(dateStr) {
     const clear = document.getElementById('tlDateClear');
     const btn   = document.getElementById('tlDateBtn');
     if (label) {
-        const d = new Date(dateStr + 'T00:00:00');
-        label.textContent = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+        label.textContent = tlFormatDateFilterLabel(dateStr);
         label.style.display = '';
     }
     if (clear) clear.style.display = '';
@@ -654,7 +723,7 @@ function clearTlDateFilter() {
 function tlSearchable(e) {
     return [
         e.worldName, e.userName, e.senderName, e.notifType,
-        NOTIF_TYPE_LABELS[e.notifType],
+        tlNotifTypeLabel(e.notifType),
         e.message,
         e.photoPath ? e.photoPath.split(/[\\/]/).pop() : '',
         ...(e.players || []).map(p => p.displayName),
@@ -665,8 +734,7 @@ function buildTimelineHtml(events) {
     // Group by local date
     const byDate = {};
     events.forEach(e => {
-        const d   = new Date(e.timestamp);
-        const key = d.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+        const key = tlFormatLongDate(e.timestamp);
         if (!byDate[key]) byDate[key] = [];
         byDate[key].push(e);
     });
@@ -708,9 +776,9 @@ function renderTlRow(ev, side) {
 
 function renderTlCard(ev) {
     const d     = new Date(ev.timestamp);
-    const time  = d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
-    const date  = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-    const meta  = TL_TYPE_META[ev.type] ?? { icon: 'circle', label: ev.type };
+    const time  = tlFormatTime(d);
+    const date  = tlFormatShortDate(d);
+    const meta  = tlTypeMeta(ev.type);
     const color = TL_TYPE_COLOR[ev.type] ?? 'var(--tx3)';
     const ei    = jsq(ev.id);
 
@@ -742,13 +810,13 @@ function renderTlJoinBody(ev) {
     const thumb = ev.worldThumb
         ? `<div class="tl-thumb" style="background-image:url('${cssUrl(ev.worldThumb)}')"></div>`
         : `<div class="tl-thumb tl-thumb-empty"><span class="msi" style="font-size:18px;color:var(--tx3);">travel_explore</span></div>`;
-    const name  = ev.worldName || ev.worldId || 'Unknown World';
+    const name  = ev.worldName || ev.worldId || t('timeline.unknown_world', 'Unknown World');
     const cnt   = (ev.players || []).length;
     const avs   = tlPlayerAvatars(ev.players, 3);
     const more  = cnt > 3 ? `<span class="tl-player-more">+${cnt - 3}</span>` : '';
     const bottom = cnt > 0
-        ? `<div class="tl-player-row">${avs}${more}<span class="tl-player-label">${cnt} player${cnt !== 1 ? 's' : ''}</span></div>`
-        : `<div class="tl-no-players">No player data yet</div>`;
+        ? `<div class="tl-player-row">${avs}${more}<span class="tl-player-label">${esc(tlPlayersLabel(cnt))}</span></div>`
+        : `<div class="tl-no-players">${esc(t('timeline.no_player_data', 'No player data yet'))}</div>`;
     return `<div class="tl-card-body">${thumb}<div class="tl-card-info"><div class="tl-main-label">${esc(name)}</div>${bottom}</div></div>`;
 }
 
@@ -756,14 +824,14 @@ function renderTlPhotoBody(ev) {
     const thumb = ev.photoUrl
         ? `<div class="tl-thumb tl-thumb-photo" style="background-image:url('${cssUrl(ev.photoUrl)}')"></div>`
         : `<div class="tl-thumb tl-thumb-empty"><span class="msi" style="font-size:18px;color:var(--tx3);">camera</span></div>`;
-    const name   = ev.photoPath ? ev.photoPath.split(/[\\/]/).pop() : 'Photo';
+    const name   = ev.photoPath ? ev.photoPath.split(/[\\/]/).pop() : t('timeline.photo', 'Photo');
     const sub    = ev.worldName ? `<div class="tl-sub-label">${esc(ev.worldName)}</div>` : '';
     const cnt    = (ev.players || []).length;
     const avs    = tlPlayerAvatars(ev.players, 3);
     const more   = cnt > 3 ? `<span class="tl-player-more">+${cnt - 3}</span>` : '';
     const bottom = cnt > 0
-        ? `<div class="tl-player-row">${avs}${more}<span class="tl-player-label">${cnt} player${cnt !== 1 ? 's' : ''}</span></div>`
-        : `<div class="tl-no-players">No player data yet</div>`;
+        ? `<div class="tl-player-row">${avs}${more}<span class="tl-player-label">${esc(tlPlayersLabel(cnt))}</span></div>`
+        : `<div class="tl-no-players">${esc(t('timeline.no_player_data', 'No player data yet'))}</div>`;
     return `<div class="tl-card-body">${thumb}<div class="tl-card-info"><div class="tl-main-label">${esc(name)}</div>${sub}${bottom}</div></div>`;
 }
 
@@ -772,7 +840,7 @@ function renderTlMeetBody(ev) {
         ? `<div class="tl-av" style="background-image:url('${cssUrl(ev.userImage)}')"></div>`
         : `<div class="tl-av tl-av-letter">${esc((ev.userName || '?')[0].toUpperCase())}</div>`;
     const sub  = ev.worldName ? `<div class="tl-sub-label">${esc(ev.worldName)}</div>` : '';
-    return `<div class="tl-card-body">${av}<div class="tl-card-info"><div class="tl-main-label">${esc(ev.userName || 'Unknown')}</div>${sub}</div></div>`;
+    return `<div class="tl-card-body">${av}<div class="tl-card-info"><div class="tl-main-label">${esc(ev.userName || t('timeline.unknown', 'Unknown'))}</div>${sub}</div></div>`;
 }
 
 function renderTlMeetAgainBody(ev) {
@@ -780,11 +848,11 @@ function renderTlMeetAgainBody(ev) {
         ? `<div class="tl-av" style="background-image:url('${cssUrl(ev.userImage)}')"></div>`
         : `<div class="tl-av tl-av-letter">${esc((ev.userName || '?')[0].toUpperCase())}</div>`;
     const sub = ev.worldName ? `<div class="tl-sub-label">${esc(ev.worldName)}</div>` : '';
-    return `<div class="tl-card-body">${av}<div class="tl-card-info"><div class="tl-main-label">${esc(ev.userName || 'Unknown')}</div>${sub}</div></div>`;
+    return `<div class="tl-card-body">${av}<div class="tl-card-info"><div class="tl-main-label">${esc(ev.userName || t('timeline.unknown', 'Unknown'))}</div>${sub}</div></div>`;
 }
 
 function renderTlNotifBody(ev) {
-    const typeLabel = NOTIF_TYPE_LABELS[ev.notifType] || ev.notifType || 'Notification';
+    const typeLabel = tlNotifTypeLabel(ev.notifType);
     const av  = ev.senderImage
         ? `<div class="tl-av" style="background-image:url('${cssUrl(ev.senderImage)}')"></div>`
         : `<div class="tl-av tl-av-letter">${esc((ev.senderName || '?')[0].toUpperCase())}</div>`;
@@ -829,7 +897,7 @@ function renderTlAvatarBody(ev) {
     const thumb = ev.userImage
         ? `<div class="tl-av" style="background-image:url('${cssUrl(ev.userImage)}')"></div>`
         : `<div class="tl-av tl-av-letter"><span class="msi" style="font-size:18px;">checkroom</span></div>`;
-    return `<div class="tl-card-body">${thumb}<div class="tl-card-info"><div class="tl-main-label">${esc(ev.userName || 'Unknown Avatar')}</div></div></div>`;
+    return `<div class="tl-card-body">${thumb}<div class="tl-card-info"><div class="tl-main-label">${esc(ev.userName || t('timeline.unknown_avatar', 'Unknown Avatar'))}</div></div></div>`;
 }
 
 function tlPlayerAvatars(players, max) {
@@ -851,13 +919,13 @@ function copyInstanceLink(location) {
     if (!worldId.startsWith('wrld_')) return;
     const url = `https://vrchat.com/home/launch?worldId=${encodeURIComponent(worldId)}&instanceId=${encodeURIComponent(instanceId)}`;
     navigator.clipboard.writeText(url)
-        .then(() => showToast(true, 'Instance link copied!'))
-        .catch(() => showToast(false, 'Failed to copy'));
+        .then(() => showToast(true, t('timeline.toast.instance_link_copied', 'Instance link copied!')))
+        .catch(() => showToast(false, t('timeline.toast.copy_failed', 'Failed to copy')));
 }
 
 function _instanceLinkBtn(location, closeJs) {
     if (!location || location.indexOf(':') <= 0 || !location.startsWith('wrld_')) return '';
-    return `<button class="vrcn-button-round" onclick="${closeJs ? closeJs + ';' : ''}copyInstanceLink('${jsq(location)}')"><span class="msi" style="font-size:14px;">content_copy</span> Copy Instance Link</button>`;
+    return `<button class="vrcn-button-round" onclick="${closeJs ? closeJs + ';' : ''}copyInstanceLink('${jsq(location)}')"><span class="msi" style="font-size:14px;">content_copy</span> ${esc(t('timeline.actions.copy_instance_link', 'Copy Instance Link'))}</button>`;
 }
 
 function openTlDetail(id) {
@@ -907,9 +975,8 @@ function navigateToTlEvent(id) {
 // Detail: instance join
 
 function renderTlDetailJoin(ev, el) {
-    const d       = new Date(ev.timestamp);
-    const dateStr = d.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
-    const timeStr = d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+    const dateStr = tlFormatLongDate(ev.timestamp);
+    const timeStr = tlFormatTime(ev.timestamp);
     const banner  = ev.worldThumb
         ? `<div class="fd-banner"><img src="${ev.worldThumb}" onerror="this.parentElement.style.display='none'"><div class="fd-banner-fade"></div></div>`
         : '';
@@ -917,7 +984,7 @@ function renderTlDetailJoin(ev, el) {
 
     let playersHtml = '';
     if (players.length > 0) {
-        playersHtml = `<div class="tl-detail-sect">PLAYERS IN INSTANCE (${players.length})</div><div class="photo-players-list">`;
+        playersHtml = `<div class="tl-detail-sect">${esc(tf('timeline.detail.players_in_instance', { count: players.length }, `Players in instance (${players.length})`))}</div><div class="photo-players-list">`;
         players.forEach(p => {
             const onclick = p.userId ? `document.getElementById('modalDetail').style.display='none';openFriendDetail('${jsq(p.userId)}')` : '';
             playersHtml += renderProfileItemSmall({ id: p.userId, displayName: p.displayName, image: p.image }, onclick);
@@ -929,16 +996,16 @@ function renderTlDetailJoin(ev, el) {
         ? ` style="cursor:pointer;" onclick="document.getElementById('modalDetail').style.display='none';openWorldSearchDetail('${esc(ev.worldId)}')"` : '';
 
     el.innerHTML = `${banner}<div class="fd-content${banner ? ' fd-has-banner' : ''}" style="padding:20px;">
-        <h2 style="margin:0 0 12px;color:var(--tx0);font-size:16px;">${esc(ev.worldName || ev.worldId || 'Unknown World')}</h2>
+        <h2 style="margin:0 0 12px;color:var(--tx0);font-size:16px;">${esc(ev.worldName || ev.worldId || t('timeline.unknown_world', 'Unknown World'))}</h2>
         <div class="fd-meta">
-            <div class="fd-meta-row"><span class="fd-meta-label">Date</span><span>${esc(dateStr)}</span></div>
-            <div class="fd-meta-row"><span class="fd-meta-label">Time</span><span>${esc(timeStr)}</span></div>
-            ${ev.worldId ? `<div class="fd-meta-row"${worldClick}><span class="fd-meta-label">World</span><span style="color:var(--accent-lt);">${esc(ev.worldName || ev.worldId)}</span></div>` : ''}
+            <div class="fd-meta-row"><span class="fd-meta-label">${esc(t('timeline.detail.date', 'Date'))}</span><span>${esc(dateStr)}</span></div>
+            <div class="fd-meta-row"><span class="fd-meta-label">${esc(t('timeline.detail.time', 'Time'))}</span><span>${esc(timeStr)}</span></div>
+            ${ev.worldId ? `<div class="fd-meta-row"${worldClick}><span class="fd-meta-label">${esc(t('timeline.detail.world', 'World'))}</span><span style="color:var(--accent-lt);">${esc(ev.worldName || ev.worldId)}</span></div>` : ''}
         </div>
         ${playersHtml}
         <div style="margin-top:14px;display:flex;gap:8px;justify-content:flex-end;">
             ${_instanceLinkBtn(ev.location, '')}
-            <button class="vrcn-button-round" onclick="document.getElementById('modalDetail').style.display='none'">Close</button>
+            <button class="vrcn-button-round" onclick="document.getElementById('modalDetail').style.display='none'">${esc(t('common.close', 'Close'))}</button>
         </div>
     </div>`;
 }
@@ -946,19 +1013,18 @@ function renderTlDetailJoin(ev, el) {
 // Detail: photo
 
 function renderTlDetailPhoto(ev, el) {
-    const d       = new Date(ev.timestamp);
-    const dateStr = d.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
-    const timeStr = d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+    const dateStr = tlFormatLongDate(ev.timestamp);
+    const timeStr = tlFormatTime(ev.timestamp);
     const photoJs = ev.photoUrl ? jsq(ev.photoUrl) : '';
     const banner  = ev.photoUrl
         ? `<div class="fd-banner" style="cursor:pointer;" onclick="openLightbox('${photoJs}','image')"><img src="${ev.photoUrl}" onerror="this.parentElement.style.display='none'"><div class="fd-banner-fade"></div></div>`
         : '';
-    const fileName = ev.photoPath ? ev.photoPath.split(/[\\/]/).pop() : 'Photo';
+    const fileName = ev.photoPath ? ev.photoPath.split(/[\\/]/).pop() : t('timeline.photo', 'Photo');
     const players  = ev.players || [];
 
     let playersHtml = '';
     if (players.length > 0) {
-        playersHtml = `<div class="tl-detail-sect">PLAYERS IN INSTANCE (${players.length})</div><div class="photo-players-list">`;
+        playersHtml = `<div class="tl-detail-sect">${esc(tf('timeline.detail.players_in_instance', { count: players.length }, `Players in instance (${players.length})`))}</div><div class="photo-players-list">`;
         players.forEach(p => {
             const onclick = p.userId ? `document.getElementById('modalDetail').style.display='none';openFriendDetail('${jsq(p.userId)}')` : '';
             playersHtml += renderProfileItemSmall({ id: p.userId, displayName: p.displayName, image: p.image }, onclick);
@@ -972,14 +1038,14 @@ function renderTlDetailPhoto(ev, el) {
     el.innerHTML = `${banner}<div class="fd-content${banner ? ' fd-has-banner' : ''}" style="padding:20px;">
         <h2 style="margin:0 0 12px;color:var(--tx0);font-size:16px;">${esc(fileName)}</h2>
         <div class="fd-meta">
-            <div class="fd-meta-row"><span class="fd-meta-label">Date</span><span>${esc(dateStr)}</span></div>
-            <div class="fd-meta-row"><span class="fd-meta-label">Time</span><span>${esc(timeStr)}</span></div>
-            ${ev.worldId ? `<div class="fd-meta-row"${worldClick}><span class="fd-meta-label">World</span><span style="color:var(--accent-lt);">${esc(ev.worldName || ev.worldId)}</span></div>` : ''}
+            <div class="fd-meta-row"><span class="fd-meta-label">${esc(t('timeline.detail.date', 'Date'))}</span><span>${esc(dateStr)}</span></div>
+            <div class="fd-meta-row"><span class="fd-meta-label">${esc(t('timeline.detail.time', 'Time'))}</span><span>${esc(timeStr)}</span></div>
+            ${ev.worldId ? `<div class="fd-meta-row"${worldClick}><span class="fd-meta-label">${esc(t('timeline.detail.world', 'World'))}</span><span style="color:var(--accent-lt);">${esc(ev.worldName || ev.worldId)}</span></div>` : ''}
         </div>
         ${playersHtml}
         <div style="margin-top:14px;display:flex;gap:8px;justify-content:flex-end;">
-            ${ev.photoUrl ? `<button class="vrcn-button-round vrcn-btn-join" onclick="openLightbox('${photoJs}','image')"><span class="msi" style="font-size:14px;">open_in_full</span> Full Size</button>` : ''}
-            <button class="vrcn-button-round" onclick="document.getElementById('modalDetail').style.display='none'">Close</button>
+            ${ev.photoUrl ? `<button class="vrcn-button-round vrcn-btn-join" onclick="openLightbox('${photoJs}','image')"><span class="msi" style="font-size:14px;">open_in_full</span> ${esc(t('timeline.actions.full_size', 'Full Size'))}</button>` : ''}
+            <button class="vrcn-button-round" onclick="document.getElementById('modalDetail').style.display='none'">${esc(t('common.close', 'Close'))}</button>
         </div>
     </div>`;
 }
@@ -987,9 +1053,8 @@ function renderTlDetailPhoto(ev, el) {
 // Detail: first meet
 
 function renderTlDetailMeet(ev, el) {
-    const d       = new Date(ev.timestamp);
-    const dateStr = d.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
-    const timeStr = d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+    const dateStr = tlFormatLongDate(ev.timestamp);
+    const timeStr = tlFormatTime(ev.timestamp);
     const av      = ev.userImage
         ? `<div class="tl-detail-av" style="background-image:url('${cssUrl(ev.userImage)}')"></div>`
         : `<div class="tl-detail-av tl-detail-av-letter">${esc((ev.userName || '?')[0].toUpperCase())}</div>`;
@@ -999,18 +1064,18 @@ function renderTlDetailMeet(ev, el) {
         <div style="display:flex;gap:16px;align-items:center;margin-bottom:20px;">
             ${av}
             <div>
-                <h2 style="margin:0 0 4px;color:var(--tx0);font-size:18px;">${esc(ev.userName || 'Unknown')}</h2>
-                <div style="font-size:11px;color:var(--cyan);font-weight:700;letter-spacing:.05em;">FIRST MEET</div>
+                <h2 style="margin:0 0 4px;color:var(--tx0);font-size:18px;">${esc(ev.userName || t('timeline.unknown', 'Unknown'))}</h2>
+                <div style="font-size:11px;color:var(--cyan);font-weight:700;letter-spacing:.05em;">${esc(t('timeline.detail.first_meet', 'FIRST MEET'))}</div>
             </div>
         </div>
         <div class="fd-meta">
-            <div class="fd-meta-row"><span class="fd-meta-label">Date</span><span>${esc(dateStr)}</span></div>
-            <div class="fd-meta-row"><span class="fd-meta-label">Time</span><span>${esc(timeStr)}</span></div>
-            ${ev.worldId ? `<div class="fd-meta-row"${worldClickMeet}><span class="fd-meta-label">World</span><span style="color:var(--accent-lt);">${esc(ev.worldName || ev.worldId)}</span></div>` : ''}
+            <div class="fd-meta-row"><span class="fd-meta-label">${esc(t('timeline.detail.date', 'Date'))}</span><span>${esc(dateStr)}</span></div>
+            <div class="fd-meta-row"><span class="fd-meta-label">${esc(t('timeline.detail.time', 'Time'))}</span><span>${esc(timeStr)}</span></div>
+            ${ev.worldId ? `<div class="fd-meta-row"${worldClickMeet}><span class="fd-meta-label">${esc(t('timeline.detail.world', 'World'))}</span><span style="color:var(--accent-lt);">${esc(ev.worldName || ev.worldId)}</span></div>` : ''}
         </div>
         <div style="margin-top:14px;display:flex;gap:8px;justify-content:flex-end;">
-            ${ev.userId ? `<button class="vrcn-button-round vrcn-btn-join" onclick="document.getElementById('modalDetail').style.display='none';openFriendDetail('${esc(ev.userId)}')">View Profile</button>` : ''}
-            <button class="vrcn-button-round" onclick="document.getElementById('modalDetail').style.display='none'">Close</button>
+            ${ev.userId ? `<button class="vrcn-button-round vrcn-btn-join" onclick="document.getElementById('modalDetail').style.display='none';openFriendDetail('${esc(ev.userId)}')">${esc(t('timeline.actions.view_profile', 'View Profile'))}</button>` : ''}
+            <button class="vrcn-button-round" onclick="document.getElementById('modalDetail').style.display='none'">${esc(t('common.close', 'Close'))}</button>
         </div>
     </div>`;
 }
@@ -1018,9 +1083,8 @@ function renderTlDetailMeet(ev, el) {
 // Detail: meet again
 
 function renderTlDetailMeetAgain(ev, el) {
-    const d       = new Date(ev.timestamp);
-    const dateStr = d.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
-    const timeStr = d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+    const dateStr = tlFormatLongDate(ev.timestamp);
+    const timeStr = tlFormatTime(ev.timestamp);
     const av      = ev.userImage
         ? `<div class="tl-detail-av" style="background-image:url('${cssUrl(ev.userImage)}')"></div>`
         : `<div class="tl-detail-av tl-detail-av-letter">${esc((ev.userName || '?')[0].toUpperCase())}</div>`;
@@ -1030,18 +1094,18 @@ function renderTlDetailMeetAgain(ev, el) {
         <div style="display:flex;gap:16px;align-items:center;margin-bottom:20px;">
             ${av}
             <div>
-                <h2 style="margin:0 0 4px;color:var(--tx0);font-size:18px;">${esc(ev.userName || 'Unknown')}</h2>
-                <div style="font-size:11px;color:#AB47BC;font-weight:700;letter-spacing:.05em;">MET AGAIN</div>
+                <h2 style="margin:0 0 4px;color:var(--tx0);font-size:18px;">${esc(ev.userName || t('timeline.unknown', 'Unknown'))}</h2>
+                <div style="font-size:11px;color:#AB47BC;font-weight:700;letter-spacing:.05em;">${esc(t('timeline.detail.met_again', 'MET AGAIN'))}</div>
             </div>
         </div>
         <div class="fd-meta">
-            <div class="fd-meta-row"><span class="fd-meta-label">Date</span><span>${esc(dateStr)}</span></div>
-            <div class="fd-meta-row"><span class="fd-meta-label">Time</span><span>${esc(timeStr)}</span></div>
-            ${ev.worldId ? `<div class="fd-meta-row"${worldClickAgain}><span class="fd-meta-label">World</span><span style="color:var(--accent-lt);">${esc(ev.worldName || ev.worldId)}</span></div>` : ''}
+            <div class="fd-meta-row"><span class="fd-meta-label">${esc(t('timeline.detail.date', 'Date'))}</span><span>${esc(dateStr)}</span></div>
+            <div class="fd-meta-row"><span class="fd-meta-label">${esc(t('timeline.detail.time', 'Time'))}</span><span>${esc(timeStr)}</span></div>
+            ${ev.worldId ? `<div class="fd-meta-row"${worldClickAgain}><span class="fd-meta-label">${esc(t('timeline.detail.world', 'World'))}</span><span style="color:var(--accent-lt);">${esc(ev.worldName || ev.worldId)}</span></div>` : ''}
         </div>
         <div style="margin-top:14px;display:flex;gap:8px;justify-content:flex-end;">
-            ${ev.userId ? `<button class="vrcn-button-round vrcn-btn-join" onclick="document.getElementById('modalDetail').style.display='none';openFriendDetail('${esc(ev.userId)}')">View Profile</button>` : ''}
-            <button class="vrcn-button-round" onclick="document.getElementById('modalDetail').style.display='none'">Close</button>
+            ${ev.userId ? `<button class="vrcn-button-round vrcn-btn-join" onclick="document.getElementById('modalDetail').style.display='none';openFriendDetail('${esc(ev.userId)}')">${esc(t('timeline.actions.view_profile', 'View Profile'))}</button>` : ''}
+            <button class="vrcn-button-round" onclick="document.getElementById('modalDetail').style.display='none'">${esc(t('common.close', 'Close'))}</button>
         </div>
     </div>`;
 }
@@ -1049,10 +1113,9 @@ function renderTlDetailMeetAgain(ev, el) {
 // Detail: notification
 
 function renderTlDetailNotif(ev, el) {
-    const d         = new Date(ev.timestamp);
-    const dateStr   = d.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
-    const timeStr   = d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
-    const typeLabel = NOTIF_TYPE_LABELS[ev.notifType] || ev.notifType || 'Notification';
+    const dateStr   = tlFormatLongDate(ev.timestamp);
+    const timeStr   = tlFormatTime(ev.timestamp);
+    const typeLabel = tlNotifTypeLabel(ev.notifType);
     const av        = ev.senderImage
         ? `<div class="tl-detail-av" style="background-image:url('${cssUrl(ev.senderImage)}')"></div>`
         : `<div class="tl-detail-av tl-detail-av-letter">${esc((ev.senderName || '?')[0].toUpperCase())}</div>`;
@@ -1066,15 +1129,15 @@ function renderTlDetailNotif(ev, el) {
             </div>
         </div>
         <div class="fd-meta">
-            <div class="fd-meta-row"><span class="fd-meta-label">Date</span><span>${esc(dateStr)}</span></div>
-            <div class="fd-meta-row"><span class="fd-meta-label">Time</span><span>${esc(timeStr)}</span></div>
-            <div class="fd-meta-row"><span class="fd-meta-label">Type</span><span>${esc(typeLabel)}</span></div>
-            ${ev.notifTitle ? `<div class="fd-meta-row"><span class="fd-meta-label">Context</span><span>${esc(ev.notifTitle)}</span></div>` : ''}
-            ${ev.message ? `<div class="fd-meta-row"><span class="fd-meta-label">Message</span><span>${esc(ev.message)}</span></div>` : ''}
+            <div class="fd-meta-row"><span class="fd-meta-label">${esc(t('timeline.detail.date', 'Date'))}</span><span>${esc(dateStr)}</span></div>
+            <div class="fd-meta-row"><span class="fd-meta-label">${esc(t('timeline.detail.time', 'Time'))}</span><span>${esc(timeStr)}</span></div>
+            <div class="fd-meta-row"><span class="fd-meta-label">${esc(t('timeline.detail.type', 'Type'))}</span><span>${esc(typeLabel)}</span></div>
+            ${ev.notifTitle ? `<div class="fd-meta-row"><span class="fd-meta-label">${esc(t('timeline.detail.context', 'Context'))}</span><span>${esc(ev.notifTitle)}</span></div>` : ''}
+            ${ev.message ? `<div class="fd-meta-row"><span class="fd-meta-label">${esc(t('timeline.detail.message', 'Message'))}</span><span>${esc(ev.message)}</span></div>` : ''}
         </div>
         <div style="margin-top:14px;display:flex;gap:8px;justify-content:flex-end;">
-            ${ev.senderId ? `<button class="vrcn-button-round vrcn-btn-join" onclick="document.getElementById('modalDetail').style.display='none';openFriendDetail('${esc(ev.senderId)}')">View Profile</button>` : ''}
-            <button class="vrcn-button-round" onclick="document.getElementById('modalDetail').style.display='none'">Close</button>
+            ${ev.senderId ? `<button class="vrcn-button-round vrcn-btn-join" onclick="document.getElementById('modalDetail').style.display='none';openFriendDetail('${esc(ev.senderId)}')">${esc(t('timeline.actions.view_profile', 'View Profile'))}</button>` : ''}
+            <button class="vrcn-button-round" onclick="document.getElementById('modalDetail').style.display='none'">${esc(t('common.close', 'Close'))}</button>
         </div>
     </div>`;
 }
@@ -1082,26 +1145,25 @@ function renderTlDetailNotif(ev, el) {
 // Detail: avatar switch
 
 function renderTlDetailAvatar(ev, el) {
-    const d       = new Date(ev.timestamp);
-    const dateStr = d.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
-    const timeStr = d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+    const dateStr = tlFormatLongDate(ev.timestamp);
+    const timeStr = tlFormatTime(ev.timestamp);
     const banner  = ev.userImage
         ? `<div class="fd-banner"><img src="${ev.userImage}" onerror="this.parentElement.style.display='none'"><div class="fd-banner-fade"></div></div>`
         : '';
     const openBtn = ev.userId
-        ? `<button class="vrcn-button-round vrcn-btn-join" onclick="document.getElementById('modalDetail').style.display='none';openAvatarDetail('${jsq(ev.userId)}')">View Avatar</button>`
+        ? `<button class="vrcn-button-round vrcn-btn-join" onclick="document.getElementById('modalDetail').style.display='none';openAvatarDetail('${jsq(ev.userId)}')">${esc(t('timeline.actions.view_avatar', 'View Avatar'))}</button>`
         : '';
     el.innerHTML = `${banner}<div class="fd-content${banner ? ' fd-has-banner' : ''}" style="padding:20px;">
-        <h2 style="margin:0 0 12px;color:var(--tx0);font-size:16px;">${esc(ev.userName || 'Unknown Avatar')}</h2>
+        <h2 style="margin:0 0 12px;color:var(--tx0);font-size:16px;">${esc(ev.userName || t('timeline.unknown_avatar', 'Unknown Avatar'))}</h2>
         <div class="fd-meta">
-            <div class="fd-meta-row"><span class="fd-meta-label">Avatar</span><span>${esc(ev.userName || 'Unknown')}</span></div>
-            <div class="fd-meta-row"><span class="fd-meta-label">Date</span><span>${esc(dateStr)}</span></div>
-            <div class="fd-meta-row"><span class="fd-meta-label">Time</span><span>${esc(timeStr)}</span></div>
-            ${ev.userId ? `<div class="fd-meta-row"><span class="fd-meta-label">Avatar ID</span><span style="font-size:11px;color:var(--tx3);">${esc(ev.userId)}</span></div>` : ''}
+            <div class="fd-meta-row"><span class="fd-meta-label">${esc(t('timeline.detail.avatar', 'Avatar'))}</span><span>${esc(ev.userName || t('timeline.unknown', 'Unknown'))}</span></div>
+            <div class="fd-meta-row"><span class="fd-meta-label">${esc(t('timeline.detail.date', 'Date'))}</span><span>${esc(dateStr)}</span></div>
+            <div class="fd-meta-row"><span class="fd-meta-label">${esc(t('timeline.detail.time', 'Time'))}</span><span>${esc(timeStr)}</span></div>
+            ${ev.userId ? `<div class="fd-meta-row"><span class="fd-meta-label">${esc(t('timeline.detail.avatar_id', 'Avatar ID'))}</span><span style="font-size:11px;color:var(--tx3);">${esc(ev.userId)}</span></div>` : ''}
         </div>
         <div style="margin-top:14px;display:flex;gap:8px;justify-content:flex-end;">
             ${openBtn}
-            <button class="vrcn-button-round" onclick="document.getElementById('modalDetail').style.display='none'">Close</button>
+            <button class="vrcn-button-round" onclick="document.getElementById('modalDetail').style.display='none'">${esc(t('common.close', 'Close'))}</button>
         </div>
     </div>`;
 }
@@ -1109,9 +1171,8 @@ function renderTlDetailAvatar(ev, el) {
 // Detail: video URL
 
 function renderTlDetailUrl(ev, el) {
-    const d       = new Date(ev.timestamp);
-    const dateStr = d.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
-    const timeStr = d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+    const dateStr = tlFormatLongDate(ev.timestamp);
+    const timeStr = tlFormatTime(ev.timestamp);
     const url     = ev.message || '';
     const plat    = _urlPlatform(url);
     const favicon = `<div style="display:flex;align-items:center;justify-content:center;width:64px;height:64px;border-radius:12px;background:var(--bg2);">${_urlFaviconHtml(plat)}</div>`;
@@ -1123,19 +1184,19 @@ function renderTlDetailUrl(ev, el) {
             ${favicon}
             <div>
                 <h2 style="margin:0 0 4px;color:var(--tx0);font-size:18px;">${esc(plat.name)}</h2>
-                <div style="font-size:11px;color:${plat.color};font-weight:700;letter-spacing:.05em;">VIDEO URL</div>
+                <div style="font-size:11px;color:${plat.color};font-weight:700;letter-spacing:.05em;">${esc(t('timeline.detail.video_url', 'VIDEO URL'))}</div>
             </div>
         </div>
         <div class="fd-meta">
-            <div class="fd-meta-row"><span class="fd-meta-label">Date</span><span>${esc(dateStr)}</span></div>
-            <div class="fd-meta-row"><span class="fd-meta-label">Time</span><span>${esc(timeStr)}</span></div>
-            ${ev.worldName ? `<div class="fd-meta-row"${worldClick}><span class="fd-meta-label">World</span><span style="color:var(--accent-lt);">${esc(ev.worldName)}</span></div>` : ''}
-            <div class="fd-meta-row" style="align-items:flex-start;"><span class="fd-meta-label">URL</span><span style="word-break:break-all;font-size:11px;color:var(--tx2);">${esc(url)}</span></div>
+            <div class="fd-meta-row"><span class="fd-meta-label">${esc(t('timeline.detail.date', 'Date'))}</span><span>${esc(dateStr)}</span></div>
+            <div class="fd-meta-row"><span class="fd-meta-label">${esc(t('timeline.detail.time', 'Time'))}</span><span>${esc(timeStr)}</span></div>
+            ${ev.worldName ? `<div class="fd-meta-row"${worldClick}><span class="fd-meta-label">${esc(t('timeline.detail.world', 'World'))}</span><span style="color:var(--accent-lt);">${esc(ev.worldName)}</span></div>` : ''}
+            <div class="fd-meta-row" style="align-items:flex-start;"><span class="fd-meta-label">${esc(t('timeline.detail.url', 'URL'))}</span><span style="word-break:break-all;font-size:11px;color:var(--tx2);">${esc(url)}</span></div>
         </div>
         <div style="margin-top:14px;display:flex;gap:8px;justify-content:flex-end;">
-            <button class="vrcn-button-round vrcn-btn-join" onclick="sendToCS({action:'openUrl',url:'${jsq(url)}'})">Open URL</button>
-            <button class="vrcn-button-round" onclick="navigator.clipboard.writeText('${jsq(url)}').then(()=>showToast(true,'Copied!'))">Copy</button>
-            <button class="vrcn-button-round" onclick="document.getElementById('modalDetail').style.display='none'">Close</button>
+            <button class="vrcn-button-round vrcn-btn-join" onclick="sendToCS({action:'openUrl',url:'${jsq(url)}'})">${esc(t('timeline.actions.open_url', 'Open URL'))}</button>
+            <button class="vrcn-button-round" onclick="navigator.clipboard.writeText('${jsq(url)}').then(()=>showToast(true,t('timeline.toast.copied','Copied!')))">${esc(t('timeline.actions.copy', 'Copy'))}</button>
+            <button class="vrcn-button-round" onclick="document.getElementById('modalDetail').style.display='none'">${esc(t('common.close', 'Close'))}</button>
         </div>
     </div>`;
 }
@@ -1166,14 +1227,14 @@ const FT_TYPE_COLOR = {
 };
 
 const FT_TYPE_META = {
-    friend_gps:        { icon: 'location_on',       label: 'Location'    },
-    friend_status:     { icon: 'circle',             label: 'Status'      },
-    friend_statusdesc: { icon: 'chat_bubble_outline', label: 'Status Text' },
-    friend_online:      { icon: 'login',              label: 'Online' },
-    friend_offline:     { icon: 'power_settings_new', label: 'Offline' },
-    friend_added:       { icon: 'person_add',         label: 'Friended'   },
-    friend_removed:     { icon: 'person_remove',      label: 'Unfriended' },
-    friend_bio:        { icon: 'edit_note',          label: 'Bio Change'  },
+    friend_gps:        { icon: 'location_on',         key: 'timeline.friend_types.friend_gps',        fallback: 'Location' },
+    friend_status:     { icon: 'circle',              key: 'timeline.friend_types.friend_status',     fallback: 'Status' },
+    friend_statusdesc: { icon: 'chat_bubble_outline', key: 'timeline.friend_types.friend_statusdesc', fallback: 'Status Text' },
+    friend_online:     { icon: 'login',               key: 'timeline.friend_types.friend_online',     fallback: 'Online' },
+    friend_offline:    { icon: 'power_settings_new',  key: 'timeline.friend_types.friend_offline',    fallback: 'Offline' },
+    friend_added:      { icon: 'person_add',          key: 'timeline.friend_types.friend_added',      fallback: 'Friended' },
+    friend_removed:    { icon: 'person_remove',       key: 'timeline.friend_types.friend_removed',    fallback: 'Unfriended' },
+    friend_bio:        { icon: 'edit_note',           key: 'timeline.friend_types.friend_bio',        fallback: 'Bio Change' },
 };
 
 const STATUS_COLORS = {
@@ -1335,7 +1396,7 @@ function buildFtlPagination(page, totalPages, hasMore) {
     if (totalPages <= 1 && !hasMore) return '';
     const prevDis = page === 0 ? 'disabled' : '';
     const nextDis = (page >= totalPages - 1 && !hasMore) ? 'disabled' : '';
-    const countInfo = ftlTotal > 0 ? `<span style="font-size:11px;color:var(--tx3);padding:0 8px;">${ftlTotal.toLocaleString()} total</span>` : '';
+    const countInfo = ftlTotal > 0 ? `<span style="font-size:11px;color:var(--tx3);padding:0 8px;">${esc(tlTotalSummary(ftlTotal))}</span>` : '';
     return `<button class="vrcn-button" ${prevDis} onclick="ftlGoPage(${page - 1})"><span class="msi" style="font-size:16px;">chevron_left</span></button>
         ${_buildPaginatorBtns(page, totalPages, 'ftlGoPage')}
         <button class="vrcn-button" ${nextDis} onclick="ftlGoPage(${page + 1})"><span class="msi" style="font-size:16px;">chevron_right</span></button>
@@ -1349,7 +1410,7 @@ function _renderFtlSearchResults(search) {
     const events = _ftlSearchEvents;
 
     if (!events.length) {
-        c.innerHTML = `<div class="empty-msg">No results for "<b>${esc(search)}</b>".</div>`;
+        c.innerHTML = `<div class="empty-msg">${esc(tlSearchNoResults(search))}</div>`;
         _setTlPaginator('');
         return;
     }
@@ -1357,7 +1418,7 @@ function _renderFtlSearchResults(search) {
     const total      = _ftlSearchTotal;
     const totalPages = total > 0 ? Math.ceil(total / 100) : 1;
     const banner = `<div style="padding:6px 12px;font-size:11px;color:var(--tx3);border-bottom:1px solid var(--brd);">`
-        + `${total.toLocaleString()} result${total !== 1 ? 's' : ''} for "<b>${esc(search)}</b>"</div>`;
+        + `${esc(tlSearchSummary(total, search))}</div>`;
     let html = banner + (tlViewMode === 'list' ? buildFriendListHtml(events) : buildFriendTimelineHtml(events));
     c.innerHTML = html;
     _setTlPaginator(buildSearchPagination(_ftlSearchPage, totalPages, 'ftlGoSearchPage'));
@@ -1402,7 +1463,7 @@ function loadMoreFriendTimeline() {
     if (!ftlHasMore) return;
     ftlLoading = true;
     const btn = document.getElementById('ftlLoadMoreBtn');
-    if (btn) { btn.disabled = true; btn.innerHTML = '<span class="msi" style="font-size:16px;">hourglass_empty</span> Loading…'; }
+    if (btn) { btn.disabled = true; btn.innerHTML = `<span class="msi" style="font-size:16px;">hourglass_empty</span> ${esc(t('timeline.load_more.loading', 'Loading...'))}`; }
     sendToCS({ action: 'getFriendTimelinePage', offset: ftlOffset, type: ftFilter === 'all' ? '' : ftFilter });
 }
 
@@ -1440,8 +1501,7 @@ function ftlGoPage(page) {
 function buildFriendTimelineHtml(events) {
     const byDate = {};
     events.forEach(e => {
-        const d   = new Date(e.timestamp);
-        const key = d.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+        const key = tlFormatLongDate(e.timestamp);
         if (!byDate[key]) byDate[key] = [];
         byDate[key].push(e);
     });
@@ -1481,9 +1541,9 @@ function renderFtRow(ev, side) {
 
 function renderFtCard(ev) {
     const d     = new Date(ev.timestamp);
-    const time  = d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
-    const date  = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-    const meta  = FT_TYPE_META[ev.type] ?? { icon: 'circle', label: ev.type };
+    const time  = tlFormatTime(d);
+    const date  = tlFormatShortDate(d);
+    const meta  = ftTypeMeta(ev.type);
     const color = FT_TYPE_COLOR[ev.type] ?? 'var(--tx3)';
     const ei    = jsq(ev.id);
 
@@ -1524,11 +1584,11 @@ function renderFtGpsBody(ev) {
     const thumb = ev.worldThumb
         ? `<div class="tl-thumb" style="background-image:url('${cssUrl(ev.worldThumb)}')"></div>`
         : `<div class="tl-thumb tl-thumb-empty"><span class="msi" style="font-size:18px;color:var(--tx3);">travel_explore</span></div>`;
-    const wname = ev.worldName || ev.worldId || 'Unknown World';
+    const wname = ev.worldName || ev.worldId || t('timeline.unknown_world', 'Unknown World');
     const av    = ftFriendAv(ev, 'tl-player-av');
     return `<div class="tl-card-body">${thumb}<div class="tl-card-info">
         <div class="tl-main-label">${esc(wname)}</div>
-        <div class="tl-player-row">${av}<span class="tl-player-label">${esc(ev.friendName || 'Unknown')}</span></div>
+        <div class="tl-player-row">${av}<span class="tl-player-label">${esc(ev.friendName || t('timeline.unknown', 'Unknown'))}</span></div>
     </div></div>`;
 }
 
@@ -1542,39 +1602,39 @@ function renderFtStatusBody(ev) {
         <span class="ft-status-chip ${newCls}">${esc(ev.newValue || '?')}</span>
     </div>`;
     return `<div class="tl-card-body">${av}<div class="tl-card-info">
-        <div class="tl-main-label">${esc(ev.friendName || 'Unknown')}</div>${chips}
+        <div class="tl-main-label">${esc(ev.friendName || t('timeline.unknown', 'Unknown'))}</div>${chips}
     </div></div>`;
 }
 
 function renderFtOnlineBody(ev) {
     const av = ftFriendAv(ev, 'tl-av');
     return `<div class="tl-card-body">${av}<div class="tl-card-info">
-        <div class="tl-main-label">${esc(ev.friendName || 'Unknown')}</div>
-        <div class="tl-sub-label" style="color:var(--ok);">Online (Game)</div>
+        <div class="tl-main-label">${esc(ev.friendName || t('timeline.unknown', 'Unknown'))}</div>
+        <div class="tl-sub-label" style="color:var(--ok);">${esc(t('timeline.friend.online_game', 'Online (Game)'))}</div>
     </div></div>`;
 }
 
 function renderFtOfflineBody(ev) {
     const av = ftFriendAv(ev, 'tl-av');
     return `<div class="tl-card-body">${av}<div class="tl-card-info">
-        <div class="tl-main-label">${esc(ev.friendName || 'Unknown')}</div>
-        <div class="tl-sub-label" style="color:var(--tx3);">Went Offline</div>
+        <div class="tl-main-label">${esc(ev.friendName || t('timeline.unknown', 'Unknown'))}</div>
+        <div class="tl-sub-label" style="color:var(--tx3);">${esc(t('timeline.friend.went_offline', 'Went Offline'))}</div>
     </div></div>`;
 }
 
 function renderFtAddedBody(ev) {
     const av = ftFriendAv(ev, 'tl-av');
     return `<div class="tl-card-body">${av}<div class="tl-card-info">
-        <div class="tl-main-label">${esc(ev.friendName || ev.friendId || 'Unknown')}</div>
-        <div class="tl-sub-label" style="color:var(--ok);">Friend added</div>
+        <div class="tl-main-label">${esc(ev.friendName || ev.friendId || t('timeline.unknown', 'Unknown'))}</div>
+        <div class="tl-sub-label" style="color:var(--ok);">${esc(t('timeline.friend.added', 'Friend added'))}</div>
     </div></div>`;
 }
 
 function renderFtRemovedBody(ev) {
     const av = ftFriendAv(ev, 'tl-av');
     return `<div class="tl-card-body">${av}<div class="tl-card-info">
-        <div class="tl-main-label">${esc(ev.friendName || ev.friendId || 'Unknown')}</div>
-        <div class="tl-sub-label" style="color:var(--err);">Unfriended you</div>
+        <div class="tl-main-label">${esc(ev.friendName || ev.friendId || t('timeline.unknown', 'Unknown'))}</div>
+        <div class="tl-sub-label" style="color:var(--err);">${esc(t('timeline.friend.unfriended_you', 'Unfriended you'))}</div>
     </div></div>`;
 }
 
@@ -1583,7 +1643,7 @@ function renderFtStatusDescBody(ev) {
     const preview = (ev.newValue || '').slice(0, 60);
     const ellipsis = (ev.newValue || '').length > 60 ? '...' : '';
     return `<div class="tl-card-body">${av}<div class="tl-card-info">
-        <div class="tl-main-label">${esc(ev.friendName || 'Unknown')}</div>
+        <div class="tl-main-label">${esc(ev.friendName || t('timeline.unknown', 'Unknown'))}</div>
         <div class="tl-sub-label">${esc(preview)}${ellipsis}</div>
     </div></div>`;
 }
@@ -1593,7 +1653,7 @@ function renderFtBioBody(ev) {
     const preview = (ev.newValue || '').slice(0, 60);
     const ellipsis = (ev.newValue || '').length > 60 ? '...' : '';
     return `<div class="tl-card-body">${av}<div class="tl-card-info">
-        <div class="tl-main-label">${esc(ev.friendName || 'Unknown')}</div>
+        <div class="tl-main-label">${esc(ev.friendName || t('timeline.unknown', 'Unknown'))}</div>
         <div class="tl-sub-label">${esc(preview)}${ellipsis}</div>
     </div></div>`;
 }
@@ -1632,17 +1692,17 @@ function renderFtGpsDetailModal(ev) {
     const banner = ev.worldThumb
         ? `<div class="fd-banner"><img src="${ev.worldThumb}" onerror="this.parentElement.style.display='none'"><div class="fd-banner-fade"></div></div>`
         : '';
-    const worldName = ev.worldName || ev.worldId || 'Unknown World';
+    const worldName = ev.worldName || ev.worldId || t('timeline.unknown_world', 'Unknown World');
 
     // Was Also Here: populated async from server (covers all pages, not just loaded memory)
     const alsoList = [];
 
     const infoHtml = `<div class="fd-meta">
-        <div class="fd-meta-row"><span class="fd-meta-label">Date</span><span>${esc(dateStr)}</span></div>
-        <div class="fd-meta-row"><span class="fd-meta-label">Time</span><span>${esc(timeStr)}</span></div>
-        <div class="fd-meta-row"><span class="fd-meta-label">Instance Type</span><span class="vrcn-badge ${instCls}">${instLabel}</span></div>
-        ${instanceId ? `<div class="fd-meta-row"><span class="fd-meta-label">Instance ID</span><span style="font-family:monospace;font-size:12px;color:var(--tx2);">#${esc(instanceId)}</span></div>` : ''}
-        <div class="fd-meta-row"><span class="fd-meta-label">Event</span><span style="color:var(--tx2);">${esc(ev.friendName || 'Unknown')} joined this world</span></div>
+        <div class="fd-meta-row"><span class="fd-meta-label">${esc(t('timeline.detail.date', 'Date'))}</span><span>${esc(dateStr)}</span></div>
+        <div class="fd-meta-row"><span class="fd-meta-label">${esc(t('timeline.detail.time', 'Time'))}</span><span>${esc(timeStr)}</span></div>
+        <div class="fd-meta-row"><span class="fd-meta-label">${esc(t('timeline.detail.instance_type', 'Instance Type'))}</span><span class="vrcn-badge ${instCls}">${instLabel}</span></div>
+        ${instanceId ? `<div class="fd-meta-row"><span class="fd-meta-label">${esc(t('timeline.detail.instance_id', 'Instance ID'))}</span><span style="font-family:monospace;font-size:12px;color:var(--tx2);">#${esc(instanceId)}</span></div>` : ''}
+        <div class="fd-meta-row"><span class="fd-meta-label">${esc(t('timeline.detail.event', 'Event'))}</span><span style="color:var(--tx2);">${esc(tf('timeline.detail.friend_joined_world', { name: ev.friendName || t('timeline.unknown', 'Unknown') }, `${ev.friendName || 'Unknown'} joined this world`))}</span></div>
     </div>`;
 
     const el = document.getElementById('ftGpsDetailContent');
@@ -1650,15 +1710,15 @@ function renderFtGpsDetailModal(ev) {
         <h2 style="margin:0 0 4px;color:var(--tx0);font-size:18px;">${esc(worldName)}</h2>
         <div style="margin-bottom:12px;">${idBadge(ev.worldId || '')}</div>
         <div class="fd-tabs" style="margin-bottom:14px;">
-            <button class="fd-tab active ftgps-tab-btn" data-tab="info" onclick="switchFtGpsTab('info')">Info</button>
-            <button class="fd-tab ftgps-tab-btn" data-tab="also" id="ftGpsAlsoTab" onclick="switchFtGpsTab('also')">Was also here</button>
+            <button class="fd-tab active ftgps-tab-btn" data-tab="info" onclick="switchFtGpsTab('info')">${esc(t('timeline.detail.info', 'Info'))}</button>
+            <button class="fd-tab ftgps-tab-btn" data-tab="also" id="ftGpsAlsoTab" onclick="switchFtGpsTab('also')">${esc(t('timeline.detail.was_also_here', 'Was also here'))}</button>
         </div>
         <div id="ftGpsTabInfo">${infoHtml}</div>
-        <div id="ftGpsTabAlso" style="display:none;"><div style="font-size:12px;color:var(--tx3);padding:12px 0;">Loading...</div></div>
+        <div id="ftGpsTabAlso" style="display:none;"><div style="font-size:12px;color:var(--tx3);padding:12px 0;">${esc(t('common.loading', 'Loading...'))}</div></div>
         <div style="margin-top:14px;display:flex;gap:8px;justify-content:flex-end;">
             ${_instanceLinkBtn(loc, '')}
-            ${ev.worldId ? `<button class="vrcn-button-round vrcn-btn-join" onclick="closeFtGpsDetail();openWorldSearchDetail('${esc(ev.worldId)}')"><span class="msi" style="font-size:14px;">travel_explore</span> Open World</button>` : ''}
-            <button class="vrcn-button-round" onclick="closeFtGpsDetail()">Close</button>
+            ${ev.worldId ? `<button class="vrcn-button-round vrcn-btn-join" onclick="closeFtGpsDetail();openWorldSearchDetail('${esc(ev.worldId)}')"><span class="msi" style="font-size:14px;">travel_explore</span> ${esc(t('timeline.actions.open_world', 'Open World'))}</button>` : ''}
+            <button class="vrcn-button-round" onclick="closeFtGpsDetail()">${esc(t('common.close', 'Close'))}</button>
         </div>
     </div>`;
 
@@ -1672,16 +1732,16 @@ function renderFtAlsoWasHereResult(payload) {
     if (!tab) return;
     const friends = payload?.friends ?? [];
     if (friends.length === 0) {
-        tab.innerHTML = '<div style="font-size:12px;color:var(--tx3);padding:12px 0;">No other friends tracked in this instance.</div>';
+        tab.innerHTML = `<div style="font-size:12px;color:var(--tx3);padding:12px 0;">${esc(t('timeline.detail.no_other_friends', 'No other friends tracked in this instance.'))}</div>`;
     } else {
         tab.innerHTML = friends.map(f =>
             renderProfileItemSmall(
-                { id: f.friendId, displayName: f.friendName || 'Unknown', image: f.friendImage },
+                { id: f.friendId, displayName: f.friendName || t('timeline.unknown', 'Unknown'), image: f.friendImage },
                 `closeFtGpsDetail();openFriendDetail('${jsq(f.friendId)}')`
             )
         ).join('');
     }
-    if (tabBtn && friends.length > 0) tabBtn.textContent = `Was also here (${friends.length})`;
+    if (tabBtn && friends.length > 0) tabBtn.textContent = tf('timeline.detail.was_also_here_count', { count: friends.length }, `Was also here (${friends.length})`);
 }
 
 function openFtDetail(id) {
@@ -1706,10 +1766,9 @@ function openFtDetail(id) {
 }
 
 function ftDetailDatetime(ev) {
-    const d = new Date(ev.timestamp);
     return {
-        dateStr: d.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }),
-        timeStr: d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
+        dateStr: tlFormatLongDate(ev.timestamp),
+        timeStr: tlFormatTime(ev.timestamp),
     };
 }
 
@@ -1718,18 +1777,18 @@ function ftDetailAvRow(ev) {
         ? `<div class="tl-detail-av" style="background-image:url('${cssUrl(ev.friendImage)}')"></div>`
         : `<div class="tl-detail-av tl-detail-av-letter">${esc((ev.friendName || '?')[0].toUpperCase())}</div>`;
     return `<div style="display:flex;gap:16px;align-items:center;margin-bottom:20px;">${av}
-        <div><h2 style="margin:0 0 4px;color:var(--tx0);font-size:18px;">${esc(ev.friendName || 'Unknown')}</h2>
+        <div><h2 style="margin:0 0 4px;color:var(--tx0);font-size:18px;">${esc(ev.friendName || t('timeline.unknown', 'Unknown'))}</h2>
         ${ev.friendId ? `<div style="font-size:10px;color:var(--tx3);">${esc(ev.friendId)}</div>` : ''}
         </div></div>`;
 }
 
 function ftDetailClose() {
-    return `<button class="vrcn-button-round" onclick="document.getElementById('modalDetail').style.display='none'">Close</button>`;
+    return `<button class="vrcn-button-round" onclick="document.getElementById('modalDetail').style.display='none'">${esc(t('common.close', 'Close'))}</button>`;
 }
 
 function ftDetailViewProfile(ev) {
     return ev.friendId
-        ? `<button class="vrcn-button-round vrcn-btn-join" onclick="document.getElementById('modalDetail').style.display='none';openFriendDetail('${esc(ev.friendId)}')">View Profile</button>`
+        ? `<button class="vrcn-button-round vrcn-btn-join" onclick="document.getElementById('modalDetail').style.display='none';openFriendDetail('${esc(ev.friendId)}')">${esc(t('timeline.actions.view_profile', 'View Profile'))}</button>`
         : '';
 }
 
@@ -1738,19 +1797,19 @@ function renderFtDetailGps(ev, el) {
     const banner = ev.worldThumb
         ? `<div class="fd-banner"><img src="${ev.worldThumb}" onerror="this.parentElement.style.display='none'"><div class="fd-banner-fade"></div></div>`
         : '';
-    const wname = ev.worldName || ev.worldId || 'Unknown World';
+    const wname = ev.worldName || ev.worldId || t('timeline.unknown_world', 'Unknown World');
     const worldClick = ev.worldId
         ? ` style="cursor:pointer;" onclick="document.getElementById('modalDetail').style.display='none';openWorldDetail('${esc(ev.worldId)}')"` : '';
 
     el.innerHTML = `${banner}<div class="fd-content${banner ? ' fd-has-banner' : ''}" style="padding:20px;">
         ${ftDetailAvRow(ev)}
         <div class="fd-meta">
-            <div class="fd-meta-row"><span class="fd-meta-label">Date</span><span>${esc(dateStr)}</span></div>
-            <div class="fd-meta-row"><span class="fd-meta-label">Time</span><span>${esc(timeStr)}</span></div>
-            <div class="fd-meta-row"${worldClick}><span class="fd-meta-label">World</span><span style="color:var(--accent-lt);">${esc(wname)}</span></div>
+            <div class="fd-meta-row"><span class="fd-meta-label">${esc(t('timeline.detail.date', 'Date'))}</span><span>${esc(dateStr)}</span></div>
+            <div class="fd-meta-row"><span class="fd-meta-label">${esc(t('timeline.detail.time', 'Time'))}</span><span>${esc(timeStr)}</span></div>
+            <div class="fd-meta-row"${worldClick}><span class="fd-meta-label">${esc(t('timeline.detail.world', 'World'))}</span><span style="color:var(--accent-lt);">${esc(wname)}</span></div>
         </div>
         <div style="margin-top:14px;display:flex;gap:8px;justify-content:flex-end;">
-            ${ev.worldId ? `<button class="vrcn-button-round vrcn-btn-join" onclick="document.getElementById('modalDetail').style.display='none';openWorldDetail('${esc(ev.worldId)}')"><span class="msi" style="font-size:14px;">travel_explore</span> Open World</button>` : ''}
+            ${ev.worldId ? `<button class="vrcn-button-round vrcn-btn-join" onclick="document.getElementById('modalDetail').style.display='none';openWorldDetail('${esc(ev.worldId)}')"><span class="msi" style="font-size:14px;">travel_explore</span> ${esc(t('timeline.actions.open_world', 'Open World'))}</button>` : ''}
             ${ftDetailViewProfile(ev)}
             ${ftDetailClose()}
         </div>
@@ -1765,9 +1824,9 @@ function renderFtDetailStatus(ev, el) {
     el.innerHTML = `<div class="fd-content" style="padding:20px;">
         ${ftDetailAvRow(ev)}
         <div class="fd-meta">
-            <div class="fd-meta-row"><span class="fd-meta-label">Date</span><span>${esc(dateStr)}</span></div>
-            <div class="fd-meta-row"><span class="fd-meta-label">Time</span><span>${esc(timeStr)}</span></div>
-            <div class="fd-meta-row"><span class="fd-meta-label">Change</span>
+            <div class="fd-meta-row"><span class="fd-meta-label">${esc(t('timeline.detail.date', 'Date'))}</span><span>${esc(dateStr)}</span></div>
+            <div class="fd-meta-row"><span class="fd-meta-label">${esc(t('timeline.detail.time', 'Time'))}</span><span>${esc(timeStr)}</span></div>
+            <div class="fd-meta-row"><span class="fd-meta-label">${esc(t('timeline.detail.change', 'Change'))}</span>
                 <span style="display:flex;align-items:center;gap:6px;">
                     <span class="ft-status-chip ${oldCls}">${esc(ev.oldValue || '?')}</span>
                     <span class="msi" style="font-size:12px;color:var(--tx3);">arrow_forward</span>
@@ -1786,9 +1845,9 @@ function renderFtDetailOnline(ev, el) {
     el.innerHTML = `<div class="fd-content" style="padding:20px;">
         ${ftDetailAvRow(ev)}
         <div class="fd-meta">
-            <div class="fd-meta-row"><span class="fd-meta-label">Date</span><span>${esc(dateStr)}</span></div>
-            <div class="fd-meta-row"><span class="fd-meta-label">Time</span><span>${esc(timeStr)}</span></div>
-            <div class="fd-meta-row"><span class="fd-meta-label">Event</span><span style="color:var(--ok);">Online</span></div>
+            <div class="fd-meta-row"><span class="fd-meta-label">${esc(t('timeline.detail.date', 'Date'))}</span><span>${esc(dateStr)}</span></div>
+            <div class="fd-meta-row"><span class="fd-meta-label">${esc(t('timeline.detail.time', 'Time'))}</span><span>${esc(timeStr)}</span></div>
+            <div class="fd-meta-row"><span class="fd-meta-label">${esc(t('timeline.detail.event', 'Event'))}</span><span style="color:var(--ok);">${esc(t('timeline.friend.online_game', 'Online (Game)'))}</span></div>
         </div>
         <div style="margin-top:14px;display:flex;gap:8px;justify-content:flex-end;">
             ${ftDetailViewProfile(ev)}${ftDetailClose()}
@@ -1801,9 +1860,9 @@ function renderFtDetailOffline(ev, el) {
     el.innerHTML = `<div class="fd-content" style="padding:20px;">
         ${ftDetailAvRow(ev)}
         <div class="fd-meta">
-            <div class="fd-meta-row"><span class="fd-meta-label">Date</span><span>${esc(dateStr)}</span></div>
-            <div class="fd-meta-row"><span class="fd-meta-label">Time</span><span>${esc(timeStr)}</span></div>
-            <div class="fd-meta-row"><span class="fd-meta-label">Event</span><span style="color:var(--tx3);">Offline</span></div>
+            <div class="fd-meta-row"><span class="fd-meta-label">${esc(t('timeline.detail.date', 'Date'))}</span><span>${esc(dateStr)}</span></div>
+            <div class="fd-meta-row"><span class="fd-meta-label">${esc(t('timeline.detail.time', 'Time'))}</span><span>${esc(timeStr)}</span></div>
+            <div class="fd-meta-row"><span class="fd-meta-label">${esc(t('timeline.detail.event', 'Event'))}</span><span style="color:var(--tx3);">${esc(t('timeline.friend.went_offline', 'Went Offline'))}</span></div>
         </div>
         <div style="margin-top:14px;display:flex;gap:8px;justify-content:flex-end;">
             ${ftDetailViewProfile(ev)}${ftDetailClose()}
@@ -1816,9 +1875,9 @@ function renderFtDetailAdded(ev, el) {
     el.innerHTML = `<div class="fd-content" style="padding:20px;">
         ${ftDetailAvRow(ev)}
         <div class="fd-meta">
-            <div class="fd-meta-row"><span class="fd-meta-label">Date</span><span>${esc(dateStr)}</span></div>
-            <div class="fd-meta-row"><span class="fd-meta-label">Time</span><span>${esc(timeStr)}</span></div>
-            <div class="fd-meta-row"><span class="fd-meta-label">Event</span><span style="color:var(--ok);">Friend Added</span></div>
+            <div class="fd-meta-row"><span class="fd-meta-label">${esc(t('timeline.detail.date', 'Date'))}</span><span>${esc(dateStr)}</span></div>
+            <div class="fd-meta-row"><span class="fd-meta-label">${esc(t('timeline.detail.time', 'Time'))}</span><span>${esc(timeStr)}</span></div>
+            <div class="fd-meta-row"><span class="fd-meta-label">${esc(t('timeline.detail.event', 'Event'))}</span><span style="color:var(--ok);">${esc(t('timeline.friend.added_full', 'Friend Added'))}</span></div>
         </div>
         <div style="margin-top:14px;display:flex;gap:8px;justify-content:flex-end;">
             ${ftDetailViewProfile(ev)}${ftDetailClose()}
@@ -1831,10 +1890,10 @@ function renderFtDetailRemoved(ev, el) {
     el.innerHTML = `<div class="fd-content" style="padding:20px;">
         ${ftDetailAvRow(ev)}
         <div class="fd-meta">
-            <div class="fd-meta-row"><span class="fd-meta-label">Date</span><span>${esc(dateStr)}</span></div>
-            <div class="fd-meta-row"><span class="fd-meta-label">Time</span><span>${esc(timeStr)}</span></div>
-            <div class="fd-meta-row"><span class="fd-meta-label">Event</span><span style="color:var(--err);">Unfriended</span></div>
-            <div class="fd-meta-row"><span class="fd-meta-label">User ID</span><span style="font-size:11px;opacity:.7;">${esc(ev.friendId || '')}</span></div>
+            <div class="fd-meta-row"><span class="fd-meta-label">${esc(t('timeline.detail.date', 'Date'))}</span><span>${esc(dateStr)}</span></div>
+            <div class="fd-meta-row"><span class="fd-meta-label">${esc(t('timeline.detail.time', 'Time'))}</span><span>${esc(timeStr)}</span></div>
+            <div class="fd-meta-row"><span class="fd-meta-label">${esc(t('timeline.detail.event', 'Event'))}</span><span style="color:var(--err);">${esc(t('timeline.friend.unfriended', 'Unfriended'))}</span></div>
+            <div class="fd-meta-row"><span class="fd-meta-label">${esc(t('timeline.detail.user_id', 'User ID'))}</span><span style="font-size:11px;opacity:.7;">${esc(ev.friendId || '')}</span></div>
         </div>
         <div style="margin-top:14px;display:flex;gap:8px;justify-content:flex-end;">
             ${ftDetailClose()}
@@ -1847,13 +1906,13 @@ function renderFtDetailStatusDesc(ev, el) {
     el.innerHTML = `<div class="fd-content" style="padding:20px;">
         ${ftDetailAvRow(ev)}
         <div class="fd-meta">
-            <div class="fd-meta-row"><span class="fd-meta-label">Date</span><span>${esc(dateStr)}</span></div>
-            <div class="fd-meta-row"><span class="fd-meta-label">Time</span><span>${esc(timeStr)}</span></div>
+            <div class="fd-meta-row"><span class="fd-meta-label">${esc(t('timeline.detail.date', 'Date'))}</span><span>${esc(dateStr)}</span></div>
+            <div class="fd-meta-row"><span class="fd-meta-label">${esc(t('timeline.detail.time', 'Time'))}</span><span>${esc(timeStr)}</span></div>
         </div>
-        ${ev.oldValue ? `<div style="margin-top:12px;"><div style="font-size:10px;color:var(--tx3);margin-bottom:4px;">PREVIOUS STATUS TEXT</div>
+        ${ev.oldValue ? `<div style="margin-top:12px;"><div style="font-size:10px;color:var(--tx3);margin-bottom:4px;">${esc(t('timeline.detail.previous_status_text', 'PREVIOUS STATUS TEXT'))}</div>
             <div style="font-size:12px;color:var(--tx2);background:var(--bg2);padding:8px 10px;border-radius:6px;">${esc(ev.oldValue)}</div></div>` : ''}
-        ${ev.newValue !== undefined ? `<div style="margin-top:10px;"><div style="font-size:10px;color:var(--tx3);margin-bottom:4px;">NEW STATUS TEXT</div>
-            <div style="font-size:12px;color:var(--tx1);background:var(--bg2);padding:8px 10px;border-radius:6px;">${esc(ev.newValue) || '<em style="color:var(--tx3)">cleared</em>'}</div></div>` : ''}
+        ${ev.newValue !== undefined ? `<div style="margin-top:10px;"><div style="font-size:10px;color:var(--tx3);margin-bottom:4px;">${esc(t('timeline.detail.new_status_text', 'NEW STATUS TEXT'))}</div>
+            <div style="font-size:12px;color:var(--tx1);background:var(--bg2);padding:8px 10px;border-radius:6px;">${ev.newValue ? esc(ev.newValue) : tlDetailClearedHtml()}</div></div>` : ''}
         <div style="margin-top:14px;display:flex;gap:8px;justify-content:flex-end;">
             ${ftDetailViewProfile(ev)}${ftDetailClose()}
         </div>
@@ -1865,12 +1924,12 @@ function renderFtDetailBio(ev, el) {
     el.innerHTML = `<div class="fd-content" style="padding:20px;">
         ${ftDetailAvRow(ev)}
         <div class="fd-meta">
-            <div class="fd-meta-row"><span class="fd-meta-label">Date</span><span>${esc(dateStr)}</span></div>
-            <div class="fd-meta-row"><span class="fd-meta-label">Time</span><span>${esc(timeStr)}</span></div>
+            <div class="fd-meta-row"><span class="fd-meta-label">${esc(t('timeline.detail.date', 'Date'))}</span><span>${esc(dateStr)}</span></div>
+            <div class="fd-meta-row"><span class="fd-meta-label">${esc(t('timeline.detail.time', 'Time'))}</span><span>${esc(timeStr)}</span></div>
         </div>
-        ${ev.oldValue ? `<div style="margin-top:12px;"><div style="font-size:10px;color:var(--tx3);margin-bottom:4px;">PREVIOUS BIO</div>
+        ${ev.oldValue ? `<div style="margin-top:12px;"><div style="font-size:10px;color:var(--tx3);margin-bottom:4px;">${esc(t('timeline.detail.previous_bio', 'PREVIOUS BIO'))}</div>
             <div style="font-size:12px;color:var(--tx2);background:var(--bg2);padding:8px 10px;border-radius:6px;white-space:pre-wrap;">${esc(ev.oldValue)}</div></div>` : ''}
-        ${ev.newValue ? `<div style="margin-top:10px;"><div style="font-size:10px;color:var(--tx3);margin-bottom:4px;">NEW BIO</div>
+        ${ev.newValue ? `<div style="margin-top:10px;"><div style="font-size:10px;color:var(--tx3);margin-bottom:4px;">${esc(t('timeline.detail.new_bio', 'NEW BIO'))}</div>
             <div style="font-size:12px;color:var(--tx1);background:var(--bg2);padding:8px 10px;border-radius:6px;white-space:pre-wrap;">${esc(ev.newValue)}</div></div>` : ''}
         <div style="margin-top:14px;display:flex;gap:8px;justify-content:flex-end;">
             ${ftDetailViewProfile(ev)}${ftDetailClose()}
@@ -1883,14 +1942,13 @@ function renderFtDetailBio(ev, el) {
 // ═══════════════════════════════════════════════════════════════════
 
 function buildPersonalListHtml(events) {
-    if (!events.length) return '<div class="empty-msg">No timeline events match your filter.</div>';
+    if (!events.length) {
+        return `<div class="empty-msg">${esc(t('timeline.list.empty.personal', 'No timeline events match your filter.'))}</div>`;
+    }
 
     let rows = '';
     events.forEach(ev => {
-        const d     = new Date(ev.timestamp);
-        const dt    = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
-                    + ' · ' + d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
-        const meta  = TL_TYPE_META[ev.type] ?? { icon: 'circle', label: ev.type };
+        const meta  = tlTypeMeta(ev.type);
         const color = TL_TYPE_COLOR[ev.type] ?? 'var(--tx3)';
         const ei    = jsq(ev.id);
         const { userHtml, detail } = _tlListData(ev);
@@ -1898,17 +1956,17 @@ function buildPersonalListHtml(events) {
         const listTypeLabel = listMeetCount > 0 ? `${meta.label} (${listMeetCount})` : meta.label;
 
         rows += `<tr class="tl-list-row" onclick="openTlDetail('${ei}')">
-            <td class="tl-list-dt">${esc(dt)}</td>
+            <td class="tl-list-dt">${esc(`${tlFormatShortDate(ev.timestamp)} | ${tlFormatTime(ev.timestamp)}`)}</td>
             <td class="tl-list-type"><span class="msi tl-list-icon" style="color:${color}">${meta.icon}</span><span>${esc(listTypeLabel)}</span></td>
-            <td class="tl-list-user">${userHtml || '<span class="tl-list-na">—</span>'}</td>
-            <td class="tl-list-detail">${detail || '<span class="tl-list-na">—</span>'}</td>
+            <td class="tl-list-user">${userHtml || tlListNaHtml()}</td>
+            <td class="tl-list-detail">${detail || tlListNaHtml()}</td>
         </tr>`;
     });
 
     return `<div class="tl-list-wrap">
         <table class="tl-list-table">
             <thead><tr>
-                <th>Date / Time</th><th>Type</th><th>User</th><th>Detail</th>
+                <th>${esc(t('timeline.list.header.date_time', 'Date / Time'))}</th><th>${esc(t('timeline.list.header.type', 'Type'))}</th><th>${esc(t('timeline.list.header.user', 'User'))}</th><th>${esc(t('timeline.list.header.detail', 'Detail'))}</th>
             </tr></thead>
             <tbody>${rows}</tbody>
         </table>
@@ -1933,18 +1991,18 @@ function _tlListPlayerAvatars(players, max) {
 function _tlListData(ev) {
     switch (ev.type) {
         case 'instance_join':
-            return { userHtml: _tlListPlayerAvatars(ev.players, 3), detail: esc(ev.worldName || ev.worldId || 'Unknown World') };
+            return { userHtml: _tlListPlayerAvatars(ev.players, 3), detail: esc(ev.worldName || ev.worldId || t('timeline.unknown_world', 'Unknown World')) };
         case 'photo':
-            return { userHtml: _tlListPlayerAvatars(ev.players, 3), detail: esc(ev.photoPath ? ev.photoPath.split(/[\\/]/).pop() : 'Photo') };
+            return { userHtml: _tlListPlayerAvatars(ev.players, 3), detail: esc(ev.photoPath ? ev.photoPath.split(/[\\/]/).pop() : t('timeline.photo', 'Photo')) };
         case 'first_meet':
-            return { userHtml: esc(ev.userName || 'Unknown'), detail: ev.worldName ? esc(ev.worldName) : '' };
+            return { userHtml: esc(ev.userName || t('timeline.unknown', 'Unknown')), detail: ev.worldName ? esc(ev.worldName) : '' };
         case 'meet_again':
-            return { userHtml: esc(ev.userName || 'Unknown'), detail: ev.worldName ? esc(ev.worldName) : '' };
+            return { userHtml: esc(ev.userName || t('timeline.unknown', 'Unknown')), detail: ev.worldName ? esc(ev.worldName) : '' };
         case 'notification': {
-            const typeLabel = NOTIF_TYPE_LABELS[ev.notifType] || ev.notifType || 'Notification';
-            const sender    = ev.senderName ? ` from ${esc(ev.senderName)}` : '';
+            const typeLabel = tlNotifTypeLabel(ev.notifType);
+            const sender    = ev.senderName ? ` | ${esc(tf('timeline.list.from', { name: ev.senderName }, `from ${ev.senderName}`))}` : '';
             const msg       = ev.message
-                ? ` — ${esc(ev.message.slice(0, 80))}${ev.message.length > 80 ? '…' : ''}`
+                ? `${ev.senderName ? ' | ' : ''}${esc(ev.message.slice(0, 80))}${ev.message.length > 80 ? '...' : ''}`
                 : '';
             return { userHtml: ev.senderName ? esc(ev.senderName) : '', detail: esc(typeLabel) + sender + msg };
         }
@@ -1952,7 +2010,7 @@ function _tlListData(ev) {
             return { userHtml: '', detail: esc(ev.userName || '') };
         case 'video_url': {
             const url = ev.message || '';
-            const short = url.length > 60 ? url.slice(0, 60) + '…' : url;
+            const short = url.length > 60 ? url.slice(0, 60) + '...' : url;
             return { userHtml: '', detail: esc(short) };
         }
         default:
@@ -1965,14 +2023,13 @@ function _tlListData(ev) {
 // ═══════════════════════════════════════════════════════════════════
 
 function buildFriendListHtml(events) {
-    if (!events.length) return '<div class="empty-msg">No friend activity logged yet.</div>';
+    if (!events.length) {
+        return `<div class="empty-msg">${esc(t('timeline.list.empty.friends', 'No friend activity logged yet.'))}</div>`;
+    }
 
     let rows = '';
     events.forEach(ev => {
-        const d     = new Date(ev.timestamp);
-        const dt    = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
-                    + ' · ' + d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
-        const meta  = FT_TYPE_META[ev.type] ?? { icon: 'circle', label: ev.type };
+        const meta  = ftTypeMeta(ev.type);
         const color = FT_TYPE_COLOR[ev.type] ?? 'var(--tx3)';
         const ei    = jsq(ev.id);
         const detail = _ftListDetail(ev);
@@ -1981,17 +2038,17 @@ function buildFriendListHtml(events) {
             : `openFtDetail('${ei}')`;
 
         rows += `<tr class="tl-list-row" onclick="${clickAction}">
-            <td class="tl-list-dt">${esc(dt)}</td>
+            <td class="tl-list-dt">${esc(`${tlFormatShortDate(ev.timestamp)} | ${tlFormatTime(ev.timestamp)}`)}</td>
             <td class="tl-list-type"><span class="msi tl-list-icon" style="color:${color}">${meta.icon}</span><span>${esc(meta.label)}</span></td>
-            <td class="tl-list-user">${esc(ev.friendName || '—')}</td>
-            <td class="tl-list-detail">${detail || '<span class="tl-list-na">—</span>'}</td>
+            <td class="tl-list-user">${esc(ev.friendName || t('timeline.unknown', 'Unknown'))}</td>
+            <td class="tl-list-detail">${detail || tlListNaHtml()}</td>
         </tr>`;
     });
 
     return `<div class="tl-list-wrap">
         <table class="tl-list-table">
             <thead><tr>
-                <th>Date / Time</th><th>Type</th><th>User</th><th>Detail</th>
+                <th>${esc(t('timeline.list.header.date_time', 'Date / Time'))}</th><th>${esc(t('timeline.list.header.type', 'Type'))}</th><th>${esc(t('timeline.list.header.user', 'User'))}</th><th>${esc(t('timeline.list.header.detail', 'Detail'))}</th>
             </tr></thead>
             <tbody>${rows}</tbody>
         </table>
@@ -2000,9 +2057,9 @@ function buildFriendListHtml(events) {
 
 function _ftListDetail(ev) {
     switch (ev.type) {
-        case 'friend_online':      return '<span style="color:var(--ok)">Came Online</span>';
-        case 'friend_offline':     return '<span style="color:var(--tx3)">Went Offline</span>';
-        case 'friend_gps':        return esc(ev.worldName || ev.worldId || 'Unknown World');
+        case 'friend_online':      return `<span style="color:var(--ok)">${esc(t('timeline.friend.came_online', 'Came Online'))}</span>`;
+        case 'friend_offline':     return `<span style="color:var(--tx3)">${esc(t('timeline.friend.went_offline', 'Went Offline'))}</span>`;
+        case 'friend_gps':        return esc(ev.worldName || ev.worldId || t('timeline.unknown_world', 'Unknown World'));
         case 'friend_status': {
             const oldCls = statusCssClass(ev.oldValue);
             const newCls = statusCssClass(ev.newValue);
@@ -2012,14 +2069,36 @@ function _ftListDetail(ev) {
         }
         case 'friend_statusdesc': {
             const v = (ev.newValue || '').slice(0, 80);
-            return v ? esc(v) + ((ev.newValue || '').length > 80 ? '…' : '') : '<span class="tl-list-na">(cleared)</span>';
+            return v ? esc(v) + ((ev.newValue || '').length > 80 ? '...' : '') : tlClearedHtml();
         }
         case 'friend_bio': {
             const v = (ev.newValue || '').slice(0, 80);
-            return v ? esc(v) + ((ev.newValue || '').length > 80 ? '…' : '') : '<span class="tl-list-na">(cleared)</span>';
+            return v ? esc(v) + ((ev.newValue || '').length > 80 ? '...' : '') : tlClearedHtml();
         }
-        case 'friend_added':      return '<span style="color:var(--ok)">Friend Added</span>';
-        case 'friend_removed':    return '<span style="color:var(--err)">Unfriended</span>';
+        case 'friend_added':      return `<span style="color:var(--ok)">${esc(t('timeline.friend.added_full', 'Friend Added'))}</span>`;
+        case 'friend_removed':    return `<span style="color:var(--err)">${esc(t('timeline.friend.unfriended', 'Unfriended'))}</span>`;
         default: return '';
     }
 }
+
+function rerenderTimelineTranslations() {
+    const label = document.getElementById('tlDateLabel');
+    if (label && tlDateFilter) {
+        label.textContent = tlFormatDateFilterLabel(tlDateFilter);
+        label.style.display = '';
+    }
+    if (document.getElementById('tlDatePicker')?.style.display !== 'none') {
+        renderDatePickerCalendar();
+    }
+    if (tlViewMode !== 'timeline') return;
+    const search = (document.getElementById('tlSearchInput')?.value ?? '').toLowerCase().trim();
+    if (tlMode === 'friends') {
+        if (_ftlSearchMode && search) _renderFtlSearchResults(search);
+        else if (friendTimelineEvents.length) filterFriendTimeline();
+    } else {
+        if (_tlSearchMode && search) _renderTlSearchResults(search);
+        else if (timelineEvents.length) filterTimeline();
+    }
+}
+
+document.documentElement.addEventListener('languagechange', rerenderTimelineTranslations);

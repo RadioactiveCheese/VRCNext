@@ -66,10 +66,38 @@ let vrc2faType = 'totp';
 let vrcFriendsData = [];
 let selectedStatus = 'active';
 const STATUS_LIST = [
-    { key: 'active', label: 'Online', color: '#2DD48C', desc: 'You appear online' },
-    { key: 'join me', label: 'Join Me', color: '#42A5F5', desc: 'Others can easily join you' },
-    { key: 'ask me', label: 'Ask Me', color: '#FFA726', desc: 'Others should ask before joining' },
-    { key: 'busy', label: 'Do Not Disturb', color: '#EF5350', desc: 'You appear busy' }
+    {
+        key: 'active',
+        labelKey: 'status.online',
+        label: 'Online',
+        color: '#2DD48C',
+        descKey: 'profiles.status.option.online_desc',
+        desc: 'You appear online'
+    },
+    {
+        key: 'join me',
+        labelKey: 'status.join_me',
+        label: 'Join Me',
+        color: '#42A5F5',
+        descKey: 'profiles.status.option.join_me_desc',
+        desc: 'Others can easily join you'
+    },
+    {
+        key: 'ask me',
+        labelKey: 'status.ask_me',
+        label: 'Ask Me',
+        color: '#FFA726',
+        descKey: 'profiles.status.option.ask_me_desc',
+        desc: 'Others should ask before joining'
+    },
+    {
+        key: 'busy',
+        labelKey: 'status.do_not_disturb',
+        label: 'Do Not Disturb',
+        color: '#EF5350',
+        descKey: 'profiles.status.option.busy_desc',
+        desc: 'You appear busy'
+    }
 ];
 // Language tag codes to readable display names
 const LANG_MAP = {
@@ -203,15 +231,55 @@ function applyColors(c) {
     try { sendToCS({ action: 'overlayThemeColors', colors: c }); } catch {}
 }
 
+function getThemeLabel(key, fallback) {
+    return t(`theme.${key}`, fallback);
+}
+
+function getPageTitle(i) {
+    return [
+        t('page.dashboard', 'Dashboard'),
+        t('page.worlds', 'Worlds'),
+        t('page.groups', 'Groups'),
+        t('page.people', 'People'),
+        t('page.avatars', 'Avatars'),
+        t('page.custom_chatbox', 'Custom Chatbox'),
+        t('page.media_relay', 'Media Relay'),
+        t('page.media_library', 'Media Library'),
+        t('page.activity_log', 'Activity Log'),
+        t('page.settings', 'Settings'),
+        t('page.space_flight', 'Space Flight'),
+        t('page.osc_tool', 'OSC Tool'),
+        t('page.timeline', 'Timeline'),
+        t('page.inventory', 'Inventory'),
+        t('page.youtube_fix', 'YouTube Fix'),
+        t('page.mutual_network', 'Mutual Network'),
+        t('page.time_spent', 'Time Spent'),
+        t('page.calendar', 'Calendar'),
+        t('page.voice_fight', 'Voice Fight'),
+        t('page.discord_presence', 'Discord Presence'),
+        t('page.vr_overlay', 'VR Overlay'),
+    ][i] ?? '';
+}
+
+function updateCurrentPageTitle() {
+    const activeTab = document.querySelector('.tab.active');
+    if (!activeTab) return;
+    const match = activeTab.id.match(/^tab(\d+)$/);
+    if (!match) return;
+    const pageTitle = document.getElementById('pageTitle');
+    if (pageTitle) pageTitle.textContent = getPageTitle(parseInt(match[1], 10));
+}
+
 function renderThemeChips() {
     const builtIn = Object.entries(THEMES).map(([k, t]) =>
-        `<button class="theme-chip${currentTheme === k ? ' active' : ''}" onclick="selectTheme('${k}')"><span class="theme-dot" style="background:${t.dot}"></span>${t.label}</button>`
+        `<button class="theme-chip${currentTheme === k ? ' active' : ''}" onclick="selectTheme('${k}')"><span class="theme-dot" style="background:${t.dot}"></span>${getThemeLabel(k, t.label)}</button>`
     ).join('');
+    const removeLabel = t('common.remove', 'Remove');
     const custom = customThemes.map(t =>
-        `<button class="theme-chip theme-chip-custom${currentTheme === t.key ? ' active' : ''}" data-ckey="${t.key}" onclick="selectCustomTheme('${t.key}')"><span class="theme-dot" style="background:${t.dot}"></span><span class="theme-chip-label">${esc(t.label)}</span><span class="theme-chip-del" onclick="event.stopPropagation();deleteCustomTheme('${t.key}')" title="Remove">×</span></button>`
+        `<button class="theme-chip theme-chip-custom${currentTheme === t.key ? ' active' : ''}" data-ckey="${t.key}" onclick="selectCustomTheme('${t.key}')"><span class="theme-dot" style="background:${t.dot}"></span><span class="theme-chip-label">${esc(t.label)}</span><span class="theme-chip-del" onclick="event.stopPropagation();deleteCustomTheme('${t.key}')" title="${esc(removeLabel)}">×</span></button>`
     ).join('');
     const addBtn = currentSpecialTheme === 'auto'
-        ? `<button class="theme-chip theme-chip-add" onclick="addCustomThemeFromAuto()"><span class="theme-dot" style="background:var(--accent)"></span>Add +</button>`
+        ? `<button class="theme-chip theme-chip-add" onclick="addCustomThemeFromAuto()"><span class="theme-dot" style="background:var(--accent)"></span>${t('settings.design.add_plus', 'Add +')}</button>`
         : '';
 
     const themeGrid = document.getElementById('themeGrid');
@@ -262,7 +330,7 @@ function addCustomThemeFromAuto() {
     colorKeys.forEach(k => { c[k] = style.getPropertyValue('--' + k).trim(); });
     const dot = c['accent'] || '#3884FF';
     const key = 'custom_' + Date.now();
-    customThemes.push({ key, label: 'Custom', dot, c });
+    customThemes.push({ key, label: t('theme.custom', 'Custom'), dot, c });
     renderThemeChips();
     // Enter inline name-edit mode on the new chip
     const chip = document.querySelector(`.theme-chip-custom[data-ckey="${key}"]`);
@@ -273,7 +341,7 @@ function addCustomThemeFromAuto() {
     chip.onclick = null;
     const input = document.createElement('input');
     input.type = 'text';
-    input.value = 'Custom';
+    input.value = t('theme.custom', 'Custom');
     input.className = 'theme-chip-name-input';
     input.onclick = e => e.stopPropagation();
     let saved = false;
@@ -427,8 +495,8 @@ function renderSpecialThemeChips() {
     const el = document.getElementById('specialThemeGrid');
     if (!el) return;
     const chips = [
-        { key: '',     label: 'Standard',   dot: 'var(--accent)' },
-        { key: 'auto', label: 'Auto Color', dot: 'conic-gradient(red,yellow,lime,cyan,blue,magenta,red)' },
+        { key: '',     label: t('settings.design.special.standard', 'Standard'), dot: 'var(--accent)' },
+        { key: 'auto', label: t('settings.design.special.auto_color', 'Auto Color'), dot: 'conic-gradient(red,yellow,lime,cyan,blue,magenta,red)' },
     ];
     el.innerHTML = chips.map(t =>
         `<button class="theme-chip${currentSpecialTheme === t.key ? ' active' : ''}" onclick="applySpecialTheme('${t.key}')"><span class="theme-dot" style="background:${t.dot}"></span>${t.label}</button>`
@@ -450,8 +518,8 @@ function renderPlayBtnThemeChips() {
     const el = document.getElementById('playBtnThemeGrid');
     if (!el) return;
     const chips = [
-        { key: '',       label: 'Standard',    dot: '#1DB954' },
-        { key: 'accent', label: 'Theme Color', dot: 'var(--accent)' },
+        { key: '',       label: t('settings.design.play_button.standard', 'Standard'), dot: '#1DB954' },
+        { key: 'accent', label: t('settings.design.play_button.theme_color', 'Theme Color'), dot: 'var(--accent)' },
     ];
     el.innerHTML = chips.map(t =>
         `<button class="theme-chip${currentPlayBtnTheme === t.key ? ' active' : ''}" onclick="applyPlayBtnTheme('${t.key}')"><span class="theme-dot" style="background:${t.dot}"></span>${t.label}</button>`
@@ -469,7 +537,7 @@ function renderCursorThemeChips(files) {
     if (files) _cursorFiles = files;
     const el = document.getElementById('cursorThemeGrid');
     if (!el) return;
-    const all = [{ key: '', label: 'Standard', url: null }, ..._cursorFiles.map(f => ({ key: f, label: f.replace(/\.[^.]+$/, ''), url: _localHttpPort ? `http://localhost:${_localHttpPort}/cursor/${encodeURIComponent(f)}` : null }))];
+    const all = [{ key: '', label: t('common.standard', 'Standard'), url: null }, ..._cursorFiles.map(f => ({ key: f, label: f.replace(/\.[^.]+$/, ''), url: _localHttpPort ? `http://localhost:${_localHttpPort}/cursor/${encodeURIComponent(f)}` : null }))];
     el.innerHTML = all.map(t =>
         `<button class="theme-chip${currentCursorTheme === t.key ? ' active' : ''}" onclick="applyCursorTheme('${t.key}')">${t.url ? `<img src="${t.url}" style="width:18px;height:18px;object-fit:contain;image-rendering:pixelated;margin-right:4px;vertical-align:middle;">` : `<span class="theme-dot" style="background:var(--tx3)"></span>`}${t.label}</button>`
     ).join('');
@@ -563,8 +631,10 @@ function playSteamOverlaySound() {
 
 function updateClock() {
     const n = new Date();
-    document.getElementById('clock').textContent = n.toLocaleTimeString('en-GB', { hour12: false });
-    document.getElementById('clockDate').textContent = n.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' });
+    const timeLocale = t('clock.time_locale', 'en-GB');
+    const dateLocale = t('clock.date_locale', 'en-US');
+    document.getElementById('clock').textContent = n.toLocaleTimeString(timeLocale, { hour12: false });
+    document.getElementById('clockDate').textContent = n.toLocaleDateString(dateLocale, { weekday: 'long', month: 'short', day: 'numeric' });
 }
 
 function toggleNavGroup(id) {
@@ -595,7 +665,7 @@ function showTab(i) {
             }
         }
     });
-    document.getElementById('pageTitle').textContent = ['Dashboard','Worlds','Groups','People','Avatars','Custom Chatbox','Media Relay','Media Library','Activity Log','Settings','Space Flight','OSC Tool','Timeline','Inventory','YouTube Fix','Mutual Network','Time Spent','Calendar','Voice Fight','Discord Presence','VR Overlay'][i] ?? '';
+    updateCurrentPageTitle();
     if (i === 0) renderDashboard();
     if (i === 1 && favWorldsData.length === 0) sendToCS({ action: 'vrcGetFavoriteWorlds' });
     if (i === 2 && !myGroupsLoaded) loadMyGroups();
@@ -603,6 +673,7 @@ function showTab(i) {
     if (i === 4) { if (!avatarsLoaded) refreshAvatars(); }
     if (i === 7) { if (!libraryFiles.length) refreshLibrary(); else filterLibrary(); }
     if (i === 9) {
+        renderLanguageChips();
         renderThemeChips();
         if (currentTheme === 'custom') renderColorInputs();
     }
@@ -618,6 +689,18 @@ function toggleRelay() {
     sendToCS({ action: relayOn ? 'stopRelay' : 'startRelay' });
 }
 
+function relayToggleBtnHtml(running) {
+    return running
+        ? `<span class="msi" style="font-size:16px;">stop</span> ${t('common.stop', 'Stop')}`
+        : `<span class="msi" style="font-size:16px;">play_arrow</span> ${t('common.start', 'Start')}`;
+}
+
+function relayStatusLabel(running) {
+    return running
+        ? t('relay.status.running', 'Running')
+        : t('relay.status.not_running', 'Not running');
+}
+
 function setRelayState(r, s) {
     relayOn = r;
     const b = document.getElementById('btnRelay');
@@ -625,15 +708,15 @@ function setRelayState(r, s) {
     const txt = document.getElementById('relayStatusText');
     const bd = document.getElementById('badgeRelay');
     if (r) {
-        if (b) { b.className = 'vrcn-button'; b.innerHTML = '<span class="msi" style="font-size:16px;">stop</span> Stop'; }
+        if (b) { b.className = 'vrcn-button'; b.innerHTML = relayToggleBtnHtml(true); }
         if (dot) dot.className = 'sf-dot online';
-        if (txt) txt.textContent = 'Running';
+        if (txt) txt.textContent = relayStatusLabel(true);
         bd.className = 'mini-badge online';
         document.getElementById('statStreams').textContent = s || '0';
     } else {
-        if (b) { b.className = 'vrcn-button'; b.innerHTML = '<span class="msi" style="font-size:16px;">play_arrow</span> Start'; }
+        if (b) { b.className = 'vrcn-button'; b.innerHTML = relayToggleBtnHtml(false); }
         if (dot) dot.className = 'sf-dot offline';
-        if (txt) txt.textContent = 'Not running';
+        if (txt) txt.textContent = relayStatusLabel(false);
         bd.className = 'mini-badge offline';
         document.getElementById('statStreams').textContent = '0';
     }
@@ -711,6 +794,8 @@ function addLog(m, c) {
 }
 
 // VRCVideoCacher
+let _vcLastState = null;
+
 function toggleVc() {
     const running = document.getElementById('vcDot')?.classList.contains('online');
     sendToCS({ action: running ? 'vcStop' : 'vcStart' });
@@ -720,6 +805,7 @@ function vcInstall() {
     sendToCS({ action: 'vcInstall' });
 }
 function handleVcState(d) {
+    _vcLastState = d;
     const running    = !!d.running;
     const installed  = !!d.installed;
     const dot        = document.getElementById('vcDot');
@@ -734,7 +820,7 @@ function handleVcState(d) {
     if (d.downloading) {
         if (progWrap) progWrap.style.display = '';
         if (progBar)  progBar.style.width = (d.progress || 0) + '%';
-        if (progLbl)  progLbl.textContent  = `Downloading... ${d.progress || 0}%`;
+        if (progLbl)  progLbl.textContent  = tf('youtube_fix.progress.downloading_percent', { percent: d.progress || 0 }, `Downloading... ${d.progress || 0}%`);
         if (installBtn) installBtn.disabled = true;
         return;
     }
@@ -742,7 +828,7 @@ function handleVcState(d) {
     if (installBtn) installBtn.disabled = false;
 
     if (d.error) {
-        if (txt) { txt.textContent = 'Error: ' + d.error; txt.style.color = 'var(--err)'; }
+        if (txt) { txt.textContent = tf('youtube_fix.status.error', { error: d.error }, `Error: ${d.error}`); txt.style.color = 'var(--err)'; }
         return;
     }
     if (txt) txt.style.color = '';
@@ -750,13 +836,35 @@ function handleVcState(d) {
     if (btn) {
         btn.disabled = !installed;
         btn.innerHTML = running
-            ? '<span class="msi" style="font-size:16px;">stop</span> Stop'
-            : '<span class="msi" style="font-size:16px;">play_arrow</span> Start';
+            ? `<span class="msi" style="font-size:16px;">stop</span> ${t('common.stop', 'Stop')}`
+            : `<span class="msi" style="font-size:16px;">play_arrow</span> ${t('common.start', 'Start')}`;
     }
     if (dot) dot.className = 'sf-dot ' + (running ? 'online' : 'offline');
-    if (txt) txt.textContent = running ? 'Running' : (installed ? 'Not running' : 'Not installed');
-    if (verLbl) verLbl.textContent = installed ? 'Installed' : '';
+    if (txt) txt.textContent = running
+        ? t('youtube_fix.status.running', 'Running')
+        : (installed ? t('youtube_fix.status.not_running', 'Not running') : t('youtube_fix.status.not_installed', 'Not installed'));
+    if (verLbl) verLbl.textContent = installed ? t('youtube_fix.version.installed', 'Installed') : '';
 }
+
+function rerenderVcTranslations() {
+    if (_vcLastState) {
+        handleVcState(_vcLastState);
+        return;
+    }
+
+    const txt = document.getElementById('vcStatusText');
+    if (txt) txt.textContent = t('youtube_fix.status.not_running', 'Not running');
+
+    const btn = document.getElementById('btnVc');
+    if (btn && !btn.disabled) {
+        const running = document.getElementById('vcDot')?.classList.contains('online');
+        btn.innerHTML = running
+            ? `<span class="msi" style="font-size:16px;">stop</span> ${t('common.stop', 'Stop')}`
+            : `<span class="msi" style="font-size:16px;">play_arrow</span> ${t('common.start', 'Start')}`;
+    }
+}
+
+document.documentElement.addEventListener('languagechange', rerenderVcTranslations);
 
 function clearLog() {
     const a = document.getElementById('logArea');
@@ -772,8 +880,23 @@ function copyLog() {
     const a = document.getElementById('logArea');
     if (!a) return;
     const text = Array.from(a.querySelectorAll('.log-line')).map(l => l.textContent).join('\n');
-    navigator.clipboard.writeText(text).then(() => showToast(true, 'Log copied to clipboard'));
+    navigator.clipboard.writeText(text).then(() => showToast(true, t('activity.copy_done', 'Log copied to clipboard')));
 }
+
+function rerenderRelayTranslations() {
+    const currentStreams = document.getElementById('statStreams')?.textContent || '0';
+    setRelayState(relayOn, currentStreams);
+
+    const wrap = document.getElementById('ffcProgressWrap');
+    const bar = document.getElementById('ffcProgressBar');
+    const lbl = document.getElementById('ffcProgressLabel');
+    if (wrap && wrap.style.display !== 'none' && lbl) {
+        const progress = Number.parseInt((bar?.style.width || '0').replace('%', ''), 10) || 0;
+        lbl.textContent = translateFfcProgressLabel(lbl.dataset.rawLabel || '', progress);
+    }
+}
+
+document.documentElement.addEventListener('languagechange', rerenderRelayTranslations);
 
 
 function playVRChat() {
@@ -833,15 +956,24 @@ function parseFriendLocation(loc) {
 }
 
 function getInstanceBadge(instanceType) {
-    const t = instanceType || 'public';
-    const labels = { 'public':'Public', 'friends':'Friends', 'friends+':'Friends+', 'hidden':'Friends+',
-                     'invite_plus':'Invite+', 'private':'Invite', 'group':'Group',
-                     'group-public':'Group Public', 'group-plus':'Group+', 'group-members':'Group' };
-    const label = labels[t] || t.charAt(0).toUpperCase() + t.slice(1);
+    const type = instanceType || 'public';
+    const labels = {
+        'public': t('instance.badge.public', 'Public'),
+        'friends': t('instance.badge.friends', 'Friends'),
+        'friends+': t('instance.badge.friends_plus', 'Friends+'),
+        'hidden': t('instance.badge.friends_plus', 'Friends+'),
+        'invite_plus': t('instance.badge.invite_plus', 'Invite+'),
+        'private': t('instance.badge.invite', 'Invite'),
+        'group': t('instance.badge.group', 'Group'),
+        'group-public': t('instance.badge.group_public', 'Group Public'),
+        'group-plus': t('instance.badge.group_plus', 'Group+'),
+        'group-members': t('instance.badge.group', 'Group')
+    };
+    const label = labels[type] || type.charAt(0).toUpperCase() + type.slice(1);
     let cls = 'public';
-    if (t === 'friends' || t === 'friends+' || t === 'hidden') cls = 'friends';
-    else if (t === 'invite_plus' || t === 'private') cls = 'private';
-    else if (t.startsWith('group')) cls = 'group';
+    if (type === 'friends' || type === 'friends+' || type === 'hidden') cls = 'friends';
+    else if (type === 'invite_plus' || type === 'private') cls = 'private';
+    else if (type.startsWith('group')) cls = 'group';
     return { cls, label };
 }
 
@@ -961,6 +1093,34 @@ function forceFfcAll() {
     sendToCS({ action: 'forceFfcAll' });
 }
 
+function translateFfcProgressLabel(label, progress) {
+    if (!label) {
+        return tf('settings.debug.ffc_progress.caching_percent', { percent: progress ?? 0 }, `Caching... ${progress ?? 0}%`);
+    }
+
+    switch (label) {
+        case 'Caching avatars...':
+            return t('settings.debug.ffc_progress.caching_avatars', 'Caching avatars...');
+        case 'Caching groups...':
+            return t('settings.debug.ffc_progress.caching_groups', 'Caching groups...');
+        case 'Caching worlds...':
+            return t('settings.debug.ffc_progress.caching_worlds', 'Caching worlds...');
+        default:
+            break;
+    }
+
+    const profilesMatch = label.match(/^Caching profiles\.\.\. \((\d+)\/(\d+)\)$/);
+    if (profilesMatch) {
+        return tf(
+            'settings.debug.ffc_progress.caching_profiles',
+            { current: profilesMatch[1], total: profilesMatch[2] },
+            `Caching profiles... (${profilesMatch[1]}/${profilesMatch[2]})`
+        );
+    }
+
+    return label;
+}
+
 function handleFfcProgress(d) {
     const wrap = document.getElementById('ffcProgressWrap');
     const bar  = document.getElementById('ffcProgressBar');
@@ -973,7 +1133,10 @@ function handleFfcProgress(d) {
     }
     if (wrap) wrap.style.display = '';
     if (bar)  bar.style.width  = (d.progress || 0) + '%';
-    if (lbl)  lbl.textContent  = d.label || ('Caching... ' + (d.progress || 0) + '%');
+    if (lbl) {
+        lbl.dataset.rawLabel = d.label || '';
+        lbl.textContent = translateFfcProgressLabel(d.label, d.progress || 0);
+    }
     if (btn)  btn.disabled = true;
 }
 

@@ -658,6 +658,36 @@ public class AuthController
         _core.OnTrayUserUpdate?.Invoke(userDisplayName, userStatus, userStatusDesc, userImage);
 #endif
 
+        // Fetch own badges (auth endpoint may not include badges, so fetch full user profile)
+        var userId = user["id"]?.ToString() ?? "";
+        if (!string.IsNullOrEmpty(userId))
+        {
+            _ = Task.Run(async () =>
+            {
+                JArray? badgesArr = user["badges"] as JArray;
+                if (badgesArr == null || badgesArr.Count == 0)
+                {
+                    var fullUser = await _core.VrcApi.GetUserAsync(userId);
+                    badgesArr = fullUser?["badges"] as JArray ?? new JArray();
+                }
+                var badges = new List<object>();
+                foreach (var b in badgesArr)
+                {
+                    if (b is not JObject bObj) continue;
+                    var imageUrl = bObj["badgeImageUrl"]?.ToString() ?? "";
+                    if (string.IsNullOrEmpty(imageUrl)) continue;
+                    badges.Add(new
+                    {
+                        id = bObj["badgeId"]?.ToString() ?? "",
+                        name = bObj["badgeName"]?.ToString() ?? "",
+                        description = bObj["badgeDescription"]?.ToString() ?? "",
+                        imageUrl, showcased = bObj["showcased"]?.Value<bool>() ?? false,
+                    });
+                }
+                Invoke(() => _core.SendToJS("vrcMyBadges", new { badges }));
+            });
+        }
+
         if (loginFlow)
         {
             _ = Task.Run(async () =>

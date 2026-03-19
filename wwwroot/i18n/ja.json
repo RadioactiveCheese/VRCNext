@@ -589,6 +589,8 @@
   "profiles.my_profile.sections.bio": "自己紹介",
   "profiles.my_profile.sections.links": "リンク",
   "profiles.my_profile.sections.languages": "言語",
+  "profiles.my_profile.sections.badges": "バッジ",
+  "profiles.my_profile.empty.no_badges": "バッジなし",
   "profiles.my_profile.empty.no_languages": "言語が設定されていません",
   "profiles.my_profile.empty.no_links": "リンクが追加されていません",
   "profiles.my_profile.empty.no_pronouns": "代名詞が設定されていません",

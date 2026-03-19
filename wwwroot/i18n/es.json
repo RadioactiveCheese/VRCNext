@@ -589,6 +589,8 @@
   "profiles.my_profile.sections.bio": "Bio",
   "profiles.my_profile.sections.links": "Enlaces",
   "profiles.my_profile.sections.languages": "Idiomas",
+  "profiles.my_profile.sections.badges": "Insignias",
+  "profiles.my_profile.empty.no_badges": "Sin insignias",
   "profiles.my_profile.empty.no_languages": "No se han establecido idiomas",
   "profiles.my_profile.empty.no_links": "No se han añadido enlaces",
   "profiles.my_profile.empty.no_pronouns": "No se han establecido pronombres",

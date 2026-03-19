@@ -589,6 +589,8 @@
   "profiles.my_profile.sections.bio": "简介",
   "profiles.my_profile.sections.links": "链接",
   "profiles.my_profile.sections.languages": "语言",
+  "profiles.my_profile.sections.badges": "徽章",
+  "profiles.my_profile.empty.no_badges": "没有徽章",
   "profiles.my_profile.empty.no_languages": "未设置语言",
   "profiles.my_profile.empty.no_links": "未添加链接",
   "profiles.my_profile.empty.no_pronouns": "未设置代词",

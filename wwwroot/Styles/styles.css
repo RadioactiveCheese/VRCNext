@@ -3207,6 +3207,44 @@ html.cursor-custom * { cursor: var(--cursor-url, auto) !important; }
     opacity: 1;
 }
 
+/* My Profile badge toggle */
+.myp-badges-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    padding: 2px 0;
+}
+
+.myp-badge-item {
+    display: inline-flex;
+    border-radius: 6px;
+    padding: 3px;
+    transition: opacity .15s, filter .15s;
+}
+
+.myp-badge-item .fd-vrc-badge-icon {
+    width: 28px;
+    height: 28px;
+    object-fit: contain;
+}
+
+.myp-badge-item.myp-badge-hidden .fd-vrc-badge-icon {
+    opacity: 0.25;
+    filter: grayscale(1);
+}
+
+.myp-badge-item.myp-badge-editing {
+    cursor: pointer;
+    border: 1px solid transparent;
+    border-radius: 6px;
+    padding: 2px;
+}
+
+.myp-badge-item.myp-badge-editing:hover {
+    border-color: var(--accent);
+    background: var(--accent-a10, rgba(255,255,255,.06));
+}
+
 .fd-vrc-badge-tooltip-global {
     position: fixed;
     display: none;

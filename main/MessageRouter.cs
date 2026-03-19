@@ -339,6 +339,25 @@ public partial class AppShell
                     });
                     break;
 
+                // Toggle badge visibility
+                case "vrcUpdateBadge":
+                    var badgeId = msg["badgeId"]?.ToString() ?? "";
+                    var badgeShowcased = msg["showcased"]?.Value<bool>() ?? false;
+                    if (!string.IsNullOrEmpty(badgeId))
+                    {
+                        _ = Task.Run(async () =>
+                        {
+                            var ok = await _vrcApi.UpdateBadgeAsync(badgeId, badgeShowcased);
+                            Invoke(() =>
+                            {
+                                SendToJS("vrcBadgeUpdated", new { badgeId, showcased = badgeShowcased, success = ok });
+                                if (ok) SendToJS("log", new { msg = $"Badge {(badgeShowcased ? "shown" : "hidden")}", color = "ok" });
+                                else SendToJS("log", new { msg = "Badge update failed", color = "err" });
+                            });
+                        });
+                    }
+                    break;
+
                 // Multi-Invite delegated to FriendsController
                 case "vrcBatchInvite":
                     await _friends.HandleMessage(action, msg);

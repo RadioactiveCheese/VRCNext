@@ -118,6 +118,23 @@ window.external.receiveMessage(rawMsg => {
                 if (bc && bl) { bl.textContent = 'V ' + payload.balance.toLocaleString(); bc.style.display = ''; }
                 break;
             }
+            case 'vrcMyBadges':
+                if (currentVrcUser && payload.badges) {
+                    currentVrcUser.badges = payload.badges;
+                    const myp = document.getElementById('modalMyProfile');
+                    if (myp && myp.style.display !== 'none') renderMyProfileContent();
+                }
+                break;
+            case 'vrcBadgeUpdated':
+                if (currentVrcUser?.badges && payload.badgeId) {
+                    const b = currentVrcUser.badges.find(x => x.id === payload.badgeId);
+                    if (b && payload.success) {
+                        b.showcased = payload.showcased;
+                        const wrap = document.querySelector(`.myp-badge-item[data-badge-id="${payload.badgeId}"]`);
+                        if (wrap) wrap.classList.toggle('myp-badge-hidden', !payload.showcased);
+                    }
+                }
+                break;
             case 'vrcFriends':
                 vrcFriendsLoaded = true;
                 if (payload.friends) {

@@ -1128,6 +1128,20 @@ public class VRChatApiService
         return new JArray();
     }
 
+    public async Task<bool> UpdateBadgeAsync(string badgeId, bool showcased)
+    {
+        if (!IsLoggedIn || CurrentUserId == null || string.IsNullOrEmpty(badgeId)) return false;
+        try
+        {
+            var payload = new JObject { ["showcased"] = showcased };
+            var content = new StringContent(payload.ToString(), Encoding.UTF8, "application/json");
+            var resp = await _http.PutAsync($"{BASE}/users/{CurrentUserId}/badges/{Uri.EscapeDataString(badgeId)}", content);
+            Log($"UpdateBadge({badgeId}, showcased={showcased}): {(int)resp.StatusCode}");
+            return resp.IsSuccessStatusCode;
+        }
+        catch (Exception ex) { Log($"UpdateBadge exception: {ex.Message}"); return false; }
+    }
+
     public async Task<JArray> GetMyWorldsAsync()
     {
         if (!IsLoggedIn) return new JArray();

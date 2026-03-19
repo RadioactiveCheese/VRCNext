@@ -589,6 +589,8 @@
   "profiles.my_profile.sections.bio": "Bio",
   "profiles.my_profile.sections.links": "Links",
   "profiles.my_profile.sections.languages": "Languages",
+  "profiles.my_profile.sections.badges": "Badges",
+  "profiles.my_profile.empty.no_badges": "No badges",
   "profiles.my_profile.empty.no_languages": "No languages set",
   "profiles.my_profile.empty.no_links": "No links added",
   "profiles.my_profile.empty.no_pronouns": "No pronouns set",

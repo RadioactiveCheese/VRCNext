@@ -44,6 +44,47 @@ public class VROverlayController : IDisposable
                     _core.SendToJS("log", new { msg = ok ? "Self-invite sent — check VRChat notifications!" : "Failed to send self-invite.", color = ok ? "ok" : "err" });
                 });
                 _vrOverlay.OnToastSound += () => Invoke(() => _core.SendToJS("vroPlayToastSound", new { }));
+                _vrOverlay.OnNotifAccept += (notifId, notifType, senderId, notifData) => Invoke(async () =>
+                {
+                    bool ok = false;
+                    string resultMsg = "";
+                    if (notifType == "friendRequest")
+                    {
+                        ok = await _core.VrcApi.AcceptNotificationAsync(notifId);
+                        resultMsg = ok ? "Friend request accepted!" : "Failed to accept.";
+                    }
+                    else if (notifType == "invite")
+                    {
+                        // World invite: self-invite to the location
+                        if (!string.IsNullOrEmpty(notifData) && notifData.Contains(":"))
+                        {
+                            ok = await _core.VrcApi.InviteSelfAsync(notifData);
+                            if (ok) await _core.VrcApi.AcceptNotificationAsync(notifId);
+                            resultMsg = ok ? "Joining world..." : "Failed to join.";
+                        }
+                        else
+                        {
+                            ok = await _core.VrcApi.AcceptNotificationAsync(notifId);
+                            resultMsg = ok ? "Invite accepted!" : "Failed.";
+                        }
+                    }
+                    else if (notifType == "group.invite")
+                    {
+                        if (!string.IsNullOrEmpty(notifData))
+                        {
+                            ok = await _core.VrcApi.JoinGroupAsync(notifData);
+                            if (ok) await _core.VrcApi.HideNotificationAsync(notifId, false);
+                            resultMsg = ok ? "Group joined!" : "Failed to join group.";
+                        }
+                        else
+                        {
+                            ok = await _core.VrcApi.AcceptNotificationAsync(notifId);
+                            resultMsg = ok ? "Accepted!" : "Failed.";
+                        }
+                    }
+                    _core.SendToJS("log", new { msg = resultMsg, color = ok ? "ok" : "err" });
+                    _core.SendToJS("vrcActionResult", new { action = "acceptNotif", success = ok, message = resultMsg });
+                });
 
                 // JS sends the resolved theme colors inline with the connect
                 // message so we can seed the overlay immediately — no round-trip.
@@ -71,7 +112,9 @@ public class VROverlayController : IDisposable
                     _core.Settings.VroToastSize, _core.Settings.VroToastOffsetX, _core.Settings.VroToastOffsetY,
                     _core.Settings.VroToastOnline, _core.Settings.VroToastOffline,
                     _core.Settings.VroToastGps, _core.Settings.VroToastStatus,
-                    _core.Settings.VroToastStatusDesc, _core.Settings.VroToastBio);
+                    _core.Settings.VroToastStatusDesc, _core.Settings.VroToastBio,
+                    _core.Settings.VroToastDuration, _core.Settings.VroToastStack,
+                    _core.Settings.VroToastFriendReq, _core.Settings.VroToastInvite, _core.Settings.VroToastGroupInv);
 
                 bool ok = _vrOverlay.Connect();
                 _core.VrOverlay = _vrOverlay;
@@ -194,6 +237,11 @@ public class VROverlayController : IDisposable
                 bool status     = msg["status"]?.Value<bool>()     ?? true;
                 bool statusDesc = msg["statusDesc"]?.Value<bool>() ?? true;
                 bool bio        = msg["bio"]?.Value<bool>()        ?? true;
+                int  duration   = msg["duration"]?.Value<int>()    ?? 8;
+                int  stack      = msg["stack"]?.Value<int>()       ?? 2;
+                bool friendReq  = msg["friendReq"]?.Value<bool>()  ?? true;
+                bool invite     = msg["invite"]?.Value<bool>()     ?? true;
+                bool groupInv   = msg["groupInv"]?.Value<bool>()   ?? true;
 
                 _core.Settings.VroToastEnabled    = enabled;
                 _core.Settings.VroToastFavOnly    = favOnly;
@@ -206,11 +254,17 @@ public class VROverlayController : IDisposable
                 _core.Settings.VroToastStatus     = status;
                 _core.Settings.VroToastStatusDesc = statusDesc;
                 _core.Settings.VroToastBio        = bio;
+                _core.Settings.VroToastDuration   = Math.Clamp(duration, 2, 10);
+                _core.Settings.VroToastStack      = Math.Clamp(stack, 1, 4);
+                _core.Settings.VroToastFriendReq  = friendReq;
+                _core.Settings.VroToastInvite     = invite;
+                _core.Settings.VroToastGroupInv   = groupInv;
                 _core.Settings.Save();
 
                 _vrOverlay?.ApplyToastConfig(enabled, favOnly, size, offX, offY,
                     online, offline,
-                    gps, status, statusDesc, bio);
+                    gps, status, statusDesc, bio, duration, stack,
+                    friendReq, invite, groupInv);
                 break;
             }
         }

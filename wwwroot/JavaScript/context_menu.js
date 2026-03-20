@@ -121,6 +121,17 @@
             submenu.innerHTML = `<div class="vn-ctx-loading">
                 <span class="msi">hourglass_empty</span><span>${esc(cm('loading_groups', 'Loading groups...'))}</span>
             </div>`;
+            positionSubmenu(parentBtn);
+            sendToCS({ action: 'vrcGetFavoriteWorlds' });
+            let attempts = 0;
+            const retry = setInterval(() => {
+                const g = (typeof favWorldGroups !== 'undefined') ? favWorldGroups : [];
+                if (g.length > 0 || ++attempts > 15) {
+                    clearInterval(retry);
+                    if (g.length > 0 && submenu.style.display !== 'none') showFavGroupSubmenu(worldId, parentBtn);
+                }
+            }, 300);
+            return;
         } else {
             submenu.innerHTML = groups.map(g => {
                 const count = (typeof favWorldsData !== 'undefined')
@@ -150,6 +161,41 @@
             });
         }
 
+        positionSubmenu(parentBtn);
+    }
+
+    function showMoveToGroupSubmenu(worldId, favEntry, parentBtn) {
+        const groups = (typeof favWorldGroups !== 'undefined') ? favWorldGroups : [];
+        submenu.innerHTML = groups.map(g => {
+            const isCurrent = g.name === favEntry.favoriteGroup;
+            const count = (typeof favWorldsData !== 'undefined')
+                ? favWorldsData.filter(fw => fw.favoriteGroup === g.name).length
+                : 0;
+            const iconEl = isCurrent
+                ? `<span class="msi" style="font-size:14px;color:var(--accent);">check_circle</span>`
+                : `<span class="msi" style="font-size:14px;">drive_file_move</span>`;
+            return `<button class="vn-ctx-item${isCurrent ? ' ci-group-selected' : ''}"
+                data-move-name="${esc(g.name)}" data-move-type="${esc(g.type)}" data-wid="${esc(worldId)}" data-old-fvrt="${esc(favEntry.favoriteId)}" data-is-current="${isCurrent}">
+                ${iconEl}
+                <span class="vn-ctx-label">${esc(g.displayName || g.name)}</span>
+                <span class="vn-ctx-count">${count}</span>
+            </button>`;
+        }).join('');
+        submenu.querySelectorAll('[data-move-name]').forEach(btn => {
+            btn.addEventListener('click', e => {
+                e.stopPropagation();
+                if (btn.dataset.isCurrent === 'true') { hideMenu(); return; }
+                sendToCS({
+                    action: 'vrcAddWorldFavorite',
+                    worldId: btn.dataset.wid,
+                    groupName: btn.dataset.moveName,
+                    groupType: btn.dataset.moveType,
+                    oldFvrtId: btn.dataset.oldFvrt
+                });
+                hideMenu();
+            });
+            btn.addEventListener('mouseenter', () => clearTimeout(submenuTimer));
+        });
         positionSubmenu(parentBtn);
     }
 
@@ -270,13 +316,13 @@
 
         const worldCard = el.closest('#favWorldsGrid .s-card, #worldSearchArea .s-card, #worldMineGrid .s-card, #fdContentWorlds .s-card');
         if (worldCard) {
-            const id = extractId(worldCard, /openWorldSearchDetail\('([^']+)'\)/);
+            const id = extractId(worldCard, /openWorldSearchDetail\('([^']+)'\)/) || worldCard.dataset.wid;
             if (id) return buildWorldItems(id);
         }
 
         const avatarCard = el.closest('.av-card');
         if (avatarCard) {
-            const id = (avatarCard.getAttribute('onclick') || '').match(/selectAvatar\('([^']+)'\)/)?.[1];
+            const id = (avatarCard.getAttribute('onclick') || '').match(/selectAvatar\('([^']+)'\)/)?.[1] || avatarCard.dataset.avid;
             if (id) return buildAvatarItems(id);
         }
 
@@ -397,14 +443,126 @@
         positionSubmenu(parentBtn);
     }
 
+    function showAvFavGroupSubmenu(avatarId, parentBtn) {
+        const groups = (typeof favAvatarGroups !== 'undefined') ? favAvatarGroups : [];
+        if (groups.length === 0) {
+            submenu.innerHTML = `<div class="vn-ctx-loading"><span class="msi">hourglass_empty</span><span>${esc(cm('loading_groups', 'Loading groups...'))}</span></div>`;
+            positionSubmenu(parentBtn);
+            sendToCS({ action: 'vrcGetAvatars', filter: 'favorites' });
+            let attempts = 0;
+            const retry = setInterval(() => {
+                const g = (typeof favAvatarGroups !== 'undefined') ? favAvatarGroups : [];
+                if (g.length > 0 || ++attempts > 15) {
+                    clearInterval(retry);
+                    if (g.length > 0 && submenu.style.display !== 'none') showAvFavGroupSubmenu(avatarId, parentBtn);
+                }
+            }, 300);
+            return;
+        } else {
+            submenu.innerHTML = groups.map(g => {
+                const count = (typeof favAvatarsData !== 'undefined') ? favAvatarsData.filter(a => a.favoriteGroup === g.name).length : 0;
+                const isVrcPlus = g.name !== 'avatars1';
+                return `<button class="vn-ctx-item" data-av-fav-name="${esc(g.name)}" data-av-fav-type="${esc(g.type)}" data-avid="${esc(avatarId)}">
+                    <span class="msi" style="font-size:14px;">bookmark_border</span>
+                    <span class="vn-ctx-label">${esc(g.displayName || g.name)}</span>
+                    ${isVrcPlus ? '<span class="vrcn-badge vrcplus" style="font-size:10px;padding:1px 4px;">VRC+</span>' : ''}
+                    <span class="vn-ctx-count">${count}</span>
+                </button>`;
+            }).join('');
+            submenu.querySelectorAll('[data-av-fav-name]').forEach(btn => {
+                btn.addEventListener('click', e => {
+                    e.stopPropagation();
+                    sendToCS({ action: 'vrcAddAvatarFavorite', avatarId: btn.dataset.avid, groupName: btn.dataset.avFavName, groupType: btn.dataset.avFavType, oldFvrtId: '' });
+                    hideMenu();
+                });
+                btn.addEventListener('mouseenter', () => clearTimeout(submenuTimer));
+            });
+        }
+        positionSubmenu(parentBtn);
+    }
+
+    function showAvMoveToGroupSubmenu(avatarId, favEntry, parentBtn) {
+        const groups = (typeof favAvatarGroups !== 'undefined') ? favAvatarGroups : [];
+        submenu.innerHTML = groups.map(g => {
+            const isCurrent = g.name === favEntry.favoriteGroup;
+            const count = (typeof favAvatarsData !== 'undefined') ? favAvatarsData.filter(a => a.favoriteGroup === g.name).length : 0;
+            const iconEl = isCurrent
+                ? `<span class="msi" style="font-size:14px;color:var(--accent);">check_circle</span>`
+                : `<span class="msi" style="font-size:14px;">drive_file_move</span>`;
+            const isVrcPlus = g.name !== 'avatars1';
+            return `<button class="vn-ctx-item${isCurrent ? ' ci-group-selected' : ''}"
+                data-av-move-name="${esc(g.name)}" data-av-move-type="${esc(g.type)}" data-avid="${esc(avatarId)}" data-old-fvrt="${esc(favEntry.favoriteId)}" data-is-current="${isCurrent}">
+                ${iconEl}
+                <span class="vn-ctx-label">${esc(g.displayName || g.name)}</span>
+                ${isVrcPlus ? '<span class="vrcn-badge vrcplus" style="font-size:10px;padding:1px 4px;">VRC+</span>' : ''}
+                <span class="vn-ctx-count">${count}</span>
+            </button>`;
+        }).join('');
+        submenu.querySelectorAll('[data-av-move-name]').forEach(btn => {
+            btn.addEventListener('click', e => {
+                e.stopPropagation();
+                if (btn.dataset.isCurrent === 'true') { hideMenu(); return; }
+                sendToCS({ action: 'vrcAddAvatarFavorite', avatarId: btn.dataset.avid, groupName: btn.dataset.avMoveName, groupType: btn.dataset.avMoveType, oldFvrtId: btn.dataset.oldFvrt });
+                hideMenu();
+            });
+            btn.addEventListener('mouseenter', () => clearTimeout(submenuTimer));
+        });
+        positionSubmenu(parentBtn);
+    }
+
+    function showAvEditModeGroupSubmenu(parentBtn) {
+        const groups = (typeof favAvatarGroups !== 'undefined') ? favAvatarGroups : [];
+        submenu.innerHTML = groups.map(g => {
+            const count = (typeof favAvatarsData !== 'undefined') ? favAvatarsData.filter(a => a.favoriteGroup === g.name).length : 0;
+            const isVrcPlus = g.name !== 'avatars1';
+            return `<button class="vn-ctx-item" data-av-edit-move-name="${esc(g.name)}" data-av-edit-move-type="${esc(g.type)}">
+                <span class="msi" style="font-size:14px;">folder</span>
+                <span class="vn-ctx-label">${esc(g.displayName || g.name)}</span>
+                ${isVrcPlus ? '<span class="vrcn-badge vrcplus" style="font-size:10px;padding:1px 4px;">VRC+</span>' : ''}
+                <span class="vn-ctx-count">${count}</span>
+            </button>`;
+        }).join('');
+        submenu.querySelectorAll('[data-av-edit-move-name]').forEach(btn => {
+            btn.addEventListener('click', e => {
+                e.stopPropagation();
+                avEditMoveSelected(btn.dataset.avEditMoveName, btn.dataset.avEditMoveType);
+                hideMenu();
+            });
+            btn.addEventListener('mouseenter', () => clearTimeout(submenuTimer));
+        });
+        positionSubmenu(parentBtn);
+    }
+
     function buildAvatarItems(id) {
-        return [
+        // Edit mode: auto-select right-clicked avatar and show only batch-action items
+        if (typeof _avEditMode !== 'undefined' && _avEditMode) {
+            if (!_avEditSelected.has(id)) {
+                _avEditSelected.add(id);
+                if (typeof filterFavAvatars === 'function') filterFavAvatars();
+                else if (typeof updateAvEditBar === 'function') updateAvEditBar();
+            }
+            return [
+                { icon: 'drive_file_move', label: cm('avatar.move_to_category', 'Move to Category'), submenuFn: btn => showAvEditModeGroupSubmenu(btn) },
+                { icon: 'star_border', label: cm('avatar.remove_favorites', 'Remove from Favorites'), action: () => avEditRemoveSelected(), danger: true, confirm: true },
+            ];
+        }
+
+        const favEntry = (typeof favAvatarsData !== 'undefined') && favAvatarsData.find(a => a.id === id);
+        const items = [
             { icon: 'info', label: cm('avatar.show', 'Show Avatar'), action: () => openAvatarDetail(id) },
             { icon: 'share', label: cm('avatar.share', 'Share Avatar'), action: () => copyWithToast('https://vrchat.com/home/avatar/' + id, 'avatar.share_copied', 'Avatar link copied to clipboard') },
             { icon: 'checkroom', label: cm('avatar.use', 'Use Avatar'), action: () => sendToCS({ action: 'vrcSelectAvatar', avatarId: id }) },
             'sep',
             { icon: 'style', label: cm('avatar.similar', 'Similar Avatars'), action: () => { showTab(4); setAvatarFilter('search'); setTimeout(() => { const inp = document.getElementById('avatarSearchInput'); if (inp) { inp.value = 'similar: ' + id; doAvatarSearch(); } }, 100); } },
+            'sep',
         ];
+        if (favEntry) {
+            items.push({ icon: 'star_border', label: cm('avatar.remove_favorites', 'Remove from Favorites'), action: () => removeAvatarFavorite(id, favEntry.favoriteId) });
+            items.push({ icon: 'drive_file_move', label: cm('avatar.move_to_category', 'Move to Category'), submenuFn: btn => showAvMoveToGroupSubmenu(id, favEntry, btn) });
+        } else {
+            items.push({ icon: 'star', label: cm('avatar.add_favorites', 'Add to Favorites'), submenuFn: btn => showAvFavGroupSubmenu(id, btn) });
+        }
+        return items;
     }
 
     function buildMyInstanceItems(loc) {
@@ -426,13 +584,56 @@
         items.push('sep');
         if (favEntry) {
             items.push({ icon: 'star_border', label: cm('world.remove_favorites', 'Remove from Favorites'), action: () => removeWorldFavorite(worldId, favEntry.favoriteId) });
+            const otherGroups = (typeof favWorldGroups !== 'undefined') ? favWorldGroups.filter(g => g.name !== favEntry.favoriteGroup) : [];
+            if (otherGroups.length > 0) {
+                items.push({ icon: 'drive_file_move', label: cm('world.move_to_category', 'Move to Category'), submenuFn: btn => showMoveToGroupSubmenu(worldId, favEntry, btn) });
+            }
         } else {
             items.push({ icon: 'star', label: cm('world.add_favorites', 'Add to Favorites'), submenuFn: btn => showFavGroupSubmenu(worldId, btn) });
         }
         return items;
     }
 
+    function showEditModeGroupSubmenu(parentBtn) {
+        const groups = (typeof favWorldGroups !== 'undefined') ? favWorldGroups : [];
+        submenu.innerHTML = groups.map(g => {
+            const count = (typeof favWorldsData !== 'undefined')
+                ? favWorldsData.filter(fw => fw.favoriteGroup === g.name).length
+                : 0;
+            const isVrcPlus = g.type === 'vrcPlusWorld';
+            return `<button class="vn-ctx-item"
+                data-edit-move-name="${esc(g.name)}" data-edit-move-type="${esc(g.type)}">
+                <span class="msi" style="font-size:14px;">folder</span>
+                <span class="vn-ctx-label">${esc(g.displayName || g.name)}</span>
+                ${isVrcPlus ? '<span class="vrcn-badge vrcplus" style="font-size:10px;padding:1px 4px;">VRC+</span>' : ''}
+                <span class="vn-ctx-count">${count}</span>
+            </button>`;
+        }).join('');
+        submenu.querySelectorAll('[data-edit-move-name]').forEach(btn => {
+            btn.addEventListener('click', e => {
+                e.stopPropagation();
+                worldEditMoveSelected(btn.dataset.editMoveName, btn.dataset.editMoveType);
+                hideMenu();
+            });
+            btn.addEventListener('mouseenter', () => clearTimeout(submenuTimer));
+        });
+        positionSubmenu(parentBtn);
+    }
+
     function buildWorldItems(id) {
+        // Edit mode: auto-select right-clicked world and show only batch-action items
+        if (typeof _worldEditMode !== 'undefined' && _worldEditMode) {
+            if (!_worldEditSelected.has(id)) {
+                _worldEditSelected.add(id);
+                if (typeof filterFavWorlds === 'function') filterFavWorlds();
+                else if (typeof updateWorldEditBar === 'function') updateWorldEditBar();
+            }
+            return [
+                { icon: 'drive_file_move', label: cm('world.move_to_category', 'Move to Category'), submenuFn: btn => showEditModeGroupSubmenu(btn) },
+                { icon: 'star_border', label: cm('world.remove_favorites', 'Remove from Favorites'), action: () => worldEditRemoveSelected(), danger: true, confirm: true },
+            ];
+        }
+
         const favEntry = (typeof favWorldsData !== 'undefined') && favWorldsData.find(fw => fw.id === id);
         const items = [
             { icon: 'open_in_new', label: cm('world.open_details', 'Open Details'), action: () => openWorldSearchDetail(id) },
@@ -442,6 +643,10 @@
         ];
         if (favEntry) {
             items.push({ icon: 'star_border', label: cm('world.remove_favorites', 'Remove from Favorites'), action: () => removeWorldFavorite(id, favEntry.favoriteId) });
+            const otherGroups = (typeof favWorldGroups !== 'undefined') ? favWorldGroups.filter(g => g.name !== favEntry.favoriteGroup) : [];
+            if (otherGroups.length > 0) {
+                items.push({ icon: 'drive_file_move', label: cm('world.move_to_category', 'Move to Category'), submenuFn: btn => showMoveToGroupSubmenu(id, favEntry, btn) });
+            }
         } else {
             items.push({ icon: 'star', label: cm('world.add_favorites', 'Add to Favorites'), submenuFn: btn => showFavGroupSubmenu(id, btn) });
         }

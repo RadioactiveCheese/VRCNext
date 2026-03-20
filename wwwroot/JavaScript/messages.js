@@ -556,6 +556,31 @@ case 'popularWorlds':
                 renderNotifications(notifications);
                 showNotificationToasts([payload]);
                 break;
+            case 'vrcNotifImageUpdate':
+                // Async image/name update for a notification (resolved after initial send)
+                if (payload.notifId && notifications) {
+                    const ni = notifications.findIndex(x => x.id === payload.notifId);
+                    if (ni !== -1) {
+                        if (payload.image) notifications[ni]._image = payload.image;
+                        if (payload.senderUsername) notifications[ni].senderUsername = payload.senderUsername;
+                        renderNotifications(notifications);
+                    }
+                    // Update visible toast card if still showing
+                    const toastCard = document.querySelector(`.nc-card[data-notif-id="${payload.notifId}"]`);
+                    if (toastCard && payload.image) {
+                        const oldIcon = toastCard.querySelector('.nc-icon');
+                        if (oldIcon) {
+                            const icon = oldIcon.textContent;
+                            const color = oldIcon.style.color;
+                            const av = document.createElement('div');
+                            av.className = 'nc-avatar';
+                            av.style.backgroundImage = `url('${cssUrl(payload.image)}')`;
+                            av.innerHTML = `<span class="msi nc-avatar-badge" style="color:${color};">${icon}</span>`;
+                            oldIcon.replaceWith(av);
+                        }
+                    }
+                }
+                break;
             case 'vrcLaunchNeeded':
                 showLaunchModal(payload.location, payload.steamVr);
                 break;

@@ -77,12 +77,20 @@ function _showNotifCard(n) {
         subText = n.message || '';
     }
 
+    // Resolve avatar image
+    const nImg = (typeof _resolveNotifImage === 'function') ? _resolveNotifImage(n) : (n._image || '');
+    const hasImg = nImg && nImg.length > 5;
+    const avatarHtml = hasImg
+        ? `<div class="nc-avatar" style="background-image:url('${cssUrl(nImg)}')"><span class="msi nc-avatar-badge" style="color:${accentColor};">${icon}</span></div>`
+        : `<span class="msi nc-icon" style="color:${accentColor};">${icon}</span>`;
+
     const nid = esc(n.id);
     const card = document.createElement('div');
     card.className = 'nc-card';
+    card.dataset.notifId = n.id;
     card.innerHTML = `
         <div class="nc-inner">
-            <span class="msi nc-icon" style="color:${accentColor};">${icon}</span>
+            ${avatarHtml}
             <div class="nc-body">
                 <div class="nc-title">${titleHtml}</div>
                 ${subText ? `<div class="nc-sub">${esc(subText)}</div>` : ''}

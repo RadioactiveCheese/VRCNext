@@ -33,7 +33,19 @@ public class VRChatLogWatcher : IDisposable
     public event Action<string, string>? PlayerJoined;
     public event Action<string, string>? PlayerLeft;
 
+    public DateTime? WorldJoinedAt { get; private set; }
+
     private void Log(string msg) => DebugLog?.Invoke(msg);
+
+    private static DateTime ParseLogTimestamp(string line)
+    {
+        if (line.Length >= 19 && DateTime.TryParseExact(
+            line.Substring(0, 19), "yyyy.MM.dd HH:mm:ss",
+            System.Globalization.CultureInfo.InvariantCulture,
+            System.Globalization.DateTimeStyles.None, out var dt))
+            return dt;
+        return DateTime.Now;
+    }
 
     // [Behaviour] prefix required to avoid false matches from world scripts
     private static readonly Regex RxPlayerJoined = new(
@@ -180,6 +192,7 @@ public class VRChatLogWatcher : IDisposable
                 _currentLocation = m.Groups[1].Value;
                 var colon = _currentLocation.IndexOf(':');
                 _currentWorldId = colon >= 0 ? _currentLocation.Substring(0, colon) : _currentLocation;
+                WorldJoinedAt = ParseLogTimestamp(line);
                 lock (_lock) _players.Clear();
                 _totalRoomEvents++;
                 if (!catchUp)
@@ -212,7 +225,7 @@ public class VRChatLogWatcher : IDisposable
                 var key = !string.IsNullOrEmpty(uid) ? uid : name;
                 lock (_lock)
                 {
-                    _players[key] = new PlayerInfo { DisplayName = name, UserId = uid, JoinedAt = DateTime.Now };
+                    _players[key] = new PlayerInfo { DisplayName = name, UserId = uid, JoinedAt = ParseLogTimestamp(line) };
                 }
                 _totalJoinEvents++;
                 if (!catchUp)

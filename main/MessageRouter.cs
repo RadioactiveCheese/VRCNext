@@ -570,7 +570,7 @@ public partial class AppShell
                             capacity = w["capacity"]?.Value<int>() ?? 0, favorites = w["favorites"]?.Value<int>() ?? 0,
                             visits = w["visits"]?.Value<int>() ?? 0, description = w["description"]?.ToString() ?? "",
                             tags = w["tags"]?.ToObject<List<string>>() ?? new(),
-                            worldTimeSeconds = _worldTimeTracker.GetWorldStats(w["id"]?.ToString() ?? "").totalSeconds,
+                            worldTimeSeconds = _timeEngine.GetWorldStats(w["id"]?.ToString() ?? "").totalSeconds,
                         }).ToList();
                         Invoke(() => SendToJS("vrcSearchResults", new { type = "worlds", results = list, offset = wOff, hasMore = list.Count >= 20 }));
                     });
@@ -677,7 +677,7 @@ public partial class AppShell
                                 return new { instanceId = r.instanceId, users = r.users, type = r.type, region = r.region, location = r.location, ownerName, ownerGroup, ownerId = r.ownerId };
                             }).ToList<object>();
                             var tags = world["tags"]?.ToObject<List<string>>() ?? new();
-                            var (wTimeSeconds, wVisitCount, wLastVisited) = _worldTimeTracker.GetWorldStats(world["id"]?.ToString() ?? "");
+                            var (wTimeSeconds, wVisitCount, wLastVisited) = _timeEngine.GetWorldStats(world["id"]?.ToString() ?? "");
                             Invoke(() => SendToJS("vrcWorldDetail", new
                             {
                                 id = world["id"]?.ToString() ?? "",

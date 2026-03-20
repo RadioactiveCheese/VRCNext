@@ -735,41 +735,11 @@ public class FriendsController
                 });
             }
 
-            // Time tracking
+            // Friend tracking: update LastSeen/LastSeenLocation (no time accumulation — handled by UnifiedTimeEngine sessions)
             try
             {
-                var myLoc = (_core.IsVrcRunning?.Invoke() ?? false) ? _core.LogWatcher.CurrentLocation : null;
-                _core.TimeTracker.SetMyLocation(myLoc ?? "");
-                var trackData = onlineList.Select(f => (userId: f.id, location: f.location, presence: f.presence)).ToList();
-
-                if (!string.IsNullOrEmpty(myLoc) && myLoc != "offline" && myLoc != "private" && myLoc != "traveling")
-                {
-                    var logPlayers = _core.LogWatcher.GetCurrentPlayers();
-                    var logPlayerIds = new HashSet<string>(
-                        logPlayers.Where(p => !string.IsNullOrEmpty(p.UserId)).Select(p => p.UserId));
-                    for (int i = 0; i < trackData.Count; i++)
-                    {
-                        var t = trackData[i];
-                        if (t.location == "private" && logPlayerIds.Contains(t.userId))
-                            trackData[i] = (t.userId, myLoc, t.presence);
-                    }
-                    var trackedIds = new HashSet<string>(trackData.Select(t => t.userId));
-                    foreach (var p in logPlayers)
-                    {
-                        if (!string.IsNullOrEmpty(p.UserId) && !trackedIds.Contains(p.UserId))
-                            trackData.Add((userId: p.UserId, location: myLoc, presence: "game"));
-                    }
-                }
-
-                _core.TimeTracker.Tick(trackData);
-                _core.TimeTracker.Save();
-
-                var (myWorldId, _, _) = VRChatApiService.ParseLocation(myLoc);
-                if (!string.IsNullOrEmpty(myWorldId) && myWorldId.StartsWith("wrld_"))
-                {
-                    _core.WorldTimeTracker.Tick();
-                    _core.WorldTimeTracker.Save();
-                }
+                var trackData = onlineList.Select(f => (userId: f.id, location: f.location, presence: f.presence));
+                _core.TimeEngine.UpdateFriendTracking(trackData);
             }
             catch { }
         }
@@ -1130,7 +1100,7 @@ public class FriendsController
 
         var isCoPresent = (_core.IsVrcRunning?.Invoke() ?? false)
             && _core.LogWatcher.GetCurrentPlayers().Any(p => p.UserId == userId);
-        var (totalSeconds, lastSeenLocal) = _core.TimeTracker.GetUserStats(userId, isCoPresent);
+        var (totalSeconds, lastSeenLocal) = _core.TimeEngine.GetUserStats(userId, isCoPresent);
 
         return new
         {

@@ -2296,6 +2296,7 @@ html.cursor-custom * { cursor: var(--cursor-url, auto) !important; }
 .vrcn-badge.warn { background: color-mix(in srgb, var(--warn) 18%, transparent); color: var(--warn); }
 .vrcn-badge.err  { background: rgba(239,83,80,.15);   color: var(--err); }
 .vrcn-badge.cyan { background: color-mix(in srgb, var(--cyan) 18%, transparent); color: var(--cyan); }
+.vrcn-badge.vrcplus { background: #FFD70022; color: #FFD700; border: 1px solid #FFD70055; box-shadow: 0 0 6px #FFD70066; letter-spacing: .4px; }
 
 /* OSC types */
 .vrcn-badge.osc-bool  { background: rgba(78,173,229,0.15);   color: #4EADE5; }
@@ -3078,6 +3079,47 @@ html.cursor-custom * { cursor: var(--cursor-url, auto) !important; }
     font-weight: 600;
 }
 
+.fav-group-header {
+    grid-column: 1 / -1;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    border-bottom: 1px solid var(--border);
+    padding: 14px 2px 8px;
+    margin-bottom: 4px !important;
+}
+
+.fav-group-header-first { padding-top: 2px; }
+
+.fav-group-count {
+    margin-left: auto;
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--tx3);
+}
+
+.wd-edit-sel-border {
+    position: absolute;
+    inset: 0;
+    border: 3px solid var(--accent);
+    border-radius: inherit;
+    pointer-events: none;
+    z-index: 5;
+}
+
+.wd-edit-check {
+    position: absolute;
+    top: 6px;
+    left: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    pointer-events: none;
+}
+
+
 .s-card-icon {
     position: absolute;
     bottom: 8px;
@@ -3705,7 +3747,6 @@ html.cursor-custom * { cursor: var(--cursor-url, auto) !important; }
     background: var(--bg-input);
     cursor: pointer;
     transition: background .15s;
-    margin-bottom: 4px;
 }
 .fav-friend-card:hover { background: var(--bg-hover); }
 .fav-friend-av {
@@ -3722,8 +3763,10 @@ html.cursor-custom * { cursor: var(--cursor-url, auto) !important; }
     font-weight: 700;
     color: var(--tx2);
 }
-.fav-friend-info { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
-.fav-friend-status { display: flex; align-items: center; gap: 5px; font-size: 11px; color: var(--tx3); }
+.fav-friend-info { display: flex; flex-direction: column; gap: 3px; min-width: 0; overflow: hidden; }
+.fav-friend-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fav-friend-status { display: flex; align-items: center; gap: 5px; font-size: 11px; color: var(--tx3); overflow: hidden; }
+.fav-friend-status-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
 
 .vrcn-notify-button {
     display: inline-flex;
@@ -3894,6 +3937,30 @@ html.cursor-custom * { cursor: var(--cursor-url, auto) !important; }
     flex-shrink: 0;
     margin-top: 2px;
 }
+.notif-avatar {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    background-size: cover;
+    background-position: center;
+    flex-shrink: 0;
+    position: relative;
+}
+.notif-avatar-badge {
+    position: absolute;
+    bottom: -3px;
+    right: -3px;
+    font-size: 12px;
+    background: var(--bg-card);
+    border-radius: 50%;
+    width: 18px;
+    height: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--accent);
+    box-shadow: 0 0 0 1px var(--border);
+}
 
 
 .notif-msg {
@@ -3981,6 +4048,29 @@ html.cursor-custom * { cursor: var(--cursor-url, auto) !important; }
     font-size: 20px;
     flex-shrink: 0;
     margin-top: 1px;
+}
+.nc-avatar {
+    width: 36px;
+    height: 36px;
+    border-radius: 8px;
+    background-size: cover;
+    background-position: center;
+    flex-shrink: 0;
+    position: relative;
+}
+.nc-avatar-badge {
+    position: absolute;
+    bottom: -3px;
+    right: -3px;
+    font-size: 11px;
+    background: var(--bg-card);
+    border-radius: 50%;
+    width: 18px;
+    height: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 0 0 1px var(--brd-lt);
 }
 .nc-body {
     flex: 1;

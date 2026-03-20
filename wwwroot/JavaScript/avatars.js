@@ -1,5 +1,7 @@
 /* === Avatars Tab === */
 let _avFavRefreshTimer = null;
+let _avEditMode = false;
+let _avEditSelected = new Set();
 function avatarEmptyMessage(key, fallback) {
     return `<div class="empty-msg">${t(key, fallback)}</div>`;
 }
@@ -89,6 +91,7 @@ function refreshFavAvatars() {
 }
 
 function setAvatarFilter(filter) {
+    if (_avEditMode) exitAvEditMode();
     avatarFilter = filter;
     document.querySelectorAll('.sub-tab-btn').forEach(b => b.classList.remove('active'));
     const btnMap = { own: 'avatarFilterOwn', favorites: 'avatarFilterFav', rose: 'avatarFilterRose', search: 'avatarFilterSearch' };
@@ -107,6 +110,8 @@ function setAvatarFilter(filter) {
 
     document.getElementById('avatarCount').textContent = '';
 
+    const editBtn = document.getElementById('avatarEditModeBtn');
+    if (editBtn) editBtn.style.display = filter === 'favorites' ? '' : 'none';
     if (filter === 'own') {
         const inp = document.getElementById('ownAvatarSearchInput');
         if (inp) inp.value = '';
@@ -236,14 +241,9 @@ function renderAvatarCard(a, context) {
             <div class="av-badges-top">${activeBadge}</div>
             <div class="av-badges-bottom">${statusBadge}${_avPlatformBadges(a)}</div>
         </div>
-        <div class="av-info" style="display:flex;align-items:center;gap:6px;">
-            <div style="flex:1;min-width:0;">
-                <div class="av-name">${esc(a.name || t('avatars.labels.unnamed', 'Unnamed'))}</div>
-                <div class="av-author">${esc(a.authorName || '')}</div>
-            </div>
-            <button class="vrcn-button-round${isFav ? ' active' : ''}" onclick="event.stopPropagation();openAvFavPicker('${aid}',this)" style="flex-shrink:0;margin-left:auto;">
-                <span class="msi" style="font-size:14px;">${isFav ? 'star' : 'star_outline'}</span>${avatarFavoriteActionLabel(isFav)}
-            </button>
+        <div class="av-info">
+            <div class="av-name">${esc(a.name || t('avatars.labels.unnamed', 'Unnamed'))}</div>
+            <div class="av-author">${esc(a.authorName || '')}</div>
         </div>
     </div>`;
 }
@@ -357,6 +357,49 @@ function saveAvatarGroupName() {
     sendToCS({ action: 'vrcUpdateFavoriteGroup', groupType: g.type, groupName: g.name, displayName: newName });
 }
 
+function _renderFavAvCard(a) {
+    const thumb = a.thumbnailImageUrl || a.imageUrl || '';
+    const thumbStyle = thumb ? `background-image:url('${cssUrl(thumb)}')` : '';
+    const isActive = a.id === currentAvatarId;
+    const aid = jsq(a.id || '');
+    const activeBadge = avatarCurrentBadge(isActive);
+    const isPublic = a.releaseStatus === 'public';
+    const statusBadge = avatarStatusBadge(isPublic);
+    if (_avEditMode) {
+        const isSelected = _avEditSelected.has(a.id);
+        const checkIcon = isSelected
+            ? `<span class="msi" style="font-size:20px;color:var(--accent);">check_circle</span>`
+            : `<span class="msi" style="font-size:20px;color:rgba(255,255,255,0.7);">radio_button_unchecked</span>`;
+        return `<div class="av-card${isActive ? ' av-active' : ''}" data-avid="${esc(a.id)}" onclick="toggleAvEditSelect('${aid}',this)" style="cursor:pointer;user-select:none;position:relative;">
+            <div class="av-thumb" style="${thumbStyle}">
+                <div class="av-thumb-overlay"></div>
+                <div class="av-badges-top">${activeBadge}</div>
+                <div class="av-badges-bottom">${statusBadge}${_avPlatformBadges(a)}</div>
+                <div class="wd-edit-check">${checkIcon}</div>
+            </div>
+            <div class="av-info">
+                <div style="flex:1;min-width:0;">
+                    <div class="av-name">${esc(a.name || t('avatars.labels.unnamed', 'Unnamed'))}</div>
+                    <div class="av-author">${esc(a.authorName || '')}</div>
+                </div>
+            </div>
+            ${isSelected ? '<div class="wd-edit-sel-border"></div>' : ''}
+        </div>`;
+    }
+    const fid = jsq(a.favoriteId || '');
+    return `<div class="av-card${isActive ? ' av-active' : ''}" onclick="selectAvatar('${aid}')">
+        <div class="av-thumb" style="${thumbStyle}">
+            <div class="av-thumb-overlay"></div>
+            <div class="av-badges-top">${activeBadge}</div>
+            <div class="av-badges-bottom">${statusBadge}${_avPlatformBadges(a)}</div>
+        </div>
+        <div class="av-info">
+            <div class="av-name">${esc(a.name || t('avatars.labels.unnamed', 'Unnamed'))}</div>
+            <div class="av-author">${esc(a.authorName || '')}</div>
+        </div>
+    </div>`;
+}
+
 function filterFavAvatars() {
     const q = (document.getElementById('favAvatarSearchInput')?.value || '').toLowerCase();
     let filtered = favAvatarsData;
@@ -369,34 +412,157 @@ function filterFavAvatars() {
             q || favAvatarGroupFilter ? 'avatars.favorites.no_match' : 'avatars.favorites.empty',
             q || favAvatarGroupFilter ? 'No favorites match your filter' : 'No favorite avatars found'
         );
+        if (_avEditMode) updateAvEditBar();
         return;
     }
-    el.innerHTML = filtered.map(a => {
-        const thumb = a.thumbnailImageUrl || a.imageUrl || '';
-        const thumbStyle = thumb ? `background-image:url('${cssUrl(thumb)}')` : '';
-        const isActive = a.id === currentAvatarId;
-        const aid = jsq(a.id || '');
-        const fid = jsq(a.favoriteId || '');
-        const activeBadge = avatarCurrentBadge(isActive);
-        const isPublic = a.releaseStatus === 'public';
-        const statusBadge = avatarStatusBadge(isPublic);
-        return `<div class="av-card ${isActive ? 'av-active' : ''}" onclick="selectAvatar('${aid}')">
-            <div class="av-thumb" style="${thumbStyle}">
-                <div class="av-thumb-overlay"></div>
-                <div class="av-badges-top">${activeBadge}</div>
-                <div class="av-badges-bottom">${statusBadge}${_avPlatformBadges(a)}</div>
-            </div>
-            <div class="av-info" style="display:flex;align-items:center;gap:6px;">
-                <div style="flex:1;min-width:0;">
-                    <div class="av-name">${esc(a.name || t('avatars.labels.unnamed', 'Unnamed'))}</div>
-                    <div class="av-author">${esc(a.authorName || '')}</div>
-                </div>
-                <button class="vrcn-button-round active" onclick="event.stopPropagation();removeAvatarFavorite('${aid}','${fid}')" style="flex-shrink:0;margin-left:auto;">
-                    <span class="msi" style="font-size:14px;">star</span>${t('avatars.actions.unfavorite', 'Unfavorite')}
-                </button>
-            </div>
+    if (!favAvatarGroupFilter && favAvatarGroups.length > 1) {
+        let html = '';
+        let first = true;
+        favAvatarGroups.forEach(g => {
+            const groupAvatars = filtered.filter(a => a.favoriteGroup === g.name);
+            if (!groupAvatars.length) return;
+            const cap = g.capacity || 25;
+            const isVrcPlus = g.name !== 'avatars1';
+            const vrcBadge = isVrcPlus ? `<span class="vrcn-badge vrcplus">VRC+</span>` : '';
+            html += `<div class="fav-group-header${first ? ' fav-group-header-first' : ''}">
+                <span class="topbar-title">${esc(g.displayName || g.name)}</span>
+                ${vrcBadge}
+                <span class="fav-group-count">${groupAvatars.length}/${cap}</span>
+            </div>`;
+            html += groupAvatars.map(a => _renderFavAvCard(a)).join('');
+            first = false;
+        });
+        el.innerHTML = html;
+    } else {
+        el.innerHTML = filtered.map(a => _renderFavAvCard(a)).join('');
+    }
+    if (_avEditMode) updateAvEditBar();
+}
+
+/* === Avatar Edit Mode === */
+function toggleAvEditMode() {
+    if (_avEditMode) { exitAvEditMode(); return; }
+    _avEditMode = true;
+    _avEditSelected = new Set();
+    const btn = document.getElementById('avatarEditModeBtn');
+    if (btn) { btn.innerHTML = `<span class="msi" style="font-size:16px;">check</span> <span>${t('avatars.edit.done', 'Done')}</span>`; btn.classList.add('active'); }
+    const filterBtns = document.getElementById('avatarFilterBtns');
+    if (filterBtns) filterBtns.style.display = 'none';
+    const bar = document.getElementById('avatarEditBar');
+    if (bar) bar.style.display = 'flex';
+    filterFavAvatars();
+}
+
+function exitAvEditMode() {
+    _avEditMode = false;
+    _avEditSelected = new Set();
+    const btn = document.getElementById('avatarEditModeBtn');
+    if (btn) { btn.innerHTML = `<span class="msi" style="font-size:16px;">edit</span> <span>${t('avatars.edit.button', 'Edit')}</span>`; btn.classList.remove('active'); }
+    const filterBtns = document.getElementById('avatarFilterBtns');
+    if (filterBtns) filterBtns.style.display = '';
+    const bar = document.getElementById('avatarEditBar');
+    if (bar) bar.style.display = 'none';
+    const picker = document.getElementById('avatarEditMovePicker');
+    if (picker) { picker.style.display = 'none'; picker.innerHTML = ''; }
+    filterFavAvatars();
+}
+
+function toggleAvEditSelect(id, el) {
+    if (_avEditSelected.has(id)) {
+        _avEditSelected.delete(id);
+        const chk = el?.querySelector('.wd-edit-check .msi');
+        if (chk) { chk.textContent = 'radio_button_unchecked'; chk.style.color = 'rgba(255,255,255,0.7)'; }
+        el?.querySelector('.wd-edit-sel-border')?.remove();
+    } else {
+        _avEditSelected.add(id);
+        const chk = el?.querySelector('.wd-edit-check .msi');
+        if (chk) { chk.textContent = 'check_circle'; chk.style.color = 'var(--accent)'; }
+        if (el && !el.querySelector('.wd-edit-sel-border')) {
+            el.insertAdjacentHTML('beforeend', '<div class="wd-edit-sel-border"></div>');
+        }
+    }
+    updateAvEditBar();
+}
+
+function avEditSelectAll() {
+    const q = (document.getElementById('favAvatarSearchInput')?.value || '').toLowerCase();
+    let filtered = favAvatarsData;
+    if (favAvatarGroupFilter) filtered = filtered.filter(a => a.favoriteGroup === favAvatarGroupFilter);
+    if (q) filtered = filtered.filter(a => (a.name || '').toLowerCase().includes(q) || (a.authorName || '').toLowerCase().includes(q));
+    const allSelected = filtered.length > 0 && filtered.every(a => _avEditSelected.has(a.id));
+    if (allSelected) filtered.forEach(a => _avEditSelected.delete(a.id));
+    else filtered.forEach(a => _avEditSelected.add(a.id));
+    filterFavAvatars();
+}
+
+function updateAvEditBar() {
+    const count = _avEditSelected.size;
+    const countEl = document.getElementById('avatarEditCount');
+    if (countEl) countEl.textContent = tf('avatars.edit.selected', { count }, '{count} selected');
+    const selectAllBtn = document.getElementById('avatarEditSelectAllBtn');
+    if (selectAllBtn) {
+        const q = (document.getElementById('favAvatarSearchInput')?.value || '').toLowerCase();
+        let filtered = favAvatarsData;
+        if (favAvatarGroupFilter) filtered = filtered.filter(a => a.favoriteGroup === favAvatarGroupFilter);
+        if (q) filtered = filtered.filter(a => (a.name || '').toLowerCase().includes(q) || (a.authorName || '').toLowerCase().includes(q));
+        const allSel = filtered.length > 0 && filtered.every(a => _avEditSelected.has(a.id));
+        selectAllBtn.textContent = allSel ? t('avatars.edit.deselect_all', 'Deselect All') : t('avatars.edit.select_all', 'Select All');
+    }
+    document.querySelectorAll('.av-edit-action').forEach(b => b.disabled = count === 0);
+}
+
+function avEditShowMoveMenu(btn) {
+    if (_avEditSelected.size === 0) return;
+    const picker = document.getElementById('avatarEditMovePicker');
+    if (!picker) return;
+    if (picker.style.display === 'block') { picker.style.display = 'none'; picker.innerHTML = ''; return; }
+    const groups = (typeof favAvatarGroups !== 'undefined') ? favAvatarGroups : [];
+    picker.innerHTML = groups.map(g => {
+        const count = favAvatarsData.filter(fw => fw.favoriteGroup === g.name).length;
+        const isVrcPlus = g.name !== 'avatars1';
+        const gn = jsq(g.name), gt = jsq(g.type);
+        return `<div class="vn-select-option" onclick="avEditMoveSelected('${gn}','${gt}')">
+            <span class="msi" style="font-size:14px;flex-shrink:0;">folder</span>
+            <span style="flex:1;">${esc(g.displayName || g.name)}</span>
+            ${isVrcPlus ? '<span class="vrcn-badge vrcplus">VRC+</span>' : ''}
+            <span style="font-size:10px;color:var(--tx3);flex-shrink:0;">${count}</span>
         </div>`;
     }).join('');
+    picker.style.display = 'block';
+    setTimeout(() => {
+        const close = (e) => {
+            if (!picker.contains(e.target) && e.target !== btn) {
+                picker.style.display = 'none';
+                picker.innerHTML = '';
+                document.removeEventListener('click', close);
+            }
+        };
+        document.addEventListener('click', close);
+    }, 0);
+}
+
+function avEditMoveSelected(groupName, groupType) {
+    if (_avEditSelected.size === 0) return;
+    const picker = document.getElementById('avatarEditMovePicker');
+    if (picker) { picker.style.display = 'none'; picker.innerHTML = ''; }
+    const toMove = [..._avEditSelected];
+    toMove.forEach(avatarId => {
+        const entry = favAvatarsData.find(a => a.id === avatarId);
+        if (entry && entry.favoriteGroup !== groupName) {
+            sendToCS({ action: 'vrcAddAvatarFavorite', avatarId, groupName, groupType, oldFvrtId: entry.favoriteId || '' });
+        }
+    });
+    exitAvEditMode();
+}
+
+function avEditRemoveSelected() {
+    if (_avEditSelected.size === 0) return;
+    const toRemove = [..._avEditSelected];
+    toRemove.forEach(avatarId => {
+        const entry = favAvatarsData.find(a => a.id === avatarId);
+        if (entry) sendToCS({ action: 'vrcRemoveAvatarFavorite', avatarId, fvrtId: entry.favoriteId });
+    });
+    exitAvEditMode();
 }
 
 /* === Favorite Picker Popup === */
@@ -462,7 +628,7 @@ function renderAvFavPickerList(avatarId) {
         const isVrcPlus = g.name !== 'avatars1';
         const isCurrent = g.name === currentGroup;
         const vrcBadge = isVrcPlus
-            ? `<span style="font-size:8px;font-weight:700;color:#FFD700;background:#FFD70022;border:1px solid #FFD70055;border-radius:3px;padding:1px 5px;box-shadow:0 0 5px #FFD70066;letter-spacing:.3px;flex-shrink:0;">VRC+</span>`
+            ? `<span class="vrcn-badge vrcplus">VRC+</span>`
             : '';
         const check = isCurrent
             ? `<span class="msi" style="color:var(--accent);font-size:18px;flex-shrink:0;">check_circle</span>`
@@ -519,6 +685,13 @@ function onAvatarFavoriteResult(data) {
                 releaseStatus:     src.releaseStatus     || 'public',
             });
         }
+        const group = favAvatarGroups.find(g => g.name === data.groupName);
+        const groupLabel = group?.displayName || data.groupName;
+        const entry = favAvatarsData.find(f => f.id === data.avatarId);
+        const avatarName = entry?.name || '';
+        showToast(true, avatarName
+            ? tf('avatars.favorites.toast.saved_to_group.named', { avatar: avatarName, group: groupLabel }, '"{avatar}" saved to {group}')
+            : tf('avatars.favorites.toast.saved_to_group.unnamed', { group: groupLabel }, 'Saved to {group}'));
         closeAvFavPicker();
         // Re-render star on current card
         if (avatarFilter === 'own') renderAvatarGrid();
@@ -537,6 +710,11 @@ function onAvatarFavoriteResult(data) {
 
 function onAvatarUnfavoriteResult(data) {
     if (data.ok) {
+        const removed = favAvatarsData.find(f => f.id === data.avatarId);
+        const avatarName = removed?.name || '';
+        showToast(true, avatarName
+            ? tf('avatars.favorites.toast.removed.named', { avatar: avatarName }, '"{avatar}" removed from favorites')
+            : t('avatars.favorites.toast.removed', 'Removed from favorites'));
         favAvatarsData = favAvatarsData.filter(f => f.id !== data.avatarId);
         if (avatarFilter === 'favorites') filterFavAvatars();
         else if (avatarFilter === 'own') renderAvatarGrid();
@@ -669,9 +847,6 @@ function renderRoseAvatarCard(a) {
                     ${tags ? `<span style="display:inline-flex;gap:3px;flex-wrap:wrap;">${tags}</span>` : ''}
                 </div>
             </div>
-            <button class="vrcn-button-round${isFav ? ' active' : ''}" onclick="event.stopPropagation();openAvFavPicker('${aid}',this)" style="flex-shrink:0;margin-left:auto;">
-                <span class="msi" style="font-size:14px;">${isFav ? 'star' : 'star_outline'}</span>${avatarFavoriteActionLabel(isFav)}
-            </button>
         </div>
     </div>`;
 }

@@ -130,10 +130,10 @@ function getStatusText(status, description) {
 
 function getFriendStatusLine(friend) {
     if (!friend) {
-        return `<span class="vrc-status-dot s-offline" style="width:6px;height:6px;flex-shrink:0;"></span>${t('status.offline', 'Offline')}`;
+        return `<span class="vrc-status-dot s-offline" style="width:6px;height:6px;flex-shrink:0;"></span><span class="fav-friend-status-text">${t('status.offline', 'Offline')}</span>`;
     }
     const dotCls = friend.presence === 'web' ? 'vrc-status-ring' : 'vrc-status-dot';
-    return `<span class="${dotCls} ${statusDotClass(friend.status)}" style="width:6px;height:6px;flex-shrink:0;"></span>${getStatusText(friend.status, friend.statusDescription)}`;
+    return `<span class="${dotCls} ${statusDotClass(friend.status)}" style="width:6px;height:6px;flex-shrink:0;"></span><span class="fav-friend-status-text">${getStatusText(friend.status, friend.statusDescription)}</span>`;
 }
 
 function getGroupMemberText(memberCount, fallbackToGroup = true) {
@@ -760,7 +760,7 @@ function renderFdUserAvatars(payload) {
 
 // Trust rank from tags (offset by 1 in API naming)
 function getTrustRank(tags) {
-    if (!tags || !tags.length) return null;
+    if (!tags || !Array.isArray(tags)) return null;
     // Order matters: check highest first
     if (tags.includes('system_trust_legend')) return { label: t('profiles.trust.trusted', 'Trusted User'), color: '#8143E6' };
     if (tags.includes('system_trust_veteran')) return { label: t('profiles.trust.trusted', 'Trusted User'), color: '#8143E6' };
@@ -1164,10 +1164,12 @@ function handleFavFriendToggled(payload) {
 function setPeopleFilter(filter) {
     peopleFilter = filter;
     document.getElementById('peopleFilterFav').classList.toggle('active', filter === 'favorites');
+    document.getElementById('peopleFilterAll').classList.toggle('active', filter === 'all');
     document.getElementById('peopleFilterSearch').classList.toggle('active', filter === 'search');
     document.getElementById('peopleFilterBlocked').classList.toggle('active', filter === 'blocked');
     document.getElementById('peopleFilterMuted').classList.toggle('active', filter === 'muted');
     document.getElementById('peopleFavArea').style.display     = filter === 'favorites' ? '' : 'none';
+    document.getElementById('peopleAllArea').style.display     = filter === 'all'       ? '' : 'none';
     document.getElementById('peopleSearchArea').style.display  = filter === 'search'    ? '' : 'none';
     document.getElementById('peopleBlockedArea').style.display = filter === 'blocked'   ? '' : 'none';
     document.getElementById('peopleMutedArea').style.display   = filter === 'muted'     ? '' : 'none';
@@ -1176,8 +1178,35 @@ function setPeopleFilter(filter) {
 
 function refreshPeopleTab() {
     if (peopleFilter === 'favorites') sendToCS({ action: 'vrcGetFavoriteFriends' });
+    if (peopleFilter === 'all')       filterAllFriends();
     if (peopleFilter === 'blocked')   sendToCS({ action: 'vrcGetBlocked' });
     if (peopleFilter === 'muted')     sendToCS({ action: 'vrcGetMuted' });
+}
+
+function filterAllFriends() {
+    const el = document.getElementById('allFriendsGrid');
+    if (!el) return;
+    const q = (document.getElementById('allFriendSearchInput')?.value || '').toLowerCase();
+    let friends = q
+        ? vrcFriendsData.filter(f => (f.displayName || '').toLowerCase().includes(q))
+        : [...vrcFriendsData];
+    friends.sort((a, b) => (a.displayName || '').localeCompare(b.displayName || ''));
+    if (!friends.length) {
+        el.innerHTML = `<div class="empty-msg">${q ? t('profiles.people.no_results', 'No results') : t('profiles.people.no_friends', 'No friends yet')}</div>`;
+        return;
+    }
+    el.innerHTML = friends.map(f => {
+        const img = f.image ? `<div class="fav-friend-av" style="background-image:url('${cssUrl(f.image)}')"></div>`
+                            : `<div class="fav-friend-av fav-friend-av-letter">${esc((f.displayName || '?')[0].toUpperCase())}</div>`;
+        const uid = jsq(f.id);
+        return `<div class="fav-friend-card" onclick="openFriendDetail('${uid}')">
+            ${img}
+            <div class="fav-friend-info">
+                <div class="fav-friend-name">${esc(f.displayName)}</div>
+                <div class="fav-friend-status">${getFriendStatusLine(f)}</div>
+            </div>
+        </div>`;
+    }).join('');
 }
 
 function filterModList(type) {

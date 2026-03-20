@@ -1,6 +1,7 @@
 using Microsoft.Data.Sqlite;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
+using System.Diagnostics;
 using System.Security.Cryptography;
 
 namespace VRCNext.Services;
@@ -328,6 +329,11 @@ public class AppSettings
     public bool       VroToastStatus       { get; set; } = true;
     public bool       VroToastStatusDesc   { get; set; } = true;
     public bool       VroToastBio          { get; set; } = true;
+    public int        VroToastDuration     { get; set; } = 8;   // seconds, 2–10
+    public int        VroToastStack        { get; set; } = 2;   // 1–4, max simultaneous toasts
+    public bool       VroToastFriendReq    { get; set; } = true;
+    public bool       VroToastInvite       { get; set; } = true;
+    public bool       VroToastGroupInv     { get; set; } = true;
 
     // Avtrdb Support — report deleted avatars to help clean the database
     public bool AvtrdbReportDeleted { get; set; } = true;
@@ -502,9 +508,33 @@ public class VoiceFightSettings
     }
 }
 
-// tracks time spent with users (same instance) and last-seen timestamps. persisted in SQLite.
-public class UserTimeTracker : IDisposable
+// Unified Time Engine — single source of truth for World Time, Instance Time, and Time Spent Together.
+// All three timer outputs are driven by timestamp-delta calculation from this one engine.
+// DB tables (user_tracking, world_tracking, active_session) remain fully compatible.
+//
+// ARCHITECTURE:
+//   TotalSeconds in DB = accumulated from COMPLETED sessions only (player left, world changed, VRC closed).
+//   Active session time is NEVER added to TotalSeconds until the session ends.
+//   Display value = TotalSeconds + (now - session_start_utc) for active sessions.
+//   active_session DB row stores per-player session_start_utc as JSON.
+//   On crash recovery: resume sessions with ORIGINAL timestamps → 0 seconds lost.
+//
+// SOURCE OF TRUTH for "VRChat is running":
+//   _isVrcRunning callback checks for VRChat.exe process (not logs).
+//   PRIMARY: Process.Exited event fires within milliseconds of VRC closing.
+//   FALLBACK: WatchdogTick every 2s polls process state (covers edge cases).
+//   End timestamp uses midpoint between last-confirmed-alive and detection → ~1s avg error.
+//   No log-based detection, no delayed cleanup, no blind counting.
+//
+// DISPOSE BEHAVIOR:
+//   If VRChat is still running when VRCNext shuts down → active_session is PRESERVED (not cleared).
+//   RestoreActiveSession resumes with original timestamps on next VRCNext launch.
+//   If VRChat is NOT running → sessions finalize, active_session cleared.
+//
+public class UnifiedTimeEngine : IDisposable
 {
+    // ── Record types (unchanged DB schema) ──
+
     public class UserRecord
     {
         public long TotalSeconds { get; set; }
@@ -514,118 +544,229 @@ public class UserTimeTracker : IDisposable
         public string Image { get; set; } = "";
     }
 
-    // In-memory cache, same access pattern as before
-    public Dictionary<string, UserRecord> Users { get; } = new();
-    public DateTime LastTick => _lastTick;
+    public class WorldRecord
+    {
+        public long TotalSeconds { get; set; }
+        public string LastVisited { get; set; } = "";
+        public int VisitCount { get; set; }
+        public string WorldName  { get; set; } = "";
+        public string WorldThumb { get; set; } = "";
+    }
 
+    // ── Public state (in-memory caches, same access pattern) ──
+
+    public Dictionary<string, UserRecord> Users { get; } = new();
+    public Dictionary<string, WorldRecord> Worlds { get; } = new();
+
+    // ── Active session state (timestamp-based) ──
+    // Per-player session start times. Key = userId, value = UTC timestamp when session began.
+    // These timestamps are persisted to active_session as JSON. They are NEVER reset during a session.
+    // TotalSeconds is only updated when a session ENDS (player leave, world change, VRC close, dispose).
+    private readonly Dictionary<string, DateTime> _playerSessions = new();
+
+    // World session start — set once per world join, never reset until session ends.
+    private DateTime? _worldSessionStart;
+    private string _currentWorldId = "";
+    private string _currentLocation = "";
+
+    // ── Infrastructure ──
     private readonly SqliteConnection _db;
     private readonly object _lock = new();
-    private System.Threading.Timer? _autoFlushTimer;
+    private System.Threading.Timer? _watchdogTimer;  // 5s fallback process check
     private Func<bool>? _isVrcRunning;
     private bool _disposed;
-    private string _myCurrentLocation = "";
-    private DateTime _lastTick = DateTime.UtcNow;
-    private HashSet<string> _lastCoPresentIds = new();
+    private bool _vrcWasRunning; // tracks previous VRC state for edge detection
+    private Process? _monitoredVrcProcess; // Process.Exited event → near-instant VRC close detection
+    private DateTime _lastVrcAliveUtc; // last time we confirmed VRC was running → precise end timestamp
 
-    private static readonly string LegacyFilePath = Path.Combine(
+    private static readonly string UserLegacyPath = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
         "VRCNext", "user_tracking.json");
+    private static readonly string WorldLegacyPath = Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+        "VRCNext", "world_tracking.json");
 
-    private UserTimeTracker(SqliteConnection db) { _db = db; }
+    private UnifiedTimeEngine(SqliteConnection db) { _db = db; }
 
-    public static UserTimeTracker Load(Func<bool>? isVrcRunning = null)
+    // ── Factory ──
+
+    public static UnifiedTimeEngine Load(Func<bool>? isVrcRunning = null)
     {
         var conn = Database.OpenConnection();
-        var tracker = new UserTimeTracker(conn);
-        tracker._isVrcRunning = isVrcRunning;
-        tracker.InitSchema();
-        tracker.MigrateFromJson();
-        tracker.LoadFromDb();
-        tracker._autoFlushTimer = new System.Threading.Timer(
-            tracker.AutoFlushTick, null,
-            TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1));
-        return tracker;
+        var engine = new UnifiedTimeEngine(conn);
+        engine._isVrcRunning = isVrcRunning;
+        engine.InitSchema();
+        engine.MigrateUsersFromJson();
+        engine.MigrateWorldsFromJson();
+        engine.LoadUsersFromDb();
+        engine.LoadWorldsFromDb();
+        // Watchdog timer: every 2 seconds, checks VRChat.exe process state.
+        // Primary detection is Process.Exited event (near-instant).
+        // Watchdog is the fallback in case the event is missed or process handle becomes stale.
+        engine._watchdogTimer = new System.Threading.Timer(
+            engine.WatchdogTick, null,
+            TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(2));
+        return engine;
     }
 
-    private void InitSchema()
+    // ══════════════════════════════════════════════════════════════════
+    //  CORE EVENT METHODS — called from LogWatcher event handlers
+    // ══════════════════════════════════════════════════════════════════
+
+    /// <summary>User joined a new world/instance. Ends all prior sessions, starts fresh world session.</summary>
+    public void OnWorldJoined(string worldId, string location)
     {
-        using var cmd = _db.CreateCommand();
-        cmd.CommandText = @"CREATE TABLE IF NOT EXISTS user_tracking (
-            user_id            TEXT    PRIMARY KEY,
-            total_seconds      INTEGER NOT NULL DEFAULT 0,
-            last_seen          TEXT    NOT NULL DEFAULT '',
-            last_seen_location TEXT    NOT NULL DEFAULT '',
-            display_name       TEXT    NOT NULL DEFAULT '',
-            image              TEXT    NOT NULL DEFAULT ''
-        )";
-        cmd.ExecuteNonQuery();
-
-        using var idx = _db.CreateCommand();
-        idx.CommandText = "CREATE INDEX IF NOT EXISTS idx_ut_lastseen ON user_tracking(last_seen DESC)";
-        try { idx.ExecuteNonQuery(); } catch { }
-
-        foreach (var col in new[] { "display_name TEXT NOT NULL DEFAULT ''", "image TEXT NOT NULL DEFAULT ''" })
+        lock (_lock)
         {
-            try
+            if (_disposed) return;
+            var now = DateTime.UtcNow;
+
+            // End all active player sessions from previous instance (finalizes their TotalSeconds)
+            EndAllPlayerSessionsLocked(now);
+            // End previous world session
+            EndWorldSessionLocked(now);
+
+            _currentWorldId = worldId ?? "";
+            _currentLocation = location ?? "";
+
+            // Start new world session
+            if (!string.IsNullOrEmpty(_currentWorldId) && _currentWorldId.StartsWith("wrld_"))
             {
-                using var ac = _db.CreateCommand();
-                ac.CommandText = $"ALTER TABLE user_tracking ADD COLUMN {col}";
-                ac.ExecuteNonQuery();
+                _worldSessionStart = now;
+                if (!Worlds.TryGetValue(_currentWorldId, out var rec))
+                {
+                    rec = new WorldRecord();
+                    Worlds[_currentWorldId] = rec;
+                }
+                rec.VisitCount++;
+                rec.LastVisited = now.ToString("o");
+                UpsertWorldLocked(_currentWorldId, rec);
             }
-            catch { }
+
+            PersistActiveSessionLocked();
         }
     }
 
-    private void MigrateFromJson()
+    /// <summary>Resume world tracking after VRCNext restart. Session start set by RestoreActiveSession.</summary>
+    public void OnWorldResumed(string worldId, string location)
     {
-        if (!File.Exists(LegacyFilePath)) return;
-        try
+        lock (_lock)
         {
-            var json = File.ReadAllText(LegacyFilePath);
-            var legacy = JsonConvert.DeserializeObject<UserTimeTracker_Legacy>(json);
-            if (legacy?.Users == null) { File.Delete(LegacyFilePath); return; }
-
-            using var tx = _db.BeginTransaction();
-            using var cmd = _db.CreateCommand();
-            cmd.Transaction = tx;
-            cmd.CommandText = @"INSERT OR IGNORE INTO user_tracking
-                (user_id,total_seconds,last_seen,last_seen_location)
-                VALUES($uid,$ts,$ls,$lsl)";
-            var pUid = cmd.Parameters.Add("$uid", SqliteType.Text);
-            var pTs  = cmd.Parameters.Add("$ts",  SqliteType.Integer);
-            var pLs  = cmd.Parameters.Add("$ls",  SqliteType.Text);
-            var pLsl = cmd.Parameters.Add("$lsl", SqliteType.Text);
-            foreach (var (userId, rec) in legacy.Users)
-            {
-                pUid.Value = userId;
-                pTs.Value  = rec.TotalSeconds;
-                pLs.Value  = rec.LastSeen ?? "";
-                pLsl.Value = rec.LastSeenLocation ?? "";
-                cmd.ExecuteNonQuery();
-            }
-            tx.Commit();
-            File.Delete(LegacyFilePath);
+            _currentWorldId = worldId ?? "";
+            _currentLocation = location ?? "";
+            // World session start will be set by RestoreActiveSession with the persisted timestamp.
+            // If RestoreActiveSession is not called, start from now as fallback.
+            if (!_worldSessionStart.HasValue)
+                _worldSessionStart = DateTime.UtcNow;
+            PersistActiveSessionLocked();
         }
-        catch { }
     }
 
-    private void LoadFromDb()
+    /// <summary>A player joined the current instance. Starts their time session using the LogWatcher timestamp.</summary>
+    public void OnPlayerJoined(string userId, DateTime joinedAtUtc)
     {
-        using var cmd = _db.CreateCommand();
-        cmd.CommandText = "SELECT user_id,total_seconds,last_seen,last_seen_location,display_name,image FROM user_tracking";
-        using var r = cmd.ExecuteReader();
-        while (r.Read())
-            Users[r.GetString(0)] = new UserRecord
-            {
-                TotalSeconds     = r.GetInt64(1),
-                LastSeen         = r.GetString(2),
-                LastSeenLocation = r.GetString(3),
-                DisplayName      = r.GetString(4),
-                Image            = r.GetString(5),
-            };
+        lock (_lock)
+        {
+            if (_disposed || string.IsNullOrEmpty(userId)) return;
+            // Use the log timestamp as session start — this is the SAME timestamp used by Instance Info,
+            // ensuring zero drift between Instance Info and Time Spent Together for new players.
+            _playerSessions[userId] = joinedAtUtc;
+            // Ensure user record exists
+            if (!Users.TryGetValue(userId, out _))
+                Users[userId] = new UserRecord();
+            PersistActiveSessionLocked();
+        }
     }
 
-    // stores display name and image so non-friend users still appear in the Time Spent list
+    /// <summary>A player left the current instance. Ends their session, adds delta to TotalSeconds.</summary>
+    public void OnPlayerLeft(string userId)
+    {
+        lock (_lock)
+        {
+            if (_disposed || string.IsNullOrEmpty(userId)) return;
+            if (!_playerSessions.TryGetValue(userId, out var sessionStart)) return;
+
+            var now = DateTime.UtcNow;
+            var delta = (long)(now - sessionStart).TotalSeconds;
+            if (delta > 0 && delta <= 86400) // cap at 24h sanity check
+            {
+                if (Users.TryGetValue(userId, out var rec))
+                {
+                    rec.TotalSeconds += delta;
+                    rec.LastSeen = now.ToString("o");
+                    if (!string.IsNullOrEmpty(_currentLocation))
+                        rec.LastSeenLocation = _currentLocation;
+                }
+            }
+            _playerSessions.Remove(userId);
+            PersistUserLocked(userId, now);
+            PersistActiveSessionLocked();
+        }
+    }
+
+
+    // ══════════════════════════════════════════════════════════════════
+    //  QUERY METHODS — used by UI to get current time values
+    //  All three displays (World Time, Instance Time, Time Spent Together)
+    //  derive from the same session_start timestamps.
+    // ══════════════════════════════════════════════════════════════════
+
+    /// <summary>
+    /// Get total time spent with a user.
+    /// = TotalSeconds (completed sessions) + live session delta (if active).
+    /// The live delta uses the SAME session_start as Instance Info → guaranteed consistency.
+    /// </summary>
+    public (long totalSeconds, string lastSeen) GetUserStats(string userId, bool isCoPresent = false)
+    {
+        lock (_lock)
+        {
+            if (!Users.TryGetValue(userId, out var rec))
+                return (0, "");
+
+            var total = rec.TotalSeconds;
+
+            // Add live session time. Double-check VRC is actually running via process check.
+            if (isCoPresent && _isVrcRunning?.Invoke() == true
+                && _playerSessions.TryGetValue(userId, out var sessionStart))
+            {
+                var live = (long)(DateTime.UtcNow - sessionStart).TotalSeconds;
+                if (live > 0 && live <= 86400)
+                    total += live;
+            }
+
+            return (total, rec.LastSeen);
+        }
+    }
+
+    /// <summary>
+    /// Get total time spent in a world.
+    /// = TotalSeconds (completed sessions) + live session delta (if this is the current world).
+    /// </summary>
+    public (long totalSeconds, int visitCount, string lastVisited) GetWorldStats(string worldId)
+    {
+        lock (_lock)
+        {
+            if (!Worlds.TryGetValue(worldId, out var rec))
+                return (0, 0, "");
+
+            var total = rec.TotalSeconds;
+
+            if (worldId == _currentWorldId && _worldSessionStart.HasValue
+                && _isVrcRunning?.Invoke() == true)
+            {
+                var live = (long)(DateTime.UtcNow - _worldSessionStart.Value).TotalSeconds;
+                if (live > 0 && live <= 86400)
+                    total += live;
+            }
+
+            return (total, rec.VisitCount, rec.LastVisited);
+        }
+    }
+
+    // ══════════════════════════════════════════════════════════════════
+    //  USER INFO & FRIEND TRACKING (non-time-counting operations)
+    // ══════════════════════════════════════════════════════════════════
+
     public void UpdateUserInfo(string userId, string displayName, string image)
     {
         lock (_lock)
@@ -657,53 +798,31 @@ public class UserTimeTracker : IDisposable
         }
     }
 
-    public void SetMyLocation(string location) => _myCurrentLocation = location ?? "";
-
-    // called every poll tick. updates in-memory cache and persists changed records.
-    public void Tick(IEnumerable<(string userId, string location, string presence)> onlineFriends)
+    /// <summary>Updates LastSeen/LastSeenLocation for online friends. No time accumulation.</summary>
+    public void UpdateFriendTracking(IEnumerable<(string userId, string location, string presence)> onlineFriends)
     {
         lock (_lock)
         {
             if (_disposed) return;
             var now = DateTime.UtcNow;
-            var elapsed = (long)(now - _lastTick).TotalSeconds;
-
             var changed = new List<(string userId, UserRecord rec)>();
-            var newCoPresentIds = new HashSet<string>();
-            var locationValid = elapsed > 0 && elapsed <= 3600
-                && !string.IsNullOrEmpty(_myCurrentLocation)
-                && _myCurrentLocation != "offline"
-                && _myCurrentLocation != "private"
-                && _myCurrentLocation != "traveling";
 
             foreach (var (userId, location, presence) in onlineFriends)
             {
                 if (string.IsNullOrEmpty(userId)) continue;
-
                 if (!Users.TryGetValue(userId, out var rec))
                 {
                     rec = new UserRecord();
                     Users[userId] = rec;
                 }
-
                 if (presence != "offline")
                 {
                     rec.LastSeen = now.ToString("o");
                     if (!string.IsNullOrEmpty(location) && location != "offline" && location != "private")
                         rec.LastSeenLocation = location;
                 }
-
-                if (locationValid && location == _myCurrentLocation)
-                    newCoPresentIds.Add(userId);
-
                 changed.Add((userId, rec));
             }
-
-            // Only update the co-present set when location is valid.
-            // If location is empty/offline/traveling, keep previous set intact
-            // so AutoFlushTick doesn't lose track of who was co-present.
-            if (locationValid)
-                _lastCoPresentIds = newCoPresentIds;
 
             if (changed.Count == 0) return;
             try
@@ -727,12 +846,9 @@ public class UserTimeTracker : IDisposable
                 var pImg = cmd.Parameters.Add("$img", SqliteType.Text);
                 foreach (var (userId, rec) in changed)
                 {
-                    pUid.Value = userId;
-                    pTs.Value  = rec.TotalSeconds;
-                    pLs.Value  = rec.LastSeen;
-                    pLsl.Value = rec.LastSeenLocation;
-                    pDn.Value  = rec.DisplayName;
-                    pImg.Value = rec.Image;
+                    pUid.Value = userId; pTs.Value = rec.TotalSeconds;
+                    pLs.Value = rec.LastSeen; pLsl.Value = rec.LastSeenLocation;
+                    pDn.Value = rec.DisplayName; pImg.Value = rec.Image;
                     cmd.ExecuteNonQuery();
                 }
                 tx.Commit();
@@ -741,30 +857,127 @@ public class UserTimeTracker : IDisposable
         }
     }
 
-    public (long totalSeconds, string lastSeen) GetUserStats(string userId, bool isCoPresent = false)
+    public void UpdateWorldInfo(string worldId, string name, string thumb)
     {
         lock (_lock)
         {
-            if (!Users.TryGetValue(userId, out var rec))
-                return (0, "");
-
-            var total = rec.TotalSeconds;
-
-            // Add live pending time only if VRChat is running and user is co-present.
-            // Never add liveElapsed when VRChat is not running — prevents counting after Alt+F4.
-            if (isCoPresent && _isVrcRunning?.Invoke() == true)
-            {
-                var liveElapsed = (long)(DateTime.UtcNow - _lastTick).TotalSeconds;
-                if (liveElapsed > 0 && liveElapsed <= 3600)
-                    total += liveElapsed;
-            }
-
-            return (total, rec.LastSeen);
+            if (string.IsNullOrEmpty(worldId) || string.IsNullOrEmpty(name)) return;
+            if (!Worlds.TryGetValue(worldId, out var rec)) return;
+            if (rec.WorldName == name && rec.WorldThumb == thumb) return;
+            rec.WorldName  = name;
+            rec.WorldThumb = thumb;
+            UpsertWorldLocked(worldId, rec);
         }
     }
 
-    // merges imported friend-time data (e.g. from VRCX). adds to existing totals.
-    public void BulkMerge(IEnumerable<(string userId, string displayName, long seconds, string lastSeen)> entries)
+    // ══════════════════════════════════════════════════════════════════
+    //  CRASH RECOVERY — 0 seconds data loss
+    //
+    //  active_session stores per-player session_start_utc as JSON.
+    //  On recovery: sessions resume with their ORIGINAL start timestamps.
+    //  Display = TotalSeconds + (now - original_session_start) → exact, no gap.
+    //
+    //  Validation:
+    //  1. VRChat.exe must be running (process check, not log-based)
+    //  2. Location must match (same instance)
+    //  3. Only players confirmed present by LogWatcher get sessions restored
+    //  4. Max session age 24h (sanity cap)
+    // ══════════════════════════════════════════════════════════════════
+
+    public void RestoreActiveSession(string currentLocation, HashSet<string> currentPlayerIds)
+    {
+        lock (_lock)
+        {
+            if (_disposed) return;
+            try
+            {
+                using var cmd = _db.CreateCommand();
+                cmd.CommandText = "SELECT location,co_present_ids,last_flush_utc FROM active_session WHERE id=1";
+                using var r = cmd.ExecuteReader();
+                if (!r.Read()) return;
+
+                var location = r.GetString(0);
+                var sessionsJson = r.GetString(1);
+                var worldStartStr = r.GetString(2);
+                r.Close();
+
+                // Validation 1: Location must match
+                if (string.IsNullOrEmpty(location) || location != currentLocation)
+                {
+                    ClearActiveSessionLocked();
+                    return;
+                }
+
+                // Validation 2: VRChat.exe must be running (process-level check)
+                if (_isVrcRunning?.Invoke() != true)
+                {
+                    ClearActiveSessionLocked();
+                    return;
+                }
+
+                var now = DateTime.UtcNow;
+
+                // Parse per-player session starts from JSON
+                Dictionary<string, string>? savedSessions = null;
+                try { savedSessions = JsonConvert.DeserializeObject<Dictionary<string, string>>(sessionsJson); }
+                catch { }
+
+                // Fallback: old comma-separated format → treat as stale (can't recover exact starts)
+                if (savedSessions == null)
+                {
+                    ClearActiveSessionLocked();
+                    return;
+                }
+
+                // Validation 3: Only restore players confirmed present by LogWatcher right now
+                foreach (var (userId, startStr) in savedSessions)
+                {
+                    if (!currentPlayerIds.Contains(userId)) continue;
+                    if (!DateTime.TryParse(startStr, null,
+                        System.Globalization.DateTimeStyles.RoundtripKind, out var sessionStart))
+                        continue;
+
+                    // Validation 4: Sanity cap — session older than 24h is stale
+                    var age = (now - sessionStart).TotalSeconds;
+                    if (age < 0 || age > 86400) continue;
+
+                    _playerSessions[userId] = sessionStart; // ORIGINAL timestamp → 0s loss
+                    if (!Users.ContainsKey(userId))
+                        Users[userId] = new UserRecord();
+                }
+
+                // Restore world session
+                if (DateTime.TryParse(worldStartStr, null,
+                    System.Globalization.DateTimeStyles.RoundtripKind, out var wStart))
+                {
+                    var wAge = (now - wStart).TotalSeconds;
+                    if (wAge >= 0 && wAge <= 86400)
+                    {
+                        var colon = currentLocation.IndexOf(':');
+                        var worldId = colon >= 0 ? currentLocation.Substring(0, colon) : currentLocation;
+                        if (!string.IsNullOrEmpty(worldId) && worldId.StartsWith("wrld_"))
+                        {
+                            _currentWorldId = worldId;
+                            _currentLocation = currentLocation;
+                            _worldSessionStart = wStart; // ORIGINAL timestamp → 0s loss
+                        }
+                    }
+                }
+
+                PersistActiveSessionLocked();
+            }
+            catch
+            {
+                ClearActiveSessionLocked();
+            }
+        }
+    }
+
+    // ══════════════════════════════════════════════════════════════════
+    //  BULK IMPORT (VRCX migration)
+    // ══════════════════════════════════════════════════════════════════
+
+    public void BulkMergeUsers(IEnumerable<(string userId, string displayName, long seconds, string lastSeen)> entries)
     {
         lock (_lock)
         {
@@ -786,10 +999,8 @@ public class UserTimeTracker : IDisposable
                 var pDn  = cmd.Parameters.Add("$dn",  SqliteType.Text);
                 foreach (var (userId, displayName, seconds, lastSeen) in entries)
                 {
-                    pUid.Value = userId;
-                    pTs.Value  = seconds;
-                    pLs.Value  = lastSeen;
-                    pDn.Value  = displayName;
+                    pUid.Value = userId; pTs.Value = seconds;
+                    pLs.Value  = lastSeen; pDn.Value = displayName;
                     cmd.ExecuteNonQuery();
                     if (!Users.TryGetValue(userId, out var rec)) { rec = new UserRecord(); Users[userId] = rec; }
                     rec.TotalSeconds += seconds;
@@ -802,374 +1013,7 @@ public class UserTimeTracker : IDisposable
         }
     }
 
-    public void Save() { }
-
-    public void Dispose()
-    {
-        if (_disposed) return;
-        _disposed = true;
-        _autoFlushTimer?.Dispose();
-        _autoFlushTimer = null;
-        FlushCoPresentUsers();
-        try { _db.Close(); } catch { }
-        _db.Dispose();
-    }
-
-    // saves pending elapsed time for all co-present users on app close
-    private void FlushCoPresentUsers()
-    {
-        lock (_lock)
-        {
-            if (_lastCoPresentIds.Count == 0) return;
-            var elapsed = (long)(DateTime.UtcNow - _lastTick).TotalSeconds;
-            if (elapsed <= 0 || elapsed > 3600) return;
-
-            try
-            {
-                using var tx = _db.BeginTransaction();
-                using var cmd = _db.CreateCommand();
-                cmd.Transaction = tx;
-                cmd.CommandText = @"INSERT INTO user_tracking(user_id,total_seconds,last_seen,last_seen_location)
-                    VALUES($uid,$ts,$ls,$lsl)
-                    ON CONFLICT(user_id) DO UPDATE SET
-                        total_seconds=excluded.total_seconds,
-                        last_seen=excluded.last_seen,
-                        last_seen_location=excluded.last_seen_location";
-                var pUid = cmd.Parameters.Add("$uid", SqliteType.Text);
-                var pTs  = cmd.Parameters.Add("$ts",  SqliteType.Integer);
-                var pLs  = cmd.Parameters.Add("$ls",  SqliteType.Text);
-                var pLsl = cmd.Parameters.Add("$lsl", SqliteType.Text);
-
-                var now = DateTime.UtcNow.ToString("o");
-                foreach (var userId in _lastCoPresentIds)
-                {
-                    if (!Users.TryGetValue(userId, out var rec)) continue;
-                    rec.TotalSeconds += elapsed;
-                    pUid.Value = userId;
-                    pTs.Value  = rec.TotalSeconds;
-                    pLs.Value  = now;
-                    pLsl.Value = rec.LastSeenLocation;
-                    cmd.ExecuteNonQuery();
-                }
-                tx.Commit();
-                _lastTick = DateTime.UtcNow; // prevent double-flush
-            }
-            catch { }
-        }
-    }
-
-    private void AutoFlushTick(object? state)
-    {
-        lock (_lock)
-        {
-            if (_disposed) return;
-            if (_isVrcRunning?.Invoke() != true) return;
-            if (string.IsNullOrEmpty(_myCurrentLocation)
-                || _myCurrentLocation == "offline"
-                || _myCurrentLocation == "private"
-                || _myCurrentLocation == "traveling") return;
-            if (_lastCoPresentIds.Count == 0) return;
-
-            var now = DateTime.UtcNow;
-            var elapsed = (long)(now - _lastTick).TotalSeconds;
-            if (elapsed <= 0 || elapsed > 3600) return;
-
-            foreach (var userId in _lastCoPresentIds)
-                if (Users.TryGetValue(userId, out var rec))
-                    rec.TotalSeconds += elapsed;
-
-            _lastTick = now; // before DB write — no double-counting on error
-
-            try
-            {
-                using var tx = _db.BeginTransaction();
-                using var cmd = _db.CreateCommand();
-                cmd.Transaction = tx;
-                cmd.CommandText = @"INSERT INTO user_tracking(user_id,total_seconds,last_seen,last_seen_location,display_name,image)
-                    VALUES($uid,$ts,$ls,$lsl,$dn,$img)
-                    ON CONFLICT(user_id) DO UPDATE SET
-                        total_seconds=excluded.total_seconds,
-                        last_seen=excluded.last_seen,
-                        last_seen_location=excluded.last_seen_location,
-                        display_name=CASE WHEN excluded.display_name!='' THEN excluded.display_name ELSE user_tracking.display_name END,
-                        image=CASE WHEN excluded.image!='' THEN excluded.image ELSE user_tracking.image END";
-                var pUid = cmd.Parameters.Add("$uid", SqliteType.Text);
-                var pTs  = cmd.Parameters.Add("$ts",  SqliteType.Integer);
-                var pLs  = cmd.Parameters.Add("$ls",  SqliteType.Text);
-                var pLsl = cmd.Parameters.Add("$lsl", SqliteType.Text);
-                var pDn  = cmd.Parameters.Add("$dn",  SqliteType.Text);
-                var pImg = cmd.Parameters.Add("$img", SqliteType.Text);
-                var nowStr = now.ToString("o");
-                foreach (var userId in _lastCoPresentIds)
-                {
-                    if (!Users.TryGetValue(userId, out var rec)) continue;
-                    pUid.Value = userId; pTs.Value = rec.TotalSeconds;
-                    pLs.Value = nowStr;  pLsl.Value = rec.LastSeenLocation;
-                    pDn.Value = rec.DisplayName; pImg.Value = rec.Image;
-                    cmd.ExecuteNonQuery();
-                }
-                tx.Commit();
-            }
-            catch { }
-        }
-    }
-
-    private class UserTimeTracker_Legacy
-    {
-        public Dictionary<string, UserRecord>? Users { get; set; }
-    }
-}
-
-// tracks total time spent in each VRChat world. persisted in SQLite.
-public class WorldTimeTracker : IDisposable
-{
-    public class WorldRecord
-    {
-        public long TotalSeconds { get; set; }
-        public string LastVisited { get; set; } = "";
-        public int VisitCount { get; set; }
-        public string WorldName  { get; set; } = "";
-        public string WorldThumb { get; set; } = "";
-    }
-
-    // In-memory cache, same access pattern as before
-    public Dictionary<string, WorldRecord> Worlds { get; } = new();
-
-    private readonly SqliteConnection _db;
-    private readonly object _lock = new();
-    private System.Threading.Timer? _autoFlushTimer;
-    private Func<bool>? _isVrcRunning;
-    private bool _disposed;
-    private string _currentWorldId = "";
-    private DateTime _lastTick = DateTime.UtcNow;
-
-    private static readonly string LegacyFilePath = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-        "VRCNext", "world_tracking.json");
-
-    private WorldTimeTracker(SqliteConnection db) { _db = db; }
-
-    public static WorldTimeTracker Load(Func<bool>? isVrcRunning = null)
-    {
-        var conn = Database.OpenConnection();
-        var tracker = new WorldTimeTracker(conn);
-        tracker._isVrcRunning = isVrcRunning;
-        tracker.InitSchema();
-        tracker.MigrateFromJson();
-        tracker.LoadFromDb();
-        tracker._autoFlushTimer = new System.Threading.Timer(
-            tracker.AutoFlushTick, null,
-            TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1));
-        return tracker;
-    }
-
-    private void InitSchema()
-    {
-        // Create table (no-op if already exists)
-        using var cmd = _db.CreateCommand();
-        cmd.CommandText = @"CREATE TABLE IF NOT EXISTS world_tracking (
-            world_id      TEXT    PRIMARY KEY,
-            total_seconds INTEGER NOT NULL DEFAULT 0,
-            visit_count   INTEGER NOT NULL DEFAULT 0,
-            last_visited  TEXT    NOT NULL DEFAULT '',
-            world_name    TEXT    NOT NULL DEFAULT '',
-            world_thumb   TEXT    NOT NULL DEFAULT ''
-        )";
-        cmd.ExecuteNonQuery();
-
-        // Add new columns if upgrading from older schema (ALTER TABLE ADD COLUMN
-        // throws if column already exists — that's fine, just ignore)
-        foreach (var col in new[] { "world_name TEXT NOT NULL DEFAULT ''", "world_thumb TEXT NOT NULL DEFAULT ''" })
-        {
-            try
-            {
-                using var ac = _db.CreateCommand();
-                ac.CommandText = $"ALTER TABLE world_tracking ADD COLUMN {col}";
-                ac.ExecuteNonQuery();
-            }
-            catch { }
-        }
-    }
-
-    private void MigrateFromJson()
-    {
-        if (!File.Exists(LegacyFilePath)) return;
-        try
-        {
-            var json = File.ReadAllText(LegacyFilePath);
-            var legacy = JsonConvert.DeserializeObject<WorldTimeTracker_Legacy>(json);
-            if (legacy?.Worlds == null) { File.Delete(LegacyFilePath); return; }
-
-            using var tx = _db.BeginTransaction();
-            using var cmd = _db.CreateCommand();
-            cmd.Transaction = tx;
-            cmd.CommandText = @"INSERT OR IGNORE INTO world_tracking
-                (world_id,total_seconds,visit_count,last_visited)
-                VALUES($wid,$ts,$vc,$lv)";
-            var pWid = cmd.Parameters.Add("$wid", SqliteType.Text);
-            var pTs  = cmd.Parameters.Add("$ts",  SqliteType.Integer);
-            var pVc  = cmd.Parameters.Add("$vc",  SqliteType.Integer);
-            var pLv  = cmd.Parameters.Add("$lv",  SqliteType.Text);
-            foreach (var (worldId, rec) in legacy.Worlds)
-            {
-                pWid.Value = worldId;
-                pTs.Value  = rec.TotalSeconds;
-                pVc.Value  = rec.VisitCount;
-                pLv.Value  = rec.LastVisited ?? "";
-                cmd.ExecuteNonQuery();
-            }
-            tx.Commit();
-            File.Delete(LegacyFilePath);
-        }
-        catch { }
-    }
-
-    private void LoadFromDb()
-    {
-        using var cmd = _db.CreateCommand();
-        cmd.CommandText = "SELECT world_id,total_seconds,visit_count,last_visited,world_name,world_thumb FROM world_tracking";
-        using var r = cmd.ExecuteReader();
-        while (r.Read())
-            Worlds[r.GetString(0)] = new WorldRecord
-            {
-                TotalSeconds = r.GetInt64(1),
-                VisitCount   = r.GetInt32(2),
-                LastVisited  = r.GetString(3),
-                WorldName    = r.GetString(4),
-                WorldThumb   = r.GetString(5),
-            };
-    }
-
-    public void SetCurrentWorld(string worldId)
-    {
-        lock (_lock)
-        {
-            if (_disposed) return;
-            FlushCurrentWorldLocked();
-            _currentWorldId = worldId ?? "";
-            _lastTick = DateTime.UtcNow;
-
-            if (string.IsNullOrEmpty(_currentWorldId) || !_currentWorldId.StartsWith("wrld_")) return;
-
-            if (!Worlds.TryGetValue(_currentWorldId, out var rec))
-            {
-                rec = new WorldRecord();
-                Worlds[_currentWorldId] = rec;
-            }
-            rec.VisitCount++;
-            rec.LastVisited = DateTime.UtcNow.ToString("o");
-            UpsertWorld(_currentWorldId, rec);
-        }
-    }
-
-    // resume tracking a world after app restart, does not increment visit count
-    public void ResumeWorld(string worldId)
-    {
-        lock (_lock)
-        {
-            _currentWorldId = worldId ?? "";
-            _lastTick = DateTime.UtcNow;
-        }
-    }
-
-    public void Tick()
-    {
-        lock (_lock)
-        {
-            if (_disposed) return;
-            if (string.IsNullOrEmpty(_currentWorldId) || !_currentWorldId.StartsWith("wrld_"))
-                return;
-            var now = DateTime.UtcNow;
-            var elapsed = (long)(now - _lastTick).TotalSeconds;
-            if (elapsed <= 0 || elapsed > 3600) return; // cap at 1h to handle sleep/pause
-            if (!Worlds.TryGetValue(_currentWorldId, out var rec))
-            {
-                rec = new WorldRecord();
-                Worlds[_currentWorldId] = rec;
-            }
-            rec.TotalSeconds += elapsed;
-            rec.LastVisited = now.ToString("o");
-            _lastTick = now;
-            UpsertWorld(_currentWorldId, rec);
-        }
-    }
-
-    private void FlushCurrentWorld()
-    {
-        lock (_lock) { FlushCurrentWorldLocked(); }
-    }
-
-    private void FlushCurrentWorldLocked()
-    {
-        if (string.IsNullOrEmpty(_currentWorldId) || !_currentWorldId.StartsWith("wrld_"))
-            return;
-        var now = DateTime.UtcNow;
-        var elapsed = (long)(now - _lastTick).TotalSeconds;
-        _lastTick = now;
-        if (elapsed <= 0 || elapsed > 3600) return;
-        if (!Worlds.TryGetValue(_currentWorldId, out var rec)) return;
-        rec.TotalSeconds += elapsed;
-        rec.LastVisited = now.ToString("o");
-        UpsertWorld(_currentWorldId, rec);
-    }
-
-    private void UpsertWorld(string worldId, WorldRecord rec)
-    {
-        try
-        {
-            using var cmd = _db.CreateCommand();
-            cmd.CommandText = @"INSERT INTO world_tracking(world_id,total_seconds,visit_count,last_visited,world_name,world_thumb)
-                VALUES($wid,$ts,$vc,$lv,$wn,$wt)
-                ON CONFLICT(world_id) DO UPDATE SET
-                    total_seconds=excluded.total_seconds,
-                    visit_count=excluded.visit_count,
-                    last_visited=excluded.last_visited,
-                    world_name=CASE WHEN excluded.world_name!='' THEN excluded.world_name ELSE world_tracking.world_name END,
-                    world_thumb=CASE WHEN excluded.world_thumb!='' THEN excluded.world_thumb ELSE world_tracking.world_thumb END";
-            cmd.Parameters.AddWithValue("$wid", worldId);
-            cmd.Parameters.AddWithValue("$ts",  rec.TotalSeconds);
-            cmd.Parameters.AddWithValue("$vc",  rec.VisitCount);
-            cmd.Parameters.AddWithValue("$lv",  rec.LastVisited);
-            cmd.Parameters.AddWithValue("$wn",  rec.WorldName);
-            cmd.Parameters.AddWithValue("$wt",  rec.WorldThumb);
-            cmd.ExecuteNonQuery();
-        }
-        catch { }
-    }
-
-    public void UpdateWorldInfo(string worldId, string name, string thumb)
-    {
-        if (string.IsNullOrEmpty(worldId) || string.IsNullOrEmpty(name)) return;
-        if (!Worlds.TryGetValue(worldId, out var rec)) return;
-        if (rec.WorldName == name && rec.WorldThumb == thumb) return; // no change
-        rec.WorldName  = name;
-        rec.WorldThumb = thumb;
-        UpsertWorld(worldId, rec);
-    }
-
-    public (long totalSeconds, int visitCount, string lastVisited) GetWorldStats(string worldId)
-    {
-        lock (_lock)
-        {
-            if (!Worlds.TryGetValue(worldId, out var rec))
-                return (0, 0, "");
-
-            var total = rec.TotalSeconds;
-
-            // Add live pending time only if VRChat is running and this is the current world.
-            if (worldId == _currentWorldId && _isVrcRunning?.Invoke() == true)
-            {
-                var liveElapsed = (long)(DateTime.UtcNow - _lastTick).TotalSeconds;
-                if (liveElapsed > 0 && liveElapsed <= 3600)
-                    total += liveElapsed;
-            }
-
-            return (total, rec.VisitCount, rec.LastVisited);
-        }
-    }
-
-    // merges imported world-time data (e.g. from VRCX). adds to existing totals.
-    public void BulkMerge(IEnumerable<(string worldId, string worldName, long seconds, int visitCount, string lastVisited)> entries)
+    public void BulkMergeWorlds(IEnumerable<(string worldId, string worldName, long seconds, int visitCount, string lastVisited)> entries)
     {
         lock (_lock)
         {
@@ -1193,15 +1037,11 @@ public class WorldTimeTracker : IDisposable
                 var pWn  = cmd.Parameters.Add("$wn",  SqliteType.Text);
                 foreach (var (worldId, worldName, seconds, visitCount, lastVisited) in entries)
                 {
-                    pWid.Value = worldId;
-                    pTs.Value  = seconds;
-                    pVc.Value  = visitCount;
-                    pLv.Value  = lastVisited;
-                    pWn.Value  = worldName;
+                    pWid.Value = worldId; pTs.Value = seconds;
+                    pVc.Value  = visitCount; pLv.Value = lastVisited; pWn.Value = worldName;
                     cmd.ExecuteNonQuery();
                     if (!Worlds.TryGetValue(worldId, out var rec)) { rec = new WorldRecord(); Worlds[worldId] = rec; }
-                    rec.TotalSeconds += seconds;
-                    rec.VisitCount   += visitCount;
+                    rec.TotalSeconds += seconds; rec.VisitCount += visitCount;
                     if (string.IsNullOrEmpty(rec.WorldName) && !string.IsNullOrEmpty(worldName)) rec.WorldName = worldName;
                     if (string.Compare(lastVisited, rec.LastVisited, StringComparison.Ordinal) > 0) rec.LastVisited = lastVisited;
                 }
@@ -1211,49 +1051,501 @@ public class WorldTimeTracker : IDisposable
         }
     }
 
-    public void Save() { }
+    public void Save() { } // persistence handled by event methods and watchdog
+
+    // ══════════════════════════════════════════════════════════════════
+    //  WATCHDOG — VRChat process monitor (5-second interval)
+    //  This is the HARD SOURCE OF TRUTH for whether VRChat is running.
+    //  Not log-based. Not delayed. Process check via _isVrcRunning callback.
+    // ══════════════════════════════════════════════════════════════════
+
+    private void WatchdogTick(object? state)
+    {
+        lock (_lock)
+        {
+            if (_disposed) return;
+
+            var vrcRunning = _isVrcRunning?.Invoke() ?? false;
+
+            // Edge detection: VRC was running, now it's not → end all sessions
+            if (_vrcWasRunning && !vrcRunning)
+            {
+                HandleVrcClosedLocked();
+            }
+
+            if (vrcRunning)
+            {
+                _lastVrcAliveUtc = DateTime.UtcNow;
+                // Attach Process.Exited event for near-instant detection when VRC closes.
+                // The watchdog (2s) is the fallback; Process.Exited fires within milliseconds.
+                AttachProcessExitedLocked();
+            }
+
+            _vrcWasRunning = vrcRunning;
+
+            // If VRC is running and sessions are active, re-persist active_session for crash safety.
+            if (vrcRunning && (_playerSessions.Count > 0 || _worldSessionStart.HasValue))
+            {
+                PersistActiveSessionLocked();
+            }
+        }
+    }
+
+    /// <summary>
+    /// Attaches a Process.Exited handler to the VRChat process for near-instant close detection.
+    /// This fires within milliseconds of process exit, unlike the 2s watchdog poll.
+    /// </summary>
+    private void AttachProcessExitedLocked()
+    {
+        if (_monitoredVrcProcess != null)
+        {
+            try { if (!_monitoredVrcProcess.HasExited) return; } // already monitoring a live process
+            catch { }
+            // Previous monitored process is gone or stale — detach and re-attach
+            try { _monitoredVrcProcess.Dispose(); } catch { }
+            _monitoredVrcProcess = null;
+        }
+        try
+        {
+            var procs = Process.GetProcessesByName("VRChat");
+            foreach (var p in procs)
+            {
+                try
+                {
+                    if (p.HasExited) { p.Dispose(); continue; }
+                    p.EnableRaisingEvents = true;
+                    p.Exited += OnVrcProcessExited;
+                    _monitoredVrcProcess = p;
+                    return; // attached to first live process
+                }
+                catch { p.Dispose(); }
+            }
+        }
+        catch { }
+    }
+
+    /// <summary>
+    /// Process.Exited event handler — fires within milliseconds of VRChat.exe closing.
+    /// Uses _lastVrcAliveUtc (last confirmed alive from watchdog) to bound the end timestamp.
+    /// Worst-case overcount = 1 watchdog interval (2s), not 5s.
+    /// </summary>
+    private void OnVrcProcessExited(object? sender, EventArgs e)
+    {
+        lock (_lock)
+        {
+            if (_disposed) return;
+            // Double-check VRC is really gone (could be multiple instances)
+            var stillRunning = _isVrcRunning?.Invoke() ?? false;
+            if (stillRunning) return;
+            HandleVrcClosedLocked();
+            _vrcWasRunning = false;
+        }
+    }
+
+    /// <summary>
+    /// Central handler for VRC close. Uses the midpoint between last confirmed alive and now
+    /// to minimize overcount. Called from both watchdog edge detection and Process.Exited.
+    /// </summary>
+    private void HandleVrcClosedLocked()
+    {
+        if (_playerSessions.Count == 0 && !_worldSessionStart.HasValue) return;
+
+        // Best estimate of actual VRC close time:
+        // We know VRC was alive at _lastVrcAliveUtc and is dead now.
+        // Use the midpoint to minimize average error.
+        var now = DateTime.UtcNow;
+        var endTime = _lastVrcAliveUtc > DateTime.MinValue
+            ? _lastVrcAliveUtc + TimeSpan.FromTicks((now - _lastVrcAliveUtc).Ticks / 2)
+            : now;
+        // Sanity: endTime must not be in the future or more than 10s in the past
+        if (endTime > now) endTime = now;
+        if ((now - endTime).TotalSeconds > 10) endTime = now;
+
+        EndAllPlayerSessionsLocked(endTime);
+        EndWorldSessionLocked(endTime);
+        _currentWorldId = "";
+        _currentLocation = "";
+        ClearActiveSessionLocked();
+
+        // Clean up monitored process
+        try { _monitoredVrcProcess?.Dispose(); } catch { }
+        _monitoredVrcProcess = null;
+    }
+
+    // ══════════════════════════════════════════════════════════════════
+    //  INTERNAL — Session end helpers
+    //  "End" = compute delta, add to TotalSeconds, persist to DB, remove session.
+    //  TotalSeconds is ONLY modified here and in OnPlayerLeft.
+    // ══════════════════════════════════════════════════════════════════
+
+    private void EndAllPlayerSessionsLocked(DateTime now)
+    {
+        if (_playerSessions.Count == 0) return;
+        var userIds = _playerSessions.Keys.ToList();
+        foreach (var userId in userIds)
+        {
+            var sessionStart = _playerSessions[userId];
+            var delta = (long)(now - sessionStart).TotalSeconds;
+            if (delta > 0 && delta <= 86400)
+            {
+                if (Users.TryGetValue(userId, out var rec))
+                {
+                    rec.TotalSeconds += delta;
+                    rec.LastSeen = now.ToString("o");
+                    if (!string.IsNullOrEmpty(_currentLocation))
+                        rec.LastSeenLocation = _currentLocation;
+                }
+            }
+        }
+        PersistAllUsersLocked(userIds, now);
+        _playerSessions.Clear();
+    }
+
+    private void EndWorldSessionLocked(DateTime now)
+    {
+        if (!_worldSessionStart.HasValue) return;
+        if (!string.IsNullOrEmpty(_currentWorldId) && _currentWorldId.StartsWith("wrld_"))
+        {
+            var delta = (long)(now - _worldSessionStart.Value).TotalSeconds;
+            if (delta > 0 && delta <= 86400)
+            {
+                if (!Worlds.TryGetValue(_currentWorldId, out var rec))
+                {
+                    rec = new WorldRecord();
+                    Worlds[_currentWorldId] = rec;
+                }
+                rec.TotalSeconds += delta;
+                rec.LastVisited = now.ToString("o");
+                UpsertWorldLocked(_currentWorldId, rec);
+            }
+        }
+        _worldSessionStart = null;
+    }
+
+    // ══════════════════════════════════════════════════════════════════
+    //  INTERNAL — DB persistence
+    // ══════════════════════════════════════════════════════════════════
+
+    private void InitSchema()
+    {
+        using var cmd = _db.CreateCommand();
+        cmd.CommandText = @"CREATE TABLE IF NOT EXISTS user_tracking (
+            user_id            TEXT    PRIMARY KEY,
+            total_seconds      INTEGER NOT NULL DEFAULT 0,
+            last_seen          TEXT    NOT NULL DEFAULT '',
+            last_seen_location TEXT    NOT NULL DEFAULT '',
+            display_name       TEXT    NOT NULL DEFAULT '',
+            image              TEXT    NOT NULL DEFAULT ''
+        )";
+        cmd.ExecuteNonQuery();
+
+        using var idx = _db.CreateCommand();
+        idx.CommandText = "CREATE INDEX IF NOT EXISTS idx_ut_lastseen ON user_tracking(last_seen DESC)";
+        try { idx.ExecuteNonQuery(); } catch { }
+
+        foreach (var col in new[] { "display_name TEXT NOT NULL DEFAULT ''", "image TEXT NOT NULL DEFAULT ''" })
+        {
+            try
+            {
+                using var ac = _db.CreateCommand();
+                ac.CommandText = $"ALTER TABLE user_tracking ADD COLUMN {col}";
+                ac.ExecuteNonQuery();
+            }
+            catch { }
+        }
+
+        using var wcmd = _db.CreateCommand();
+        wcmd.CommandText = @"CREATE TABLE IF NOT EXISTS world_tracking (
+            world_id      TEXT    PRIMARY KEY,
+            total_seconds INTEGER NOT NULL DEFAULT 0,
+            visit_count   INTEGER NOT NULL DEFAULT 0,
+            last_visited  TEXT    NOT NULL DEFAULT '',
+            world_name    TEXT    NOT NULL DEFAULT '',
+            world_thumb   TEXT    NOT NULL DEFAULT ''
+        )";
+        wcmd.ExecuteNonQuery();
+
+        foreach (var col in new[] { "world_name TEXT NOT NULL DEFAULT ''", "world_thumb TEXT NOT NULL DEFAULT ''" })
+        {
+            try
+            {
+                using var ac = _db.CreateCommand();
+                ac.CommandText = $"ALTER TABLE world_tracking ADD COLUMN {col}";
+                ac.ExecuteNonQuery();
+            }
+            catch { }
+        }
+
+        using var as_cmd = _db.CreateCommand();
+        as_cmd.CommandText = @"CREATE TABLE IF NOT EXISTS active_session (
+            id             INTEGER PRIMARY KEY CHECK(id = 1),
+            location       TEXT    NOT NULL DEFAULT '',
+            co_present_ids TEXT    NOT NULL DEFAULT '',
+            last_flush_utc TEXT    NOT NULL DEFAULT ''
+        )";
+        as_cmd.ExecuteNonQuery();
+    }
+
+    private void MigrateUsersFromJson()
+    {
+        if (!File.Exists(UserLegacyPath)) return;
+        try
+        {
+            var json = File.ReadAllText(UserLegacyPath);
+            var legacy = JsonConvert.DeserializeObject<UserLegacy>(json);
+            if (legacy?.Users == null) { File.Delete(UserLegacyPath); return; }
+            using var tx = _db.BeginTransaction();
+            using var cmd = _db.CreateCommand();
+            cmd.Transaction = tx;
+            cmd.CommandText = @"INSERT OR IGNORE INTO user_tracking(user_id,total_seconds,last_seen,last_seen_location)
+                VALUES($uid,$ts,$ls,$lsl)";
+            var pUid = cmd.Parameters.Add("$uid", SqliteType.Text);
+            var pTs  = cmd.Parameters.Add("$ts",  SqliteType.Integer);
+            var pLs  = cmd.Parameters.Add("$ls",  SqliteType.Text);
+            var pLsl = cmd.Parameters.Add("$lsl", SqliteType.Text);
+            foreach (var (userId, rec) in legacy.Users)
+            {
+                pUid.Value = userId; pTs.Value = rec.TotalSeconds;
+                pLs.Value = rec.LastSeen ?? ""; pLsl.Value = rec.LastSeenLocation ?? "";
+                cmd.ExecuteNonQuery();
+            }
+            tx.Commit();
+            File.Delete(UserLegacyPath);
+        }
+        catch { }
+    }
+
+    private void MigrateWorldsFromJson()
+    {
+        if (!File.Exists(WorldLegacyPath)) return;
+        try
+        {
+            var json = File.ReadAllText(WorldLegacyPath);
+            var legacy = JsonConvert.DeserializeObject<WorldLegacy>(json);
+            if (legacy?.Worlds == null) { File.Delete(WorldLegacyPath); return; }
+            using var tx = _db.BeginTransaction();
+            using var cmd = _db.CreateCommand();
+            cmd.Transaction = tx;
+            cmd.CommandText = @"INSERT OR IGNORE INTO world_tracking(world_id,total_seconds,visit_count,last_visited)
+                VALUES($wid,$ts,$vc,$lv)";
+            var pWid = cmd.Parameters.Add("$wid", SqliteType.Text);
+            var pTs  = cmd.Parameters.Add("$ts",  SqliteType.Integer);
+            var pVc  = cmd.Parameters.Add("$vc",  SqliteType.Integer);
+            var pLv  = cmd.Parameters.Add("$lv",  SqliteType.Text);
+            foreach (var (worldId, rec) in legacy.Worlds)
+            {
+                pWid.Value = worldId; pTs.Value = rec.TotalSeconds;
+                pVc.Value = rec.VisitCount; pLv.Value = rec.LastVisited ?? "";
+                cmd.ExecuteNonQuery();
+            }
+            tx.Commit();
+            File.Delete(WorldLegacyPath);
+        }
+        catch { }
+    }
+
+    private void LoadUsersFromDb()
+    {
+        using var cmd = _db.CreateCommand();
+        cmd.CommandText = "SELECT user_id,total_seconds,last_seen,last_seen_location,display_name,image FROM user_tracking";
+        using var r = cmd.ExecuteReader();
+        while (r.Read())
+            Users[r.GetString(0)] = new UserRecord
+            {
+                TotalSeconds     = r.GetInt64(1),
+                LastSeen         = r.GetString(2),
+                LastSeenLocation = r.GetString(3),
+                DisplayName      = r.GetString(4),
+                Image            = r.GetString(5),
+            };
+    }
+
+    private void LoadWorldsFromDb()
+    {
+        using var cmd = _db.CreateCommand();
+        cmd.CommandText = "SELECT world_id,total_seconds,visit_count,last_visited,world_name,world_thumb FROM world_tracking";
+        using var r = cmd.ExecuteReader();
+        while (r.Read())
+            Worlds[r.GetString(0)] = new WorldRecord
+            {
+                TotalSeconds = r.GetInt64(1),
+                VisitCount   = r.GetInt32(2),
+                LastVisited  = r.GetString(3),
+                WorldName    = r.GetString(4),
+                WorldThumb   = r.GetString(5),
+            };
+    }
+
+    private void PersistUserLocked(string userId, DateTime now)
+    {
+        if (!Users.TryGetValue(userId, out var rec)) return;
+        try
+        {
+            using var cmd = _db.CreateCommand();
+            cmd.CommandText = @"INSERT INTO user_tracking(user_id,total_seconds,last_seen,last_seen_location,display_name,image)
+                VALUES($uid,$ts,$ls,$lsl,$dn,$img)
+                ON CONFLICT(user_id) DO UPDATE SET
+                    total_seconds=excluded.total_seconds, last_seen=excluded.last_seen,
+                    last_seen_location=excluded.last_seen_location,
+                    display_name=CASE WHEN excluded.display_name!='' THEN excluded.display_name ELSE user_tracking.display_name END,
+                    image=CASE WHEN excluded.image!='' THEN excluded.image ELSE user_tracking.image END";
+            cmd.Parameters.AddWithValue("$uid", userId);
+            cmd.Parameters.AddWithValue("$ts",  rec.TotalSeconds);
+            cmd.Parameters.AddWithValue("$ls",  now.ToString("o"));
+            cmd.Parameters.AddWithValue("$lsl", rec.LastSeenLocation);
+            cmd.Parameters.AddWithValue("$dn",  rec.DisplayName);
+            cmd.Parameters.AddWithValue("$img", rec.Image);
+            cmd.ExecuteNonQuery();
+        }
+        catch { }
+    }
+
+    private void PersistAllUsersLocked(IEnumerable<string> userIds, DateTime now)
+    {
+        try
+        {
+            using var tx = _db.BeginTransaction();
+            using var cmd = _db.CreateCommand();
+            cmd.Transaction = tx;
+            cmd.CommandText = @"INSERT INTO user_tracking(user_id,total_seconds,last_seen,last_seen_location,display_name,image)
+                VALUES($uid,$ts,$ls,$lsl,$dn,$img)
+                ON CONFLICT(user_id) DO UPDATE SET
+                    total_seconds=excluded.total_seconds, last_seen=excluded.last_seen,
+                    last_seen_location=excluded.last_seen_location,
+                    display_name=CASE WHEN excluded.display_name!='' THEN excluded.display_name ELSE user_tracking.display_name END,
+                    image=CASE WHEN excluded.image!='' THEN excluded.image ELSE user_tracking.image END";
+            var pUid = cmd.Parameters.Add("$uid", SqliteType.Text);
+            var pTs  = cmd.Parameters.Add("$ts",  SqliteType.Integer);
+            var pLs  = cmd.Parameters.Add("$ls",  SqliteType.Text);
+            var pLsl = cmd.Parameters.Add("$lsl", SqliteType.Text);
+            var pDn  = cmd.Parameters.Add("$dn",  SqliteType.Text);
+            var pImg = cmd.Parameters.Add("$img", SqliteType.Text);
+            var nowStr = now.ToString("o");
+            foreach (var userId in userIds)
+            {
+                if (!Users.TryGetValue(userId, out var rec)) continue;
+                pUid.Value = userId; pTs.Value = rec.TotalSeconds;
+                pLs.Value = nowStr;  pLsl.Value = rec.LastSeenLocation;
+                pDn.Value = rec.DisplayName; pImg.Value = rec.Image;
+                cmd.ExecuteNonQuery();
+            }
+            tx.Commit();
+        }
+        catch { }
+    }
+
+    private void UpsertWorldLocked(string worldId, WorldRecord rec)
+    {
+        try
+        {
+            using var cmd = _db.CreateCommand();
+            cmd.CommandText = @"INSERT INTO world_tracking(world_id,total_seconds,visit_count,last_visited,world_name,world_thumb)
+                VALUES($wid,$ts,$vc,$lv,$wn,$wt)
+                ON CONFLICT(world_id) DO UPDATE SET
+                    total_seconds=excluded.total_seconds, visit_count=excluded.visit_count,
+                    last_visited=excluded.last_visited,
+                    world_name=CASE WHEN excluded.world_name!='' THEN excluded.world_name ELSE world_tracking.world_name END,
+                    world_thumb=CASE WHEN excluded.world_thumb!='' THEN excluded.world_thumb ELSE world_tracking.world_thumb END";
+            cmd.Parameters.AddWithValue("$wid", worldId);
+            cmd.Parameters.AddWithValue("$ts",  rec.TotalSeconds);
+            cmd.Parameters.AddWithValue("$vc",  rec.VisitCount);
+            cmd.Parameters.AddWithValue("$lv",  rec.LastVisited);
+            cmd.Parameters.AddWithValue("$wn",  rec.WorldName);
+            cmd.Parameters.AddWithValue("$wt",  rec.WorldThumb);
+            cmd.ExecuteNonQuery();
+        }
+        catch { }
+    }
+
+    /// <summary>
+    /// Persists active session state to DB for crash recovery.
+    /// co_present_ids = JSON { "userId": "session_start_utc_iso", ... }
+    /// last_flush_utc = world session start UTC ISO (for world time recovery)
+    /// </summary>
+    private void PersistActiveSessionLocked()
+    {
+        if (_playerSessions.Count == 0 && !_worldSessionStart.HasValue)
+        {
+            ClearActiveSessionLocked();
+            return;
+        }
+        try
+        {
+            // Serialize per-player session starts as JSON
+            var sessionsDict = _playerSessions.ToDictionary(
+                kv => kv.Key,
+                kv => kv.Value.ToString("o"));
+            var sessionsJson = JsonConvert.SerializeObject(sessionsDict);
+
+            using var cmd = _db.CreateCommand();
+            cmd.CommandText = @"INSERT INTO active_session(id,location,co_present_ids,last_flush_utc)
+                VALUES(1,$loc,$ids,$ts)
+                ON CONFLICT(id) DO UPDATE SET
+                    location=excluded.location,
+                    co_present_ids=excluded.co_present_ids,
+                    last_flush_utc=excluded.last_flush_utc";
+            cmd.Parameters.AddWithValue("$loc", _currentLocation);
+            cmd.Parameters.AddWithValue("$ids", sessionsJson);
+            cmd.Parameters.AddWithValue("$ts", _worldSessionStart?.ToString("o") ?? "");
+            cmd.ExecuteNonQuery();
+        }
+        catch { }
+    }
+
+    private void ClearActiveSessionLocked()
+    {
+        try
+        {
+            using var cmd = _db.CreateCommand();
+            cmd.CommandText = "DELETE FROM active_session WHERE id=1";
+            cmd.ExecuteNonQuery();
+        }
+        catch { }
+    }
+
+    // ══════════════════════════════════════════════════════════════════
+    //  DISPOSE
+    // ══════════════════════════════════════════════════════════════════
 
     public void Dispose()
     {
         if (_disposed) return;
         _disposed = true;
-        _autoFlushTimer?.Dispose();
-        _autoFlushTimer = null;
-        FlushCurrentWorld();
+        _watchdogTimer?.Dispose();
+        _watchdogTimer = null;
+        lock (_lock)
+        {
+            var vrcRunning = _isVrcRunning?.Invoke() ?? false;
+            if (vrcRunning && (_playerSessions.Count > 0 || _worldSessionStart.HasValue))
+            {
+                // VRChat is still running — VRCNext is being restarted.
+                // Do NOT end sessions or clear active_session.
+                // Just persist the current state so RestoreActiveSession can resume with original timestamps.
+                PersistActiveSessionLocked();
+            }
+            else
+            {
+                // VRChat is not running — true shutdown. Finalize all sessions.
+                var now = DateTime.UtcNow;
+                EndAllPlayerSessionsLocked(now);
+                EndWorldSessionLocked(now);
+                ClearActiveSessionLocked();
+            }
+        }
+        // Clean up process monitor
+        try { _monitoredVrcProcess?.Dispose(); } catch { }
+        _monitoredVrcProcess = null;
         try { _db.Close(); } catch { }
         _db.Dispose();
     }
 
-    private void AutoFlushTick(object? state)
-    {
-        lock (_lock)
-        {
-            if (_disposed) return;
-            if (_isVrcRunning?.Invoke() != true) return;
-            if (string.IsNullOrEmpty(_currentWorldId) || !_currentWorldId.StartsWith("wrld_")) return;
+    // ── Legacy migration types ──
 
-            var now = DateTime.UtcNow;
-            var elapsed = (long)(now - _lastTick).TotalSeconds;
-            if (elapsed <= 0 || elapsed > 3600) return;
+    private class UserLegacy { public Dictionary<string, UserRecord>? Users { get; set; } }
+    private class WorldLegacy { public Dictionary<string, WorldRecord>? Worlds { get; set; } }
 
-            if (!Worlds.TryGetValue(_currentWorldId, out var rec))
-            {
-                rec = new WorldRecord();
-                Worlds[_currentWorldId] = rec;
-            }
-            rec.TotalSeconds += elapsed;
-            rec.LastVisited = now.ToString("o");
-            _lastTick = now;
-            UpsertWorld(_currentWorldId, rec);
-        }
-    }
+    // ── Static utility (kept from WorldTimeTracker for photo world detection) ──
 
-    private class WorldTimeTracker_Legacy
-    {
-        public Dictionary<string, WorldRecord>? Worlds { get; set; }
-    }
-
-    // extract world ID from a VRChat PNG file's tEXt metadata chunks
     public static string? ExtractWorldIdFromPng(string filePath)
     {
         try
@@ -1282,11 +1574,9 @@ public class WorldTimeTracker : IDisposable
 
                     var text = System.Text.Encoding.UTF8.GetString(data);
 
-                    // Any chunk containing wrld_: extract the world ID
                     if (text.Contains("wrld_"))
                     {
                         var idx = text.IndexOf("wrld_");
-                        // World IDs are alphanumeric + hyphens + underscores
                         var end = idx;
                         while (end < text.Length && (char.IsLetterOrDigit(text[end]) || text[end] == '_' || text[end] == '-'))
                             end++;
@@ -1294,11 +1584,10 @@ public class WorldTimeTracker : IDisposable
                         if (worldId.Length > 10) return worldId;
                     }
 
-                    fs.Seek(4, SeekOrigin.Current); // CRC
+                    fs.Seek(4, SeekOrigin.Current);
                     continue;
                 }
 
-                // Skip chunk data + CRC
                 fs.Seek(chunkLen + 4, SeekOrigin.Current);
             }
         }

@@ -101,11 +101,11 @@ public class TimelineController
 
                 var tlTypeFilter = msg["type"]?.ToString() ?? "";
 
-                // 0) Backfill missing world names from WorldTimeTracker DB cache (entire DB, no API calls)
+                // 0) Backfill missing world names from TimeEngine DB cache (entire DB, no API calls)
                 var allEvents = _core.Timeline.GetEvents();
                 foreach (var ev in allEvents.Where(e => !string.IsNullOrEmpty(e.WorldId) && string.IsNullOrEmpty(e.WorldName)))
                 {
-                    if (_core.WorldTimeTracker.Worlds.TryGetValue(ev.WorldId, out var wRec) && !string.IsNullOrEmpty(wRec.WorldName))
+                    if (_core.TimeEngine.Worlds.TryGetValue(ev.WorldId, out var wRec) && !string.IsNullOrEmpty(wRec.WorldName))
                     {
                         _core.Timeline.UpdateEvent(ev.Id, e =>
                         {
@@ -142,7 +142,7 @@ public class TimelineController
                             var wName  = w["name"]?.ToString()              ?? "";
                             var wThumb = w["thumbnailImageUrl"]?.ToString() ?? "";
                             _core.WorldThumbCache[wid] = wThumb;
-                            _core.WorldTimeTracker.UpdateWorldInfo(wid, wName, wThumb);
+                            _core.TimeEngine.UpdateWorldInfo(wid, wName, wThumb);
                             foreach (var ev in events
                                 .Where(e => e.WorldId == wid && (string.IsNullOrEmpty(e.WorldThumb) || string.IsNullOrEmpty(e.WorldName))))
                             {
@@ -829,8 +829,8 @@ public class TimelineController
             _core.SendToJS("vrcxImportProgress", new { status = "Merging into VRCNext...", percent = 75 });
 
             // 6. Merge into VRCNext
-            _core.WorldTimeTracker.BulkMerge(worldMerge);
-            _core.TimeTracker.BulkMerge(friendMerge);
+            _core.TimeEngine.BulkMergeWorlds(worldMerge);
+            _core.TimeEngine.BulkMergeUsers(friendMerge);
             _core.SendToJS("vrcxImportProgress", new { status = "Saving timeline...", percent = 88 });
             _core.Timeline.BulkImportEvents(tlEvents);
             _core.Timeline.BulkImportEvents(meetEvents);

@@ -11,6 +11,10 @@ public class NotificationsController
     private readonly FriendsController _friends;
     private readonly InstanceController _instance;
 
+    // Persists resolved images across multiple notification refreshes
+    // (ProcessSingleNotif skips re-fetching already-logged IDs, so we cache here)
+    private readonly Dictionary<string, string> _notifImageCache = new();
+
     // Constructor
 
     public NotificationsController(CoreLibrary core, FriendsController friends, InstanceController instance)
@@ -372,7 +376,16 @@ public class NotificationsController
 
         var senderImg    = "";
         var senderUserId = (string?)n.senderUserId;
-        if (!string.IsNullOrEmpty(senderUserId))
+        var notifIdForImg = (string?)n.id ?? "";
+        // Check image cache first (covers group icons + non-friend user images from prior fetches)
+        lock (_notifImageCache)
+        {
+            if (!string.IsNullOrEmpty(notifIdForImg))
+                _notifImageCache.TryGetValue(notifIdForImg, out senderImg!);
+        }
+        senderImg ??= "";
+        // Fallback to friend store
+        if (string.IsNullOrEmpty(senderImg) && !string.IsNullOrEmpty(senderUserId))
         {
             if (_friends.TryGetNameImage(senderUserId, out var fi) && !string.IsNullOrEmpty(fi.image))
                 senderImg = fi.image;
@@ -407,36 +420,61 @@ public class NotificationsController
         };
         _core.Timeline.AddEvent(notifEv);
 
+        // Build enriched notification for JS (includes sender image)
+        var jsNotif = JObject.FromObject(n);
+        jsNotif["_image"] = senderImg;
+
+        // Push to VR overlay (wrist alerts + HMD toast) for actionable types
+        PushToVrOverlay(n, senderImg);
+
         if (prependToJs)
             Invoke(() => {
-                _core.SendToJS("vrcNotificationPrepend", n);
+                _core.SendToJS("vrcNotificationPrepend", jsNotif);
                 _core.SendToJS("timelineEvent", _instance.BuildTimelinePayload(notifEv));
             });
 
-        // Async image fetch if not cached
-        if (string.IsNullOrEmpty(senderImg) && !string.IsNullOrEmpty(senderUserId) && _core.VrcApi.IsLoggedIn)
+        // Async image + name fetch if not cached
+        if (!string.IsNullOrEmpty(senderUserId) && _core.VrcApi.IsLoggedIn)
         {
-            var evId = notifEv.Id;
-            var uid  = senderUserId;
-            _ = Task.Run(async () =>
+            var needsImg  = string.IsNullOrEmpty(senderImg);
+            var needsName = string.IsNullOrEmpty((string?)n.senderUsername);
+            if (needsImg || needsName)
             {
-                try
+                var evId    = notifEv.Id;
+                var uid     = senderUserId;
+                var notifId = (string)n.id;
+                _ = Task.Run(async () =>
                 {
-                    var profile = await _core.VrcApi.GetUserAsync(uid);
-                    if (profile == null) return;
-                    var img = VRChatApiService.GetUserImage(profile);
-                    if (string.IsNullOrEmpty(img)) return;
-                    _core.Timeline.UpdateEvent(evId, ev => ev.SenderImage = img);
-                    var updated = _core.Timeline.GetEvents().FirstOrDefault(e => e.Id == evId);
-                    if (updated != null) Invoke(() => _core.SendToJS("timelineEvent", _instance.BuildTimelinePayload(updated)));
-                }
-                catch { }
-            });
+                    try
+                    {
+                        var profile = await _core.VrcApi.GetUserAsync(uid);
+                        if (profile == null) return;
+                        var img  = needsImg  ? VRChatApiService.GetUserImage(profile) : "";
+                        var name = needsName ? (profile["displayName"]?.ToString() ?? "") : "";
+                        if (string.IsNullOrEmpty(img) && string.IsNullOrEmpty(name)) return;
+                        if (!string.IsNullOrEmpty(img))
+                        {
+                            _core.Timeline.UpdateEvent(evId, ev => ev.SenderImage = img);
+                            lock (_notifImageCache) _notifImageCache[notifId] = img;
+                        }
+                        if (!string.IsNullOrEmpty(name))
+                            _core.Timeline.UpdateEvent(evId, ev => ev.SenderName = name);
+                        Invoke(() =>
+                        {
+                            var updated = _core.Timeline.GetEvents().FirstOrDefault(e => e.Id == evId);
+                            if (updated != null) _core.SendToJS("timelineEvent", _instance.BuildTimelinePayload(updated));
+                            _core.SendToJS("vrcNotifImageUpdate", new { notifId, image = img, senderUsername = name });
+                        });
+                    }
+                    catch { }
+                });
+            }
         }
 
-        // For group notifications without a sender: fetch group name + icon from _data
+        // For group notifications: fetch group name + icon from _data
+        // (runs for ALL group.* types — even when senderUserId is present, we want the group image)
         var notifTypeStr = (string)n.type;
-        if (string.IsNullOrEmpty(senderUserId) && notifTypeStr.StartsWith("group.") && _core.VrcApi.IsLoggedIn)
+        if (notifTypeStr.StartsWith("group.") && _core.VrcApi.IsLoggedIn)
         {
             JObject? dataObj = null;
             try
@@ -446,6 +484,17 @@ public class NotificationsController
                 else if (rawData?.Type == JTokenType.String) { try { dataObj = JObject.Parse(rawData.ToString()); } catch { } }
             }
             catch { }
+            // Also try details (v1 group notifications)
+            if (dataObj == null)
+            {
+                try
+                {
+                    var rawDet = n.details as JToken;
+                    if (rawDet is JObject djo2) dataObj = djo2;
+                    else if (rawDet?.Type == JTokenType.String) { try { dataObj = JObject.Parse(rawDet.ToString()); } catch { } }
+                }
+                catch { }
+            }
             // groupId can be in "groupId" directly, or in "ownerId" (group.event.created uses ownerId = grp_xxx)
             var groupId = dataObj?["groupId"]?.ToString();
             if (string.IsNullOrEmpty(groupId))
@@ -453,9 +502,13 @@ public class NotificationsController
                 var ownerId = dataObj?["ownerId"]?.ToString();
                 if (!string.IsNullOrEmpty(ownerId) && ownerId.StartsWith("grp_")) groupId = ownerId;
             }
+            // Fallback: extract from _link
+            if (string.IsNullOrEmpty(groupId))
+                groupId = ExtractGroupIdFromLink((string?)n._link);
             if (!string.IsNullOrEmpty(groupId))
             {
-                var evId = notifEv.Id;
+                var evId    = notifEv.Id;
+                var notifId = (string)n.id;
                 _ = Task.Run(async () =>
                 {
                     try
@@ -466,8 +519,14 @@ public class NotificationsController
                         var groupIcon = group["iconUrl"]?.ToString() ?? "";
                         if (string.IsNullOrEmpty(groupName) && string.IsNullOrEmpty(groupIcon)) return;
                         _core.Timeline.UpdateEvent(evId, ev => { ev.SenderName = groupName; ev.SenderImage = groupIcon; });
-                        var updated = _core.Timeline.GetEvents().FirstOrDefault(e => e.Id == evId);
-                        if (updated != null) Invoke(() => _core.SendToJS("timelineEvent", _instance.BuildTimelinePayload(updated)));
+                        if (!string.IsNullOrEmpty(groupIcon))
+                            lock (_notifImageCache) _notifImageCache[notifId] = groupIcon;
+                        Invoke(() =>
+                        {
+                            var updated = _core.Timeline.GetEvents().FirstOrDefault(e => e.Id == evId);
+                            if (updated != null) _core.SendToJS("timelineEvent", _instance.BuildTimelinePayload(updated));
+                            _core.SendToJS("vrcNotifImageUpdate", new { notifId, image = groupIcon, senderUsername = groupName });
+                        });
                     }
                     catch { }
                 });
@@ -497,6 +556,28 @@ public class NotificationsController
 
         list = list.OrderByDescending(n => (string)n.created_at).ToList();
 
+        // Build enriched list for JS — check image cache first, then friend store
+        var enrichedList = new JArray();
+        foreach (var n in list)
+        {
+            var j = JObject.FromObject(n);
+            var nid = (string?)n.id ?? "";
+            var sid = (string?)n.senderUserId;
+            string img = "";
+            // Cache populated by async fetches from prior loads (user images + group icons)
+            lock (_notifImageCache)
+            {
+                if (!string.IsNullOrEmpty(nid) && _notifImageCache.TryGetValue(nid, out var cached))
+                    img = cached ?? "";
+            }
+            // Fallback to friend store
+            if (string.IsNullOrEmpty(img) && !string.IsNullOrEmpty(sid)
+                && _friends.TryGetNameImage(sid, out var fi) && !string.IsNullOrEmpty(fi.image))
+                img = fi.image;
+            j["_image"] = img;
+            enrichedList.Add(j);
+        }
+
         var newTimeline = new List<object>();
         foreach (var n in list)
         {
@@ -506,11 +587,130 @@ public class NotificationsController
 
         Invoke(() =>
         {
-            _core.SendToJS("vrcNotifications", list);
+            _core.SendToJS("vrcNotifications", enrichedList);
             foreach (var ev in newTimeline)
                 _core.SendToJS("timelineEvent", ev);
         });
     });
+
+    // Push actionable notifications to VR overlay (wrist alerts tab + HMD toast)
+    private void PushToVrOverlay(dynamic n, string senderImg)
+    {
+        var vro = _core.VrOverlay;
+        if (vro == null) return;
+
+        var nType = (string)n.type;
+        string? overlayEvType = nType switch
+        {
+            "friendRequest" => "notif_friendreq",
+            "invite"        => "notif_invite",
+            "group.invite"  => "notif_groupinvite",
+            _               => null,
+        };
+        if (overlayEvType == null) return;
+
+        var notifId    = (string)n.id;
+        var senderName = (string?)n.senderUsername ?? "Unknown";
+        var senderId   = (string?)n.senderUserId ?? "";
+        var time       = DateTime.Now.ToString("HH:mm");
+
+        // Parse details & _data upfront
+        JObject? det = null;
+        JObject? data = null;
+        try
+        {
+            var rawDet = n.details as JToken;
+            if (rawDet is JObject jo) det = jo;
+            else if (rawDet?.Type == JTokenType.String) det = JObject.Parse(rawDet.ToString());
+        }
+        catch { }
+        try
+        {
+            var rawData = n._data as JToken;
+            if (rawData is JObject djo) data = djo;
+            else if (rawData?.Type == JTokenType.String) data = JObject.Parse(rawData.ToString());
+        }
+        catch { }
+
+        // Extract extra data depending on type
+        string notifData = "";
+        string evText = "";
+        if (nType == "friendRequest")
+        {
+            evText = "Friend Request";
+        }
+        else if (nType == "invite")
+        {
+            notifData = det?["worldId"]?.ToString() ?? "";
+            evText = "World Invite";
+        }
+        else if (nType == "group.invite")
+        {
+            notifData = det?["groupId"]?.ToString()
+                     ?? data?["groupId"]?.ToString()
+                     ?? ExtractGroupIdFromLink((string?)n._link) ?? "";
+            var groupName = (string?)n._title;
+            evText = !string.IsNullOrEmpty(groupName) ? groupName : "Group Invite";
+        }
+
+        // Async: fetch all data (image, world name, group info) then show both wrist + toast at once
+        var capturedEvType  = overlayEvType;
+        var capturedNotifId = notifId;
+        var capturedName    = senderName;
+        var capturedEvText  = evText;
+        var capturedImg     = senderImg;
+        var capturedData    = notifData;
+
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                // --- Resolve image (VRChat CDN images are public, no auth needed) ---
+                if (string.IsNullOrEmpty(capturedImg) && _core.VrcApi.IsLoggedIn)
+                {
+                    if (nType is "friendRequest" or "invite" && !string.IsNullOrEmpty(senderId))
+                    {
+                        var profile = await _core.VrcApi.GetUserAsync(senderId);
+                        if (profile != null)
+                            capturedImg = VRChatApiService.GetUserImage(profile);
+                    }
+                    else if (nType == "group.invite" && !string.IsNullOrEmpty(capturedData))
+                    {
+                        var group = await _core.VrcApi.GetGroupAsync(capturedData);
+                        if (group != null)
+                        {
+                            var groupIcon = group["iconUrl"]?.ToString() ?? "";
+                            var groupName = group["name"]?.ToString() ?? "";
+                            if (!string.IsNullOrEmpty(groupIcon))
+                                capturedImg = groupIcon;
+                            if (!string.IsNullOrEmpty(groupName))
+                                capturedEvText = groupName;
+                        }
+                    }
+                }
+
+                // --- Resolve world name for invite ---
+                if (nType == "invite" && !string.IsNullOrEmpty(capturedData) && _core.VrcApi.IsLoggedIn)
+                {
+                    var worldId = capturedData.Contains(':') ? capturedData.Split(':')[0] : capturedData;
+                    var world = await _core.VrcApi.GetWorldAsync(worldId);
+                    var worldName = world?["name"]?.ToString();
+                    if (!string.IsNullOrEmpty(worldName))
+                        capturedEvText = $"→ {worldName}";
+                }
+
+                // --- Route image through local cache proxy (VR overlay uses unauthenticated HTTP) ---
+                if (!string.IsNullOrEmpty(capturedImg))
+                    capturedImg = _core.ImgCache?.Get(capturedImg) ?? capturedImg;
+
+                // --- Add to wrist overlay + enqueue toast with all data ready ---
+                _core.VrOverlay?.AddNotification(capturedEvType, capturedName, capturedEvText, time,
+                    capturedImg, senderId, "", capturedNotifId, capturedData);
+                _core.VrOverlay?.EnqueueToast(capturedEvType, capturedName, capturedEvText, time, capturedImg, isFavorited: false);
+            }
+            catch { }
+        });
+    }
 
     // Photino compatibility shim
     private static void Invoke(Action action) => action();

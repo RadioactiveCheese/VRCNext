@@ -113,7 +113,7 @@ public class InstanceController
                             location   = instLoc,
                             worldId    = inst["worldId"]?.ToString() ?? "",
                             worldName  = inst["world"]?["name"]?.ToString() ?? "",
-                            worldThumb = inst["world"]?["thumbnailImageUrl"]?.ToString() ?? "",
+                            worldThumb = inst["world"]?["imageUrl"]?.ToString() ?? inst["world"]?["thumbnailImageUrl"]?.ToString() ?? "",
                             instanceType = iType,
                             userCount  = inst["userCount"]?.Value<int>() ?? 0,
                             capacity   = inst["capacity"]?.Value<int>() ?? 0,
@@ -223,23 +223,20 @@ public class InstanceController
                     var tlPersons = stats.Persons.ToDictionary(p => p.UserId);
                     var tlWorlds  = stats.Worlds.ToDictionary(w => w.WorldId);
 
-                    // PERSONS: start from ALL UserTimeTracker users so nobody is missed.
-                    // liveElapsed: time since last Tick not yet counted for co-present users
+                    // PERSONS: start from ALL engine users so nobody is missed.
                     var vrcRunning = _core.IsVrcRunning?.Invoke() ?? false;
                     var logPlayerIds = vrcRunning
                         ? new HashSet<string>(_core.LogWatcher.GetCurrentPlayers()
                             .Where(p => !string.IsNullOrEmpty(p.UserId)).Select(p => p.UserId))
                         : new HashSet<string>();
-                    var rawLiveElapsed = (long)(DateTime.UtcNow - _core.TimeTracker.LastTick).TotalSeconds;
-                    var liveElapsed = vrcRunning && rawLiveElapsed > 0 && rawLiveElapsed <= 3600 ? rawLiveElapsed : 0;
 
-                    var personList = _core.TimeTracker.Users
+                    var personList = _core.TimeEngine.Users
                         .Where(kv => kv.Key != tsMyId)
                         .Select(kv =>
                         {
                             var isCoPresent = logPlayerIds.Contains(kv.Key);
-                            // Effective seconds = stored + live pending (if currently in same instance)
-                            var effectiveSec = kv.Value.TotalSeconds + (isCoPresent ? liveElapsed : 0);
+                            // GetUserStats includes live session delta when co-present
+                            var (effectiveSec, _) = _core.TimeEngine.GetUserStats(kv.Key, isCoPresent);
                             if (effectiveSec <= 0) return default; // skip zero-time entries
 
                             tlPersons.TryGetValue(kv.Key, out var tl);
@@ -270,23 +267,17 @@ public class InstanceController
                         .Take(200)
                         .ToList();
 
-                    // WORLDS: flush pending time before reading so the displayed value is current.
-                    _core.WorldTimeTracker.Tick();
-                    _core.WorldTimeTracker.Save();
-
-                    // Start from ALL WorldTimeTracker worlds.
-                    // Same issue — timeline top-200 could miss recently visited worlds.
-                    var worldList = _core.WorldTimeTracker.Worlds
+                    // WORLDS: GetWorldStats includes live session delta automatically.
+                    var worldList = _core.TimeEngine.Worlds
                         .Select(kv =>
                         {
                             tlWorlds.TryGetValue(kv.Key, out var tl);
-                            // WorldTimeTracker now stores name/thumb (updated after 15s API call)
-                            // Fall back to timeline lookup for older entries
+                            var (wSec, wVisits, _) = _core.TimeEngine.GetWorldStats(kv.Key);
                             var name  = !string.IsNullOrEmpty(kv.Value.WorldName)  ? kv.Value.WorldName  : (tl?.WorldName  ?? "");
                             var thumb = !string.IsNullOrEmpty(kv.Value.WorldThumb) ? kv.Value.WorldThumb : (tl?.WorldThumb ?? "");
-                            var visits = kv.Value.VisitCount > 0 ? kv.Value.VisitCount : (tl?.Visits ?? 0);
+                            var visits = wVisits > 0 ? wVisits : (tl?.Visits ?? 0);
                             return (WorldId: kv.Key, WorldName: name, WorldThumb: thumb,
-                                    Seconds: kv.Value.TotalSeconds, Visits: visits);
+                                    Seconds: wSec, Visits: visits);
                         })
                         .Where(w => !string.IsNullOrEmpty(w.WorldName)) // skip worlds with no name yet
                         .OrderByDescending(w => w.Seconds)
@@ -345,7 +336,7 @@ public class InstanceController
             {
                 var inst = await _core.VrcApi.GetInstanceAsync(loc);
                 worldName     = inst?["world"]?["name"]?.ToString() ?? "";
-                worldThumb    = inst?["world"]?["thumbnailImageUrl"]?.ToString() ?? "";
+                worldThumb    = inst?["world"]?["imageUrl"]?.ToString() ?? inst?["world"]?["thumbnailImageUrl"]?.ToString() ?? "";
                 worldCapacity = inst?["world"]?["capacity"]?.Value<int>() ?? inst?["capacity"]?.Value<int>() ?? 0;
 
                 if (string.IsNullOrEmpty(worldName) && !string.IsNullOrEmpty(parsed.worldId))
@@ -354,7 +345,7 @@ public class InstanceController
                     if (world != null)
                     {
                         worldName     = world["name"]?.ToString() ?? "";
-                        worldThumb    = world["thumbnailImageUrl"]?.ToString() ?? "";
+                        worldThumb    = world["imageUrl"]?.ToString() ?? world["thumbnailImageUrl"]?.ToString() ?? "";
                         worldCapacity = world["capacity"]?.Value<int>() ?? 0;
                     }
                 }
@@ -502,6 +493,8 @@ public class InstanceController
         if (string.IsNullOrEmpty(_cachedInstLocation)) return;
         var parsed = VRChatApiService.ParseLocation(_cachedInstLocation);
         var logPlayers = _core.LogWatcher.GetCurrentPlayers();
+
+        // Player leave time tracking is handled by OnPlayerLeft in AuthController event wiring
         var users = logPlayers.Select(p =>
         {
             string img = "";
@@ -593,8 +586,8 @@ public class InstanceController
         // Reset Discord join timer for the new instance
         _core.DiscordJoinedAt = DateTime.Now;
 
-        // Track world visit immediately (log watcher fires on every actual world change)
-        _core.WorldTimeTracker.SetCurrentWorld(worldId);
+        // Unified time engine: start world + player tracking for new instance
+        _core.TimeEngine.OnWorldJoined(worldId, location);
         _lastTrackedWorldId = worldId;
 
         // Immediately refresh instance panel so sidebar doesn't wait for the 60s poll
@@ -636,10 +629,10 @@ public class InstanceController
                             ev.Players    = snap;
                         });
 
-                        // Store name/thumb in WorldTimeTracker so future lookups skip the API
+                        // Store name/thumb in TimeEngine so future lookups skip the API
                         if (!string.IsNullOrEmpty(wName))
                         {
-                            _core.WorldTimeTracker.UpdateWorldInfo(worldId, wName, wThumb);
+                            _core.TimeEngine.UpdateWorldInfo(worldId, wName, wThumb);
                             // Backfill ALL events (entire DB) with same WorldId that are missing WorldName
                             BackfillWorldName(worldId, wName, wThumb);
                         }
@@ -664,9 +657,14 @@ public class InstanceController
         {
             var img = _friends.TryGetNameImage(userId, out var fi) ? fi.image : "";
             _cumulativeInstancePlayers[userId] = (displayName, img);
-            // Store name in UserTimeTracker so this player appears in Time Spent list
-            // even when they are not a friend and not in the timeline top-200
-            _core.TimeTracker.UpdateUserInfo(userId, displayName, img);
+            // Store name so this player appears in Time Spent list even when not a friend
+            _core.TimeEngine.UpdateUserInfo(userId, displayName, img);
+
+            // Start time session for this player using the LogWatcher join timestamp.
+            // This ensures Time Together uses the exact same start time as Instance Info.
+            var logPlayer = _core.LogWatcher.GetCurrentPlayers().FirstOrDefault(p => p.UserId == userId);
+            var joinedAtUtc = logPlayer != null ? logPlayer.JoinedAt.ToUniversalTime() : DateTime.UtcNow;
+            _core.TimeEngine.OnPlayerJoined(userId, joinedAtUtc);
 
             // Live-update the instance_join timeline event so the UI shows players immediately
             if (_pendingInstanceEventId != null)
@@ -719,7 +717,7 @@ public class InstanceController
                         var fn = world["name"]?.ToString() ?? "";
                         var ft = world["thumbnailImageUrl"]?.ToString() ?? "";
                         if (string.IsNullOrEmpty(fn)) return;
-                        _core.WorldTimeTracker.UpdateWorldInfo(fmWorldId, fn, ft);
+                        _core.TimeEngine.UpdateWorldInfo(fmWorldId, fn, ft);
                         Invoke(() => BackfillWorldName(fmWorldId, fn, ft));
                     }
                     catch { }
@@ -790,7 +788,7 @@ public class InstanceController
                             var mn = world["name"]?.ToString() ?? "";
                             var mt = world["thumbnailImageUrl"]?.ToString() ?? "";
                             if (string.IsNullOrEmpty(mn)) return;
-                            _core.WorldTimeTracker.UpdateWorldInfo(maWorldId, mn, mt);
+                            _core.TimeEngine.UpdateWorldInfo(maWorldId, mn, mt);
                             Invoke(() => BackfillWorldName(maWorldId, mn, mt));
                         }
                         catch { }
@@ -880,13 +878,13 @@ public class InstanceController
     // Timeline - helpers
 
     /// Resolve world name + thumb from in-memory caches (no API call).
-    /// Priority: instance cache (only if worldId matches) → WorldTimeTracker DB cache.
+    /// Priority: instance cache (only if worldId matches) → TimeEngine DB cache.
     private (string name, string thumb) ResolveWorldInfoFromCache(string worldId)
     {
         if (string.IsNullOrEmpty(worldId)) return ("", "");
         if (!string.IsNullOrEmpty(_cachedInstWorldName) && _cachedInstLocation.StartsWith(worldId))
             return (_cachedInstWorldName, _cachedInstWorldThumb);
-        if (_core.WorldTimeTracker.Worlds.TryGetValue(worldId, out var rec) && !string.IsNullOrEmpty(rec.WorldName))
+        if (_core.TimeEngine.Worlds.TryGetValue(worldId, out var rec) && !string.IsNullOrEmpty(rec.WorldName))
             return (rec.WorldName, rec.WorldThumb);
         return ("", "");
     }

@@ -50,8 +50,7 @@ public partial class AppShell
     private static readonly System.Text.RegularExpressions.Regex _vrcImgUrlRegex = new(
         @"""(https://(?:api\.vrchat\.cloud|assets\.vrchat\.com|files\.vrchat\.cloud)[^""]+)""",
         System.Text.RegularExpressions.RegexOptions.Compiled);
-    private readonly UserTimeTracker _timeTracker;
-    private readonly WorldTimeTracker _worldTimeTracker;
+    private readonly UnifiedTimeEngine _timeEngine;
     private readonly PhotoPlayersStore _photoPlayersStore;
     private readonly TimelineService _timeline;
     private readonly UpdateService _updateService = new();
@@ -86,8 +85,7 @@ public partial class AppShell
         _settings = AppSettings.Load();
         MigrationHelper.MigrateFavorites(_settings); // silently moves Favorites → favorited_images.json
         if (_settings.MemoryTrimEnabled) _memTrim.SetEnabled(true);
-        _timeTracker = UserTimeTracker.Load(() => _core?.IsVrcRunning?.Invoke() ?? false);
-        _worldTimeTracker = WorldTimeTracker.Load(() => _core?.IsVrcRunning?.Invoke() ?? false);
+        _timeEngine = UnifiedTimeEngine.Load(() => _core?.IsVrcRunning?.Invoke() ?? false);
         _photoPlayersStore = PhotoPlayersStore.Load();
         _timeline = TimelineService.Load();
         _minimized = args.Contains("--minimized");
@@ -96,7 +94,7 @@ public partial class AppShell
         // Create shared service container and domain controllers
         _core = new CoreLibrary(
             _vrcApi, _logWatcher, _timeline, _settings, _cache,
-            _timeTracker, _worldTimeTracker, _photoPlayersStore,
+            _timeEngine, _photoPlayersStore,
             _webhook, _fileWatcher, _memTrim, _updateService,
             (type, payload) => SendToJS(type, payload));
         _core.IsVrcRunning = RelayController.IsVrcRunning;
@@ -351,8 +349,7 @@ public partial class AppShell
         _vroCtrl?.Dispose();
         _timeline.Dispose();
         _photoPlayersStore.Dispose();
-        _timeTracker.Dispose();
-        _worldTimeTracker.Dispose();
+        _timeEngine.Dispose();
         _photos.VrcPhotoWatcher?.Dispose();
         _webhook.Dispose();
         _logWatcher.Dispose();

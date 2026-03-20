@@ -265,6 +265,8 @@ function vroToastUpdateLabel(id) {
     const label = document.getElementById(id + 'Val');
     if (!input || !label) return;
     if (id === 'vroToastSize') label.textContent = input.value + '%';
+    else if (id === 'vroToastDuration') label.textContent = input.value + 's';
+    else if (id === 'vroToastStack') label.textContent = input.value;
     else label.textContent = parseFloat(input.value).toFixed(2);
 }
 
@@ -288,6 +290,11 @@ function vroToastSendConfig() {
         status:      !!document.getElementById('vroToastStatus')?.checked,
         statusDesc:  !!document.getElementById('vroToastStatusDesc')?.checked,
         bio:         !!document.getElementById('vroToastBio')?.checked,
+        duration:    parseInt(document.getElementById('vroToastDuration')?.value) || 8,
+        stack:       parseInt(document.getElementById('vroToastStack')?.value) || 2,
+        friendReq:   !!document.getElementById('vroToastFriendReq')?.checked,
+        invite:      !!document.getElementById('vroToastInvite')?.checked,
+        groupInv:    !!document.getElementById('vroToastGroupInv')?.checked,
     });
 }
 
@@ -430,7 +437,10 @@ function vroLoadSettings(s) {
         vroToastGps: s.vroToastGps ?? true,
         vroToastStatus: s.vroToastStatus ?? true,
         vroToastStatusDesc: s.vroToastStatusDesc ?? true,
-        vroToastBio: s.vroToastBio ?? true
+        vroToastBio: s.vroToastBio ?? true,
+        vroToastFriendReq: s.vroToastFriendReq ?? true,
+        vroToastInvite: s.vroToastInvite ?? true,
+        vroToastGroupInv: s.vroToastGroupInv ?? true
     };
 
     for (const [id, val] of Object.entries(toastValues)) {
@@ -454,6 +464,18 @@ function vroLoadSettings(s) {
     if (toastOffsetYEl) {
         toastOffsetYEl.value = s.vroToastOffsetY ?? -0.12;
         vroToastUpdateLabel('vroToastOffsetY');
+    }
+
+    const toastDurationEl = document.getElementById('vroToastDuration');
+    if (toastDurationEl) {
+        toastDurationEl.value = s.vroToastDuration ?? 8;
+        vroToastUpdateLabel('vroToastDuration');
+    }
+
+    const toastStackEl = document.getElementById('vroToastStack');
+    if (toastStackEl) {
+        toastStackEl.value = s.vroToastStack ?? 2;
+        vroToastUpdateLabel('vroToastStack');
     }
 }
 

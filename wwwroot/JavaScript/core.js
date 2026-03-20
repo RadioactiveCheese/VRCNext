@@ -1030,6 +1030,11 @@ function initVnSelect(el) {
         return text.replace(/\s*\[VRC\+\]/gi, '').trim();
     }
 
+    function splitCount(text) {
+        const m = text.match(/^(.*?)\s+(\d+\/\d+)$/);
+        return m ? { name: m[1], count: m[2] } : { name: text, count: '' };
+    }
+
     function buildPanel() {
         panel.innerHTML = '';
         for (let i = 0; i < el.options.length; i++) {
@@ -1037,13 +1042,22 @@ function initVnSelect(el) {
             const item = document.createElement('div');
             item.className = 'vn-select-option' + (i === el.selectedIndex ? ' vn-active' : '');
 
+            const { name, count } = splitCount(cleanText(opt.text));
             const span = document.createElement('span');
-            span.textContent = cleanText(opt.text);
+            span.className = 'vn-select-label';
+            span.textContent = name;
             item.appendChild(span);
+
+            if (count) {
+                const countEl = document.createElement('span');
+                countEl.textContent = count;
+                countEl.style.cssText = 'font-size:10px;color:var(--tx3);flex-shrink:0;margin-left:auto;';
+                item.appendChild(countEl);
+            }
 
             if (isVrcPlus(opt.value, opt.text)) {
                 const badge = document.createElement('span');
-                badge.className = 'vrcn-badge warn';
+                badge.className = 'vrcn-badge vrcplus';
                 badge.textContent = 'VRC+';
                 item.appendChild(badge);
             }
@@ -1060,7 +1074,7 @@ function initVnSelect(el) {
 
     function syncLabel() {
         const opt = el.options[el.selectedIndex];
-        label.textContent = opt ? cleanText(opt.text) : '';
+        label.textContent = opt ? splitCount(cleanText(opt.text)).name : '';
         panel.querySelectorAll('.vn-select-option').forEach((item, i) => {
             item.classList.toggle('vn-active', i === el.selectedIndex);
         });

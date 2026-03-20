@@ -46,6 +46,7 @@ namespace VRCNext.Services
         public event Action<List<uint>, List<string>, int, int>? OnKeybindRecorded; // (ids, names, hand, mode)
         public event Action<int>? OnToolToggle;
         public event Action<string, string>? OnJoinRequest; // (friendId, location)
+        public event Action<string, string, string, string>? OnNotifAccept; // (notifId, notifType, senderId, notifData)
 
         //  OpenVR handles 
         private CVRSystem? _vrSystem;
@@ -153,9 +154,12 @@ namespace VRCNext.Services
         private Bitmap? _toastBitmap;
         private ID3D11Texture2D? _toastStagingTex;
         private ID3D11Texture2D? _toastOverlayTex;
-        private const int TW = 420;  // toast width pixels
-        private const int TH = 72;   // toast height pixels
-        private readonly byte[] _toastUploadBuf = new byte[TW * TH * 4];
+        private const int TW = 420;       // toast width pixels
+        private const int TH = 72;        // single toast height pixels
+        private const int TH_GAP = 6;     // gap between stacked toasts
+        private const int MAX_STACK = 4;
+        private const int TH_FULL = TH * MAX_STACK + TH_GAP * (MAX_STACK - 1); // max bitmap height
+        private readonly byte[] _toastUploadBuf = new byte[TW * TH_FULL * 4];
 
         // Toast config
         private bool  _toastEnabled    = true;
@@ -169,16 +173,20 @@ namespace VRCNext.Services
         private bool  _toastStatus     = true;
         private bool  _toastStatusDesc = true;
         private bool  _toastBio        = true;
+        private bool  _toastFriendReq  = true;
+        private bool  _toastInvite     = true;
+        private bool  _toastGroupInv   = true;
 
         // Toast animation state
         private record ToastItem(string EvType, string FriendName, string EvText, string Time, string ImageUrl);
+        private record ActiveToast(ToastItem Item, DateTime StartTime);
         private readonly Queue<ToastItem> _toastQueue = new();
-        private ToastItem? _activeToast;
-        private DateTime _toastStartTime;
+        private readonly List<ActiveToast> _activeToasts = new();
+        private int   _toastStackSize  = 2;      // 1–4
+        private double _toastVisibleMs = 8000;    // configurable duration
         private const double TOAST_FADE_IN_MS  = 350;
-        private const double TOAST_VISIBLE_MS  = 8000;
         private const double TOAST_FADE_OUT_MS = 400;
-        private double _toastTotalMs => TOAST_FADE_IN_MS + TOAST_VISIBLE_MS + TOAST_FADE_OUT_MS;
+        private double _toastTotalMs => TOAST_FADE_IN_MS + _toastVisibleMs + TOAST_FADE_OUT_MS;
         private bool _toastDirty;
 
         // Callback to trigger sound playback on JS side
@@ -197,7 +205,9 @@ namespace VRCNext.Services
 
         public void ApplyToastConfig(bool enabled, bool favOnly, int size, float offX, float offY,
             bool online, bool offline,
-            bool gps, bool status, bool statusDesc, bool bio)
+            bool gps, bool status, bool statusDesc, bool bio,
+            int durationSec = 8, int stackSize = 2,
+            bool friendReq = true, bool invite = true, bool groupInv = true)
         {
             bool wasEnabled = _toastEnabled;
             _toastEnabled    = enabled;
@@ -211,18 +221,31 @@ namespace VRCNext.Services
             _toastStatus     = status;
             _toastStatusDesc = statusDesc;
             _toastBio        = bio;
+            _toastFriendReq  = friendReq;
+            _toastInvite     = invite;
+            _toastGroupInv   = groupInv;
+            _toastVisibleMs  = Math.Clamp(durationSec, 2, 10) * 1000.0;
+            int newStack     = Math.Clamp(stackSize, 1, MAX_STACK);
+
+            // If stack size reduced, dismiss toasts in excess slots
+            if (newStack < _toastStackSize)
+            {
+                while (_activeToasts.Count > newStack)
+                    _activeToasts.RemoveAt(_activeToasts.Count - 1);
+            }
+            _toastStackSize = newStack;
 
             // Reapply overlay width based on size % (0.10m at 0%, 0.30m at 100%)
             if (_toastHandle != 0 && OpenVR.Overlay != null)
             {
                 OpenVR.Overlay.SetOverlayWidthInMeters(_toastHandle, 0.10f + _toastSize * 0.002f);
 
-                // If just disabled, immediately hide active toast and clear queue
+                // If just disabled, immediately hide active toasts and clear queue
                 if (wasEnabled && !enabled)
                 {
-                    if (_activeToast != null)
+                    if (_activeToasts.Count > 0)
                     {
-                        _activeToast = null;
+                        _activeToasts.Clear();
                         OpenVR.Overlay.SetOverlayAlpha(_toastHandle, 0f);
                         OpenVR.Overlay.HideOverlay(_toastHandle);
                         _toastDirty = false;
@@ -243,6 +266,9 @@ namespace VRCNext.Services
             "friend_status"      => _toastStatus,
             "friend_statusdesc"  => _toastStatusDesc,
             "friend_bio"         => _toastBio,
+            "notif_friendreq"    => _toastFriendReq,
+            "notif_invite"       => _toastInvite,
+            "notif_groupinvite"  => _toastGroupInv,
             _                    => false,
         };
 
@@ -259,8 +285,8 @@ namespace VRCNext.Services
             // Per-event-type filter
             if (!ShouldShowToast(evType)) return;
 
-            // Favorites-only filter
-            if (_toastFavOnly && !isFavorited) return;
+            // Favorites-only filter (skip for VRChat notification types — they're not friend events)
+            if (_toastFavOnly && !isFavorited && !evType.StartsWith("notif_")) return;
 
             // Skip friend_gps with empty world name — the async update with the real name will follow
             if (evType == "friend_gps" && (evText == "→ a world" || string.IsNullOrWhiteSpace(evText))) return;
@@ -308,7 +334,7 @@ namespace VRCNext.Services
             { (uint)EVRButtonId.k_EButton_Axis1,           "Trigger"   },
         };
 
-        private record NotifEntry(string EvType, string FriendName, string EvText, string Time, string ImageUrl = "", string FriendId = "", string Location = "");
+        private record NotifEntry(string EvType, string FriendName, string EvText, string Time, string ImageUrl = "", string FriendId = "", string Location = "", string NotifId = "", string NotifData = "");
 
         //  Location tab 
         private record LocationEntry(string WorldId, string InstanceId, string WorldName, string WorldImageUrl, string FriendId, string FriendName, string FriendImageUrl, string Location);
@@ -529,7 +555,7 @@ namespace VRCNext.Services
                     OpenVR.Overlay.SetOverlayWidthInMeters(_toastHandle, 0.10f + _toastSize * 0.002f);
                     OpenVR.Overlay.SetOverlayAlpha(_toastHandle, 0f); // start invisible
                     OpenVR.Overlay.SetOverlayInputMethod(_toastHandle, VROverlayInputMethod.None);
-                    _toastBitmap = new Bitmap(TW, TH, PixelFormat.Format32bppArgb);
+                    _toastBitmap = new Bitmap(TW, TH_FULL, PixelFormat.Format32bppArgb);
 
                     // D3D11 textures for toast (reuse same device)
                     if (_d3dDevice != null)
@@ -538,7 +564,7 @@ namespace VRCNext.Services
                         {
                             _toastOverlayTex = _d3dDevice.CreateTexture2D(new Texture2DDescription
                             {
-                                Width = TW, Height = TH, MipLevels = 1, ArraySize = 1,
+                                Width = TW, Height = TH_FULL, MipLevels = 1, ArraySize = 1,
                                 Format = Format.R8G8B8A8_UNorm,
                                 SampleDescription = new SampleDescription(1, 0),
                                 Usage = ResourceUsage.Default,
@@ -546,7 +572,7 @@ namespace VRCNext.Services
                             });
                             _toastStagingTex = _d3dDevice.CreateTexture2D(new Texture2DDescription
                             {
-                                Width = TW, Height = TH, MipLevels = 1, ArraySize = 1,
+                                Width = TW, Height = TH_FULL, MipLevels = 1, ArraySize = 1,
                                 Format = Format.R8G8B8A8_UNorm,
                                 SampleDescription = new SampleDescription(1, 0),
                                 Usage = ResourceUsage.Staging,
@@ -607,7 +633,7 @@ namespace VRCNext.Services
             _toastBitmap?.Dispose(); _toastBitmap = null;
             _toastStagingTex?.Dispose(); _toastStagingTex = null;
             _toastOverlayTex?.Dispose(); _toastOverlayTex = null;
-            _activeToast = null;
+            _activeToasts.Clear();
             lock (_toastQueue) _toastQueue.Clear();
             lock (_toastFriendCooldown) _toastFriendCooldown.Clear();
 
@@ -745,16 +771,40 @@ namespace VRCNext.Services
         }
 
         public void AddNotification(string evType, string friendName, string evText, string time,
-            string imageUrl = "", string friendId = "", string location = "")
+            string imageUrl = "", string friendId = "", string location = "",
+            string notifId = "", string notifData = "")
         {
             lock (_notifications)
             {
-                var entry = new NotifEntry(evType, friendName, evText, time, imageUrl, friendId, location);
+                var entry = new NotifEntry(evType, friendName, evText, time, imageUrl, friendId, location, notifId, notifData);
                 _notifications.Insert(0, entry);
                 while (_notifications.Count > 4) _notifications.RemoveAt(_notifications.Count - 1);
             }
             if (!string.IsNullOrEmpty(imageUrl))
                 _ = Task.Run(() => EnsureNotifImageAsync(imageUrl));
+            _dirty = true;
+        }
+
+        public void UpdateNotification(string notifId, string? newText = null, string? newImageUrl = null, string? newFriendName = null)
+        {
+            if (string.IsNullOrEmpty(notifId)) return;
+            lock (_notifications)
+            {
+                for (int i = 0; i < _notifications.Count; i++)
+                {
+                    if (_notifications[i].NotifId != notifId) continue;
+                    var e = _notifications[i];
+                    _notifications[i] = e with
+                    {
+                        EvText     = newText       ?? e.EvText,
+                        ImageUrl   = newImageUrl   ?? e.ImageUrl,
+                        FriendName = newFriendName ?? e.FriendName,
+                    };
+                    break;
+                }
+            }
+            if (!string.IsNullOrEmpty(newImageUrl))
+                _ = Task.Run(() => EnsureNotifImageAsync(newImageUrl));
             _dirty = true;
         }
 
@@ -1360,7 +1410,7 @@ namespace VRCNext.Services
                 }
             }
 
-            // Notifications tab join button clicks
+            // Notifications tab action button clicks (join + accept)
             // Square button: jbW = h-4 = itemH-4-4 = 70px, jbX = x+w-jbW-2 = 12+488-70-2 = 428
             if (_activeTab == 0)
             {
@@ -1378,16 +1428,40 @@ namespace VRCNext.Services
                         {
                             List<NotifEntry> snapJ;
                             lock (_notifications) snapJ = new List<NotifEntry>(_notifications);
-                            if (row2 < snapJ.Count && snapJ[row2].EvType == "friend_gps" && !string.IsNullOrEmpty(snapJ[row2].Location))
+                            if (row2 < snapJ.Count)
                             {
                                 var notif = snapJ[row2];
-                                bool inCooldown = _joinCooldowns.TryGetValue(notif.FriendId, out var cd)
-                                    && (DateTime.UtcNow - cd).TotalSeconds < 5;
-                                if (!inCooldown)
+                                // Join button (friend_gps)
+                                if (notif.EvType == "friend_gps" && !string.IsNullOrEmpty(notif.Location))
                                 {
-                                    _joinCooldowns[notif.FriendId] = DateTime.UtcNow;
-                                    _dirty = true;
-                                    OnJoinRequest?.Invoke(notif.FriendId, notif.Location);
+                                    bool inCooldown = _joinCooldowns.TryGetValue(notif.FriendId, out var cd)
+                                        && (DateTime.UtcNow - cd).TotalSeconds < 5;
+                                    if (!inCooldown)
+                                    {
+                                        _joinCooldowns[notif.FriendId] = DateTime.UtcNow;
+                                        _dirty = true;
+                                        OnJoinRequest?.Invoke(notif.FriendId, notif.Location);
+                                    }
+                                }
+                                // Accept button (notification types)
+                                else if (notif.EvType is "notif_friendreq" or "notif_groupinvite"
+                                      && !string.IsNullOrEmpty(notif.NotifId))
+                                {
+                                    bool inCooldown = _joinCooldowns.TryGetValue(notif.NotifId, out var cd)
+                                        && (DateTime.UtcNow - cd).TotalSeconds < 5;
+                                    if (!inCooldown)
+                                    {
+                                        _joinCooldowns[notif.NotifId] = DateTime.UtcNow;
+                                        _dirty = true;
+                                        // Map overlay event type back to VRChat notification type
+                                        string notifType = notif.EvType switch
+                                        {
+                                            "notif_friendreq"   => "friendRequest",
+                                            "notif_groupinvite" => "group.invite",
+                                            _ => ""
+                                        };
+                                        OnNotifAccept?.Invoke(notif.NotifId, notifType, notif.FriendId, notif.NotifData);
+                                    }
                                 }
                             }
                         }
@@ -1651,12 +1725,12 @@ namespace VRCNext.Services
         {
             if (_toastHandle == 0 || OpenVR.Overlay == null) return;
 
-            // If toasts are disabled, immediately dismiss any active toast and clear queue
+            // If toasts are disabled, immediately dismiss all and clear queue
             if (!_toastEnabled)
             {
-                if (_activeToast != null)
+                if (_activeToasts.Count > 0)
                 {
-                    _activeToast = null;
+                    _activeToasts.Clear();
                     OpenVR.Overlay.SetOverlayAlpha(_toastHandle, 0f);
                     OpenVR.Overlay.HideOverlay(_toastHandle);
                     _toastDirty = false;
@@ -1665,56 +1739,47 @@ namespace VRCNext.Services
                 return;
             }
 
-            // Advance or dequeue
-            if (_activeToast != null)
+            bool hadActive = _activeToasts.Count > 0;
+
+            // Expire finished toasts
+            for (int i = _activeToasts.Count - 1; i >= 0; i--)
             {
-                double elapsed = (DateTime.UtcNow - _toastStartTime).TotalMilliseconds;
+                double elapsed = (DateTime.UtcNow - _activeToasts[i].StartTime).TotalMilliseconds;
                 if (elapsed >= _toastTotalMs)
-                {
-                    // Toast finished
-                    _activeToast = null;
-                    OpenVR.Overlay.SetOverlayAlpha(_toastHandle, 0f);
-                    OpenVR.Overlay.HideOverlay(_toastHandle);
-                    _toastDirty = false;
-                }
-                else
-                {
-                    // Compute alpha
-                    float alpha;
-                    if (elapsed < TOAST_FADE_IN_MS)
-                        alpha = (float)(elapsed / TOAST_FADE_IN_MS);
-                    else if (elapsed < TOAST_FADE_IN_MS + TOAST_VISIBLE_MS)
-                        alpha = 1f;
-                    else
-                        alpha = 1f - (float)((elapsed - TOAST_FADE_IN_MS - TOAST_VISIBLE_MS) / TOAST_FADE_OUT_MS);
-
-                    alpha = Math.Clamp(alpha, 0f, 1f);
-                    OpenVR.Overlay.SetOverlayAlpha(_toastHandle, alpha);
-
-                    // Re-render toast with progress bar
-                    _toastDirty = true;
-                }
+                    _activeToasts.RemoveAt(i);
             }
 
-            // Dequeue next if no active toast
-            if (_activeToast == null)
+            // Dequeue new toasts into free slots
+            while (_activeToasts.Count < _toastStackSize)
             {
                 ToastItem? next = null;
                 lock (_toastQueue) { if (_toastQueue.Count > 0) next = _toastQueue.Dequeue(); }
-                if (next != null)
-                {
-                    _activeToast = next;
-                    _toastStartTime = DateTime.UtcNow;
-                    _toastDirty = true;
-
-                    // Position: attach to HMD
-                    ApplyToastTransform();
-                    OpenVR.Overlay.ShowOverlay(_toastHandle);
-                    OnToastSound?.Invoke();
-                }
+                if (next == null) break;
+                _activeToasts.Add(new ActiveToast(next, DateTime.UtcNow));
+                OnToastSound?.Invoke();
             }
 
-            if (_toastDirty && _activeToast != null)
+            // Show/hide overlay based on active toast count
+            if (_activeToasts.Count > 0 && !hadActive)
+            {
+                ApplyToastTransform();
+                OpenVR.Overlay.ShowOverlay(_toastHandle);
+                OpenVR.Overlay.SetOverlayAlpha(_toastHandle, 1f);
+            }
+            else if (_activeToasts.Count == 0 && hadActive)
+            {
+                OpenVR.Overlay.SetOverlayAlpha(_toastHandle, 0f);
+                OpenVR.Overlay.HideOverlay(_toastHandle);
+                _toastDirty = false;
+                return;
+            }
+
+            if (_activeToasts.Count > 0)
+            {
+                _toastDirty = true; // always re-render for progress bars + per-toast alpha
+            }
+
+            if (_toastDirty && _activeToasts.Count > 0)
             {
                 _toastDirty = false;
                 RenderToast();
@@ -1724,15 +1789,33 @@ namespace VRCNext.Services
         private void ApplyToastTransform()
         {
             if (_toastHandle == 0 || OpenVR.Overlay == null) return;
-            // Attach to HMD (tracked device index 0)
-            var transform = BuildTransform(_toastOffsetX, _toastOffsetY, -0.45f, 0f, 0f, 0f);
+            // Compensate Y for taller bitmap: anchor bottom of overlay at the same position
+            // as the original single-toast overlay. The overlay center shifts upward when
+            // the bitmap is taller, so we subtract the extra half-height.
+            float widthMeters = 0.10f + _toastSize * 0.002f;
+            float fullHeightM = widthMeters * TH_FULL / TW;
+            float singleHeightM = widthMeters * TH / TW;
+            float yCompensation = (fullHeightM - singleHeightM) / 2f;
+            var transform = BuildTransform(_toastOffsetX, _toastOffsetY + yCompensation, -0.45f, 0f, 0f, 0f);
             OpenVR.Overlay.SetOverlayTransformTrackedDeviceRelative(_toastHandle,
                 OpenVR.k_unTrackedDeviceIndex_Hmd, ref transform);
         }
 
+        private float ComputeToastAlpha(double elapsedMs)
+        {
+            float alpha;
+            if (elapsedMs < TOAST_FADE_IN_MS)
+                alpha = (float)(elapsedMs / TOAST_FADE_IN_MS);
+            else if (elapsedMs < TOAST_FADE_IN_MS + _toastVisibleMs)
+                alpha = 1f;
+            else
+                alpha = 1f - (float)((elapsedMs - TOAST_FADE_IN_MS - _toastVisibleMs) / TOAST_FADE_OUT_MS);
+            return Math.Clamp(alpha, 0f, 1f);
+        }
+
         private void RenderToast()
         {
-            if (_toastBitmap == null || _activeToast == null || OpenVR.Overlay == null || _toastHandle == 0) return;
+            if (_toastBitmap == null || _activeToasts.Count == 0 || OpenVR.Overlay == null || _toastHandle == 0) return;
             try
             {
                 using var g = Graphics.FromImage(_toastBitmap);
@@ -1740,28 +1823,39 @@ namespace VRCNext.Services
                 g.TextRenderingHint = TextRenderingHint.ClearTypeGridFit;
                 g.Clear(Color.Transparent);
 
-                DrawToastContent(g, _activeToast);
+                // Draw toasts bottom-up: index 0 at the bottom of the bitmap
+                for (int i = 0; i < _activeToasts.Count; i++)
+                {
+                    var at = _activeToasts[i];
+                    double elapsed = (DateTime.UtcNow - at.StartTime).TotalMilliseconds;
+                    float alpha = ComputeToastAlpha(elapsed);
+                    int y = TH_FULL - (i + 1) * TH - i * TH_GAP;
+                    DrawToastContent(g, at.Item, y, alpha, elapsed);
+                }
 
                 UploadToastTexture();
             }
             catch (Exception ex) { _log($"[VROverlay] ToastRender: {ex.Message}"); }
         }
 
-        private void DrawToastContent(Graphics g, ToastItem toast)
+        // Helper: multiply an alpha value by the per-toast fade alpha
+        private static int A(int baseAlpha, float fade) => Math.Clamp((int)(baseAlpha * fade), 0, 255);
+
+        private void DrawToastContent(Graphics g, ToastItem toast, int oY, float fade, double elapsedMs)
         {
             var th = _theme;
 
             //  Background — rounded card
-            using var bg = new SolidBrush(Color.FromArgb(220, th.BgCard));
-            FillRoundedRect(g, bg, 0, 0, TW, TH, 14);
+            using var bg = new SolidBrush(Color.FromArgb(A(220, fade), th.BgCard));
+            FillRoundedRect(g, bg, 0, oY, TW, TH, 14);
 
             // Border
-            using var brdPen = new Pen(Color.FromArgb(80, th.Brd), 1f);
-            DrawRoundedRect(g, brdPen, 0, 0, TW, TH, 14);
+            using var brdPen = new Pen(Color.FromArgb(A(80, fade), th.Brd), 1f);
+            DrawRoundedRect(g, brdPen, 0, oY, TW, TH, 14);
 
             //  Avatar — 36x36, rounded
             const int avSize = 36, avR = 8;
-            int avX = 12, avY = (TH - avSize - 6) / 2; // leave room for progress bar
+            int avX = 12, avY = oY + (TH - avSize - 6) / 2; // leave room for progress bar
 
             Bitmap? avatar = null;
             if (!string.IsNullOrEmpty(toast.ImageUrl))
@@ -1772,16 +1866,29 @@ namespace VRCNext.Services
             g.SetClip(avPath);
             if (avatar != null)
             {
-                g.DrawImage(avatar, new Rectangle(avX, avY, avSize, avSize));
+                if (fade >= 0.99f)
+                    g.DrawImage(avatar, new Rectangle(avX, avY, avSize, avSize));
+                else
+                {
+                    using var ia = new System.Drawing.Imaging.ImageAttributes();
+                    float[][] cm = {
+                        new float[] { 1,0,0,0,0 }, new float[] { 0,1,0,0,0 },
+                        new float[] { 0,0,1,0,0 }, new float[] { 0,0,0,fade,0 },
+                        new float[] { 0,0,0,0,1 }
+                    };
+                    ia.SetColorMatrix(new System.Drawing.Imaging.ColorMatrix(cm));
+                    g.DrawImage(avatar, new Rectangle(avX, avY, avSize, avSize),
+                        0, 0, avatar.Width, avatar.Height, GraphicsUnit.Pixel, ia);
+                }
             }
             else
             {
-                using var avBg = new SolidBrush(th.BgHover);
+                using var avBg = new SolidBrush(Color.FromArgb(A(255, fade), th.BgHover));
                 g.FillPath(avBg, avPath);
                 g.ResetClip();
                 string initials = toast.FriendName.Length > 0 ? toast.FriendName[0].ToString().ToUpper() : "?";
                 using var initFont  = new Font("Segoe UI", 14f, FontStyle.Bold, GraphicsUnit.Point);
-                using var initBrush = new SolidBrush(th.Tx2);
+                using var initBrush = new SolidBrush(Color.FromArgb(A(255, fade), th.Tx2));
                 var initFmt = new StringFormat { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Center };
                 g.DrawString(initials, initFont, initBrush, new RectangleF(avX, avY, avSize, avSize), initFmt);
             }
@@ -1797,12 +1904,12 @@ namespace VRCNext.Services
             float dotX = textX;
             float row1Y = avY + 2f;
             float dotY = row1Y + (16f - dotSz) / 2f;
-            using var dotBrush = new SolidBrush(evColor);
+            using var dotBrush = new SolidBrush(Color.FromArgb(A(255, fade), evColor));
             g.FillEllipse(dotBrush, dotX, dotY, dotSz, dotSz);
 
             float nameX = dotX + dotSz + 6f;
             using var nameFont  = new Font("Segoe UI", 10.5f, FontStyle.Bold, GraphicsUnit.Point);
-            using var nameBrush = new SolidBrush(th.Tx1);
+            using var nameBrush = new SolidBrush(Color.FromArgb(A(255, fade), th.Tx1));
             var ellipsisFmt = new StringFormat { Trimming = StringTrimming.EllipsisCharacter, FormatFlags = StringFormatFlags.NoWrap };
             var nameSz = g.MeasureString(toast.FriendName, nameFont);
             float nameDrawW = Math.Min(nameSz.Width, textRight - nameX - 70f);
@@ -1821,9 +1928,9 @@ namespace VRCNext.Services
                 float badgeY = row1Y + (18f - badgeH) / 2f;
                 if (badgeX + badgeW < textRight)
                 {
-                    using var badgeBg = new SolidBrush(Color.FromArgb(40, evColor));
+                    using var badgeBg = new SolidBrush(Color.FromArgb(A(40, fade), evColor));
                     FillRoundedRect(g, badgeBg, (int)badgeX, (int)badgeY, (int)badgeW, (int)badgeH, 4);
-                    using var badgeBrush = new SolidBrush(evColor);
+                    using var badgeBrush = new SolidBrush(Color.FromArgb(A(255, fade), evColor));
                     var badgeFmt = new StringFormat { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Center };
                     g.DrawString(badge, badgeFont, badgeBrush, new RectangleF(badgeX, badgeY, badgeW, badgeH), badgeFmt);
                 }
@@ -1833,33 +1940,31 @@ namespace VRCNext.Services
             float row2Y = row1Y + 18f + 1f;
             string evText = EventBadgeLabel(toast.EvType, toast.EvText);
             using var evFont  = new Font("Segoe UI", 9f, FontStyle.Regular, GraphicsUnit.Point);
-            using var evBrush = new SolidBrush(th.Tx3);
+            using var evBrush = new SolidBrush(Color.FromArgb(A(255, fade), th.Tx3));
             g.DrawString(evText, evFont, evBrush,
                 new RectangleF(textX, row2Y, textRight - textX, 16f), ellipsisFmt);
 
             //  Progress bar at bottom
-            double elapsed = (DateTime.UtcNow - _toastStartTime).TotalMilliseconds;
-            // Progress fills left-to-right during the visible window
             double barProgress;
-            if (elapsed < TOAST_FADE_IN_MS) barProgress = 0;
-            else if (elapsed >= TOAST_FADE_IN_MS + TOAST_VISIBLE_MS) barProgress = 1;
-            else barProgress = (elapsed - TOAST_FADE_IN_MS) / TOAST_VISIBLE_MS;
+            if (elapsedMs < TOAST_FADE_IN_MS) barProgress = 0;
+            else if (elapsedMs >= TOAST_FADE_IN_MS + _toastVisibleMs) barProgress = 1;
+            else barProgress = (elapsedMs - TOAST_FADE_IN_MS) / _toastVisibleMs;
 
-            int barY = TH - 4;
+            int barYPos = oY + TH - 4;
             int barH = 3;
             int barFullW = TW - 24;
             int barX = 12;
             int barW = (int)(barFullW * barProgress);
 
             // Track
-            using var trackBrush = new SolidBrush(Color.FromArgb(60, th.Tx3));
-            FillRoundedRect(g, trackBrush, barX, barY, barFullW, barH, 2);
+            using var trackBrush = new SolidBrush(Color.FromArgb(A(60, fade), th.Tx3));
+            FillRoundedRect(g, trackBrush, barX, barYPos, barFullW, barH, 2);
 
             // Fill
             if (barW > 0)
             {
-                using var fillBrush = new SolidBrush(Color.FromArgb(180, evColor));
-                FillRoundedRect(g, fillBrush, barX, barY, barW, barH, 2);
+                using var fillBrush = new SolidBrush(Color.FromArgb(A(180, fade), evColor));
+                FillRoundedRect(g, fillBrush, barX, barYPos, barW, barH, 2);
             }
         }
 
@@ -1867,11 +1972,11 @@ namespace VRCNext.Services
         {
             if (_toastBitmap == null || OpenVR.Overlay == null || _toastHandle == 0) return;
 
-            var bmpRect = new Rectangle(0, 0, TW, TH);
+            var bmpRect = new Rectangle(0, 0, TW, TH_FULL);
             var bmpData = _toastBitmap.LockBits(bmpRect, ImageLockMode.ReadOnly, PixelFormat.Format32bppArgb);
             try
             {
-                int bytes = TW * TH * 4;
+                int bytes = TW * TH_FULL * 4;
                 Marshal.Copy(bmpData.Scan0, _toastUploadBuf, 0, bytes);
                 for (int i = 0; i < bytes; i += 4)
                     (_toastUploadBuf[i], _toastUploadBuf[i + 2]) = (_toastUploadBuf[i + 2], _toastUploadBuf[i]);
@@ -1885,7 +1990,7 @@ namespace VRCNext.Services
                 try
                 {
                     int rowBytes = TW * 4;
-                    for (int y = 0; y < TH; y++)
+                    for (int y = 0; y < TH_FULL; y++)
                         Marshal.Copy(_toastUploadBuf, y * rowBytes,
                             IntPtr.Add(mapped.DataPointer, (int)(y * mapped.RowPitch)), rowBytes);
                 }
@@ -1905,7 +2010,7 @@ namespace VRCNext.Services
             else
             {
                 var pinned = GCHandle.Alloc(_toastUploadBuf, GCHandleType.Pinned);
-                try { OpenVR.Overlay.SetOverlayRaw(_toastHandle, pinned.AddrOfPinnedObject(), (uint)TW, (uint)TH, 4); }
+                try { OpenVR.Overlay.SetOverlayRaw(_toastHandle, pinned.AddrOfPinnedObject(), (uint)TW, (uint)TH_FULL, 4); }
                 finally { pinned.Free(); }
             }
         }
@@ -2395,24 +2500,27 @@ namespace VRCNext.Services
             var th       = _theme;
             var evColor  = EventColor(entry.EvType);
             bool hasJoin = entry.EvType == "friend_gps" && !string.IsNullOrEmpty(entry.Location);
+            bool hasAccept = entry.EvType is "notif_friendreq" or "notif_groupinvite"
+                          && !string.IsNullOrEmpty(entry.NotifId);
+            bool hasButton = hasJoin || hasAccept;
+            string buttonCdKey = hasJoin ? entry.FriendId : entry.NotifId;
 
-            //  Card background (matches sidebar bg-card) 
+            //  Card background (matches sidebar bg-card)
             using var bg = new SolidBrush(Color.FromArgb(190, th.BgCard));
             FillRoundedRect(g, bg, x, y, w, h, 8);
 
-            //  Join button — square (width = height), right edge of card 
+            //  Action button — square (width = height), right edge of card
             int jbW = h - 4;   // square: width equals height (h minus 2px top+bottom margin)
             int jbX = x + w - jbW - 2;
-            if (hasJoin)
+            if (hasButton)
             {
-                bool inCooldown = _joinCooldowns.TryGetValue(entry.FriendId, out var cdTime)
+                bool inCooldown = _joinCooldowns.TryGetValue(buttonCdKey, out var cdTime)
                     && (DateTime.UtcNow - cdTime).TotalSeconds < 5;
-                var jbBgColor = inCooldown ? Color.FromArgb(170, th.Ok) : Color.FromArgb(210, th.Accent);
+                var jbBgColor = inCooldown ? Color.FromArgb(170, th.Ok) : Color.FromArgb(210, hasAccept ? evColor : th.Accent);
                 using var jbBg = new SolidBrush(jbBgColor);
                 FillRoundedRect(g, jbBg, jbX, y + 2, jbW, h - 4, 6);
-                // Icon: login (\uE879 Material Symbols = door with arrow) for join
-                //       done  (\uE876 Material Symbols = checkmark) for sent cooldown
-                string icon = inCooldown ? "\uE876" : "\uE879";
+                // Icons: done=\uE876 (checkmark), login=\uE879 (door), check=\uE5CA (accept)
+                string icon = inCooldown ? "\uE876" : (hasJoin ? "\uE879" : "\uE5CA");
                 using var iconFont = _matSymFamily != null
                     ? new Font(_matSymFamily, 16f, FontStyle.Regular, GraphicsUnit.Point)
                     : new Font("Segoe MDL2 Assets", 14f, FontStyle.Regular, GraphicsUnit.Point);
@@ -2455,7 +2563,7 @@ namespace VRCNext.Services
             // textX: start after avatar + 8px gap (matches sidebar gap)
             // textRight: stop before join button (or right margin 8px)
             int textX     = avX + avSize + 8;
-            int textRight = hasJoin ? jbX - 6 : x + w - 8;
+            int textRight = hasButton ? jbX - 6 : x + w - 8;
 
             // Two-row vertical centering
             // Row 1: time · dot · name   (~15px)
@@ -2526,12 +2634,15 @@ namespace VRCNext.Services
             "friend_online"      => _theme.Ok,
             "friend_offline"     => _theme.Tx3,
             "friend_gps"         => _theme.Accent,
-            "friend_status"     => _theme.Warn,
-            "friend_statusdesc" => _theme.Cyan,
-            "friend_bio"        => _theme.Cyan,
-            "friend_added"      => _theme.Ok,
-            "friend_removed"    => _theme.Err,
-            _                   => _theme.Tx2,
+            "friend_status"      => _theme.Warn,
+            "friend_statusdesc"  => _theme.Cyan,
+            "friend_bio"         => _theme.Cyan,
+            "friend_added"       => _theme.Ok,
+            "friend_removed"     => _theme.Err,
+            "notif_friendreq"    => _theme.Ok,
+            "notif_invite"       => _theme.Accent,
+            "notif_groupinvite"  => _theme.Warn,
+            _                    => _theme.Tx2,
         };
 
         private static string EventTypeLabel(string evType) => evType switch
@@ -2544,6 +2655,9 @@ namespace VRCNext.Services
             "friend_bio"         => "Bio",
             "friend_added"       => "Added",
             "friend_removed"     => "Removed",
+            "notif_friendreq"    => "Friend Req",
+            "notif_invite"       => "Invite",
+            "notif_groupinvite"  => "Group Inv",
             _                    => "",
         };
 
@@ -2557,6 +2671,9 @@ namespace VRCNext.Services
             "friend_bio"         => evText,
             "friend_added"       => "Friend added",
             "friend_removed"     => "Removed",
+            "notif_friendreq"    => "Friend Request",
+            "notif_invite"       => evText,
+            "notif_groupinvite"  => evText,
             _                    => evText,
         };
 

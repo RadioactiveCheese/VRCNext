@@ -12,8 +12,7 @@ public class CoreLibrary
     public ImageCacheService? ImgCache { get; set; }
     public AppSettings Settings { get; }
     public CacheHandler Cache { get; }
-    public UserTimeTracker TimeTracker { get; }
-    public WorldTimeTracker WorldTimeTracker { get; }
+    public UnifiedTimeEngine TimeEngine { get; }
     public PhotoPlayersStore PhotoPlayersStore { get; }
     public WebhookService Webhook { get; }
     public FileWatcherService FileWatcher { get; }
@@ -57,8 +56,7 @@ public class CoreLibrary
         TimelineService timeline,
         AppSettings settings,
         CacheHandler cache,
-        UserTimeTracker timeTracker,
-        WorldTimeTracker worldTimeTracker,
+        UnifiedTimeEngine timeEngine,
         PhotoPlayersStore photoPlayersStore,
         WebhookService webhook,
         FileWatcherService fileWatcher,
@@ -71,8 +69,7 @@ public class CoreLibrary
         Timeline = timeline;
         Settings = settings;
         Cache = cache;
-        TimeTracker = timeTracker;
-        WorldTimeTracker = worldTimeTracker;
+        TimeEngine = timeEngine;
         PhotoPlayersStore = photoPlayersStore;
         Webhook = webhook;
         FileWatcher = fileWatcher;

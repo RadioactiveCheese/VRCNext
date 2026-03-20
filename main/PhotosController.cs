@@ -135,7 +135,7 @@ public class PhotosController
 
                 var bsWorldName  = "";
                 var bsWorldThumb = "";
-                if (!string.IsNullOrEmpty(rec.WorldId) && _core.WorldTimeTracker.Worlds.TryGetValue(rec.WorldId, out var bsWRec) && !string.IsNullOrEmpty(bsWRec.WorldName))
+                if (!string.IsNullOrEmpty(rec.WorldId) && _core.TimeEngine.Worlds.TryGetValue(rec.WorldId, out var bsWRec) && !string.IsNullOrEmpty(bsWRec.WorldName))
                 { bsWorldName = bsWRec.WorldName; bsWorldThumb = bsWRec.WorldThumb; }
                 var ev = new TimelineService.TimelineEvent
                 {
@@ -547,7 +547,7 @@ public class PhotosController
             var photoUrl = GetVirtualMediaUrl(filePath);
             var phWorldName  = _instance.CachedInstWorldName;
             var phWorldThumb = _instance.CachedInstWorldThumb;
-            if (string.IsNullOrEmpty(phWorldName) && _core.WorldTimeTracker.Worlds.TryGetValue(wid, out var phWRec) && !string.IsNullOrEmpty(phWRec.WorldName))
+            if (string.IsNullOrEmpty(phWorldName) && _core.TimeEngine.Worlds.TryGetValue(wid, out var phWRec) && !string.IsNullOrEmpty(phWRec.WorldName))
             { phWorldName = phWRec.WorldName; phWorldThumb = phWRec.WorldThumb; }
             var photoEv = new TimelineService.TimelineEvent
             {
@@ -689,7 +689,7 @@ public class PhotosController
             if (rec != null && !string.IsNullOrEmpty(rec.WorldId)) continue;
 
             string? worldId = null;
-            try { worldId = WorldTimeTracker.ExtractWorldIdFromPng(f.FullName); } catch { }
+            try { worldId = UnifiedTimeEngine.ExtractWorldIdFromPng(f.FullName); } catch { }
             if (string.IsNullOrEmpty(worldId)) continue;
 
             batch[f.FullName] = worldId;

@@ -173,6 +173,11 @@ function saveSettings() {
             vroToastStatus:     !!document.getElementById('vroToastStatus')?.checked,
             vroToastStatusDesc: !!document.getElementById('vroToastStatusDesc')?.checked,
             vroToastBio:        !!document.getElementById('vroToastBio')?.checked,
+            vroToastDuration:   parseInt(document.getElementById('vroToastDuration')?.value) || 8,
+            vroToastStack:      parseInt(document.getElementById('vroToastStack')?.value) || 2,
+            vroToastFriendReq:  !!document.getElementById('vroToastFriendReq')?.checked,
+            vroToastInvite:     !!document.getElementById('vroToastInvite')?.checked,
+            vroToastGroupInv:   !!document.getElementById('vroToastGroupInv')?.checked,
             dpHideJoinBtnJoinMe: document.getElementById('dpHideJoinBtn_joinme')?.checked ?? false,
             dpHideJoinBtnOnline: document.getElementById('dpHideJoinBtn_online')?.checked ?? false,
             dpHideJoinBtnAskMe:  document.getElementById('dpHideJoinBtn_askme')?.checked  ?? false,
@@ -393,6 +398,11 @@ function loadSettingsToUI(s) {
         vroToastStatus:     s.VroToastStatus     ?? s.vroToastStatus     ?? true,
         vroToastStatusDesc: s.VroToastStatusDesc ?? s.vroToastStatusDesc ?? true,
         vroToastBio:        s.VroToastBio        ?? s.vroToastBio        ?? true,
+        vroToastDuration:   s.VroToastDuration   ?? s.vroToastDuration   ?? 8,
+        vroToastStack:      s.VroToastStack      ?? s.vroToastStack      ?? 2,
+        vroToastFriendReq:  s.VroToastFriendReq  ?? s.vroToastFriendReq  ?? true,
+        vroToastInvite:     s.VroToastInvite     ?? s.vroToastInvite     ?? true,
+        vroToastGroupInv:   s.VroToastGroupInv   ?? s.vroToastGroupInv   ?? true,
     });
     // Auto-starts are now triggered by vrcLaunched (see messages.js)
 

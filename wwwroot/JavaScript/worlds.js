@@ -3,6 +3,8 @@
 let _favRefreshTimer = null;
 let _wdLiveTimer = null;
 let _favWorldsLoaded = false;
+let _worldEditMode = false;
+let _worldEditSelected = new Set();
 function _scheduleBgFavRefresh() {
     clearTimeout(_favRefreshTimer);
     _favRefreshTimer = setTimeout(() => sendToCS({ action: 'vrcGetFavoriteWorlds' }), 2000);
@@ -38,6 +40,7 @@ function getWorldVisitCountLabel(count) {
 }
 
 function setWorldFilter(filter) {
+    if (_worldEditMode) exitWorldEditMode();
     worldFilter = filter;
     document.getElementById('worldFilterFav').classList.toggle('active', filter === 'favorites');
     document.getElementById('worldFilterMine').classList.toggle('active', filter === 'mine');
@@ -45,6 +48,8 @@ function setWorldFilter(filter) {
     document.getElementById('worldFavArea').style.display    = filter === 'favorites' ? '' : 'none';
     document.getElementById('worldMineArea').style.display   = filter === 'mine'      ? '' : 'none';
     document.getElementById('worldSearchArea').style.display = filter === 'search'    ? '' : 'none';
+    const editBtn = document.getElementById('worldEditModeBtn');
+    if (editBtn) editBtn.style.display = filter === 'favorites' ? '' : 'none';
     if (filter === 'favorites' && favWorldsData.length === 0) sendToCS({ action: 'vrcGetFavoriteWorlds' });
     if (filter === 'mine' && !_myWorldsLoaded) {
         _myWorldsLoaded = true;
@@ -175,6 +180,19 @@ function renderWorldCard(w) {
     const wid = jsq(w.id);
     const ts = w.worldTimeSeconds || 0;
     const timeBadge = ts > 0 ? `<div class="s-card-time-badge"><span class="msi" style="font-size:11px;">schedule</span> ${formatDuration(ts)}</div>` : '';
+    if (_worldEditMode) {
+        const isSelected = _worldEditSelected.has(w.id);
+        const checkIcon = isSelected
+            ? `<span class="msi" style="font-size:20px;color:var(--accent);">check_circle</span>`
+            : `<span class="msi" style="font-size:20px;color:rgba(255,255,255,0.7);">radio_button_unchecked</span>`;
+        return `<div class="s-card" data-wid="${esc(w.id)}" onclick="toggleWorldEditSelect('${wid}',this)" style="cursor:pointer;user-select:none;position:relative;">
+            <div class="s-card-img" style="background-image:url('${cssUrl(thumb)}')">${timeBadge}<div class="wd-edit-check">${checkIcon}</div></div>
+            <div class="s-card-body"><div class="s-card-title">${esc(w.name)}</div>
+            <div class="s-card-sub">${esc(w.authorName)} · <span class="msi" style="font-size:11px;">person</span> ${w.occupants} · <span class="msi" style="font-size:11px;">star</span> ${w.favorites}</div>
+            ${desc ? `<div class="s-card-desc">${esc(desc)}</div>` : ''}
+            ${tagsHtml}</div>
+            ${isSelected ? '<div class="wd-edit-sel-border"></div>' : ''}</div>`;
+    }
     return `<div class="s-card" onclick="openWorldSearchDetail('${wid}')">
         <div class="s-card-img" style="background-image:url('${cssUrl(thumb)}')">${timeBadge}</div>
         <div class="s-card-body"><div class="s-card-title">${esc(w.name)}</div>
@@ -193,9 +211,161 @@ function filterFavWorlds() {
         el.innerHTML = `<div class="empty-msg">${q || favWorldGroupFilter
             ? t('worlds.favorites.no_match', 'No favorites match your filter')
             : t('worlds.favorites.empty', 'No favorite worlds found')}</div>`;
+        if (_worldEditMode) updateWorldEditBar();
         return;
     }
-    el.innerHTML = filtered.map(w => renderWorldCard(w)).join('');
+    // Group by category when showing All Favorites
+    if (!favWorldGroupFilter && favWorldGroups.length > 1) {
+        let html = '';
+        let first = true;
+        favWorldGroups.forEach(g => {
+            const groupWorlds = filtered.filter(w => w.favoriteGroup === g.name);
+            if (!groupWorlds.length) return;
+            const cap = Math.max(g.capacity || 100, 100);
+            const isVrcPlus = g.type === 'vrcPlusWorld';
+            const vrcBadge = isVrcPlus ? `<span class="vrcn-badge vrcplus">VRC+</span>` : '';
+            html += `<div class="fav-group-header${first ? ' fav-group-header-first' : ''}">
+                <span class="topbar-title">${esc(g.displayName || g.name)}</span>
+                ${vrcBadge}
+                <span class="fav-group-count">${groupWorlds.length}/${cap}</span>
+            </div>`;
+            html += groupWorlds.map(w => renderWorldCard(w)).join('');
+            first = false;
+        });
+        el.innerHTML = html;
+    } else {
+        el.innerHTML = filtered.map(w => renderWorldCard(w)).join('');
+    }
+    if (_worldEditMode) updateWorldEditBar();
+}
+
+/* === World Edit Mode === */
+function toggleWorldEditMode() {
+    if (_worldEditMode) { exitWorldEditMode(); return; }
+    _worldEditMode = true;
+    _worldEditSelected = new Set();
+    const btn = document.getElementById('worldEditModeBtn');
+    if (btn) { btn.innerHTML = `<span class="msi" style="font-size:16px;">check</span> <span>${t('worlds.edit.done', 'Done')}</span>`; btn.classList.add('active'); }
+    const filterBtns = document.getElementById('worldFilterBtns');
+    if (filterBtns) filterBtns.style.display = 'none';
+    const bar = document.getElementById('worldEditBar');
+    if (bar) bar.style.display = 'flex';
+    filterFavWorlds();
+}
+
+function exitWorldEditMode() {
+    _worldEditMode = false;
+    _worldEditSelected = new Set();
+    const btn = document.getElementById('worldEditModeBtn');
+    if (btn) { btn.innerHTML = `<span class="msi" style="font-size:16px;">edit</span> <span>${t('worlds.edit.button', 'Edit')}</span>`; btn.classList.remove('active'); }
+    const filterBtns = document.getElementById('worldFilterBtns');
+    if (filterBtns) filterBtns.style.display = '';
+    const bar = document.getElementById('worldEditBar');
+    if (bar) bar.style.display = 'none';
+    const picker = document.getElementById('worldEditMovePicker');
+    if (picker) { picker.style.display = 'none'; picker.innerHTML = ''; }
+    filterFavWorlds();
+}
+
+function toggleWorldEditSelect(id, el) {
+    if (_worldEditSelected.has(id)) {
+        _worldEditSelected.delete(id);
+        const chk = el?.querySelector('.wd-edit-check .msi');
+        if (chk) { chk.textContent = 'radio_button_unchecked'; chk.style.color = 'rgba(255,255,255,0.7)'; }
+        el?.querySelector('.wd-edit-sel-border')?.remove();
+    } else {
+        _worldEditSelected.add(id);
+        const chk = el?.querySelector('.wd-edit-check .msi');
+        if (chk) { chk.textContent = 'check_circle'; chk.style.color = 'var(--accent)'; }
+        if (el && !el.querySelector('.wd-edit-sel-border')) {
+            el.insertAdjacentHTML('beforeend', '<div class="wd-edit-sel-border"></div>');
+        }
+    }
+    updateWorldEditBar();
+}
+
+function worldEditSelectAll() {
+    const q = (document.getElementById('favWorldSearchInput')?.value || '').toLowerCase();
+    let filtered = favWorldsData;
+    if (favWorldGroupFilter) filtered = filtered.filter(w => w.favoriteGroup === favWorldGroupFilter);
+    if (q) filtered = filtered.filter(w => (w.name||'').toLowerCase().includes(q) || (w.authorName||'').toLowerCase().includes(q));
+    const allSelected = filtered.length > 0 && filtered.every(w => _worldEditSelected.has(w.id));
+    if (allSelected) {
+        filtered.forEach(w => _worldEditSelected.delete(w.id));
+    } else {
+        filtered.forEach(w => _worldEditSelected.add(w.id));
+    }
+    filterFavWorlds();
+}
+
+function updateWorldEditBar() {
+    const count = _worldEditSelected.size;
+    const countEl = document.getElementById('worldEditCount');
+    if (countEl) countEl.textContent = tf('worlds.edit.selected', { count }, '{count} selected');
+    const selectAllBtn = document.getElementById('worldEditSelectAllBtn');
+    if (selectAllBtn) {
+        const q = (document.getElementById('favWorldSearchInput')?.value || '').toLowerCase();
+        let filtered = favWorldsData;
+        if (favWorldGroupFilter) filtered = filtered.filter(w => w.favoriteGroup === favWorldGroupFilter);
+        if (q) filtered = filtered.filter(w => (w.name||'').toLowerCase().includes(q) || (w.authorName||'').toLowerCase().includes(q));
+        const allSel = filtered.length > 0 && filtered.every(w => _worldEditSelected.has(w.id));
+        selectAllBtn.textContent = allSel ? t('worlds.edit.deselect_all', 'Deselect All') : t('worlds.edit.select_all', 'Select All');
+    }
+    document.querySelectorAll('.wd-edit-action').forEach(b => b.disabled = count === 0);
+}
+
+function worldEditShowMoveMenu(btn) {
+    if (_worldEditSelected.size === 0) return;
+    const picker = document.getElementById('worldEditMovePicker');
+    if (!picker) return;
+    if (picker.style.display === 'block') { picker.style.display = 'none'; picker.innerHTML = ''; return; }
+    const groups = (typeof favWorldGroups !== 'undefined') ? favWorldGroups : [];
+    picker.innerHTML = groups.map(g => {
+        const count = favWorldsData.filter(fw => fw.favoriteGroup === g.name).length;
+        const isVrcPlus = g.type === 'vrcPlusWorld';
+        const gn = jsq(g.name), gt = jsq(g.type);
+        return `<div class="vn-select-option" onclick="worldEditMoveSelected('${gn}','${gt}')">
+            <span class="msi" style="font-size:14px;flex-shrink:0;">folder</span>
+            <span style="flex:1;">${esc(g.displayName || g.name)}</span>
+            ${isVrcPlus ? '<span class="vrcn-badge vrcplus">VRC+</span>' : ''}
+            <span style="font-size:10px;color:var(--tx3);flex-shrink:0;">${count}</span>
+        </div>`;
+    }).join('');
+    picker.style.display = 'block';
+    setTimeout(() => {
+        const close = (e) => {
+            if (!picker.contains(e.target) && e.target !== btn) {
+                picker.style.display = 'none';
+                picker.innerHTML = '';
+                document.removeEventListener('click', close);
+            }
+        };
+        document.addEventListener('click', close);
+    }, 0);
+}
+
+function worldEditMoveSelected(groupName, groupType) {
+    if (_worldEditSelected.size === 0) return;
+    const picker = document.getElementById('worldEditMovePicker');
+    if (picker) { picker.style.display = 'none'; picker.innerHTML = ''; }
+    const toMove = [..._worldEditSelected];
+    toMove.forEach(worldId => {
+        const entry = favWorldsData.find(w => w.id === worldId);
+        if (entry && entry.favoriteGroup !== groupName) {
+            sendToCS({ action: 'vrcAddWorldFavorite', worldId, groupName, groupType, oldFvrtId: entry.favoriteId || '' });
+        }
+    });
+    exitWorldEditMode();
+}
+
+function worldEditRemoveSelected() {
+    if (_worldEditSelected.size === 0) return;
+    const toRemove = [..._worldEditSelected];
+    toRemove.forEach(worldId => {
+        const entry = favWorldsData.find(w => w.id === worldId);
+        if (entry) sendToCS({ action: 'vrcRemoveWorldFavorite', worldId, fvrtId: entry.favoriteId });
+    });
+    exitWorldEditMode();
 }
 
 /* === Detail Modals (shared) === */
@@ -417,6 +587,11 @@ function removeWorldFavorite(worldId, fvrtId) {
 function onWorldUnfavoriteResult(data) {
     const btn = document.getElementById('wdFavBtn');
     if (data.ok) {
+        const removed = favWorldsData.find(fw => fw.id === data.worldId);
+        const worldName = removed?.name || worldInfoCache[data.worldId]?.name || '';
+        showToast(true, worldName
+            ? tf('worlds.favorites.toast.removed.named', { world: worldName }, '"{world}" removed from favorites')
+            : t('worlds.favorites.toast.removed', 'Removed from favorites'));
         favWorldsData = favWorldsData.filter(fw => fw.id !== data.worldId);
         if (btn) {
             btn.disabled = false;
@@ -448,7 +623,7 @@ function renderWorldFavPicker(worldId) {
         const isVrcPlus = g.type === 'vrcPlusWorld';
         const isCurrent = g.name === currentGroup;
         const vrcBadge = isVrcPlus
-            ? `<span style="font-size:8px;font-weight:700;color:#FFD700;background:#FFD70022;border:1px solid #FFD70055;border-radius:3px;padding:1px 5px;box-shadow:0 0 5px #FFD70066;letter-spacing:.3px;flex-shrink:0;">VRC+</span>`
+            ? `<span class="vrcn-badge vrcplus">VRC+</span>`
             : '';
         const check = isCurrent
             ? `<span class="msi" style="color:var(--accent);font-size:18px;flex-shrink:0;">check_circle</span>`

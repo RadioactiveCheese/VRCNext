@@ -85,6 +85,15 @@ function formatInstanceTimer(joinedAt, now) {
     return t('instance.timer.less_than_minute', '<1m');
 }
 
+function _resolveNotifImage(n) {
+    if (n._image) return n._image;
+    if (n.senderUserId && typeof vrcFriendsData !== 'undefined') {
+        const f = vrcFriendsData.find(f => f.id === n.senderUserId);
+        if (f && f.image) return f.image;
+    }
+    return '';
+}
+
 function renderNotifications(list) {
     notifications = (list || []).filter(n => n.type !== 'boop'); // boops only in messenger
     const unseen = notifications.filter(n => !n.seen).length;
@@ -106,6 +115,15 @@ function renderNotifications(list) {
             ? `<strong style="cursor:pointer;" onclick="toggleNotifPanel();openFriendDetail('${esc(n.senderUserId)}')">${esc(n.senderUsername || n.senderUserId)}</strong>`
             : (n.senderUsername ? `<strong>${esc(n.senderUsername)}</strong>` : '');
         const det = typeof n.details === 'string' ? (() => { try { return JSON.parse(n.details); } catch { return {}; } })() : (n.details || {});
+
+        // Resolve avatar image
+        const nImg = _resolveNotifImage(n);
+        const hasImg = nImg && nImg.length > 5;
+        const initial = (n.senderUsername || '?')[0].toUpperCase();
+        const avatarHtml = hasImg
+            ? `<div class="notif-avatar" style="background-image:url('${cssUrl(nImg)}')"><span class="msi notif-avatar-badge">${icon}</span></div>`
+            : `<span class="msi notif-icon" style="font-size:18px;">${icon}</span>`;
+
         let titleHtml;
         let bodyHtml = '';
         if (n._v2 && n._title) {
@@ -138,8 +156,8 @@ function renderNotifications(list) {
                 : esc(label);
             if (n.message) bodyHtml = `<div class="notif-msg">${esc(n.message)}</div>`;
         }
-        return `<div class="notif-item ${n.seen && !canAccept ? 'notif-seen' : ''}">
-            <span class="msi notif-icon" style="font-size:18px;">${icon}</span>
+        return `<div class="notif-item ${n.seen && !canAccept ? 'notif-seen' : ''}" data-notif-id="${nid}">
+            ${avatarHtml}
             <div class="notif-body">
                 <div class="notif-title" style="display:flex;align-items:center;gap:5px;flex-wrap:wrap;">${titleHtml}</div>
                 ${bodyHtml}

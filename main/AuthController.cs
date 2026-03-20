@@ -396,7 +396,13 @@ public class AuthController
         };
         _core.LogWatcher.PlayerLeft += (uid, name) =>
         {
-            try { _instance.PushCurrentInstanceFromCache(); } catch { }
+            try
+            {
+                // End the player's time session immediately on leave
+                if (!string.IsNullOrEmpty(uid)) _core.TimeEngine.OnPlayerLeft(uid);
+                _instance.PushCurrentInstanceFromCache();
+            }
+            catch { }
         };
         _core.LogWatcher.InstanceClosed += loc =>
         {
@@ -612,20 +618,32 @@ public class AuthController
                                 _instance.CumulativeInstancePlayers[p.UserId] = (p.DisplayName, p.Image ?? "");
                         }
                     }
-                    _core.WorldTimeTracker.ResumeWorld(_core.LogWatcher.CurrentWorldId);
+                    _core.TimeEngine.OnWorldResumed(_core.LogWatcher.CurrentWorldId, loc);
                     _instance.LastTrackedWorldId = _core.LogWatcher.CurrentWorldId;
                 }
                 else
                 {
                     _instance.HandleWorldChangedOnUiThread(_core.LogWatcher.CurrentWorldId, loc);
                 }
-                foreach (var p in _core.LogWatcher.GetCurrentPlayers())
+                var currentPlayers = _core.LogWatcher.GetCurrentPlayers();
+                foreach (var p in currentPlayers)
                 {
-                    if (!string.IsNullOrEmpty(p.UserId) && !_instance.CumulativeInstancePlayers.ContainsKey(p.UserId))
+                    if (string.IsNullOrEmpty(p.UserId)) continue;
+                    if (!string.IsNullOrEmpty(_core.CurrentVrcUserId) && p.UserId == _core.CurrentVrcUserId) continue;
+                    if (!_instance.CumulativeInstancePlayers.ContainsKey(p.UserId))
                         _instance.CumulativeInstancePlayers[p.UserId] = (p.DisplayName, "");
-                    if (!string.IsNullOrEmpty(p.UserId) && !string.IsNullOrEmpty(p.DisplayName))
-                        _core.TimeTracker.UpdateUserInfo(p.UserId, p.DisplayName, "");
+                    if (!string.IsNullOrEmpty(p.DisplayName))
+                        _core.TimeEngine.UpdateUserInfo(p.UserId, p.DisplayName, "");
+                    // Register catch-up players in the engine with their real log timestamp.
+                    // Without this, players already present when VRCNext starts would have
+                    // no active session → Time Together shows 0 instead of the real duration.
+                    _core.TimeEngine.OnPlayerJoined(p.UserId, p.JoinedAt.ToUniversalTime());
                 }
+                // Restore active session from DB — adds gap time for players still present
+                var currentPlayerIds = new HashSet<string>(
+                    currentPlayers.Where(p => !string.IsNullOrEmpty(p.UserId)).Select(p => p.UserId));
+                currentPlayerIds.Remove(_core.CurrentVrcUserId ?? "");
+                _core.TimeEngine.RestoreActiveSession(loc, currentPlayerIds);
             }
         }
 
@@ -1093,7 +1111,7 @@ public class AuthController
                 foreach (var w in groupWorlds)
                 {
                     var wid = w["id"]?.ToString() ?? "";
-                    var stats = _core.WorldTimeTracker.GetWorldStats(wid);
+                    var stats = _core.TimeEngine.GetWorldStats(wid);
                     allWorlds.Add(new
                     {
                         id                = wid,

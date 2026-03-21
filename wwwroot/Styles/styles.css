@@ -4551,6 +4551,15 @@ html.text-tools-active * { user-select: text !important; }
     flex-direction: column;
     gap: 16px;
 }
+.sf-card-pair {
+    display: flex;
+    gap: 16px;
+    align-items: stretch;
+}
+.sf-card-pair > .sf-card {
+    flex: 1;
+    min-width: 0;
+}
 
 .sf-card {
     background: var(--bg-card);

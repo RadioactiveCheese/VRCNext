@@ -423,48 +423,62 @@
             <div class="tab" id="tab9">
                 <div class="settings-inner sf-layout">
 
-                    <!-- LANGUAGE -->
-                    <div class="sf-card">
-                        <div class="sf-card-header"><span class="msi">translate</span> <span data-i18n="language.title">Language</span></div>
-                        <div class="set-desc">Cambia tu idioma · Change ta langue · Cambia lingua · 言語を変えて · 언어를 바꿔 · 更改你的语言 · Change Language · Sprache Ändern</div>
-                        <div class="theme-grid" id="languageGrid"></div>
-                        <div id="langRestartHint" style="display:none;margin-top:10px;">
-                            <span class="set-desc" data-i18n="settings.language.restart_hint">It is recommended to restart the app once you change the language.</span>
-                            <button class="vrcn-button" style="margin-top:8px;" onclick="sendToCS({action:'restartApp'})"><span class="msi" style="font-size:16px;">refresh</span> <span data-i18n="settings.language.restart_btn">Restart VRCNext</span></button>
+                    <!-- LANGUAGE + SOUNDS -->
+                    <div class="sf-card-pair">
+                        <div class="sf-card">
+                            <div class="sf-card-header"><span class="msi">translate</span> <span data-i18n="language.title">Language</span></div>
+                            <div class="set-desc">Cambia tu idioma · Change ta langue · Cambia lingua · 言語を変えて · 언어를 바꿔 · 更改你的语言 · Change Language · Sprache Ändern</div>
+                            <div class="theme-grid" id="languageGrid"></div>
+                            <div id="langRestartHint" style="display:none;margin-top:10px;">
+                                <span class="set-desc" data-i18n="settings.language.restart_hint">It is recommended to restart the app once you change the language.</span>
+                                <button class="vrcn-button" style="margin-top:8px;" onclick="sendToCS({action:'restartApp'})"><span class="msi" style="font-size:16px;">refresh</span> <span data-i18n="settings.language.restart_btn">Restart VRCNext</span></button>
+                            </div>
                         </div>
-                    </div>
+                        <div class="sf-card">
+                            <div class="sf-card-header"><span class="msi">volume_up</span> <span data-i18n="settings.sounds.title">Sounds</span></div>
+                            <div class="sf-toggle-row"><span data-i18n="settings.sounds.notifications">Notification Sounds</span><label class="toggle"><input type="checkbox" id="setNotifySoundEnabled" onchange="autoSave()"><div class="toggle-track"><div class="toggle-knob"></div></div></label></div>
+                            <div class="set-desc" style="margin-bottom:10px;" data-i18n="settings.sounds.notifications_desc">Plays a sound when you receive a new notification such as friend requests, invites and more.</div>
+                            <div class="sf-toggle-row"><span data-i18n="settings.sounds.messages">Message Sounds</span><label class="toggle"><input type="checkbox" id="setMessageSoundEnabled" onchange="autoSave()"><div class="toggle-track"><div class="toggle-knob"></div></div></label></div>
+                            <div class="set-desc" style="margin-bottom:10px;" data-i18n="settings.sounds.messages_desc">Plays a sound when you get a boop or when someone sends you a message through the VRCN Messenger.</div>
+                            <div class="sf-toggle-row"><span data-i18n="settings.sounds.media_relay">Media Relay Success Sounds</span><label class="toggle"><input type="checkbox" id="setMediaRelaySoundEnabled" onchange="autoSave()"><div class="toggle-track"><div class="toggle-knob"></div></div></label></div>
+                            <div class="set-desc" style="margin-bottom:10px;" data-i18n="settings.sounds.media_relay_desc">Plays a sound when Media Relay successfully sends an image to one of your Discord channels.</div>
+                            <div class="sf-toggle-row"><span data-i18n="settings.sounds.overlay">VR Overlay Notification Sounds</span><label class="toggle"><input type="checkbox" id="setSteamOverlaySoundEnabled" onchange="autoSave()"><div class="toggle-track"><div class="toggle-knob"></div></div></label></div>
+                            <div class="set-desc" data-i18n="settings.sounds.overlay_desc">Plays a sound when a notification toast appears in the SteamVR overlay.</div>
+                        </div>
+                    </div><!-- /sf-card-pair Language + Sounds -->
 
-                    <!-- WATCH FOLDERS -->
-                    <div class="sf-card">
-                        <div class="sf-card-header"><span class="msi">folder_open</span> <span data-i18n="settings.watch_folders.title">Watch Folders</span></div>
-                        <div class="set-desc" data-i18n="settings.watch_folders.desc">Watch folders monitor for new images you create. Add your VRChat screenshot folder here. You can also add folders from apps like VHF (VR Hands Frame) to track world location and friends list for those images too.</div>
-                        <div class="folder-list" id="folderList"><div class="folder-empty" data-i18n="settings.watch_folders.empty">No folders added</div></div>
-                        <div class="folder-btns" style="margin-top:10px;">
-                            <button class="vrcn-button" onclick="addFolder()"><span class="msi" style="font-size:16px;">create_new_folder</span> <span data-i18n="settings.watch_folders.add">Add Folder</span></button>
-                            <button class="vrcn-button" onclick="removeFolder()"><span class="msi" style="font-size:16px;">folder_delete</span> <span data-i18n="settings.watch_folders.remove">Remove</span></button>
+                    <!-- WATCH FOLDERS + VRCHAT LAUNCH OPTIONS -->
+                    <div class="sf-card-pair">
+                        <div class="sf-card">
+                            <div class="sf-card-header"><span class="msi">folder_open</span> <span data-i18n="settings.watch_folders.title">Watch Folders</span></div>
+                            <div class="set-desc" data-i18n="settings.watch_folders.desc">Watch folders monitor for new images you create. Add your VRChat screenshot folder here. You can also add folders from apps like VHF (VR Hands Frame) to track world location and friends list for those images too.</div>
+                            <div class="folder-list" id="folderList"><div class="folder-empty" data-i18n="settings.watch_folders.empty">No folders added</div></div>
+                            <div class="folder-btns" style="margin-top:10px;">
+                                <button class="vrcn-button" onclick="addFolder()"><span class="msi" style="font-size:16px;">create_new_folder</span> <span data-i18n="settings.watch_folders.add">Add Folder</span></button>
+                                <button class="vrcn-button" onclick="removeFolder()"><span class="msi" style="font-size:16px;">folder_delete</span> <span data-i18n="settings.watch_folders.remove">Remove</span></button>
+                            </div>
                         </div>
-                    </div>
+                        <div class="sf-card">
+                            <div class="sf-card-header"><span class="msi">rocket_launch</span> <span data-i18n="settings.launch.title">VRChat Launch Options</span></div>
+                            <div class="sf-section-label" data-i18n="settings.launch.path">VRChat Path</div>
+                            <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;">
+                                <input type="text" id="setVrcPath" class="vrcn-edit-field" placeholder="C:\...\VRChat.exe" oninput="autoSave()" style="flex:1;">
+                                <button class="vrcn-button" id="browseVrcBtn" onclick="browseExe('vrchat')"><span class="msi" style="font-size:16px;">folder_open</span> <span data-i18n="common.browse">Browse</span></button>
+                            </div>
+                            <div class="sf-section-label" data-i18n="settings.launch.additional_apps">Additional Apps</div>
+                            <div class="set-desc" style="margin-bottom:8px;" data-i18n="settings.launch.additional_apps_desc">Apps to launch alongside VRChat when you click "Play VRChat". Useful for OVR Advanced Settings, SlimeVR, VRCFaceTracking, and similar tools.</div>
+                            <div class="exe-list" id="extraExeList"><div class="folder-empty" data-i18n="common.none">None</div></div>
+                            <div class="folder-btns" style="margin-top:10px;">
+                                <button class="vrcn-button" onclick="browseExe('extra')"><span class="msi" style="font-size:16px;">add</span> <span data-i18n="settings.launch.add_app">Add App</span></button>
+                            </div>
+                            <div style="height:12px;"></div>
+                            <div class="sf-toggle-row"><span id="labelStartWithSystem" data-i18n="settings.launch.auto_start_windows">Auto-start VRCNext with Windows</span><label class="toggle"><input type="checkbox" id="setStartWithWindows" onchange="autoSave()"><div class="toggle-track"><div class="toggle-knob"></div></div></label></div>
+                            <div class="sf-toggle-row" data-windows-only><span data-i18n="settings.system.hide_in_tray">Hide in System Tray</span><label class="toggle"><input type="checkbox" id="setMinimizeToTray" onchange="autoSave()"><div class="toggle-track"><div class="toggle-knob"></div></div></label></div>
+                        </div>
+                    </div><!-- /sf-card-pair Watch Folders + Launch Options -->
 
-                    <!-- VRCHAT LAUNCH OPTIONS -->
-                    <div class="sf-card">
-                        <div class="sf-card-header"><span class="msi">rocket_launch</span> <span data-i18n="settings.launch.title">VRChat Launch Options</span></div>
-                        <div class="sf-section-label" data-i18n="settings.launch.path">VRChat Path</div>
-                        <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;">
-                            <input type="text" id="setVrcPath" class="vrcn-edit-field" placeholder="C:\...\VRChat.exe" oninput="autoSave()" style="flex:1;">
-                            <button class="vrcn-button" id="browseVrcBtn" onclick="browseExe('vrchat')"><span class="msi" style="font-size:16px;">folder_open</span> <span data-i18n="common.browse">Browse</span></button>
-                        </div>
-                        <div class="sf-section-label" data-i18n="settings.launch.additional_apps">Additional Apps</div>
-                        <div class="set-desc" style="margin-bottom:8px;" data-i18n="settings.launch.additional_apps_desc">Apps to launch alongside VRChat when you click "Play VRChat". Useful for OVR Advanced Settings, SlimeVR, VRCFaceTracking, and similar tools.</div>
-                        <div class="exe-list" id="extraExeList"><div class="folder-empty" data-i18n="common.none">None</div></div>
-                        <div class="folder-btns" style="margin-top:10px;">
-                            <button class="vrcn-button" onclick="browseExe('extra')"><span class="msi" style="font-size:16px;">add</span> <span data-i18n="settings.launch.add_app">Add App</span></button>
-                        </div>
-                        <div style="height:12px;"></div>
-                        <div class="sf-toggle-row"><span id="labelStartWithSystem" data-i18n="settings.launch.auto_start_windows">Auto-start VRCNext with Windows</span><label class="toggle"><input type="checkbox" id="setStartWithWindows" onchange="autoSave()"><div class="toggle-track"><div class="toggle-knob"></div></div></label></div>
-                        <div class="sf-toggle-row" data-windows-only><span data-i18n="settings.system.hide_in_tray">Hide in System Tray</span><label class="toggle"><input type="checkbox" id="setMinimizeToTray" onchange="autoSave()"><div class="toggle-track"><div class="toggle-knob"></div></div></label></div>
-                    </div>
-
-                    <!-- VRCHAT API LOGIN -->
+                    <!-- VRCHAT API LOGIN + DEBUGGING -->
+                    <div class="sf-card-pair">
                     <div class="sf-card">
                         <div class="sf-card-header"><span class="msi">person</span> <span data-i18n="settings.api.title">VRChat API Login</span></div>
                         <div class="set-desc" style="margin-bottom:12px;" data-i18n="settings.api.desc">Your credentials are stored locally and only used to connect to the VRChat API. VRCNext never shares them with third parties.</div>
@@ -479,19 +493,33 @@
                             <span id="vrcLoginStatus" style="font-size:11px;color:var(--tx3);"></span>
                         </div>
                     </div>
-
-                    <!-- SOUNDS -->
+                    <!-- DEBUGGING (in pair with API Login) -->
                     <div class="sf-card">
-                        <div class="sf-card-header"><span class="msi">volume_up</span> <span data-i18n="settings.sounds.title">Sounds</span></div>
-                        <div class="sf-toggle-row"><span data-i18n="settings.sounds.notifications">Notification Sounds</span><label class="toggle"><input type="checkbox" id="setNotifySoundEnabled" onchange="autoSave()"><div class="toggle-track"><div class="toggle-knob"></div></div></label></div>
-                        <div class="set-desc" style="margin-bottom:10px;" data-i18n="settings.sounds.notifications_desc">Plays a sound when you receive a new notification such as friend requests, invites and more.</div>
-                        <div class="sf-toggle-row"><span data-i18n="settings.sounds.messages">Message Sounds</span><label class="toggle"><input type="checkbox" id="setMessageSoundEnabled" onchange="autoSave()"><div class="toggle-track"><div class="toggle-knob"></div></div></label></div>
-                        <div class="set-desc" style="margin-bottom:10px;" data-i18n="settings.sounds.messages_desc">Plays a sound when you get a boop or when someone sends you a message through the VRCN Messenger.</div>
-                        <div class="sf-toggle-row"><span data-i18n="settings.sounds.media_relay">Media Relay Success Sounds</span><label class="toggle"><input type="checkbox" id="setMediaRelaySoundEnabled" onchange="autoSave()"><div class="toggle-track"><div class="toggle-knob"></div></div></label></div>
-                        <div class="set-desc" style="margin-bottom:10px;" data-i18n="settings.sounds.media_relay_desc">Plays a sound when Media Relay successfully sends an image to one of your Discord channels.</div>
-                        <div class="sf-toggle-row"><span data-i18n="settings.sounds.overlay">VR Overlay Notification Sounds</span><label class="toggle"><input type="checkbox" id="setSteamOverlaySoundEnabled" onchange="autoSave()"><div class="toggle-track"><div class="toggle-knob"></div></div></label></div>
-                        <div class="set-desc" data-i18n="settings.sounds.overlay_desc">Plays a sound when a notification toast appears in the SteamVR overlay.</div>
+                        <div class="sf-card-header"><span class="msi">bug_report</span> <span data-i18n="settings.debug.title">Debugging</span></div>
+                        <div class="set-desc" style="margin-bottom:12px;" data-i18n="settings.debug.desc">Use these options if something isn't working correctly or you want to reconfigure VRCNext from scratch.</div>
+                        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                            <button class="vrcn-button" onclick="sendToCS({action:'resetSetup'})"><span class="msi" style="font-size:16px;">restart_alt</span> <span data-i18n="settings.debug.redo_setup">Redo Setup Wizard</span></button>
+                            <button class="vrcn-button" id="btnForceFfc" onclick="forceFfcAll()"><span class="msi" style="font-size:16px;">cloud_download</span> <span data-i18n="settings.debug.force_ffc_all">Force FFC All</span></button>
+                        </div>
+                        <div class="sf-toggle-row" style="margin-top:14px;">
+                            <span data-i18n="settings.debug.memory_trim">Enable Memory Trim</span>
+                            <label class="toggle"><input type="checkbox" id="setMemoryTrimEnabled" onchange="autoSave()"><div class="toggle-track"><div class="toggle-knob"></div></div></label>
+                        </div>
+                        <div class="set-desc" style="margin-bottom:10px;">Memory Trim periodically frees unused memory from VRCNext. While the app already cleans up automatically during normal use, enabling this triggers a more frequent garbage collection pass every 10 minutes.</div>
+                        <button class="vrcn-button" onclick="sendToCS({action:'forceTrim'})"><span class="msi" style="font-size:16px;">memory</span> <span data-i18n="settings.debug.force_memory_trim">Force Memory Trim</span></button>
+                        <div class="sf-toggle-row" style="margin-top:14px;">
+                            <span>Enable Text Tools</span>
+                            <label class="toggle"><input type="checkbox" id="setTextToolsEnabled" onchange="toggleTextTools(this.checked)"><div class="toggle-track"><div class="toggle-knob"></div></div></label>
+                        </div>
+                        <div class="set-desc">When enabled, all text in VRCNext becomes selectable. You can copy it via the right-click context menu or with Ctrl&nbsp;+&nbsp;C.</div>
+                        <div id="ffcProgressWrap" style="display:none;margin-top:12px;">
+                            <div style="font-size:12px;color:var(--tx2);margin-bottom:6px;" id="ffcProgressLabel" data-i18n="settings.debug.ffc_progress.caching">Caching...</div>
+                            <div style="background:var(--brd);border-radius:4px;height:6px;overflow:hidden;">
+                                <div id="ffcProgressBar" style="height:100%;background:var(--accent);width:0%;transition:width .3s;border-radius:4px;"></div>
+                            </div>
+                        </div>
                     </div>
+                    </div><!-- /sf-card-pair API Login + Debugging -->
 
                     <!-- DESIGN -->
                     <div class="sf-card">
@@ -509,7 +537,6 @@
                         <div class="sf-toggle-row"><span data-i18n="settings.design.random_background">Random background from watch folders on launch</span><label class="toggle"><input type="checkbox" id="setRandomBg" onchange="autoSave()"><div class="toggle-track"><div class="toggle-knob"></div></div></label></div>
                         <div class="sf-section-label" style="margin-top:16px;" data-i18n="settings.design.theme">Theme</div>
                         <div class="theme-grid" id="themeGrid"></div>
-
                         <div id="customThemeSection" style="display:none;">
                             <div class="sf-section-label" style="margin-top:16px;" data-i18n="settings.design.custom_theme">Custom Theme</div>
                             <div class="theme-grid" id="customThemeGrid"></div>
@@ -527,32 +554,8 @@
                         </div>
                     </div>
 
-                    <!-- DEBUGGING -->
-                    <div class="sf-card">
-                        <div class="sf-card-header"><span class="msi">bug_report</span> <span data-i18n="settings.debug.title">Debugging</span></div>
-                        <div class="set-desc" style="margin-bottom:12px;" data-i18n="settings.debug.desc">Use these options if something isn't working correctly or you want to reconfigure VRCNext from scratch.</div>
-                        <div style="display:flex;gap:8px;flex-wrap:wrap;">
-                            <button class="vrcn-button" onclick="sendToCS({action:'resetSetup'})"><span class="msi" style="font-size:16px;">restart_alt</span> <span data-i18n="settings.debug.redo_setup">Redo Setup Wizard</span></button>
-                            <button class="vrcn-button" id="btnForceFfc" onclick="forceFfcAll()"><span class="msi" style="font-size:16px;">cloud_download</span> <span data-i18n="settings.debug.force_ffc_all">Force FFC All</span></button>
-                        </div>
-                        <div class="sf-toggle-row" style="margin-top:14px;">
-                            <span><span data-i18n="settings.debug.memory_trim">Enable Memory Trim</span> <span class="set-desc" style="display:inline;font-size:11px;" data-i18n="settings.debug.memory_trim_hint">(auto every 10 min)</span></span>
-                            <label class="toggle"><input type="checkbox" id="setMemoryTrimEnabled" onchange="autoSave()"><div class="toggle-track"><div class="toggle-knob"></div></div></label>
-                        </div>
-                        <button class="vrcn-button" style="margin-top:10px;" onclick="sendToCS({action:'forceTrim'})"><span class="msi" style="font-size:16px;">memory</span> <span data-i18n="settings.debug.force_memory_trim">Force Memory Trim</span></button>
-                        <div class="sf-toggle-row" style="margin-top:14px;">
-                            <span>Enable Text Tools</span>
-                            <label class="toggle"><input type="checkbox" id="setTextToolsEnabled" onchange="toggleTextTools(this.checked)"><div class="toggle-track"><div class="toggle-knob"></div></div></label>
-                        </div>
-                        <div id="ffcProgressWrap" style="display:none;margin-top:12px;">
-                            <div style="font-size:12px;color:var(--tx2);margin-bottom:6px;" id="ffcProgressLabel" data-i18n="settings.debug.ffc_progress.caching">Caching...</div>
-                            <div style="background:var(--brd);border-radius:4px;height:6px;overflow:hidden;">
-                                <div id="ffcProgressBar" style="height:100%;background:var(--accent);width:0%;transition:width .3s;border-radius:4px;"></div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- IMAGE CACHE -->
+                    <!-- IMAGE CACHE + FAST FETCH CACHE -->
+                    <div class="sf-card-pair">
                     <div class="sf-card">
                         <div class="sf-card-header"><span class="msi">cached</span> <span data-i18n="settings.image_cache.title">Image Cache</span></div>
                         <div class="set-desc" data-i18n="settings.image_cache.desc">VRCNext caches avatar, world, and profile images locally for instant loading. Over time this can grow to several gigabytes. Set a limit and the oldest cached images will be removed automatically when it is reached (~2 GB per cleanup pass).</div>
@@ -587,6 +590,7 @@
                         </div>
                         <button class="vrcn-button" style="margin-top:12px;" onclick="sendToCS({action:'clearFfcCache'})"><span class="msi" style="font-size:16px;">delete_sweep</span> <span data-i18n="settings.ffc.clear">Clear FFC Cache</span></button>
                     </div>
+                    </div><!-- /sf-card-pair -->
 
                     <div class="sf-card">
                         <div class="sf-card-header"><span class="msi">database</span> <span data-i18n="settings.avtrdb.title">Avtrdb Community Support</span></div>

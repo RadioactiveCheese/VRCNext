@@ -68,10 +68,13 @@
         const mh = menu.offsetHeight;
         menu.style.visibility = '';
 
-        const vw = window.innerWidth;
-        const vh = window.innerHeight;
-        menu.style.left = ((x + mw > vw - 6) ? Math.max(4, x - mw) : x) + 'px';
-        menu.style.top = ((y + mh > vh - 6) ? Math.max(4, y - mh) : y) + 'px';
+        const z = (typeof _guiZoom !== 'undefined' ? _guiZoom : 1);
+        const vw = window.innerWidth / z;
+        const vh = window.innerHeight / z;
+        const lx = x / z;
+        const ly = y / z;
+        menu.style.left = ((lx + mw > vw - 6) ? Math.max(4, lx - mw) : lx) + 'px';
+        menu.style.top = ((ly + mh > vh - 6) ? Math.max(4, ly - mh) : ly) + 'px';
 
         menu.querySelectorAll('.vn-ctx-item[data-idx]:not(.has-sub)').forEach(btn => {
             btn.addEventListener('mouseenter', () => {
@@ -211,16 +214,17 @@
 
     function positionSubmenu(parentBtn) {
         const rect = parentBtn.getBoundingClientRect();
-        const vw = window.innerWidth;
-        const vh = window.innerHeight;
+        const z = (typeof _guiZoom !== 'undefined' ? _guiZoom : 1);
+        const vw = window.innerWidth / z;
+        const vh = window.innerHeight / z;
         submenu.style.visibility = 'hidden';
         submenu.style.display = 'block';
         const sw = submenu.offsetWidth;
         const sh = submenu.offsetHeight;
         submenu.style.visibility = '';
-        let left = rect.right + 4;
-        if (left + sw > vw - 6) left = rect.left - sw - 4;
-        let top = rect.top;
+        let left = rect.right / z + 4;
+        if (left + sw > vw - 6) left = rect.left / z - sw - 4;
+        let top = rect.top / z;
         if (top + sh > vh - 6) top = Math.max(4, vh - sh - 6);
         submenu.style.left = left + 'px';
         submenu.style.top = top + 'px';

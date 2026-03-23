@@ -28,6 +28,9 @@ public class CoreLibrary
 
     public string CurrentVrcUserId { get; set; } = "";
     public string MyVrcStatus { get; set; } = "active";
+
+    // Permini — userId → (allowActive, allowAskMe, allowDnD)
+    public Dictionary<string, (bool allowActive, bool allowAskMe, bool allowDnD)> PerminiList { get; } = new();
     public DateTime DiscordJoinedAt { get; set; } = DateTime.MinValue;
     public int HttpPort { get; set; }
 

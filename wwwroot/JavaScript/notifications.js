@@ -250,6 +250,8 @@ function renderCurrentInstance(data) {
         const shortId = (data.location || '').split(':')[1]?.split('~')[0] || '';
         const stateStr = `${typeLabel} #${shortId} (${data.nUsers}/${data.capacity})`;
         dpOnInstanceUpdate(data.worldName, data.worldThumb, stateStr, null);
+    } else if (!data || data.empty) {
+        if (typeof dpClearPresencePreview === 'function') dpClearPresencePreview();
     }
 
     const el = document.getElementById('vrcInstanceArea');

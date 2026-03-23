@@ -282,6 +282,7 @@ function getPageTitle(i) {
         t('page.voice_fight', 'Voice Fight'),
         t('page.discord_presence', 'Discord Presence'),
         t('page.vr_overlay', 'VR Overlay'),
+        t('page.permini', 'Permini'),
     ][i] ?? '';
 }
 
@@ -706,6 +707,7 @@ function showTab(i) {
     if (i === 14) sendToCS({ action: 'vcCheck' });
     if (i === 17 && !calendarLoaded) refreshCalendar();
     if (i === 18) vfOnTabOpen();
+    if (i === 21) onPerminiTabOpen();
     document.documentElement.dispatchEvent(new Event('tabchange'));
 }
 

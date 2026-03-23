@@ -12,6 +12,7 @@ public class CacheHandler
     public static readonly string KeyGroups       = "groups_cache.json";
     public static readonly string KeyFriends      = "friends_cache.json";
     public static readonly string KeyCustomColors = "custom_colors.json";
+    public static readonly string KeyPermini      = "permini_list.json";
 
     public static string KeyUserProfile(string userId) => $"profiles/{userId}.json";
 

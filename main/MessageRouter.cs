@@ -1529,6 +1529,47 @@ public partial class AppShell
                     _discordCtrl.HandleMessage(action, msg);
                     break;
 
+                // Permini — permanent auto-invite list
+                case "perminiGet":
+                {
+                    var rawObj = _cache.LoadRaw(CacheHandler.KeyPermini);
+                    var raw = rawObj is Newtonsoft.Json.Linq.JArray ja ? ja : new Newtonsoft.Json.Linq.JArray();
+                    // Rebuild in-memory lookup
+                    _core.PerminiList.Clear();
+                    foreach (var item in raw.OfType<Newtonsoft.Json.Linq.JObject>())
+                    {
+                        var uid = item["userId"]?.ToString();
+                        if (!string.IsNullOrEmpty(uid))
+                            _core.PerminiList[uid] = (
+                                item["allowActive"]?.Value<bool>() ?? false,
+                                item["allowAskMe"]?.Value<bool>()  ?? false,
+                                item["allowDnD"]?.Value<bool>()    ?? false);
+                    }
+                    Invoke(() => SendToJS("perminiData", raw));
+                    break;
+                }
+
+                case "perminiSave":
+                {
+                    var list = msg["list"] as Newtonsoft.Json.Linq.JArray;
+                    if (list != null)
+                    {
+                        _cache.Save(CacheHandler.KeyPermini, list);
+                        // Rebuild in-memory lookup
+                        _core.PerminiList.Clear();
+                        foreach (var item in list.OfType<Newtonsoft.Json.Linq.JObject>())
+                        {
+                            var uid = item["userId"]?.ToString();
+                            if (!string.IsNullOrEmpty(uid))
+                                _core.PerminiList[uid] = (
+                                    item["allowActive"]?.Value<bool>() ?? false,
+                                    item["allowAskMe"]?.Value<bool>()  ?? false,
+                                    item["allowDnD"]?.Value<bool>()    ?? false);
+                        }
+                    }
+                    break;
+                }
+
                 // VR Wrist Overlay
                 case "vroConnect":
                 case "overlayThemeColors":

@@ -320,7 +320,16 @@ public class InstanceController
             var loc = (_core.IsVrcRunning?.Invoke() == true) ? _core.LogWatcher.CurrentLocation : null;
             if (string.IsNullOrEmpty(loc) || loc == "offline" || loc == "private" || loc == "traveling")
             {
-                Invoke(() => _core.SendToJS("vrcCurrentInstance", new { empty = true }));
+                _cachedInstLocation   = "";
+                _cachedInstWorldName  = "";
+                _cachedInstWorldThumb = "";
+                _cachedInstCapacity   = 0;
+                _cachedInstType       = "";
+                Invoke(() =>
+                {
+                    _core.PushDiscordPresence?.Invoke();
+                    _core.SendToJS("vrcCurrentInstance", new { empty = true });
+                });
                 return;
             }
 

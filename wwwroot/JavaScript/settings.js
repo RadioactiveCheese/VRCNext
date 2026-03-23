@@ -203,6 +203,11 @@ function saveSettings() {
             avtrdbSubmitAvatars: document.getElementById('setAvtrdbSubmit').checked
         }
     };
+    // Sync in-memory flags immediately so sound functions see the updated value without waiting for round-trip
+    settings.notifySoundEnabled      = payload.data.notifySoundEnabled;
+    settings.messageSoundEnabled     = payload.data.messageSoundEnabled;
+    settings.mediaRelaySoundEnabled  = payload.data.mediaRelaySoundEnabled;
+    settings.steamOverlaySoundEnabled = payload.data.steamOverlaySoundEnabled;
     sendToCS(payload);
 }
 

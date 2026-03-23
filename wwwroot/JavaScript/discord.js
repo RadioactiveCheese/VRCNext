@@ -101,6 +101,25 @@ function dpOnInstanceUpdate(worldName, worldImg, instanceState, joinedAt) {
     if (_dpRunning) dpUpdatePreviewClock();
 }
 
+function dpClearPresencePreview() {
+    _dpCurrentWorld = '';
+    _dpCurrentImg = '';
+    _dpCurrentState = '';
+    _dpJoinedAt = null;
+
+    const title = document.getElementById('dpPreviewTitle');
+    const state = document.getElementById('dpPreviewState');
+    const img = document.getElementById('dpPreviewImg');
+    const ph = document.getElementById('dpPreviewImgPlaceholder');
+    if (title) title.textContent = '-';
+    if (state) state.textContent = '-';
+    if (img) img.style.display = 'none';
+    if (ph) ph.style.display = '';
+
+    const el = document.getElementById('dpPreviewTime');
+    if (el) el.textContent = '-';
+}
+
 function dpUpdateStatusDot() {
     const dot = document.getElementById('dpPreviewStatusDot');
     if (!dot) return;

@@ -374,6 +374,40 @@ public class NotificationsController
             }
         }
 
+        // Permini auto-invite: silently invite and hide the notification
+        if (nType == "requestInvite")
+        {
+            var pmSenderId = (string?)n.senderUserId ?? "";
+            if (!string.IsNullOrEmpty(pmSenderId)
+                && _core.PerminiList.TryGetValue(pmSenderId, out var pmEntry))
+            {
+                var myStatus  = _core.MyVrcStatus; // "active","join me","ask me","busy"
+                var shouldAuto = myStatus switch
+                {
+                    "active"  or "join me" => pmEntry.allowActive,
+                    "ask me"               => pmEntry.allowAskMe,
+                    "busy"                 => pmEntry.allowDnD,
+                    _                      => false,
+                };
+                if (shouldAuto)
+                {
+                    var pmNotifId = (string)n.id;
+                    var pmIsV2   = (bool)n._v2;
+                    _ = Task.Run(async () =>
+                    {
+                        var ok = await _core.VrcApi.InviteFriendAsync(pmSenderId, _core.LogWatcher.CurrentLocation ?? "");
+                        if (ok) await _core.VrcApi.HideNotificationAsync(pmNotifId, pmIsV2);
+                        else    await _core.VrcApi.AcceptNotificationAsync(pmNotifId);
+                        Invoke(() => _core.SendToJS("log", new {
+                            msg   = $"[Permini] Auto-invited {pmSenderId}: {(ok ? "OK" : "failed")}",
+                            color = ok ? "ok" : "warn"
+                        }));
+                    });
+                    return null; // don't show notification in panel
+                }
+            }
+        }
+
         var senderImg    = "";
         var senderUserId = (string?)n.senderUserId;
         var notifIdForImg = (string?)n.id ?? "";

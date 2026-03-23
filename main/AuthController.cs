@@ -765,6 +765,7 @@ public class AuthController
             _core.Settings.NotifySoundEnabled = data["notifySoundEnabled"]?.Value<bool>() ?? false;
             _core.Settings.MessageSoundEnabled = data["messageSoundEnabled"]?.Value<bool>() ?? false;
             _core.Settings.MediaRelaySoundEnabled = data["mediaRelaySoundEnabled"]?.Value<bool>() ?? false;
+            _core.Settings.SteamOverlaySoundEnabled = data["steamOverlaySoundEnabled"]?.Value<bool>() ?? true;
             _core.Settings.MinimizeToTray = data["minimizeToTray"]?.Value<bool>() ?? false;
 #if WINDOWS
             _core.OnTraySettingChanged?.Invoke(_core.Settings.MinimizeToTray, false);
@@ -775,7 +776,7 @@ public class AuthController
 #if WINDOWS
             // Theme colors are always pushed from JS via overlayThemeColors
             // (triggered by applyColors in core.js). Do NOT call SetTheme()
-            // here â€” the C# hardcoded palettes may be out of sync with the
+            // here â€" the C# hardcoded palettes may be out of sync with the
             // JS THEMES and would overwrite the correct colors that JS just sent.
 #endif
             _core.Settings.AutoColorAccuracy = data["autoColorAccuracy"]?.Value<int>() ?? 50;
@@ -885,7 +886,9 @@ public class AuthController
             if (_core.Settings.LastSaveError != null)
                 _core.SendToJS("log", new { msg = $"\u274c Save failed: {_core.Settings.LastSaveError}", color = "err" });
 
-            // No-op with Photino â€” watch folders served via /media{i}/ routes
+            _core.PushDiscordPresence?.Invoke();
+
+            // No-op with Photino â€" watch folders served via /media{i}/ routes
         }
         catch (Exception ex)
         {

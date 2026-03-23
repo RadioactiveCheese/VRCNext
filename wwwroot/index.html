@@ -10,7 +10,7 @@
 </head>
 <body>
     <div class="sidebar" id="sidebarEl">
-        <div class="logo"><div class="logo-icon" id="logoIcon">V</div><div class="logo-txt"><div class="logo-text-row"><div class="logo-text">VRCNext</div></div><div class="logo-sub">v2026.11.5</div></div><button class="sb-toggle" onclick="toggleSidebar()" title="Toggle sidebar" data-i18n-title="common.toggle_sidebar"><span class="msi" id="sbIcon">chevron_left</span></button></div>
+        <div class="logo"><div class="logo-icon" id="logoIcon">V</div><div class="logo-txt"><div class="logo-text-row"><div class="logo-text">VRCNext</div></div><div class="logo-sub">v2026.11.6</div></div><button class="sb-toggle" onclick="toggleSidebar()" title="Toggle sidebar" data-i18n-title="common.toggle_sidebar"><span class="msi" id="sbIcon">chevron_left</span></button></div>
         <div class="nav">
             <button class="nav-btn active" onclick="showTab(0)"><span class="ni msi">dashboard</span><span class="nl" data-i18n="nav.dashboard">Dashboard</span></button>
             <button class="nav-btn" onclick="showTab(1)"><span class="ni msi">travel_explore</span><span class="nl" data-i18n="nav.worlds">Worlds</span></button>
@@ -35,6 +35,7 @@
                     <button class="nav-btn nav-sub" data-windows-only onclick="showTab(18)"><span class="ni msi">mic</span><span class="nl" data-i18n="nav.voice_fight">Voice Fight</span></button>
                     <button class="nav-btn nav-sub" onclick="showTab(19)"><span class="ni msi">sensors</span><span class="nl" data-i18n="nav.discord_presence">Discord Presence</span></button>
                     <button class="nav-btn nav-sub" data-windows-only onclick="showTab(20)"><span class="ni msi">watch</span><span class="nl" data-i18n="nav.vr_overlay">VR Overlay</span><span class="sf-dot offline nl" id="badgeVro" style="margin-left:auto;margin-right:4px;width:7px;height:7px;flex-shrink:0;"></span></button>
+                    <button class="nav-btn nav-sub" onclick="showTab(21)"><span class="ni msi">lock</span><span class="nl" data-i18n="nav.permini">Permini</span></button>
                 </div>
             </div>
             <button class="nav-btn" onclick="showTab(9)"><span class="ni msi">settings</span><span class="nl" data-i18n="nav.settings">Settings</span></button>
@@ -1308,6 +1309,36 @@
                 </div>
             </div>
 
+            <!-- Tab 21: Permini -->
+            <div class="tab" id="tab21">
+                <div class="sf-layout">
+                    <div class="sf-card">
+                        <div class="pm-header">
+                            <div class="pm-header-left">
+                                <span class="msi" style="font-size:20px;color:var(--accent);">lock</span>
+                                <div>
+                                    <div class="pm-title" data-i18n="permini.title">Permini</div>
+                                </div>
+                            </div>
+                            <button class="vrcn-button" onclick="openPerminiPicker()">
+                                <span class="msi" style="font-size:16px;">person_add</span>
+                                <span data-i18n="permini.add_friend">Add Friend</span>
+                            </button>
+                        </div>
+                        <p class="pm-desc" data-i18n="permini.desc">Friends on this list will automatically receive an invite to your current instance when they send an invite request.</p>
+                        <p class="pm-desc" data-i18n="permini.desc2">For Invite-Only instances, this only works if they are the instance owner. For all other instance types, they can invite you.</p>
+                        <div style="margin-top:10px;padding:12px 14px;background:rgba(var(--err-rgb,220,50,50),.10);border:1px solid rgba(var(--err-rgb,220,50,50),.30);border-radius:10px;line-height:1.7;">
+                            <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+                                <span class="msi" style="font-size:20px;color:var(--err);">warning</span>
+                                <span style="font-size:13px;font-weight:700;color:var(--err);" data-i18n="permini.important.title">Important</span>
+                            </div>
+                            <p style="margin:0;font-size:12px;color:var(--tx2);" data-i18n="permini.important.text">Do Not Disturb invite requests only work when using VRCNext. Invite requests cannot be sent through VRChat or the website in this case, because they are blocked there. So if your friend wants to join you while your status is set to Do Not Disturb, they must use VRCNext.</p>
+                        </div>
+                    </div>
+                    <div id="pmList" class="pm-list"></div>
+                </div>
+            </div>
+
         </div>
     </div>
 
@@ -1413,6 +1444,20 @@
         <div class="modal-box inv-box" id="inviteBox"></div>
     </div>
 
+    <!-- Permini Friend Picker Modal -->
+    <div class="modal-overlay" id="modalPerminiPicker" style="display:none;" onclick="if(event.target===this)closePerminiPicker()">
+        <div class="modal-box inv-box">
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 16px 0;">
+                <div style="font-size:13px;font-weight:700;" data-i18n="permini.picker.title">Add Friend to Permini</div>
+                <button class="vrcn-button" onclick="closePerminiPicker()" style="padding:2px 8px;"><span class="msi" style="font-size:14px;">close</span></button>
+            </div>
+            <div class="inv-search-wrap">
+                <input class="inv-search-input" type="text" id="pmSearchInput" data-i18n-placeholder="permini.picker.search" oninput="filterPerminiPicker(this.value)">
+            </div>
+            <div class="inv-list" id="pmPickerList"></div>
+        </div>
+    </div>
+
     <!-- Notification Toast (top-right, action feedback) -->
     <div id="notifToastArea" class="notif-toast-area"></div>
     <!-- Notification Cards (bottom-right, incoming VRChat notifications) -->
@@ -1453,6 +1498,7 @@
     <script src="JavaScript/voicefight.js"></script>
     <script src="JavaScript/discord.js"></script>
     <script src="JavaScript/vroverlay.js"></script>
+    <script src="JavaScript/permini.js"></script>
     <script src="JavaScript/init.js"></script>
 
     <!-- Favorite group picker popup (global, outside tabs so it's always visible) -->

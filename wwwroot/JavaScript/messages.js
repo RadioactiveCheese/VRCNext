@@ -716,6 +716,9 @@ case 'popularWorlds':
         case 'vrcxImportError':
             vrcxShowError(payload?.error);
             break;
+        case 'perminiData':
+            onPerminiData(payload);
+            break;
         case 'vroState':
             handleVroState(payload);
             break;

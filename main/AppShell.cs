@@ -78,6 +78,29 @@ public partial class AppShell
         return t.ToString();
     }
 
+    // Permini loader
+
+    private void LoadPerminiList()
+    {
+        try
+        {
+            var raw = _cache.LoadRaw(CacheHandler.KeyPermini);
+            if (raw is Newtonsoft.Json.Linq.JArray arr)
+            {
+                foreach (var item in arr.OfType<Newtonsoft.Json.Linq.JObject>())
+                {
+                    var uid = item["userId"]?.ToString();
+                    if (!string.IsNullOrEmpty(uid))
+                        _core.PerminiList[uid] = (
+                            item["allowActive"]?.Value<bool>() ?? false,
+                            item["allowAskMe"]?.Value<bool>()  ?? false,
+                            item["allowDnD"]?.Value<bool>()    ?? false);
+                }
+            }
+        }
+        catch { }
+    }
+
     // Constructor
 
     public AppShell(string[] args)
@@ -129,6 +152,9 @@ public partial class AppShell
             _relayCtrl.IsRunning,
             _chatboxCtrl.IsEnabled);
         _fileWatcher.NewFile += _photos.OnNewFile;
+
+        // Permini — load persisted list into memory
+        LoadPerminiList();
 
 #if WINDOWS
         // System tray

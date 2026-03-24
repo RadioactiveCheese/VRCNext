@@ -47,7 +47,11 @@ public class DiscordPresenceService : IDisposable
     {
         try
         {
-            _client?.ClearPresence();
+            if (_client?.IsInitialized == true)
+            {
+                _client.ClearPresence();
+                _client.Invoke();
+            }
             _client?.Dispose();
         }
         catch { }

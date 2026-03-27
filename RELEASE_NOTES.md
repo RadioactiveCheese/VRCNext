@@ -1,4 +1,10 @@
-**2026.12.23**
+**2026.12.3**
+
+**Changes**
+
+* Removed the old **Media Relay** design and replaced it with the **VRCN v2** design.
+* Reduced unused CSS classes for cleanup.
+* Removed dead CSS classes for cleanup.
 
 **Fixes**
 

@@ -1,5 +1,5 @@
 ﻿<!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="vrcn-scrollbar">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -12,7 +12,7 @@
 <body>
     <div class="sidebar" id="sidebarEl">
         <div class="logo"><div class="logo-icon" id="logoIcon">V</div><div class="logo-txt"><div class="logo-text-row"><div class="logo-text">VRCNext</div></div><div class="logo-sub">v2026.12.2</div></div><button class="sb-toggle" onclick="toggleSidebar()" title="Toggle sidebar" data-i18n-title="common.toggle_sidebar"><span class="msi" id="sbIcon">chevron_left</span></button></div>
-        <div class="nav">
+        <div class="nav vrcn-scrollbar">
             <button class="nav-btn active" onclick="showTab(0)"><span class="ni msi">dashboard</span><span class="nl" data-i18n="nav.dashboard">Dashboard</span></button>
             <button class="nav-btn" onclick="showTab(1)"><span class="ni msi">travel_explore</span><span class="nl" data-i18n="nav.worlds">Worlds</span></button>
             <button class="nav-btn" onclick="showTab(2)"><span class="ni msi">groups</span><span class="nl" data-i18n="nav.groups">Groups</span></button>
@@ -288,7 +288,7 @@
             </div>
             <!-- Tab 5: Custom Chatbox -->
             <div class="tab" id="tab5">
-                <div class="sf-card sf-status-card" style="margin-bottom:16px;">
+                <div class="vrcn-panel-card status" style="margin-bottom:16px;">
                     <div class="sf-status-row">
                         <div class="sf-status"><span class="sf-dot offline" id="cbDot"></span><span id="cbStatusText" data-i18n="chatbox.status.not_running">Not running</span></div>
                         <button class="vrcn-button" id="cbConnBtn" onclick="toggleChatbox()"><span class="msi" style="font-size:16px;">play_arrow</span> <span data-i18n="common.start">Start</span></button>
@@ -297,23 +297,23 @@
                 <div class="cb-layout">
                     <!-- Left: Preview + Controls -->
                     <div class="cb-preview-panel">
-                        <div class="cb-card">
-                            <div class="cb-card-header"><span class="msi" style="font-size:16px;">visibility</span> <span data-i18n="common.live_preview">Live Preview</span></div>
+                        <div class="vrcn-panel-card">
+                            <div class="vrcn-panel-card-header"><span class="msi" style="font-size:16px;">visibility</span> <span data-i18n="common.live_preview">Live Preview</span></div>
                             <div class="cb-preview-box" id="cbPreviewBox">
                                 <div class="cb-preview-text" id="cbPreviewText" data-i18n="chatbox.preview.enable_prompt">Enable chatbox to see preview</div>
                             </div>
                             <div class="cb-char-count"><span id="cbCharCount">0</span> / <span data-i18n="chatbox.preview.characters">144 characters</span></div>
                         </div>
 
-                        <div class="cb-card">
-                            <div class="cb-card-header"><span class="msi" style="font-size:16px;">music_note</span> <span data-i18n="common.now_playing">Now Playing</span></div>
+                        <div class="vrcn-panel-card">
+                            <div class="vrcn-panel-card-header"><span class="msi" style="font-size:16px;">music_note</span> <span data-i18n="common.now_playing">Now Playing</span></div>
                             <div id="cbMediaInfo">
                                 <div class="cb-media-idle"><span class="msi" style="font-size:16px;vertical-align:middle;">music_off</span> <span data-i18n="chatbox.media.none">No media playing</span></div>
                             </div>
                         </div>
 
-                        <div class="cb-card">
-                            <div class="cb-card-header"><span class="msi" style="font-size:16px;">power_settings_new</span> <span data-i18n="common.launch">Launch</span></div>
+                        <div class="vrcn-panel-card">
+                            <div class="vrcn-panel-card-header"><span class="msi" style="font-size:16px;">power_settings_new</span> <span data-i18n="common.launch">Launch</span></div>
                             <div class="sf-toggle-row"><span data-i18n="common.start_with_vrchat_vr">Start when launching VRChat in VR</span><label class="toggle"><input type="checkbox" id="setCbAutoStartVR" onchange="autoSave()"><div class="toggle-track"><div class="toggle-knob"></div></div></label></div>
                             <div class="sf-toggle-row"><span data-i18n="common.start_with_vrchat_desktop">Start when launching VRChat on Desktop</span><label class="toggle"><input type="checkbox" id="setCbAutoStartDesktop" onchange="autoSave()"><div class="toggle-track"><div class="toggle-knob"></div></div></label></div>
                         </div>
@@ -321,8 +321,8 @@
 
                     <!-- Right: Config -->
                     <div class="cb-config-panel">
-                        <div class="cb-card">
-                            <div class="cb-card-header"><span class="msi" style="font-size:16px;">toggle_on</span> <span data-i18n="chatbox.modules.title">Modules</span></div>
+                        <div class="vrcn-panel-card">
+                            <div class="vrcn-panel-card-header"><span class="msi" style="font-size:16px;">toggle_on</span> <span data-i18n="chatbox.modules.title">Modules</span></div>
                             <div class="sf-toggle-row"><div style="display:flex;align-items:center;gap:8px;"><span class="msi cb-toggle-icon">schedule</span><span data-i18n="chatbox.modules.local_time">Local Time</span></div><label class="toggle"><input type="checkbox" id="cbShowTime" checked onchange="updateChatboxConfig()"><div class="toggle-track"><div class="toggle-knob"></div></div></label></div>
                             <div class="sf-toggle-row"><div style="display:flex;align-items:center;gap:8px;"><span class="msi cb-toggle-icon">music_note</span><span data-i18n="chatbox.modules.now_playing">Now Playing</span></div><label class="toggle"><input type="checkbox" id="cbShowMedia" checked onchange="updateChatboxConfig()"><div class="toggle-track"><div class="toggle-knob"></div></div></label></div>
                             <div class="sf-toggle-row"><div style="display:flex;align-items:center;gap:8px;"><span class="msi cb-toggle-icon">timer</span><span data-i18n="chatbox.modules.song_playtime">Song Playtime</span></div><label class="toggle"><input type="checkbox" id="cbShowPlaytime" checked onchange="updateChatboxConfig()"><div class="toggle-track"><div class="toggle-knob"></div></div></label></div>
@@ -332,21 +332,21 @@
                             <div class="sf-toggle-row"><div style="display:flex;align-items:center;gap:8px;"><span class="msi cb-toggle-icon">notifications_off</span><span data-i18n="chatbox.modules.suppress_sound">Suppress Sound</span></div><label class="toggle"><input type="checkbox" id="cbSuppressSound" checked onchange="updateChatboxConfig()"><div class="toggle-track"><div class="toggle-knob"></div></div></label></div>
                         </div>
 
-                        <div class="cb-card" id="cbAfkCard" style="display:none;">
-                            <div class="cb-card-header"><span class="msi" style="font-size:16px;">bedtime</span> <span data-i18n="chatbox.afk.title">AFK Settings</span></div>
+                        <div class="vrcn-panel-card" id="cbAfkCard" style="display:none;">
+                            <div class="vrcn-panel-card-header"><span class="msi" style="font-size:16px;">bedtime</span> <span data-i18n="chatbox.afk.title">AFK Settings</span></div>
                             <div class="cb-form-row"><label data-i18n="chatbox.afk.message">Message</label><input type="text" id="cbAfkMessage" class="vrcn-edit-field" value="" placeholder="Currently AFK" data-i18n-placeholder="chatbox.afk.default_message" oninput="updateChatboxConfig()" style="flex:1;"></div>
                             <div style="font-size:10px;color:var(--tx3);margin-top:4px;" data-i18n="chatbox.afk.hint">Shown when VRChat is not the active window. Overrides other modules.</div>
                         </div>
 
-                        <div class="cb-card">
-                            <div class="cb-card-header"><span class="msi" style="font-size:16px;">tune</span> <span data-i18n="chatbox.format.title">Format</span></div>
+                        <div class="vrcn-panel-card">
+                            <div class="vrcn-panel-card-header"><span class="msi" style="font-size:16px;">tune</span> <span data-i18n="chatbox.format.title">Format</span></div>
                             <div class="cb-form-row"><label data-i18n="chatbox.format.time">Time</label><select id="cbTimeFormat" class="cb-select" onchange="updateChatboxConfig()"><option value="hh:mm tt" data-i18n="chatbox.format.time.12h">12h (02:45 PM)</option><option value="HH:mm" data-i18n="chatbox.format.time.24h">24h (14:45)</option><option value="hh:mm:ss tt" data-i18n="chatbox.format.time.12h_sec">12h + sec</option><option value="HH:mm:ss" data-i18n="chatbox.format.time.24h_sec">24h + sec</option></select></div>
                             <div class="cb-form-row"><label data-i18n="chatbox.format.separator">Separator</label><select id="cbSeparator" class="cb-select" onchange="updateChatboxConfig()"><option value=" | " data-i18n="chatbox.format.separator.pipe">| pipe</option><option value=" · " data-i18n="chatbox.format.separator.dot">· dot</option><option value=" ♪ " data-i18n="chatbox.format.separator.note">♪ note</option><option value=" — " data-i18n="chatbox.format.separator.dash">— dash</option><option value="&#10;" data-i18n="chatbox.format.separator.new_line">↵ new line</option></select></div>
                             <div class="cb-form-row"><label data-i18n="chatbox.format.update_rate">Update Rate</label><select id="cbInterval" class="cb-select" onchange="updateChatboxConfig()"><option value="3000" data-i18n="chatbox.format.interval.3s">3s (relaxed)</option><option value="5000" data-i18n="chatbox.format.interval.5s">5s (recommended)</option><option value="8000" data-i18n="chatbox.format.interval.8s">8s (slow)</option><option value="10000" data-i18n="chatbox.format.interval.10s">10s (minimal)</option><option value="15000" data-i18n="chatbox.format.interval.15s">15s (very slow)</option></select></div>
                         </div>
 
-                        <div class="cb-card">
-                            <div class="cb-card-header"><span class="msi" style="font-size:16px;">edit_note</span> <span data-i18n="chatbox.custom_lines.title">Custom Text Lines</span></div>
+                        <div class="vrcn-panel-card">
+                            <div class="vrcn-panel-card-header"><span class="msi" style="font-size:16px;">edit_note</span> <span data-i18n="chatbox.custom_lines.title">Custom Text Lines</span></div>
                             <div class="cb-custom-lines" id="cbCustomLines"></div>
                             <div class="cb-add-line">
                                 <input type="text" id="cbNewLine" class="vrcn-edit-field" placeholder="Type a custom line..." data-i18n-placeholder="chatbox.custom_lines.placeholder" onkeydown="if(event.key==='Enter'){addChatboxLine();}" style="flex:1;">
@@ -359,20 +359,20 @@
             </div>
             <!-- Tab 6: Media Relay -->
             <div class="tab" id="tab6">
-                <div class="sf-card sf-status-card" style="margin-bottom:16px;">
+                <div class="vrcn-panel-card status" style="margin-bottom:16px;">
                     <div class="sf-status-row">
                         <div class="sf-status"><span class="sf-dot offline" id="relayDot"></span><span id="relayStatusText" data-i18n="relay.status.not_running">Not running</span></div>
                         <button class="vrcn-button" id="btnRelay" onclick="toggleRelay()"><span class="msi" style="font-size:16px;">play_arrow</span> <span data-i18n="common.start">Start</span></button>
                     </div>
                 </div>
-                <div class="stats-row">
-                    <div class="stat-card"><div class="stat-bar" style="background:var(--ok)"></div><div class="stat-label" data-i18n="relay.stats.active_streams">ACTIVE STREAMS</div><div class="stat-value" id="statStreams" style="color:var(--ok)">0</div></div>
-                    <div class="stat-card"><div class="stat-bar" style="background:var(--accent)"></div><div class="stat-label" data-i18n="relay.stats.files_posted">FILES POSTED</div><div class="stat-value" id="statFiles" style="color:var(--accent)">0</div></div>
-                    <div class="stat-card"><div class="stat-bar" style="background:var(--warn)"></div><div class="stat-label" data-i18n="relay.stats.total_size">TOTAL SIZE</div><div class="stat-value" id="statSize" style="color:var(--warn)">0 MB</div></div>
-                    <div class="stat-card"><div class="stat-bar" style="background:var(--cyan)"></div><div class="stat-label" data-i18n="relay.stats.uptime">UPTIME</div><div class="stat-value" id="statUptime" style="color:var(--accent-lt)">00:00:00</div></div>
+                <div class="ts-stat-row">
+                    <div class="ts-stat"><span class="msi ts-stat-icon">cell_tower</span><div class="ts-stat-val" id="statStreams">0</div><div class="ts-stat-label" data-i18n="relay.stats.active_streams">ACTIVE STREAMS</div></div>
+                    <div class="ts-stat"><span class="msi ts-stat-icon">upload_file</span><div class="ts-stat-val" id="statFiles">0</div><div class="ts-stat-label" data-i18n="relay.stats.files_posted">FILES POSTED</div></div>
+                    <div class="ts-stat"><span class="msi ts-stat-icon">storage</span><div class="ts-stat-val" id="statSize">0 MB</div><div class="ts-stat-label" data-i18n="relay.stats.total_size">TOTAL SIZE</div></div>
+                    <div class="ts-stat"><span class="msi ts-stat-icon">timer</span><div class="ts-stat-val" id="statUptime">00:00:00</div><div class="ts-stat-label" data-i18n="relay.stats.uptime">UPTIME</div></div>
                 </div>
-                <div class="cb-card" style="margin-top:16px;">
-                    <div class="cb-card-header"><span class="msi" style="font-size:16px;">cell_tower</span> <span data-i18n="relay.control.title">Relay Control</span></div>
+                <div class="vrcn-panel-card" style="margin-top:16px;">
+                    <div class="vrcn-panel-card-header"><span class="msi" style="font-size:16px;">cell_tower</span> <span data-i18n="relay.control.title">Relay Control</span></div>
                     <div class="sf-toggle-row"><span data-i18n="common.start_with_vrchat_vr">Start when launching VRChat in VR</span><label class="toggle"><input type="checkbox" id="setAutoStartVR" onchange="autoSave()"><div class="toggle-track"><div class="toggle-knob"></div></div></label></div>
                     <div class="sf-toggle-row"><span data-i18n="common.start_with_vrchat_desktop">Start when launching VRChat on Desktop</span><label class="toggle"><input type="checkbox" id="setAutoStartDesktop" onchange="autoSave()"><div class="toggle-track"><div class="toggle-knob"></div></div></label></div>
                 </div>
@@ -427,8 +427,8 @@
                 <div class="settings-inner sf-layout">
 
                     <!-- UPDATE VRCNEXT -->
-                    <div class="sf-card">
-                        <div class="sf-card-header"><span class="msi">system_update_alt</span> <span data-i18n="settings.update.title">Update VRCNext</span></div>
+                    <div class="vrcn-panel-card">
+                        <div class="vrcn-panel-card-header"><span class="msi">system_update_alt</span> <span data-i18n="settings.update.title">Update VRCNext</span></div>
                         <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
                             <button class="vrcn-button-round" id="setUpdCheckBtn" onclick="settingsCheckUpdate()"><span class="msi" style="font-size:15px;">refresh</span> <span data-i18n="settings.update.check_btn">Check for Update</span></button>
                             <span id="setUpdStatus" style="font-size:12px;color:var(--tx3);"></span>
@@ -446,9 +446,9 @@
                     </div>
 
                     <!-- LANGUAGE + SOUNDS -->
-                    <div class="sf-card-pair">
-                        <div class="sf-card">
-                            <div class="sf-card-header"><span class="msi">translate</span> <span data-i18n="language.title">Language</span></div>
+                    <div class="vrcn-panel-card-pair">
+                        <div class="vrcn-panel-card">
+                            <div class="vrcn-panel-card-header"><span class="msi">translate</span> <span data-i18n="language.title">Language</span></div>
                             <div class="set-desc">Cambia tu idioma · Change ta langue · Cambia lingua · 言語を変えて · 언어를 바꿔 · 更改你的语言 · Change Language · Sprache Ändern</div>
                             <div class="theme-grid" id="languageGrid"></div>
                             <div id="langRestartHint" style="display:none;margin-top:10px;">
@@ -456,8 +456,8 @@
                                 <button class="vrcn-button" style="margin-top:8px;" onclick="sendToCS({action:'restartApp'})"><span class="msi" style="font-size:16px;">refresh</span> <span data-i18n="settings.language.restart_btn">Restart VRCNext</span></button>
                             </div>
                         </div>
-                        <div class="sf-card">
-                            <div class="sf-card-header"><span class="msi">volume_up</span> <span data-i18n="settings.sounds.title">Sounds</span></div>
+                        <div class="vrcn-panel-card">
+                            <div class="vrcn-panel-card-header"><span class="msi">volume_up</span> <span data-i18n="settings.sounds.title">Sounds</span></div>
                             <div class="sf-toggle-row"><span data-i18n="settings.sounds.notifications">Notification Sounds</span><label class="toggle"><input type="checkbox" id="setNotifySoundEnabled" onchange="autoSave()"><div class="toggle-track"><div class="toggle-knob"></div></div></label></div>
                             <div class="set-desc" style="margin-bottom:10px;" data-i18n="settings.sounds.notifications_desc">Plays a sound when you receive a new notification such as friend requests, invites and more.</div>
                             <div class="sf-toggle-row"><span data-i18n="settings.sounds.messages">Message Sounds</span><label class="toggle"><input type="checkbox" id="setMessageSoundEnabled" onchange="autoSave()"><div class="toggle-track"><div class="toggle-knob"></div></div></label></div>
@@ -467,12 +467,12 @@
                             <div class="sf-toggle-row"><span data-i18n="settings.sounds.overlay">VR Overlay Notification Sounds</span><label class="toggle"><input type="checkbox" id="setSteamOverlaySoundEnabled" onchange="autoSave()"><div class="toggle-track"><div class="toggle-knob"></div></div></label></div>
                             <div class="set-desc" data-i18n="settings.sounds.overlay_desc">Plays a sound when a notification toast appears in the SteamVR overlay.</div>
                         </div>
-                    </div><!-- /sf-card-pair Language + Sounds -->
+                    </div><!-- /vrcn-panel-card-pair Language + Sounds -->
 
                     <!-- WATCH FOLDERS + VRCHAT LAUNCH OPTIONS -->
-                    <div class="sf-card-pair">
-                        <div class="sf-card">
-                            <div class="sf-card-header"><span class="msi">folder_open</span> <span data-i18n="settings.watch_folders.title">Watch Folders</span></div>
+                    <div class="vrcn-panel-card-pair">
+                        <div class="vrcn-panel-card">
+                            <div class="vrcn-panel-card-header"><span class="msi">folder_open</span> <span data-i18n="settings.watch_folders.title">Watch Folders</span></div>
                             <div class="set-desc" data-i18n="settings.watch_folders.desc">Watch folders monitor for new images you create. Add your VRChat screenshot folder here. You can also add folders from apps like VHF (VR Hands Frame) to track world location and friends list for those images too.</div>
                             <div class="folder-list" id="folderList"><div class="folder-empty" data-i18n="settings.watch_folders.empty">No folders added</div></div>
                             <div class="folder-btns" style="margin-top:10px;">
@@ -480,8 +480,8 @@
                                 <button class="vrcn-button" onclick="removeFolder()"><span class="msi" style="font-size:16px;">folder_delete</span> <span data-i18n="settings.watch_folders.remove">Remove</span></button>
                             </div>
                         </div>
-                        <div class="sf-card">
-                            <div class="sf-card-header"><span class="msi">rocket_launch</span> <span data-i18n="settings.launch.title">VRChat Launch Options</span></div>
+                        <div class="vrcn-panel-card">
+                            <div class="vrcn-panel-card-header"><span class="msi">rocket_launch</span> <span data-i18n="settings.launch.title">VRChat Launch Options</span></div>
                             <div class="sf-section-label" data-i18n="settings.launch.path">VRChat Path</div>
                             <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;">
                                 <input type="text" id="setVrcPath" class="vrcn-edit-field" placeholder="C:\...\VRChat.exe" oninput="autoSave()" style="flex:1;">
@@ -497,12 +497,12 @@
                             <div class="sf-toggle-row"><span id="labelStartWithSystem" data-i18n="settings.launch.auto_start_windows">Auto-start VRCNext with Windows</span><label class="toggle"><input type="checkbox" id="setStartWithWindows" onchange="autoSave()"><div class="toggle-track"><div class="toggle-knob"></div></div></label></div>
                             <div class="sf-toggle-row" data-windows-only><span data-i18n="settings.system.hide_in_tray">Hide in System Tray</span><label class="toggle"><input type="checkbox" id="setMinimizeToTray" onchange="autoSave()"><div class="toggle-track"><div class="toggle-knob"></div></div></label></div>
                         </div>
-                    </div><!-- /sf-card-pair Watch Folders + Launch Options -->
+                    </div><!-- /vrcn-panel-card-pair Watch Folders + Launch Options -->
 
                     <!-- VRCHAT API LOGIN + DEBUGGING -->
-                    <div class="sf-card-pair">
-                    <div class="sf-card">
-                        <div class="sf-card-header"><span class="msi">person</span> <span data-i18n="settings.api.title">VRChat API Login</span></div>
+                    <div class="vrcn-panel-card-pair">
+                    <div class="vrcn-panel-card">
+                        <div class="vrcn-panel-card-header"><span class="msi">person</span> <span data-i18n="settings.api.title">VRChat API Login</span></div>
                         <div class="set-desc" style="margin-bottom:12px;" data-i18n="settings.api.desc">Your credentials are stored locally and only used to connect to the VRChat API. VRCNext never shares them with third parties.</div>
                         <div class="sf-section-label" data-i18n="settings.api.credentials">Credentials</div>
                         <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:12px;">
@@ -516,8 +516,8 @@
                         </div>
                     </div>
                     <!-- DEBUGGING (in pair with API Login) -->
-                    <div class="sf-card">
-                        <div class="sf-card-header"><span class="msi">bug_report</span> <span data-i18n="settings.debug.title">Debugging</span></div>
+                    <div class="vrcn-panel-card">
+                        <div class="vrcn-panel-card-header"><span class="msi">bug_report</span> <span data-i18n="settings.debug.title">Debugging</span></div>
                         <div class="set-desc" style="margin-bottom:12px;" data-i18n="settings.debug.desc">Use these options if something isn't working correctly or you want to reconfigure VRCNext from scratch.</div>
                         <div style="display:flex;gap:8px;flex-wrap:wrap;">
                             <button class="vrcn-button" onclick="sendToCS({action:'resetSetup'})"><span class="msi" style="font-size:16px;">restart_alt</span> <span data-i18n="settings.debug.redo_setup">Redo Setup Wizard</span></button>
@@ -550,11 +550,11 @@
                             </div>
                         </div>
                     </div>
-                    </div><!-- /sf-card-pair API Login + Debugging -->
+                    </div><!-- /vrcn-panel-card-pair API Login + Debugging -->
 
                     <!-- DESIGN -->
-                    <div class="sf-card">
-                        <div class="sf-card-header"><span class="msi">palette</span> <span data-i18n="settings.design.title">Design</span></div>
+                    <div class="vrcn-panel-card">
+                        <div class="vrcn-panel-card-header"><span class="msi">palette</span> <span data-i18n="settings.design.title">Design</span></div>
                         <div class="fd-tabs" style="margin-top:10px;">
                             <button class="fd-tab active" onclick="switchDesignTab('background',this)" data-i18n="settings.design.tabs.background">Background</button>
                             <button class="fd-tab" onclick="switchDesignTab('colors',this)" data-i18n="settings.design.tabs.colors">Colors</button>
@@ -602,9 +602,9 @@
                     </div>
 
                     <!-- IMAGE CACHE + FAST FETCH CACHE -->
-                    <div class="sf-card-pair">
-                    <div class="sf-card">
-                        <div class="sf-card-header"><span class="msi">cached</span> <span data-i18n="settings.image_cache.title">Image Cache</span></div>
+                    <div class="vrcn-panel-card-pair">
+                    <div class="vrcn-panel-card">
+                        <div class="vrcn-panel-card-header"><span class="msi">cached</span> <span data-i18n="settings.image_cache.title">Image Cache</span></div>
                         <div class="set-desc" data-i18n="settings.image_cache.desc">VRCNext caches avatar, world, and profile images locally for instant loading. Over time this can grow to several gigabytes. Set a limit and the oldest cached images will be removed automatically when it is reached (~2 GB per cleanup pass).</div>
                         <div class="sf-toggle-row">
                             <span data-i18n="settings.image_cache.enable">Enable image caching</span>
@@ -644,8 +644,8 @@
                     </div>
 
                     <!-- FAST FETCH CACHE -->
-                    <div class="sf-card">
-                        <div class="sf-card-header"><span class="msi">bolt</span> <span data-i18n="settings.ffc.title">Fast Fetch Cache</span></div>
+                    <div class="vrcn-panel-card">
+                        <div class="vrcn-panel-card-header"><span class="msi">bolt</span> <span data-i18n="settings.ffc.title">Fast Fetch Cache</span></div>
                         <div class="set-desc" data-i18n="settings.ffc.desc">Fast Fetch Cache stores user profiles, worlds, groups, and avatars locally to improve load times. When enabled, VRCNext instantly shows cached content (descriptions, texts, images) while silently refreshing it in the background. When disabled, all data is freshly downloaded on every request with no cache stored or used.</div>
                         <div class="sf-toggle-row">
                             <span data-i18n="settings.ffc.enable">Enable FFC</span>
@@ -653,10 +653,10 @@
                         </div>
                         <button class="vrcn-button" style="margin-top:12px;" onclick="sendToCS({action:'clearFfcCache'})"><span class="msi" style="font-size:16px;">delete_sweep</span> <span data-i18n="settings.ffc.clear">Clear FFC Cache</span></button>
                     </div>
-                    </div><!-- /sf-card-pair -->
+                    </div><!-- /vrcn-panel-card-pair -->
 
-                    <div class="sf-card">
-                        <div class="sf-card-header"><span class="msi">database</span> <span data-i18n="settings.avtrdb.title">Avtrdb Community Support</span></div>
+                    <div class="vrcn-panel-card">
+                        <div class="vrcn-panel-card-header"><span class="msi">database</span> <span data-i18n="settings.avtrdb.title">Avtrdb Community Support</span></div>
                         <div class="fd-tabs" style="margin-top:10px;">
                             <button class="fd-tab active" onclick="switchAvtrdbTab('support',this)" data-i18n="settings.avtrdb.tabs.support">Support</button>
                             <button class="fd-tab" onclick="switchAvtrdbTab('reports',this)" data-i18n="settings.avtrdb.tabs.reports">Reports</button>
@@ -679,8 +679,8 @@
                         </div>
                     </div>
 
-                    <div class="sf-card" id="vrcxImportCard">
-                        <div class="sf-card-header"><span class="msi">download</span> <span data-i18n="settings.vrcx.title">Import data from VRCX</span></div>
+                    <div class="vrcn-panel-card" id="vrcxImportCard">
+                        <div class="vrcn-panel-card-header"><span class="msi">download</span> <span data-i18n="settings.vrcx.title">Import data from VRCX</span></div>
                         <div class="set-desc"><span data-i18n="settings.vrcx.desc_prefix">Imports your VRCX history into VRCNext: world time, friend time, instance joins, GPS events, online/offline, status and bio changes. Existing data is preserved and values are added on top. Select your</span> <code>VRCX.sqlite3</code> <span data-i18n="settings.vrcx.desc_suffix">file to begin.</span></div>
                         <div style="margin-top:10px;padding:12px 14px;background:rgba(var(--err-rgb,220,50,50),.10);border:1px solid rgba(var(--err-rgb,220,50,50),.30);border-radius:10px;line-height:1.7;">
                             <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
@@ -722,18 +722,18 @@
             <!-- Tab 10: Space Flight -->
             <div class="tab" id="tab10">
                 <div class="sf-layout">
-                    <div class="sf-card sf-status-card">
+                    <div class="vrcn-panel-card status">
                         <div class="sf-status-row">
                             <div class="sf-status"><span class="sf-dot offline" id="sfDot"></span><span id="sfStatusText" data-i18n="steamvr.status.not_connected">Not connected</span></div>
                             <button class="vrcn-button" id="sfConnBtn" onclick="sfConnect()"><span class="msi" style="font-size:16px;">link</span> <span data-i18n="common.connect">Connect</span></button>
                         </div>
                     </div>
-                    <div class="sf-card">
-                        <div class="sf-card-header"><span class="msi">power_settings_new</span> <span data-i18n="steamvr.launch.title">Launch</span></div>
+                    <div class="vrcn-panel-card">
+                        <div class="vrcn-panel-card-header"><span class="msi">power_settings_new</span> <span data-i18n="steamvr.launch.title">Launch</span></div>
                         <div class="sf-toggle-row"><span data-i18n="common.start_with_vrchat_vr">Start when launching VRChat in VR</span><label class="toggle"><input type="checkbox" id="setSfAutoStartVR" onchange="sfAutoSave()"><div class="toggle-track"><div class="toggle-knob"></div></div></label></div>
                     </div>
-                    <div class="sf-card">
-                        <div class="sf-card-header"><span class="msi">rocket_launch</span> <span data-i18n="steamvr.offset.title">Current Offset</span></div>
+                    <div class="vrcn-panel-card">
+                        <div class="vrcn-panel-card-header"><span class="msi">rocket_launch</span> <span data-i18n="steamvr.offset.title">Current Offset</span></div>
                         <div class="sf-offset">
                             <div class="sf-offset-values">
                                 <div class="sf-axis"><span class="sf-axis-label">X</span><span class="sf-axis-val" id="sfOffX">0.000</span></div>
@@ -749,8 +749,8 @@
                             <button class="vrcn-button" onclick="sfReset()" style="width:100%;justify-content:center;"><span class="msi" style="font-size:16px;">restart_alt</span> <span data-i18n="steamvr.actions.reset">Reset</span></button>
                         </div>
                     </div>
-                    <div class="sf-card">
-                        <div class="sf-card-header"><span class="msi">tune</span> <span data-i18n="steamvr.settings.title">Settings</span></div>
+                    <div class="vrcn-panel-card">
+                        <div class="vrcn-panel-card-header"><span class="msi">tune</span> <span data-i18n="steamvr.settings.title">Settings</span></div>
                         <div class="sf-row"><label data-i18n="steamvr.settings.drag_multiplier">Drag Multiplier</label><input type="range" id="sfMultiplier" min="0.1" max="100" step="0.1" value="1" oninput="document.getElementById('sfMultVal').textContent=this.value+'x';sfAutoSave()"><span id="sfMultVal" style="font-size:11px;color:var(--tx2);min-width:28px;text-align:right;">1x</span></div>
                         <div class="sf-section-label" data-i18n="steamvr.settings.axis_lock">Axis Lock</div>
                         <div class="sf-toggle-row"><span data-i18n="steamvr.settings.lock_x">Lock X</span><label class="toggle"><input type="checkbox" id="sfLockX" onchange="sfAutoSave()"><div class="toggle-track"><div class="toggle-knob"></div></div></label></div>
@@ -767,7 +767,7 @@
             <!-- Tab 11: OSC Tool -->
             <div class="tab" id="tab11" data-windows-only>
                 <div class="sf-layout">
-                    <div class="sf-card sf-status-card">
+                    <div class="vrcn-panel-card status">
                         <div class="sf-status-row">
                             <div class="sf-status"><span class="sf-dot offline" id="oscDot"></span><span id="oscStatusText" data-i18n="osc.status.not_connected">Not connected</span></div>
                             <button class="vrcn-button" id="oscConnBtn" onclick="oscConnect()"><span class="msi" style="font-size:16px;">link</span> <span data-i18n="common.connect">Connect</span></button>
@@ -778,8 +778,8 @@
                         <span class="osc-banner-text"></span>
                         <button class="vrcn-button osc-enable-btn" id="oscEnableBtn" onclick="oscEnableOutputs()"><span class="msi" style="font-size:14px;">output</span> <span data-i18n="osc.outputs.enable_all">Enable All Outputs</span></button>
                     </div>
-                    <div class="sf-card" style="flex:1;min-height:0;display:flex;flex-direction:column;">
-                        <div class="sf-card-header" style="display:flex;align-items:center;justify-content:space-between;">
+                    <div class="vrcn-panel-card" style="flex:1;min-height:0;display:flex;flex-direction:column;">
+                        <div class="vrcn-panel-card-header" style="display:flex;align-items:center;justify-content:space-between;">
                             <span><span class="msi">tune</span> <span data-i18n="osc.parameters.title">Parameters</span></span>
                             <span class="osc-badge-count" id="oscParamCount" data-i18n="osc.parameters.count.zero">0 params</span>
                         </div>
@@ -881,19 +881,19 @@
             </div>
             <!-- Tab 14: YouTube Fix / VRCVideoCacher -->
             <div class="tab" id="tab14">
-                <div class="sf-card sf-status-card" style="margin-bottom:16px;">
+                <div class="vrcn-panel-card status" style="margin-bottom:16px;">
                     <div class="sf-status-row">
                         <div class="sf-status"><span class="sf-dot offline" id="vcDot"></span><span id="vcStatusText" data-i18n="youtube_fix.status.not_running">Not running</span></div>
                         <button class="vrcn-button" id="btnVc" onclick="toggleVc()" disabled><span class="msi" style="font-size:16px;">play_arrow</span> <span data-i18n="common.start">Start</span></button>
                     </div>
                 </div>
-                <div class="sf-card" style="margin-bottom:16px;">
-                    <div class="sf-card-header"><span class="msi">power_settings_new</span> <span data-i18n="common.launch">Launch</span></div>
+                <div class="vrcn-panel-card" style="margin-bottom:16px;">
+                    <div class="vrcn-panel-card-header"><span class="msi">power_settings_new</span> <span data-i18n="common.launch">Launch</span></div>
                     <div class="sf-toggle-row"><span data-i18n="common.start_with_vrchat_vr">Start when launching VRChat in VR</span><label class="toggle"><input type="checkbox" id="setYtAutoStartVR" onchange="autoSave()"><div class="toggle-track"><div class="toggle-knob"></div></div></label></div>
                     <div class="sf-toggle-row"><span data-i18n="common.start_with_vrchat_desktop">Start when launching VRChat on Desktop</span><label class="toggle"><input type="checkbox" id="setYtAutoStartDesktop" onchange="autoSave()"><div class="toggle-track"><div class="toggle-knob"></div></div></label></div>
                 </div>
-                <div class="cb-card" id="vcInstallCard">
-                    <div class="cb-card-header"><span class="msi" style="font-size:16px;">smart_display</span> <span data-i18n="youtube_fix.title">VRCVideoCacher</span></div>
+                <div class="vrcn-panel-card" id="vcInstallCard">
+                    <div class="vrcn-panel-card-header"><span class="msi" style="font-size:16px;">smart_display</span> <span data-i18n="youtube_fix.title">VRCVideoCacher</span></div>
                     <p style="font-size:13px;color:var(--tx2);margin:0 0 4px;"><span data-i18n="youtube_fix.info.fixes_prefix">Fixes</span> <b style="color:var(--tx1)" data-i18n="youtube_fix.info.youtube_errors">YouTube video errors</b> <span data-i18n="youtube_fix.info.fixes_suffix">in VRChat by routing requests through a local proxy. Created by</span> <b style="color:var(--tx1)">Elly</b>.</p>
                     <p style="font-size:12px;color:var(--tx3);margin:0 0 8px;" data-i18n="youtube_fix.info.background">The service runs in the background. When you close VRCNext, the process will be terminated.</p>
                     <p style="font-size:12px;color:var(--tx2);margin:0 0 12px;padding:8px 10px;background:var(--bg2);border-radius:6px;border-left:3px solid var(--accent);"><span data-i18n="youtube_fix.info.setup_prefix">If you are running this service for the first time, please follow the setup instructions that appear when starting it.</span> <span data-i18n="youtube_fix.info.setup_suffix">Also make sure to read the usage guide on the GitHub page:</span> <a href="#" onclick="sendToCS({action:'openUrl',url:'https://github.com/EllyVR/VRCVideoCacher'});return false;" style="color:var(--accent);">github.com/EllyVR/VRCVideoCacher</a></p>
@@ -946,8 +946,8 @@
                 <div class="net-root">
                     <canvas id="netCanvas"></canvas>
                     <div class="net-toolbar">
-                        <button class="net-toolbar-btn" onclick="networkReFetch()" title="Clear cache and re-fetch all connections" data-i18n-title="network.refetch_title"><span class="msi" style="font-size:14px;">cloud_sync</span> <span data-i18n="network.refetch">Re-Fetch</span></button>
-                        <button class="net-toolbar-btn" onclick="networkResetView()" title="Reset zoom/pan" data-i18n-title="network.reset_title"><span class="msi" style="font-size:14px;">center_focus_strong</span> <span data-i18n="network.reset">Reset</span></button>
+                        <button class="vrcn-button" onclick="networkReFetch()" title="Clear cache and re-fetch all connections" data-i18n-title="network.refetch_title"><span class="msi" style="font-size:14px;">cloud_sync</span> <span data-i18n="network.refetch">Re-Fetch</span></button>
+                        <button class="vrcn-button" onclick="networkResetView()" title="Reset zoom/pan" data-i18n-title="network.reset_title"><span class="msi" style="font-size:14px;">center_focus_strong</span> <span data-i18n="network.reset">Reset</span></button>
                     </div>
                     <div class="net-progress" id="netProgress" style="display:none;">
                         <span class="msi" style="font-size:14px;">sync</span>
@@ -986,7 +986,7 @@
             <div class="tab" id="tab18">
                 <div class="sf-layout">
                     <!-- Status -->
-                    <div class="sf-card sf-status-card">
+                    <div class="vrcn-panel-card status">
                         <div class="sf-status-row">
                             <div class="sf-status"><span class="sf-dot offline" id="vfDot"></span><span id="vfStatusText" data-i18n="voicefight.status.not_running">Not running</span></div>
                             <div style="display:flex;gap:8px;">
@@ -996,33 +996,33 @@
                         </div>
                     </div>
                     <!-- Launch -->
-                    <div class="sf-card">
-                        <div class="sf-card-header"><span class="msi">power_settings_new</span> <span data-i18n="common.launch">Launch</span></div>
+                    <div class="vrcn-panel-card">
+                        <div class="vrcn-panel-card-header"><span class="msi">power_settings_new</span> <span data-i18n="common.launch">Launch</span></div>
                         <div class="sf-toggle-row"><span data-i18n="common.start_with_vrchat_vr">Start when launching VRChat in VR</span><label class="toggle"><input type="checkbox" id="setVfAutoStartVR" onchange="autoSave()"><div class="toggle-track"><div class="toggle-knob"></div></div></label></div>
                         <div class="sf-toggle-row"><span data-i18n="common.start_with_vrchat_desktop">Start when launching VRChat on Desktop</span><label class="toggle"><input type="checkbox" id="setVfAutoStartDesktop" onchange="autoSave()"><div class="toggle-track"><div class="toggle-knob"></div></div></label></div>
                     </div>
                     <!-- Device -->
-                    <div class="sf-card">
-                        <div class="sf-card-header"><span class="msi">mic</span> <span data-i18n="voicefight.input_device">Input Device</span></div>
+                    <div class="vrcn-panel-card">
+                        <div class="vrcn-panel-card-header"><span class="msi">mic</span> <span data-i18n="voicefight.input_device">Input Device</span></div>
                         <select id="vfDeviceSelect" class="lib-filter-select" style="width:100%;margin-bottom:12px;" onchange="vfSetInputDevice(this.value)"><option data-i18n="common.loading">Loading...</option></select>
-                        <div class="sf-card-header" style="margin-top:4px;"><span class="msi">graphic_eq</span> <span data-i18n="voicefight.mic_level">Mic Level</span></div>
+                        <div class="vrcn-panel-card-header" style="margin-top:4px;"><span class="msi">graphic_eq</span> <span data-i18n="voicefight.mic_level">Mic Level</span></div>
                         <div class="vf-meter-wrap">
                             <div class="vf-meter-bar" id="vfMeterBar"></div>
                         </div>
-                        <div class="sf-card-header" style="margin-top:12px;"><span class="msi">volume_up</span> <span data-i18n="voicefight.output_device">Output Device</span></div>
+                        <div class="vrcn-panel-card-header" style="margin-top:12px;"><span class="msi">volume_up</span> <span data-i18n="voicefight.output_device">Output Device</span></div>
                         <select id="vfOutputDeviceSelect" class="lib-filter-select" style="width:100%;" onchange="vfSetOutputDevice(this.value)"><option data-i18n="common.loading">Loading...</option></select>
                     </div>
                     <!-- Recognized Words -->
-                    <div class="sf-card">
-                        <div class="sf-card-header"><span class="msi">hearing</span> <span data-i18n="voicefight.recognized.title">Recognized Words</span></div>
+                    <div class="vrcn-panel-card">
+                        <div class="vrcn-panel-card-header"><span class="msi">hearing</span> <span data-i18n="voicefight.recognized.title">Recognized Words</span></div>
                         <div class="vf-recognized-wrap">
                             <span id="vfRecognizedText" class="vf-recognized-text">-</span>
                         </div>
                     </div>
                     <!-- Stop Command + Mute Talk (side by side) -->
                     <div style="display:flex;gap:12px;">
-                        <div class="sf-card" style="flex:1;margin-bottom:0;">
-                            <div class="sf-card-header"><span class="msi">stop_circle</span> <span data-i18n="voicefight.stop_command.title">Stop Command</span></div>
+                        <div class="vrcn-panel-card" style="flex:1;margin-bottom:0;">
+                            <div class="vrcn-panel-card-header"><span class="msi">stop_circle</span> <span data-i18n="voicefight.stop_command.title">Stop Command</span></div>
                             <div style="display:flex;align-items:center;gap:8px;">
                                 <input id="vfStopWordInput" class="vrcn-edit-field" style="flex:1;" placeholder="Stop word..." data-i18n-placeholder="voicefight.stop_command.placeholder"
                                     oninput="vfStopWordChanged(this.value)"
@@ -1031,8 +1031,8 @@
                             </div>
                             <div style="font-size:11px;color:var(--tx3);margin-top:6px;" data-i18n="voicefight.stop_command.hint">Say this word to instantly stop any playing sound.</div>
                         </div>
-                        <div class="sf-card" style="flex:1;margin-bottom:0;">
-                            <div class="sf-card-header" style="display:flex;align-items:center;justify-content:space-between;">
+                        <div class="vrcn-panel-card" style="flex:1;margin-bottom:0;">
+                            <div class="vrcn-panel-card-header" style="display:flex;align-items:center;justify-content:space-between;">
                                 <span><span class="msi">record_voice_over</span> <span data-i18n="voicefight.mute_talk.title">Mute Talk</span></span>
                                 <label class="toggle"><input type="checkbox" id="vfMuteTalkToggle" onchange="vfSetMuteTalk(this.checked)"><div class="toggle-track"><div class="toggle-knob"></div></div></label>
                             </div>
@@ -1040,9 +1040,9 @@
                         </div>
                     </div>
                     <!-- Sound Items -->
-                    <div class="sf-card">
+                    <div class="vrcn-panel-card">
                         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
-                            <div class="sf-card-header" style="margin-bottom:0;"><span class="msi">library_music</span> <span data-i18n="voicefight.sounds.title">Sounds</span></div>
+                            <div class="vrcn-panel-card-header" style="margin-bottom:0;"><span class="msi">library_music</span> <span data-i18n="voicefight.sounds.title">Sounds</span></div>
                             <button class="vrcn-button" onclick="vfAddSound()"><span class="msi" style="font-size:16px;">add</span> <span data-i18n="voicefight.sounds.add">Add Sound</span></button>
                         </div>
                         <div id="vfItems"><div class="empty-msg" data-i18n="voicefight.sounds.empty">No sounds added yet.</div></div>
@@ -1054,7 +1054,7 @@
             <div class="tab" id="tab19">
                 <div class="sf-layout">
                     <!-- Status card -->
-                    <div class="sf-card sf-status-card">
+                    <div class="vrcn-panel-card status">
                         <div class="sf-status-row">
                             <div class="sf-status">
                                 <span class="sf-dot offline" id="dpDot"></span>
@@ -1067,8 +1067,8 @@
                     </div>
 
                     <!-- Live preview card -->
-                    <div class="sf-card" id="dpPreviewCard" style="display:none;">
-                        <div class="sf-card-header"><span class="msi">visibility</span> <span data-i18n="common.live_preview">Live Preview</span></div>
+                    <div class="vrcn-panel-card" id="dpPreviewCard" style="display:none;">
+                        <div class="vrcn-panel-card-header"><span class="msi">visibility</span> <span data-i18n="common.live_preview">Live Preview</span></div>
                         <div class="dp-preview">
                             <div class="dp-img-wrap">
                                 <div id="dpPreviewImgPlaceholder" class="dp-world-placeholder">
@@ -1086,15 +1086,15 @@
                     </div>
 
                     <!-- Launch card -->
-                    <div class="sf-card">
-                        <div class="sf-card-header"><span class="msi">power_settings_new</span> <span data-i18n="common.launch">Launch</span></div>
+                    <div class="vrcn-panel-card">
+                        <div class="vrcn-panel-card-header"><span class="msi">power_settings_new</span> <span data-i18n="common.launch">Launch</span></div>
                         <div class="sf-toggle-row"><span data-i18n="common.start_with_vrchat_vr">Start when launching VRChat in VR</span><label class="toggle"><input type="checkbox" id="setDpAutoStartVR" onchange="dpAutoSave()"><div class="toggle-track"><div class="toggle-knob"></div></div></label></div>
                         <div class="sf-toggle-row"><span data-i18n="common.start_with_vrchat_desktop">Start when launching VRChat on Desktop</span><label class="toggle"><input type="checkbox" id="setDpAutoStartDesktop" onchange="dpAutoSave()"><div class="toggle-track"><div class="toggle-knob"></div></div></label></div>
                     </div>
 
                     <!-- Privacy settings card -->
-                    <div class="sf-card">
-                        <div class="sf-card-header"><span class="msi">shield</span> <span data-i18n="common.privacy">Privacy</span></div>
+                    <div class="vrcn-panel-card">
+                        <div class="vrcn-panel-card-header"><span class="msi">shield</span> <span data-i18n="common.privacy">Privacy</span></div>
                         <div class="dp-pg">
                             <div class="dp-pg-row dp-pg-header">
                                 <div class="dp-pg-lbl"></div>
@@ -1135,8 +1135,8 @@
                     </div>
 
                     <!-- Info card -->
-                    <div class="sf-card">
-                        <div class="sf-card-header"><span class="msi">info</span> <span data-i18n="common.how_it_works">How it works</span></div>
+                    <div class="vrcn-panel-card">
+                        <div class="vrcn-panel-card-header"><span class="msi">info</span> <span data-i18n="common.how_it_works">How it works</span></div>
                         <div style="font-size:12px;color:var(--tx2);line-height:1.7;">
                             <span data-i18n="discord.info.line1">Shows your current VRChat world on your Discord profile.</span><br>
                             <span data-i18n="discord.info.line2">Updates automatically when you join a new world or change status.</span><br><br>
@@ -1150,7 +1150,7 @@
                 <div class="sf-layout">
 
                     <!-- Status card -->
-                    <div class="sf-card sf-status-card">
+                    <div class="vrcn-panel-card status">
                         <div class="sf-status-row">
                             <div class="sf-status">
                                 <span class="sf-dot offline" id="vroDot"></span>
@@ -1163,8 +1163,8 @@
                     </div>
 
                     <!-- Overlay controls -->
-                    <div class="sf-card" id="vroControlCard" style="display:none;">
-                        <div class="sf-card-header"><span class="msi">visibility</span> <span data-i18n="vro.control.title">Overlay Control</span></div>
+                    <div class="vrcn-panel-card" id="vroControlCard" style="display:none;">
+                        <div class="vrcn-panel-card-header"><span class="msi">visibility</span> <span data-i18n="vro.control.title">Overlay Control</span></div>
                         <div style="display:flex;gap:8px;flex-wrap:wrap;">
                             <button class="vrcn-button" id="vroShowBtn" onclick="vroToggleVisibility()" disabled style="flex:1;justify-content:center;min-width:120px;">
                                 <span class="msi" id="vroVisIcon" style="font-size:16px;">visibility</span>
@@ -1178,14 +1178,14 @@
                     </div>
 
                     <!-- Launch -->
-                    <div class="sf-card">
-                        <div class="sf-card-header"><span class="msi">power_settings_new</span> <span data-i18n="common.launch">Launch</span></div>
+                    <div class="vrcn-panel-card">
+                        <div class="vrcn-panel-card-header"><span class="msi">power_settings_new</span> <span data-i18n="common.launch">Launch</span></div>
                         <div class="sf-toggle-row"><span data-i18n="common.start_with_vrchat_vr">Start when launching VRChat in VR</span><label class="toggle"><input type="checkbox" id="setVroAutoStartVR" onchange="vroAutoSaveSettings()"><div class="toggle-track"><div class="toggle-knob"></div></div></label></div>
                     </div>
 
                     <!-- Attachment -->
-                    <div class="sf-card">
-                        <div class="sf-card-header"><span class="msi">back_hand</span> <span data-i18n="vro.attachment.title">Attachment</span></div>
+                    <div class="vrcn-panel-card">
+                        <div class="vrcn-panel-card-header"><span class="msi">back_hand</span> <span data-i18n="vro.attachment.title">Attachment</span></div>
                         <div class="vro-setting-row">
                             <label data-i18n="vro.attachment.hand">Hand</label>
                             <select id="vroAttachLeft" class="vrcn-select" onchange="vroMirrorAndSave()">
@@ -1196,8 +1196,8 @@
                     </div>
 
                     <!-- Overlay Notifications -->
-                    <div class="sf-card">
-                        <div class="sf-card-header"><span class="msi">notifications_active</span> <span data-i18n="vro.notifications.title">Overlay Notifications</span></div>
+                    <div class="vrcn-panel-card">
+                        <div class="vrcn-panel-card-header"><span class="msi">notifications_active</span> <span data-i18n="vro.notifications.title">Overlay Notifications</span></div>
                         <div class="set-desc" style="margin-bottom:10px;" data-i18n="vro.notifications.desc">HMD-attached toast notifications that appear in front of you when friend events happen.</div>
                         <div class="sf-toggle-row"><span data-i18n="vro.notifications.enable">Enable</span><label class="toggle"><input type="checkbox" id="vroToastEnabled" checked onchange="vroToastAutoSave()"><div class="toggle-track"><div class="toggle-knob"></div></div></label></div>
                         <div class="sf-toggle-row"><span data-i18n="vro.notifications.favorites_only">Favorites only</span><label class="toggle"><input type="checkbox" id="vroToastFavOnly" onchange="vroToastAutoSave()"><div class="toggle-track"><div class="toggle-knob"></div></div></label></div>
@@ -1254,8 +1254,8 @@
                     </div>
 
                     <!-- Transform -->
-                    <div class="sf-card">
-                        <div class="sf-card-header"><span class="msi">open_with</span> <span data-i18n="vro.transform.title">Transform</span></div>
+                    <div class="vrcn-panel-card">
+                        <div class="vrcn-panel-card-header"><span class="msi">open_with</span> <span data-i18n="vro.transform.title">Transform</span></div>
                         <div class="sf-section-label" data-i18n="vro.transform.position">Position (meters)</div>
                         <div class="vro-transform-grid">
                             <div class="vro-axis-row">
@@ -1310,8 +1310,8 @@
                     </div>
 
                     <!-- Keybind -->
-                    <div class="sf-card">
-                        <div class="sf-card-header"><span class="msi">gamepad</span> <span data-i18n="vro.keybind.title">Toggle Keybind</span></div>
+                    <div class="vrcn-panel-card">
+                        <div class="vrcn-panel-card-header"><span class="msi">gamepad</span> <span data-i18n="vro.keybind.title">Toggle Keybind</span></div>
 
                         <!-- Mode selector: Keybind | Double Tap -->
                         <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px;">
@@ -1370,7 +1370,7 @@
             <!-- Tab 21: Permini -->
             <div class="tab" id="tab21">
                 <div class="sf-layout">
-                    <div class="sf-card">
+                    <div class="vrcn-panel-card">
                         <div class="pm-header">
                             <div class="pm-header-left">
                                 <span class="msi" style="font-size:20px;color:var(--accent);">lock</span>
@@ -1516,7 +1516,7 @@
             <div class="inv-search-wrap">
                 <input class="inv-search-input" type="text" id="pmSearchInput" data-i18n-placeholder="permini.picker.search" oninput="filterPerminiPicker(this.value)">
             </div>
-            <div class="inv-list" id="pmPickerList"></div>
+            <div class="inv-list vrcn-scrollbar" id="pmPickerList"></div>
         </div>
     </div>
 

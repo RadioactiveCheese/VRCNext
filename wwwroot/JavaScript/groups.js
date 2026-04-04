@@ -124,8 +124,12 @@ function renderGroupDetail(g) {
     const headerHtml = `<div class="fd-content${banner ? ' fd-has-banner' : ''}"><div class="fd-header">${iconHtml}<div style="flex:1;min-width:0;"><div class="fd-name">${esc(g.name)}</div><div class="fd-status">${headerMeta}</div></div><span id="ggrpHeaderBadge" style="margin-left:auto;flex-shrink:0;">${g.joinState ? joinStateBadge(g.joinState) : ''}</span></div><div class="fd-badges-row">${idBadge(g.id)}</div>`;
 
     // Actions - moved to bottom bar
-    const canPost  = g.canPost === true;
-    const canEvent = g.canEvent === true;
+    const canPost   = g.canPost === true;
+    const canEvent  = g.canEvent === true;
+    const canInvite = g.canInvite === true;
+    const inviteBtn = (g.isJoined && canInvite)
+        ? `<button class="vrcn-button-round vrcn-btn-join" onclick="openGroupInviteModal('${esc(g.id)}')"><span class="msi" style="font-size:16px;vertical-align:middle;margin-right:4px;">person_add</span>${t('groups.actions.invite', 'Invite')}</button>`
+        : '';
     const createPostBtn = (g.isJoined && canPost)
         ? `<button class="vrcn-button-round vrcn-btn-join" onclick="openGroupPostModal('${esc(g.id)}')"><span class="msi" style="font-size:16px;vertical-align:middle;margin-right:4px;">edit</span>${t('groups.actions.post', 'Post')}</button>`
         : '';
@@ -381,7 +385,7 @@ function renderGroupDetail(g) {
         <div id="gdTabMembers" style="display:none;">${membersTab}</div>
         ${g.canManageRoles ? `<div id="gdTabRoles" style="display:none;">${rolesTab}</div>` : ''}
         ${g.canBan ? `<div id="gdTabBanned" style="display:none;">${bannedTab}</div>` : ''}
-        <div style="margin-top:10px;display:flex;justify-content:space-between;align-items:center;"><div style="display:flex;gap:8px;">${createPostBtn}${createEventBtn}${leaveJoinBtn}</div><button class="vrcn-button-round" onclick="document.getElementById('modalDetail').style.display='none'">${t('common.close', 'Close')}</button></div>
+        <div style="margin-top:10px;display:flex;justify-content:space-between;align-items:center;"><div style="display:flex;gap:8px;">${inviteBtn}${createPostBtn}${createEventBtn}${leaveJoinBtn}</div><button class="vrcn-button-round" onclick="document.getElementById('modalDetail').style.display='none'">${t('common.close', 'Close')}</button></div>
     </div>`;
     applyGroupDetailTranslations(g);
 }
@@ -473,6 +477,8 @@ function applyGroupDetailTranslations(g) {
         });
     }
 
+    const invBtn = detail.querySelector(`button[onclick*="openGroupInviteModal("]`);
+    if (invBtn) invBtn.innerHTML = `<span class="msi" style="font-size:16px;vertical-align:middle;margin-right:4px;">person_add</span>${t('groups.actions.invite', 'Invite')}`;
     const postBtn = detail.querySelector(`button[onclick*="openGroupPostModal("]`);
     if (postBtn) postBtn.innerHTML = `<span class="msi" style="font-size:16px;vertical-align:middle;margin-right:4px;">edit</span>${t('groups.actions.post', 'Post')}`;
     const eventBtn = detail.querySelector(`button[onclick*="openGroupEventModal("]`);
@@ -1632,4 +1638,80 @@ function renderGroupBans(groupId, bans) {
         return;
     }
     list.innerHTML = bans.map(b => renderProfileItem(b, `closeDetailModal();openFriendDetail('${jsq(b.id || '')}')`)).join('');
+}
+
+/* === Group Invite (reuses modalInvite / inviteBox) === */
+let _grpInvGroupId = null;
+
+function openGroupInviteModal(groupId) {
+    _grpInvGroupId = groupId;
+    const m = document.getElementById('modalInvite');
+    if (!m) return;
+    _inviteSelected = new Set();
+    _inviteSending = false;
+    _inviteFilter = '';
+    _inviteProgressState = null;
+    _inviteOverride = null;
+    _renderGroupInviteBox();
+    m.style.display = 'flex';
+}
+
+function _renderGroupInviteBox() {
+    const box = document.getElementById('inviteBox');
+    if (!box) return;
+    const gd = window._currentGroupDetailFull || window._currentGroupDetail || {};
+    const groupName = gd.name || '';
+    const groupIcon = gd.iconUrl || '';
+    const bannerUrl = gd.bannerUrl || '';
+    const bannerBg = bannerUrl || groupIcon;
+    box.innerHTML = `
+        <div class="inv-world-banner" style="background-image:url('${esc(bannerBg)}')">
+            <div class="inv-world-fade"></div>
+            <div class="inv-world-info">
+                <div class="inv-world-name">${esc(groupName)}</div>
+                <div style="font-size:10px;color:rgba(255,255,255,.65);margin-top:3px;">${esc(t('groups.invite.subtitle', 'Invite to this group'))}</div>
+            </div>
+            <button class="inv-close-btn" onclick="closeInviteModal();_grpInvGroupId=null;" title="${esc(t('common.close', 'Close'))}"><span class="msi">close</span></button>
+        </div>
+        <div class="inv-search-wrap">
+            <span class="msi inv-search-icon">search</span>
+            <input type="text" id="inviteSearch" class="inv-search-input" placeholder="${esc(t('invite.multi.search_placeholder', 'Search friends...'))}" oninput="filterInviteList()">
+        </div>
+        <div id="inviteList" class="inv-list"></div>
+        <div class="inv-footer">
+            <span id="inviteSelCount" class="inv-sel-count"></span>
+            <button id="inviteSendBtn" class="vrcn-button" onclick="_sendGroupInvites()" disabled>${esc(t('groups.actions.invite', 'Invite'))}</button>
+        </div>
+        <div id="inviteProgress" class="inv-progress-wrap" style="display:none;">
+            <div class="inv-progress-track"><div id="inviteProgressBar" class="inv-progress-bar"></div></div>
+            <div id="inviteProgressText" class="inv-progress-text"></div>
+        </div>`;
+    const search = document.getElementById('inviteSearch');
+    if (search) search.value = _inviteFilter;
+    renderInviteList(_inviteFilter);
+}
+
+function _sendGroupInvites() {
+    const ids = Array.from(_inviteSelected);
+    if (!ids.length || _inviteSending || !_grpInvGroupId) return;
+    _inviteSending = true;
+    const btn = document.getElementById('inviteSendBtn');
+    if (btn) btn.disabled = true;
+    const prog = document.getElementById('inviteProgress');
+    if (prog) prog.style.display = '';
+    _applyInviteProgress(0, ids.length, 0, 0);
+    sendToCS({ action: 'vrcInviteToGroup', groupId: _grpInvGroupId, userIds: ids });
+}
+
+function handleGroupInviteProgress(payload) {
+    _applyInviteProgress(payload.done, payload.total, payload.success, payload.fail);
+    if (payload.done >= payload.total) {
+        _inviteSending = false;
+        _grpInvGroupId = null;
+        setTimeout(() => {
+            const count = _inviteSelected.size;
+            const btn = document.getElementById('inviteSendBtn');
+            if (btn) { btn.disabled = count === 0; }
+        }, 1500);
+    }
 }

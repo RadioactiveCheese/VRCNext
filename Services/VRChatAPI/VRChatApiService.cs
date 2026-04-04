@@ -2130,6 +2130,19 @@ public class VRChatApiService
         catch (Exception ex) { Log($"RespondGroupJoinRequest exception: {ex.Message}"); return false; }
     }
 
+    public async Task<bool> CreateGroupInviteAsync(string groupId, string userId)
+    {
+        if (!IsLoggedIn || string.IsNullOrEmpty(groupId) || string.IsNullOrEmpty(userId)) return false;
+        try
+        {
+            var body = new StringContent(JsonConvert.SerializeObject(new { userId }), Encoding.UTF8, "application/json");
+            var resp = await _http.PostAsync($"{BASE}/groups/{groupId}/invites", body);
+            Log($"CreateGroupInvite {groupId} user={userId}: {(int)resp.StatusCode}");
+            return resp.IsSuccessStatusCode;
+        }
+        catch (Exception ex) { Log($"CreateGroupInvite exception: {ex.Message}"); return false; }
+    }
+
     public async Task<bool> DeclineGroupInviteAsync(string groupId)
     {
         if (!IsLoggedIn || string.IsNullOrEmpty(groupId)) return false;

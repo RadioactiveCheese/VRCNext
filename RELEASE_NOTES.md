@@ -16,6 +16,7 @@ Same as Smart Links, you can now copy an Instance links or send it to friends. W
 * Added a **Share** button to the header of **Avatar** modals.
 * Added a **Share** button to the header of **Group** modals.
 * Added a **Share** button to the header of **User** modals.
+* Added a **Invite** Modal and Button to invite friends to certain groups where you have the permission for.
 
 **Timeline**
 

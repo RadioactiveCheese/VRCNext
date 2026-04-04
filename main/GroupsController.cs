@@ -49,8 +49,9 @@ public class GroupsController
                     || perms.Contains("group-instance-public-create")
                     || perms.Contains("group-instance-restricted-create");
 
-                var canPost  = perms != null && (perms.Contains("*") || perms.Contains("group-announcement-manage"));
-                var canEvent = perms != null && (perms.Contains("*") || perms.Contains("group-calendar-manage"));
+                var canPost   = perms != null && (perms.Contains("*") || perms.Contains("group-announcement-manage"));
+                var canEvent  = perms != null && (perms.Contains("*") || perms.Contains("group-calendar-manage"));
+                var canInvite = perms != null && (perms.Contains("*") || perms.Contains("group-invites-manage"));
 
                 enriched.Add(new {
                     id = full["id"]?.ToString() ?? ids[i],
@@ -65,7 +66,7 @@ public class GroupsController
                     joinState      = full["joinState"]?.ToString() ?? "",
                     isRepresenting = myMember?["isRepresenting"]?.Value<bool>() ?? false,
                     canCreateInstance = canCreate,
-                    canPost, canEvent,
+                    canPost, canEvent, canInvite,
                 });
             }
             if (_core.Settings.FfcEnabled) _core.Cache.Save(CacheHandler.KeyGroups, enriched);
@@ -161,9 +162,10 @@ public class GroupsController
 
                             var myMember = g["myMember"] as JObject;
                             var myPerms = myMember?["permissions"] as JArray ?? new JArray();
-                            var canPost  = myPerms.Any(p => p.ToString() == "*" || p.ToString() == "group-announcement-manage");
-                            var canEvent = myPerms.Any(p => p.ToString() == "*" || p.ToString() == "group-calendar-manage");
-                            var canEdit  = myPerms.Any(p => p.ToString() == "*" || p.ToString() == "group-data-manage");
+                            var canPost   = myPerms.Any(p => p.ToString() == "*" || p.ToString() == "group-announcement-manage");
+                            var canEvent  = myPerms.Any(p => p.ToString() == "*" || p.ToString() == "group-calendar-manage");
+                            var canEdit   = myPerms.Any(p => p.ToString() == "*" || p.ToString() == "group-data-manage");
+                            var canInvite = myPerms.Any(p => p.ToString() == "*" || p.ToString() == "group-invites-manage");
                             var canKick        = myPerms.Any(p => p.ToString() == "*" || p.ToString() == "group-members-remove");
                             var canBan         = myPerms.Any(p => p.ToString() == "*" || p.ToString() == "group-bans-manage");
                             var canManageRoles = myPerms.Any(p => p.ToString() == "*" || p.ToString() == "group-roles-manage");
@@ -179,7 +181,7 @@ public class GroupsController
                                 languages = (g["languages"] as JArray)?.Select(x => x.ToString()).ToArray() ?? Array.Empty<string>(),
                                 links     = (g["links"]     as JArray)?.Select(x => x.ToString()).ToArray() ?? Array.Empty<string>(),
                                 isJoined = g["myMember"] != null && g["myMember"].Type != JTokenType.Null,
-                                canPost, canEvent, canEdit, canKick, canBan, canManageRoles, canAssignRoles,
+                                canPost, canEvent, canEdit, canInvite, canKick, canBan, canManageRoles, canAssignRoles,
                                 roles = (g["roles"] as JArray ?? new JArray()).Select(r => {
                                     var rPerms = (r["permissions"] as JArray)?.Select(p => p.ToString()).ToArray() ?? Array.Empty<string>();
                                     _core.SendToJS("log", new { msg = $"[ROLE] \"{r["name"]}\" perms: [{string.Join(", ", rPerms)}]", color = "sec" });
@@ -741,6 +743,28 @@ public class GroupsController
                     }
                     catch { /* non-critical */ }
                 });
+                break;
+            }
+
+            case "vrcInviteToGroup":
+            {
+                var invGid = msg["groupId"]?.ToString() ?? "";
+                var invUids = msg["userIds"]?.ToObject<List<string>>() ?? new();
+                if (!string.IsNullOrEmpty(invGid) && invUids.Count > 0)
+                {
+                    _ = Task.Run(async () =>
+                    {
+                        int done = 0, success = 0, fail = 0;
+                        foreach (var uid in invUids)
+                        {
+                            var ok = await _core.VrcApi.CreateGroupInviteAsync(invGid, uid);
+                            if (ok) success++; else fail++;
+                            done++;
+                            _core.SendToJS("vrcGroupInviteProgress", new { done, total = invUids.Count, success, fail });
+                            if (done < invUids.Count) await Task.Delay(1000);
+                        }
+                    });
+                }
                 break;
             }
 

@@ -30,6 +30,7 @@ function closeInviteModal() {
     _inviteOverride = null;
     _inviteFilter = '';
     _inviteProgressState = null;
+    if (typeof _grpInvGroupId !== 'undefined') _grpInvGroupId = null;
 }
 
 function openInviteModalForLocation(location, worldName, worldThumb, instanceType) {
@@ -98,10 +99,12 @@ function renderInviteList(filter) {
     const myLocBase = currentInstanceData?.location?.split('~')[0] || null;
     const _instUserIds = myLocBase ? new Set((currentInstanceData.users || []).map(u => u.id).filter(Boolean)) : new Set();
 
+    const isGroupInvite = typeof _grpInvGroupId !== 'undefined' && _grpInvGroupId != null;
+
     const allFriends = (vrcFriendsData || []).map(f =>
         (_instUserIds.has(f.id) && (!f.location || f.location === 'private')) ? { ...f, location: currentInstanceData.location } : f
     ).filter(f => {
-        if (f.presence === 'offline') return false;
+        if (!isGroupInvite && f.presence === 'offline') return false;
         if (filter) {
             if (!(f.displayName || '').toLowerCase().includes(filter.toLowerCase())) return false;
         }
@@ -116,11 +119,6 @@ function renderInviteList(filter) {
         _updateInviteFooter();
         return;
     }
-
-    const gameFriends = friends.filter(f => f.presence === 'game');
-    const webFriends = friends.filter(f => f.presence === 'web');
-
-    let h = '';
 
     function card(f) {
         const sel = _inviteSelected.has(f.id);
@@ -145,17 +143,36 @@ function renderInviteList(filter) {
         </div>`;
     }
 
-    if (instFriends.length > 0) {
-        h += `<div class="inv-section-lbl">${esc(tf('invite.multi.section.in_instance', { count: instFriends.length }, 'IN-INSTANCE - {count}'))}</div>`;
-        instFriends.forEach(f => h += card(f));
-    }
-    if (gameFriends.length > 0) {
-        h += `<div class="inv-section-lbl">${esc(tf('invite.multi.section.in_game', { count: gameFriends.length }, 'IN-GAME - {count}'))}</div>`;
-        gameFriends.forEach(f => h += card(f));
-    }
-    if (webFriends.length > 0) {
-        h += `<div class="inv-section-lbl">${esc(tf('invite.multi.section.web_active', { count: webFriends.length }, 'WEB / ACTIVE - {count}'))}</div>`;
-        webFriends.forEach(f => h += card(f));
+    let h = '';
+
+    if (isGroupInvite) {
+        // Group invite: flat list, all friends including offline
+        const onlineFriends = allFriends.filter(f => f.presence !== 'offline');
+        const offlineFriends = allFriends.filter(f => f.presence === 'offline');
+        if (onlineFriends.length > 0) {
+            h += `<div class="inv-section-lbl">${esc(tf('invite.multi.section.online', { count: onlineFriends.length }, 'ONLINE - {count}'))}</div>`;
+            onlineFriends.forEach(f => h += card(f));
+        }
+        if (offlineFriends.length > 0) {
+            h += `<div class="inv-section-lbl">${esc(tf('invite.multi.section.offline', { count: offlineFriends.length }, 'OFFLINE - {count}'))}</div>`;
+            offlineFriends.forEach(f => h += card(f));
+        }
+    } else {
+        // Instance invite: grouped by location
+        if (instFriends.length > 0) {
+            h += `<div class="inv-section-lbl">${esc(tf('invite.multi.section.in_instance', { count: instFriends.length }, 'IN-INSTANCE - {count}'))}</div>`;
+            instFriends.forEach(f => h += card(f));
+        }
+        const gameFriends = friends.filter(f => f.presence === 'game');
+        const webFriends = friends.filter(f => f.presence === 'web');
+        if (gameFriends.length > 0) {
+            h += `<div class="inv-section-lbl">${esc(tf('invite.multi.section.in_game', { count: gameFriends.length }, 'IN-GAME - {count}'))}</div>`;
+            gameFriends.forEach(f => h += card(f));
+        }
+        if (webFriends.length > 0) {
+            h += `<div class="inv-section-lbl">${esc(tf('invite.multi.section.web_active', { count: webFriends.length }, 'WEB / ACTIVE - {count}'))}</div>`;
+            webFriends.forEach(f => h += card(f));
+        }
     }
 
     el.innerHTML = h;

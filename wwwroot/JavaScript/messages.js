@@ -462,6 +462,9 @@ window.external.receiveMessage(rawMsg => {
             case 'vrcGroupRoleMembers':
                 onGroupRoleMembers(payload);
                 break;
+            case 'vrcGroupInviteProgress':
+                handleGroupInviteProgress(payload);
+                break;
             case 'vrcGroupDetailError':
                 document.getElementById('detailModalContent').innerHTML = `<div style="padding:30px;text-align:center;color:var(--err);">${esc(payload.error || t('groups.error.loading_detail', 'Error loading group'))}</div><div style="text-align:center;margin-top:10px;"><button class="vrcn-button-round" onclick="document.getElementById('modalDetail').style.display='none'">${t('common.close', 'Close')}</button></div>`;
                 break;

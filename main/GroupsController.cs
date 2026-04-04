@@ -757,10 +757,10 @@ public class GroupsController
                         int done = 0, success = 0, fail = 0;
                         foreach (var uid in invUids)
                         {
-                            var ok = await _core.VrcApi.CreateGroupInviteAsync(invGid, uid);
+                            var (ok, error) = await _core.VrcApi.CreateGroupInviteAsync(invGid, uid);
                             if (ok) success++; else fail++;
                             done++;
-                            _core.SendToJS("vrcGroupInviteProgress", new { done, total = invUids.Count, success, fail });
+                            _core.SendToJS("vrcGroupInviteProgress", new { done, total = invUids.Count, success, fail, error });
                             if (done < invUids.Count) await Task.Delay(1000);
                         }
                     });

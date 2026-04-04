@@ -2130,17 +2130,20 @@ public class VRChatApiService
         catch (Exception ex) { Log($"RespondGroupJoinRequest exception: {ex.Message}"); return false; }
     }
 
-    public async Task<bool> CreateGroupInviteAsync(string groupId, string userId)
+    public async Task<(bool ok, string? error)> CreateGroupInviteAsync(string groupId, string userId)
     {
-        if (!IsLoggedIn || string.IsNullOrEmpty(groupId) || string.IsNullOrEmpty(userId)) return false;
+        if (!IsLoggedIn || string.IsNullOrEmpty(groupId) || string.IsNullOrEmpty(userId)) return (false, null);
         try
         {
-            var body = new StringContent(JsonConvert.SerializeObject(new { userId }), Encoding.UTF8, "application/json");
+            var body = new StringContent(JsonConvert.SerializeObject(new { userId, confirmOverrideBlock = false }), Encoding.UTF8, "application/json");
             var resp = await _http.PostAsync($"{BASE}/groups/{groupId}/invites", body);
-            Log($"CreateGroupInvite {groupId} user={userId}: {(int)resp.StatusCode}");
-            return resp.IsSuccessStatusCode;
+            var respBody = await resp.Content.ReadAsStringAsync();
+            Log($"CreateGroupInvite {groupId} user={userId}: {(int)resp.StatusCode} body: {respBody[..Math.Min(300, respBody.Length)]}");
+            if (resp.IsSuccessStatusCode) return (true, null);
+            try { var err = JObject.Parse(respBody); return (false, err["error"]?["message"]?.ToString()); } catch { }
+            return (false, $"HTTP {(int)resp.StatusCode}");
         }
-        catch (Exception ex) { Log($"CreateGroupInvite exception: {ex.Message}"); return false; }
+        catch (Exception ex) { Log($"CreateGroupInvite exception: {ex.Message}"); return (false, ex.Message); }
     }
 
     public async Task<bool> DeclineGroupInviteAsync(string groupId)

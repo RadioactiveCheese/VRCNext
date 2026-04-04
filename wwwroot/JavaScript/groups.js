@@ -1705,6 +1705,7 @@ function _sendGroupInvites() {
 
 function handleGroupInviteProgress(payload) {
     _applyInviteProgress(payload.done, payload.total, payload.success, payload.fail);
+    if (payload.error) showToast(false, payload.error);
     if (payload.done >= payload.total) {
         _inviteSending = false;
         _grpInvGroupId = null;

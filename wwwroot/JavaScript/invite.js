@@ -100,7 +100,6 @@ function renderInviteList(filter) {
     const _instUserIds = myLocBase ? new Set((currentInstanceData.users || []).map(u => u.id).filter(Boolean)) : new Set();
 
     const isGroupInvite = typeof _grpInvGroupId !== 'undefined' && _grpInvGroupId != null;
-
     const allFriends = (vrcFriendsData || []).map(f =>
         (_instUserIds.has(f.id) && (!f.location || f.location === 'private')) ? { ...f, location: currentInstanceData.location } : f
     ).filter(f => {

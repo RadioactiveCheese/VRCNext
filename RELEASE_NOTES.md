@@ -55,3 +55,4 @@ Similar to Smart Links, you can now copy **Instance** links or send them to frie
 
 * In **Your Instances** on the dashboard, only friends with **Green** or **Blue** status were shown before. It will now also show friends with **Red** or **Yellow** status, but only if you are in the same instance. If you are in a different instance, they will not appear in the list.
 * Added some missing i18n entries.
+* Fixed some friends list related issues.

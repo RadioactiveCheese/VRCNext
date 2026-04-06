@@ -13,9 +13,9 @@ AppSupportURL={#MyAppURL}
 DefaultDirName={autopf}\{#MyAppName}
 DisableDirPage=yes
 DisableProgramGroupPage=yes
-OutputDir=installer
+OutputDir=..\installer
 OutputBaseFilename=VRCNext_Setup_{#MyAppVersion}_x64
-SetupIconFile=logo.ico
+SetupIconFile=..\logo.ico
 WizardImageFile=installer_banner.png
 WizardSmallImageFile=installer_small.png
 Compression=lzma2/ultra64
@@ -31,7 +31,7 @@ Name: "english"; MessagesFile: "compiler:Default.isl"
 Name: "german"; MessagesFile: "compiler:Languages\German.isl"
 
 [Files]
-Source: "releases\VRCNext-win-Setup.exe"; DestDir: "{tmp}"; Flags: deleteafterinstall
+Source: "..\releases\VRCNext-win-Setup.exe"; DestDir: "{tmp}"; Flags: deleteafterinstall
 
 [Run]
 Filename: "{tmp}\VRCNext-win-Setup.exe"; Flags: waituntilterminated; StatusMsg: "Installing VRCNext..."

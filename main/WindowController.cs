@@ -54,15 +54,28 @@ public class WindowController
 
     private static nint SubclassWndProc(nint hWnd, uint msg, nint wParam, nint lParam)
     {
+        const uint WM_NCDESTROY  = 0x0082;
         const uint WM_NCCALCSIZE = 0x0083;
         const uint WM_NCHITTEST  = 0x0084;
         const uint WM_SYSCOMMAND = 0x0112;
         const int  SC_MINIMIZE   = 0xF020;
 
-        if (msg == WM_NCCALCSIZE && wParam == 1)
-            return 0; // client area = full window rect; removes visible NC border/black strip; snap still works
+        // For Watchdog WM_NCDESTROY is the very last message before the window is destroyed. Mark: Watchdog test
+        if (msg == WM_NCDESTROY)
+        {
+            var prev = _origWndProc;
+            _origWndProc  = 0;
+            _subclassProc = null;
+            SetWindowLongPtr(hWnd, -4 /*GWLP_WNDPROC*/, prev);
+            return CallWindowProc(prev, hWnd, msg, wParam, lParam);
+        }
 
-        // Intercept OS-level minimize (Win+D, Win+M, snap minimize) → hide to tray
+        // Safety
+        if (_origWndProc == 0) return 0;
+
+        if (msg == WM_NCCALCSIZE && wParam == 1)
+            return 0; 
+
         if (msg == WM_SYSCOMMAND && (wParam.ToInt32() & 0xFFF0) == SC_MINIMIZE && _minimizeToTray)
         {
             ShowWindow(hWnd, SW_HIDE);

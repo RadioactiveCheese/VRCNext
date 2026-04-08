@@ -375,6 +375,8 @@ public partial class AppShell
 
     private void OnClose()
     {
+        // Add watch dog at first Mark: Watchdog test
+        CrashHandler.OnCleanShutdown();
         _relayCtrl?.Dispose();
         _fileWatcher.Dispose();
         _uptimeTimer2?.Dispose();

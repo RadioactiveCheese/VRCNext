@@ -370,6 +370,9 @@ public class AppSettings
     // Memory Trim
     public bool MemoryTrimEnabled { get; set; } = false;
 
+    // Crash Reporting — send anonymous stack traces to the developer via Discord webhook
+    public bool SendCrashData { get; set; } = true;
+
     // Legacy Window Manager (requires restart — disables chromeless + custom chrome)
     public bool LegacyWindow { get; set; } = false;
 

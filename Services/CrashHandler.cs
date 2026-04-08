@@ -11,7 +11,9 @@ namespace VRCNext.Services;
 /// </summary>
 internal static class CrashHandler
 {
-    private static string _crashDir = "";
+    private static string _crashDir     = "";
+    private static string _sentinelPath = "";
+    private static string _stderrPath   = "";
 
     // Breadcrumb trail — last 40 operations before crash
     private static readonly System.Collections.Concurrent.ConcurrentQueue<string> _breadcrumbs = new();
@@ -30,14 +32,23 @@ internal static class CrashHandler
 
     public static void Register()
     {
-        _crashDir = Path.Combine(
+        var logsDir = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-            "VRCNext", "Logs", "Crashes");
+            "VRCNext", "Logs");
+        _crashDir     = Path.Combine(logsDir, "Crashes");
+        _sentinelPath = Path.Combine(logsDir, "session.sentinel");
         Directory.CreateDirectory(_crashDir);
+
+        // Redirect Win32 STD_ERROR_HANDLE
+        RedirectStderr(logsDir);
+        WriteSentinel();
+        AppDomain.CurrentDomain.ProcessExit += (_, _) => DeleteSessionFiles();
+        SpawnWatchdog();
 
         AppDomain.CurrentDomain.UnhandledException += (_, e) =>
         {
             WriteCrashReport(e.ExceptionObject as Exception, "AppDomain.UnhandledException", e.IsTerminating);
+            DeleteSessionFiles();
         };
 
         TaskScheduler.UnobservedTaskException += (_, e) =>
@@ -46,31 +57,126 @@ internal static class CrashHandler
             e.SetObserved();
         };
     }
+    public static void OnCleanShutdown() => DeleteSessionFiles();
+
+#if WINDOWS
+    [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+    private static extern nint CreateFile(
+        string lpFileName, uint dwDesiredAccess, uint dwShareMode,
+        nint lpSecurityAttributes, uint dwCreationDisposition,
+        uint dwFlagsAndAttributes, nint hTemplateFile);
+
+    [DllImport("kernel32.dll", SetLastError = true)]
+    private static extern bool SetStdHandle(int nStdHandle, nint hHandle);
+#endif
+
+    private static void RedirectStderr(string logsDir)
+    {
+        try
+        {
+            // Clean up old stderr files — keep the last 5
+            foreach (var old in Directory.GetFiles(logsDir, "stderr_*.txt")
+                         .OrderByDescending(f => f).Skip(5))
+                try { File.Delete(old); } catch { }
+        }
+        catch { }
+
+#if WINDOWS
+        try
+        {
+            _stderrPath = Path.Combine(logsDir, $"stderr_{DateTime.Now:yyyy-MM-dd_HH-mm-ss}.txt");
+
+            const uint GENERIC_WRITE         = 0x40000000;
+            const uint FILE_SHARE_READ       = 0x00000001;
+            const uint FILE_SHARE_WRITE      = 0x00000002;
+            const uint CREATE_ALWAYS         = 2;
+            const uint FILE_ATTRIBUTE_NORMAL = 0x00000080;
+            const uint FILE_FLAG_WRITE_THROUGH = 0x80000000;
+            const int  STD_ERROR_HANDLE        = -12;
+
+            var handle = CreateFile(
+                _stderrPath,
+                GENERIC_WRITE,
+                FILE_SHARE_READ | FILE_SHARE_WRITE,
+                nint.Zero,
+                CREATE_ALWAYS,
+                FILE_ATTRIBUTE_NORMAL | FILE_FLAG_WRITE_THROUGH,
+                nint.Zero);
+
+            if (handle != new nint(-1))
+                SetStdHandle(STD_ERROR_HANDLE, handle);
+        }
+        catch { }
+#endif
+    }
+
+    private static void WriteSentinel()
+    {
+        try
+        {
+            var asm = Assembly.GetEntryAssembly() ?? Assembly.GetExecutingAssembly();
+            File.WriteAllText(_sentinelPath, new StringBuilder()
+                .AppendLine($"Started   : {DateTime.Now:yyyy-MM-dd HH:mm:ss.fff}")
+                .AppendLine($"PID       : {Environment.ProcessId}")
+                .AppendLine($"Version   : {asm.GetName().Version}")
+                .AppendLine($"Exe       : {Environment.ProcessPath ?? asm.Location}")
+                .AppendLine($"Stderr    : {_stderrPath}")
+                .ToString(), Encoding.UTF8);
+        }
+        catch { }
+    }
+
+    private static void DeleteSessionFiles()
+    {
+        try { if (File.Exists(_sentinelPath)) File.Delete(_sentinelPath); } catch { }
+        // Delete the stderr log — nothing crashed, no need to keep it
+        try { if (!string.IsNullOrEmpty(_stderrPath) && File.Exists(_stderrPath)) File.Delete(_stderrPath); } catch { }
+    }
+
+    private static void SpawnWatchdog()
+    {
+        try
+        {
+            var exe = Environment.ProcessPath;
+            if (string.IsNullOrEmpty(exe) || !File.Exists(exe)) return;
+
+            var psi = new ProcessStartInfo
+            {
+                FileName        = exe,
+                UseShellExecute = false,
+                CreateNoWindow  = true,
+                WindowStyle     = ProcessWindowStyle.Hidden,
+            };
+            psi.ArgumentList.Add("--watchdog");
+            psi.ArgumentList.Add(Environment.ProcessId.ToString());
+            psi.ArgumentList.Add(_sentinelPath);
+            psi.ArgumentList.Add(_crashDir);
+
+            Process.Start(psi);
+        }
+        catch { }
+    }
 
     private static void WriteCrashReport(Exception? ex, string source, bool isTerminating)
     {
         try
         {
             var timestamp = DateTime.Now;
-            var fileName = $"crash_{timestamp:yyyy-MM-dd_HH-mm-ss}.txt";
-            var path = Path.Combine(_crashDir, fileName);
+            var path = Path.Combine(_crashDir, $"crash_{timestamp:yyyy-MM-dd_HH-mm-ss}.txt");
 
             var sb = new StringBuilder();
 
-            // Header
             sb.AppendLine("═══════════════════════════════════════════════════════════════");
             sb.AppendLine("                    VRCNext Crash Report");
             sb.AppendLine("═══════════════════════════════════════════════════════════════");
             sb.AppendLine();
 
-            // Timestamp & source
             sb.AppendLine($"Timestamp (local) : {timestamp:yyyy-MM-dd HH:mm:ss.fff}");
             sb.AppendLine($"Timestamp (UTC)   : {timestamp.ToUniversalTime():yyyy-MM-dd HH:mm:ss.fff}");
             sb.AppendLine($"Source            : {source}");
             sb.AppendLine($"Is Terminating    : {isTerminating}");
             sb.AppendLine();
 
-            // Application info
             sb.AppendLine("─── Application ───────────────────────────────────────────────");
             var asm = Assembly.GetEntryAssembly() ?? Assembly.GetExecutingAssembly();
             sb.AppendLine($"Name              : {asm.GetName().Name}");
@@ -83,7 +189,6 @@ internal static class CrashHandler
             sb.AppendLine($"Uptime            : {(DateTime.Now - Process.GetCurrentProcess().StartTime):hh\\:mm\\:ss}");
             sb.AppendLine();
 
-            // Runtime info
             sb.AppendLine("─── Runtime ───────────────────────────────────────────────────");
             sb.AppendLine($".NET Version      : {RuntimeInformation.FrameworkDescription}");
             sb.AppendLine($"Runtime ID        : {RuntimeInformation.RuntimeIdentifier}");
@@ -91,7 +196,6 @@ internal static class CrashHandler
             sb.AppendLine($"Debug Build       : {Debugger.IsAttached}");
             sb.AppendLine();
 
-            // OS info
             sb.AppendLine("─── System ────────────────────────────────────────────────────");
             sb.AppendLine($"OS                : {RuntimeInformation.OSDescription}");
             sb.AppendLine($"OS Architecture   : {RuntimeInformation.OSArchitecture}");
@@ -100,7 +204,6 @@ internal static class CrashHandler
             sb.AppendLine($"Processors        : {Environment.ProcessorCount}");
             sb.AppendLine();
 
-            // Memory
             sb.AppendLine("─── Memory ────────────────────────────────────────────────────");
             var proc = Process.GetCurrentProcess();
             sb.AppendLine($"Working Set       : {FormatBytes(proc.WorkingSet64)}");
@@ -112,19 +215,13 @@ internal static class CrashHandler
             sb.AppendLine($"Thread Count      : {proc.Threads.Count}");
             sb.AppendLine();
 
-            // Exception chain
             sb.AppendLine("─── Exception ─────────────────────────────────────────────────");
             if (ex != null)
-            {
                 WriteException(sb, ex, depth: 0);
-            }
             else
-            {
                 sb.AppendLine("(No exception object available)");
-            }
             sb.AppendLine();
 
-            // Breadcrumb trail
             sb.AppendLine("─── Recent Activity (breadcrumbs) ─────────────────────────────");
             var crumbs = _breadcrumbs.ToArray();
             if (crumbs.Length == 0)
@@ -134,23 +231,18 @@ internal static class CrashHandler
                     sb.AppendLine($"  {c}");
             sb.AppendLine();
 
-            // Thread dump
             sb.AppendLine("─── Threads ───────────────────────────────────────────────────");
             try
             {
                 foreach (ProcessThread t in proc.Threads)
                 {
-                    try
-                    {
-                        sb.AppendLine($"  ID={t.Id,-6} State={t.ThreadState,-15} Priority={t.CurrentPriority,-4} CPU={t.TotalProcessorTime.TotalMilliseconds:F0}ms");
-                    }
+                    try { sb.AppendLine($"  ID={t.Id,-6} State={t.ThreadState,-15} Priority={t.CurrentPriority,-4} CPU={t.TotalProcessorTime.TotalMilliseconds:F0}ms"); }
                     catch { sb.AppendLine($"  ID={t.Id} (info unavailable)"); }
                 }
             }
             catch { sb.AppendLine("  (thread dump failed)"); }
             sb.AppendLine();
 
-            // Probable causes (heuristic hints)
             sb.AppendLine("─── Possible Causes ───────────────────────────────────────────");
             sb.AppendLine("  Known crash-prone areas in VRCNext:");
             sb.AppendLine("  • async void OnNewFile (PhotosController) — webhook/post exception");
@@ -168,10 +260,8 @@ internal static class CrashHandler
             catch { }
             sb.AppendLine();
 
-            // Loaded assemblies
             sb.AppendLine("─── Loaded Assemblies ─────────────────────────────────────────");
-            foreach (var a in AppDomain.CurrentDomain.GetAssemblies()
-                         .OrderBy(a => a.GetName().Name))
+            foreach (var a in AppDomain.CurrentDomain.GetAssemblies().OrderBy(a => a.GetName().Name))
             {
                 var name = a.GetName();
                 sb.AppendLine($"  {name.Name,-45} {name.Version}");
@@ -184,10 +274,7 @@ internal static class CrashHandler
 
             File.WriteAllText(path, sb.ToString(), Encoding.UTF8);
         }
-        catch
-        {
-            // Last resort — if the crash report itself fails, there's nothing more we can do
-        }
+        catch { }
     }
 
     private static void WriteException(StringBuilder sb, Exception ex, int depth)
@@ -203,11 +290,9 @@ internal static class CrashHandler
         if (ex.TargetSite != null)
             sb.AppendLine($"{prefix}Target Site       : {ex.TargetSite.DeclaringType?.FullName}.{ex.TargetSite.Name}");
 
-        // Extra data on special exception types
         if (ex is AggregateException agg)
-        {
             sb.AppendLine($"{prefix}Inner Exceptions  : {agg.InnerExceptions.Count}");
-        }
+
         if (ex.Data.Count > 0)
         {
             sb.AppendLine($"{prefix}Data              :");
@@ -217,16 +302,11 @@ internal static class CrashHandler
 
         sb.AppendLine($"{prefix}Stack Trace       :");
         if (!string.IsNullOrEmpty(ex.StackTrace))
-        {
             foreach (var line in ex.StackTrace.Split('\n'))
                 sb.AppendLine($"  {line.TrimEnd()}");
-        }
         else
-        {
             sb.AppendLine("  (No stack trace available)");
-        }
 
-        // Recurse into inner exceptions
         if (ex is AggregateException aggEx)
         {
             foreach (var inner in aggEx.InnerExceptions)
@@ -247,11 +327,7 @@ internal static class CrashHandler
         string[] sizes = ["B", "KB", "MB", "GB"];
         double len = bytes;
         int order = 0;
-        while (len >= 1024 && order < sizes.Length - 1)
-        {
-            order++;
-            len /= 1024;
-        }
+        while (len >= 1024 && order < sizes.Length - 1) { order++; len /= 1024; }
         return $"{len:0.##} {sizes[order]} ({bytes:N0} bytes)";
     }
 }

@@ -889,6 +889,9 @@ public class AuthController
             _core.Settings.MemoryTrimEnabled = data["memoryTrimEnabled"]?.Value<bool>() ?? false;
             _core.MemTrim.SetEnabled(_core.Settings.MemoryTrimEnabled);
 
+            // Crash Reporting
+            _core.Settings.SendCrashData = data["sendCrashData"]?.Value<bool>() ?? true;
+
             // Legacy Window (requires restart)
             _core.Settings.LegacyWindow = data["legacyWindow"]?.Value<bool>() ?? false;
 

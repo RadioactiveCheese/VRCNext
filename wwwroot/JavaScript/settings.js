@@ -201,6 +201,7 @@ function saveSettings() {
             imgCacheOptimizeEnabled: document.getElementById('setImgCacheOptimizeEnabled').checked,
             ffcEnabled: document.getElementById('setFfcEnabled').checked,
             memoryTrimEnabled: document.getElementById('setMemoryTrimEnabled').checked,
+            sendCrashData: document.getElementById('setSendCrashData').checked,
             legacyWindow: document.getElementById('setLegacyWindow')?.checked ?? false,
             avtrdbReportDeleted: document.getElementById('setAvtrdbReport').checked,
             avtrdbSubmitAvatars: document.getElementById('setAvtrdbSubmit').checked,
@@ -234,7 +235,7 @@ function initAutoSave() {
         'setYtAutoStartVR','setYtAutoStartDesktop',
         'setVfAutoStartVR','setVfAutoStartDesktop',
         'setDpAutoStartVR','setDpAutoStartDesktop',
-        'setImgCacheEnabled','setImgCacheLimit','setImgCacheOptimizeEnabled','setMemoryTrimEnabled','setLegacyWindow'];
+        'setImgCacheEnabled','setImgCacheLimit','setImgCacheOptimizeEnabled','setMemoryTrimEnabled','setSendCrashData','setLegacyWindow'];
     ids.forEach(id => {
         const el = document.getElementById(id);
         if (!el) return;
@@ -440,6 +441,9 @@ function loadSettingsToUI(s) {
 
     // Memory Trim
     document.getElementById('setMemoryTrimEnabled').checked = s.MemoryTrimEnabled ?? s.memoryTrimEnabled ?? false;
+
+    // Crash Reporting
+    document.getElementById('setSendCrashData').checked = s.SendCrashData ?? s.sendCrashData ?? true;
 
     // Legacy Window
     const legacyWindow = s.LegacyWindow ?? s.legacyWindow ?? false;

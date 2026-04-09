@@ -1,4 +1,4 @@
-**2026.13.4**
+**2026.13.5**
 
 **This update focuses on fixing crashes that could happen while VRCNext is running.**
 

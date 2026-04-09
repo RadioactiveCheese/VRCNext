@@ -110,6 +110,7 @@ public class AuthController
                     loggedIn = _core.VrcApi.IsLoggedIn,
                     displayName = _core.VrcApi.IsLoggedIn ? (_core.VrcApi.CurrentUserRaw?["displayName"]?.ToString() ?? "") : "",
                     platform = OperatingSystem.IsWindows() ? "windows" : "linux",
+                    language = _core.Settings.Language ?? "en",
                 });
                 _ = VrcTryResumeAsync();
                 break;
@@ -179,6 +180,11 @@ public class AuthController
 
             case "forceFfcAll":
                 _ = Task.Run(ForceFfcAllAsync);
+                break;
+
+            case "setupSaveLanguage":
+                _core.Settings.Language = NormalizeLanguage(msg["language"]?.ToString());
+                _core.Settings.Save();
                 break;
 
             case "setupSaveStartWithWindows":

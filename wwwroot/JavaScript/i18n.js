@@ -49,6 +49,10 @@ function applyTranslations(root = document) {
         const value = t(el.dataset.i18n);
         if (value) el.textContent = value;
     });
+    root.querySelectorAll('[data-i18n-html]').forEach(el => {
+        const value = t(el.dataset.i18nHtml);
+        if (value) el.innerHTML = value;
+    });
     root.querySelectorAll('[data-i18n-placeholder]').forEach(el => {
         const value = t(el.dataset.i18nPlaceholder);
         if (value) el.setAttribute('placeholder', value);

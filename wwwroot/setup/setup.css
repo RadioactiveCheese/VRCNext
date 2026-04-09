@@ -26,17 +26,17 @@ html, body { height: 100%; overflow: hidden; font-family: 'Inter', sans-serif; b
 .setup-titlebar {
     position: fixed; top: 0; left: 0; right: 0; height: 32px; z-index: 100;
     display: flex; align-items: center; justify-content: flex-end;
-    -webkit-app-region: drag; padding: 0 4px;
+    -webkit-app-region: drag; padding: 0 10px;
 }
-.win-btn {
-    -webkit-app-region: no-drag; width: 28px; height: 28px;
-    background: rgba(65,80,110,.1); border: none; color: rgba(255,255,255,.4);
-    display: flex; align-items: center; justify-content: center;
-    cursor: pointer; border-radius: 50%; transition: background .15s, color .15s;
+.win-dots { display: flex; gap: 6px; -webkit-app-region: no-drag; }
+.win-dot {
+    width: 12px; height: 12px; border-radius: 50%; border: none;
+    cursor: pointer; flex-shrink: 0; transition: filter .15s;
 }
-.win-btn .msi { font-size: 15px; }
-.win-btn:hover { background: rgba(255,255,255,.1); color: #fff; }
-.win-close:hover { background: rgba(232,17,35,.18) !important; color: #e81123 !important; }
+.win-dot:hover { filter: brightness(1.2); }
+.win-dot-close { background: #FF5F57; }
+.win-dot-min   { background: #FEBC2E; }
+.win-dot-max   { background: #28C840; }
 
 /* ── Container + Card ── */
 .setup-container {
@@ -105,6 +105,23 @@ html, body { height: 100%; overflow: hidden; font-family: 'Inter', sans-serif; b
 }
 .step-text { font-size: 12px; color: rgba(255,255,255,.5); line-height: 1.4; }
 .step-text strong { color: rgba(255,255,255,.8); font-weight: 700; }
+
+/* ── Language grid ── */
+.lang-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+.lang-chip {
+    display: flex; align-items: center; gap: 10px;
+    padding: 12px 16px;
+    background: rgba(255,255,255,.025); border: 1px solid rgba(255,255,255,.06);
+    border-radius: 10px; color: rgba(255,255,255,.6);
+    font-size: 13px; font-weight: 600; font-family: inherit;
+    cursor: pointer; text-align: left;
+    transition: background .15s, border-color .15s, color .15s;
+}
+.lang-chip:hover { background: rgba(255,255,255,.045); color: rgba(255,255,255,.85); }
+.lang-chip.active {
+    background: rgba(106,90,249,.12); border-color: rgba(106,90,249,.4); color: #8b7aff;
+}
+.lang-flag { font-size: 18px; }
 
 /* ── Login form ── */
 .login-box {

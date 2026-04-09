@@ -1,16 +1,24 @@
-**2026.13.5**
+**2026.14.0**
 
-**This update focuses on fixing crashes that could happen while VRCNext is running.**
+**Setup Wizard**
 
-Thank you to everyone who used **Anonymous Crash Reporting**. It helped a lot with finding and fixing several crash causes related to the app runtime, Photino.NET, and the Steam Overlay.
+* Redesigned titlebar buttons to macOS-style colored circles
+* Added Language selection as the first step of the Setup Wizard
+* The Setup Wizard now translates immediately when a language is selected
+* Fixed: selected language is now correctly saved and applied to the launcher after setup completes
 
-**Fixed**
-- Fixed a startup crash that could happen in the background during timer updates.
-- Fixed a crash that could happen while the window was closing.
-- Fixed a crash that could happen when closing SteamVR while **Space Flight** was active.
+**Bug Fixes**
 
+* Fixed a fatal crash (`0x80131506`) caused by `SendWebMessage` being called from a background timer thread — all messages are now marshalled to the UI thread via `Invoke`
+* Fixed a fatal access violation in `SubclassWndProc` → `CallWindowProc` during window teardown — replaced `SetWindowLongPtr` subclassing with the correct `SetWindowSubclass` / `DefSubclassProc` / `RemoveWindowSubclass` API
+* Fixed a fatal crash in `CVRSystem.PollNextEvent` when SteamVR is closed while Space Flight / VR Overlay is active — added a `volatile bool _vrQuit` guard that prevents further native calls after the quit event
 
-**Fixed Dev Notes**
-- Fixed a crash on startup/timer tick where `SendWebMessage` was called from a background thread, causing a fatal CLR error (0x80131506 / access violation in coreclr.dll)
-- Fixed a crash in `SubclassWndProc` during window teardown caused by a stale WndProc pointer under nested message loops; replaced `SetWindowLongPtr` subclassing with the proper `SetWindowSubclass`/`DefSubclassProc` comctl32 API
-- Fixed a crash when closing SteamVR while Space Flight is active: `PollNextEvent` was called on a torn-down native runtime due to a race between quit handling and the poll loop; guarded with a `_vrQuit` flag checked before every native call
+**i18n**
+
+* Added missing translations for the Setup Wizard across all supported languages (DE, FR, ES, JA, ZH-CN)
+* Added missing translations: Play VRChat button, In Instance sidebar section, Chatbox and Voice topbar badges, Memory Trim description
+* Added missing translations: `worlds.meta.published` and `worlds.meta.updated` in the world detail modal
+* Added missing translation: Check for Avatar in the context menu
+* Added missing translations: Install Chrome Extension, Install Firefox Extension, How to use YouTube Fix (all steps)
+* Fixed `tray.status.join_me` and `tray.status.ask_me` in Japanese still showing English
+* Added `data-i18n-html` support to the i18n system for elements containing HTML markup

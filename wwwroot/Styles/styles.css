@@ -442,13 +442,11 @@ body {
     color: var(--accent-lt) !important;
     padding-left: 28px !important;
 }
-
-/* When a sub-item is active, also highlight the group header */
+c
 .nav-group.has-active > .nav-group-btn {
     color: var(--accent-lt);
 }
 
-/* ── Collapsed sidebar: nav-group ── */
 .sidebar.collapsed .nav-group-btn {
     justify-content: center;
     padding: 10px;
@@ -565,7 +563,6 @@ body {
     line-height: 1;
 }
 
-/* Collapsed: circle button */
 .sidebar.collapsed .btn-play {
     width: 40px;
     height: 40px;
@@ -796,9 +793,6 @@ body {
     height: 100%;
 }
 
-/* ══════════════════════════════════════════════════════
-   BUTTON SYSTEM — 2 bases + 3 color modifiers
-══════════════════════════════════════════════════════ */
 .vrcn-button {
     height: 32px;
     padding: 0 14px;
@@ -840,12 +834,10 @@ body {
 .vrcn-button-round.active { background: var(--accent); color: #fff; }
 .vrcn-button-round .msi { font-size: 14px !important; line-height: 1; }
 
-/* — Color modifiers (work on both button types) — */
 .vrcn-btn-primary { background: var(--accent) !important; color: #fff !important; }
 .vrcn-btn-primary:hover { background: var(--accent-lt) !important; }
 .vrcn-btn-join { background: #1DB954 !important; color: #fff !important; }
 
-/* Play Button Theme — accent override */
 body.play-btn-accent .btn-play {
     background: var(--accent) !important;
 }
@@ -861,9 +853,7 @@ body.play-btn-accent .vrcn-btn-join {
 body.play-btn-accent .vrcn-btn-join:hover {
     background: var(--accent-lt) !important;
 }
-/* Custom Cursor */
 html.cursor-custom * { cursor: var(--cursor-url, auto) !important; }
-/* Text Tools mode */
 html.text-tools-active * { user-select: text !important; }
 
 .vrcn-btn-danger { background: rgba(255,75,85,.15) !important; color: var(--err) !important; }
@@ -880,7 +870,6 @@ html.text-tools-active * { user-select: text !important; }
     color: #fff;
 }
 
-/* ── Activity Log — Log / Console (matches DESIGNS.html "6") ── */
 .log-area {
     margin-top: 10px;
     background: var(--bg-card);
@@ -1269,9 +1258,6 @@ html.text-tools-active * { user-select: text !important; }
     min-width: 30px;
     max-width: 90px;
 }
-
-/* Tab 7 fills full .content height as flex column — same pattern as #tab12 */
-/* Remove bottom padding so paginator reaches the screen edge on both tabs */
 .content:has(#tab7.active),
 .content:has(#tab12.active) { overflow-y: hidden; padding-bottom: 0; }
 #tab7.active {
@@ -1726,14 +1712,10 @@ html.text-tools-active * { user-select: text !important; }
 .rsidebar.collapsed .rsidebar-title,
 .rsidebar.collapsed .mi-refresh-btn,
 .rsidebar.collapsed .win-dots { display: none; }
-
-/* Collapsed content */
 .rsidebar.collapsed .rsidebar-content {
     padding: 4px;
     overflow-x: hidden;
 }
-
-/* Collapsed — shared thumbnail: profile, instance, friend all same size */
 .rsidebar.collapsed .vrc-avatar,
 .rsidebar.collapsed .vrc-friend-avatar,
 .rsidebar.collapsed .inst-header {
@@ -1745,8 +1727,6 @@ html.text-tools-active * { user-select: text !important; }
     box-sizing: border-box;
     flex-shrink: 0;
 }
-
-/* Instance border uses badge colour (same as vrcn-badge) */
 .rsidebar.collapsed .inst-header { cursor: pointer; }
 .rsidebar.collapsed .inst-card[data-inst-type="public"]      .inst-header { border-color: var(--ok); }
 .rsidebar.collapsed .inst-card[data-inst-type="friends"]     .inst-header { border-color: #42A5F5; }
@@ -1756,7 +1736,6 @@ html.text-tools-active * { user-select: text !important; }
 .rsidebar.collapsed .inst-card[data-inst-type="group"]       .inst-header { border-color: #FFA726; }
 .rsidebar.collapsed .inst-card[data-inst-type="hidden"]      .inst-header { border-color: var(--tx2); }
 
-/* Status border overrides — profile + friend combined */
 .rsidebar.collapsed .vrc-profile[data-status="s-active"] .vrc-avatar,
 .rsidebar.collapsed .vrc-profile[data-status="s-online"] .vrc-avatar,
 .rsidebar.collapsed .vrc-friend-card[data-status="s-active"] .vrc-friend-avatar,
@@ -1771,7 +1750,6 @@ html.text-tools-active * { user-select: text !important; }
 .rsidebar.collapsed .vrc-profile[data-status="s-busy"] .vrc-avatar,
 .rsidebar.collapsed .vrc-friend-card[data-status="s-busy"] .vrc-friend-avatar { border-color: var(--status-busy); }
 
-/* Collapsed containers — all centered, same padding */
 .rsidebar.collapsed .vrc-profile,
 .rsidebar.collapsed .vrc-friend-card {
     justify-content: center;
@@ -1786,14 +1764,12 @@ html.text-tools-active * { user-select: text !important; }
     padding: 3px 4px;
 }
 
-/* Hide text/detail elements for all 3 */
 .rsidebar.collapsed .vrc-profile-info,
 .rsidebar.collapsed .vrc-profile > .msi,
 .rsidebar.collapsed .vrc-friend-info,
 .rsidebar.collapsed .inst-header > *,
 .rsidebar.collapsed .inst-card > *:not(.inst-header) { display: none; }
 
-/* Collapsed search — icon only, click to expand */
 .rsidebar.collapsed .vrc-friend-search {
     display: flex !important;
     justify-content: center;
@@ -1801,8 +1777,6 @@ html.text-tools-active * { user-select: text !important; }
     margin-bottom: 2px;
 }
 .rsidebar.collapsed #vrcFriendSearchInput { display: none; }
-
-/* Collapsed section labels — same box as friend cards, short text + chevron */
 .rsidebar.collapsed .vrc-section-label {
     display: flex;
     justify-content: center;
@@ -1897,7 +1871,6 @@ html.text-tools-active * { user-select: text !important; }
     flex-shrink: 0;
 }
 
-/* — Status dot colours: all dot/ring types share these — */
 .vrc-status-dot.s-active, .vrc-status-dot.s-online, .dp-status-dot.online, .dp-pg-dot.online   { background: var(--status-online); }
 .vrc-status-dot.s-join, .dp-status-dot.join_me, .dp-pg-dot.join_me                              { background: var(--status-join); }
 .vrc-status-dot.s-ask, .dp-status-dot.ask_me, .dp-pg-dot.ask_me                                { background: var(--status-ask); }
@@ -2179,7 +2152,6 @@ html.text-tools-active * { user-select: text !important; }
     white-space: pre-wrap;
 }
 
-/* ── Unified Badge ── */
 .vrcn-badge {
     display: inline-flex;
     align-items: center;
@@ -2193,8 +2165,6 @@ html.text-tools-active * { user-select: text !important; }
     letter-spacing: .3px;
     flex-shrink: 0;
 }
-
-/* Instance type colors */
 .vrcn-badge.public     { background: rgba(45,212,140,.12);  color: var(--ok); }
 .vrcn-badge.friends { background: rgba(66,165,245,.12); color: #42A5F5; }
 .vrcn-badge.private,
@@ -2202,21 +2172,18 @@ html.text-tools-active * { user-select: text !important; }
 .vrcn-badge.group      { background: rgba(255,167,38,.12);  color: #FFA726; }
 .vrcn-badge.hidden     { background: rgba(120,140,175,.12); color: var(--tx2); }
 
-/* Platform / avatar */
 .vrcn-badge.platform-pc    { background: rgba(100,170,255,.18); color: #64aaff; }
 .vrcn-badge.platform-quest { background: rgba(56,220,120,.18);  color: #38dc78; }
 .vrcn-badge.platform-web   { background: rgba(255,167,38,.18);  color: #FFA726; }
 .vrcn-badge.current        { background: rgba(0,214,143,.2);    color: var(--ok); }
 .vrcn-badge.accent         { background: rgba(56,132,255,.18);  color: var(--accent); }
 
-/* Semantic colors */
 .vrcn-badge.ok   { background: rgba(45,212,140,.12);  color: var(--ok); }
 .vrcn-badge.warn { background: color-mix(in srgb, var(--warn) 18%, transparent); color: var(--warn); }
 .vrcn-badge.err  { background: rgba(239,83,80,.15);   color: var(--err); }
 .vrcn-badge.cyan { background: color-mix(in srgb, var(--cyan) 18%, transparent); color: var(--cyan); }
 .vrcn-badge.vrcplus { background: #FFD70022; color: #FFD700; border: 1px solid #FFD70055; box-shadow: 0 0 6px #FFD70066; letter-spacing: .4px; }
 
-/* OSC types */
 .vrcn-badge.osc-float { background: rgba(206,145,120,0.15);  color: #CE9178; }
 .vrcn-badge.osc-int   { background: rgba(109,191,130,0.15);  color: #6DBF82; }
 
@@ -2540,7 +2507,7 @@ html.text-tools-active * { user-select: text !important; }
     gap: 2px;
     margin-left: 6px;
     padding-bottom: 3px;
-    border-bottom: 2px solid transparent; /* match disc-tab total bottom = padding(3)+border(2) */
+    border-bottom: 2px solid transparent;
 }
 
 .disc-page-btn {
@@ -2655,7 +2622,6 @@ html.text-tools-active * { user-select: text !important; }
     margin-top: 1px;
 }
 
-/* ── Friends Location (Small) cards ── */
 .dash-floc-card {
     position: relative;
     overflow: hidden;
@@ -2734,9 +2700,6 @@ html.text-tools-active * { user-select: text !important; }
     box-shadow: 0 0 20px rgba(56,132,255,.2);
 }
 
-/* ═══════════════════════════════════════════════════════════
-   SEARCH TABS
-   ═══════════════════════════════════════════════════════════ */
 .search-bar-row {
     display: flex;
     align-items: center;
@@ -2905,7 +2868,6 @@ html.text-tools-active * { user-select: text !important; }
     margin-left: 6px;
 }
 
-/* Search cards */
 .s-card {
     background: var(--bg-card);
     border-radius: 12px;
@@ -2994,7 +2956,6 @@ html.text-tools-active * { user-select: text !important; }
     margin-bottom: 12px;
 }
 
-/* ── Profile tabs ── */
 .fd-tabs {
     display: flex;
     gap: 0;
@@ -3027,7 +2988,6 @@ html.text-tools-active * { user-select: text !important; }
     color: var(--tx2);
 }
 
-/* ── VRC Badges in profile ── */
 .fd-vrc-badges {
     margin-bottom: 12px;
 }
@@ -3056,7 +3016,6 @@ html.text-tools-active * { user-select: text !important; }
     opacity: 1;
 }
 
-/* My Profile badge toggle */
 .myp-badges-row {
     display: flex;
     flex-wrap: wrap;
@@ -3151,7 +3110,6 @@ html.text-tools-active * { user-select: text !important; }
 .fd-bio-expand:hover { color: var(--accent); }
 .fd-bio-expand .msi { font-size: 12px; line-height: 1; }
 
-/* ── Group cards in profile ── */
 .fd-group-rep-label {
     display: flex; align-items: center;
     font-size: 10px;
@@ -3193,7 +3151,6 @@ html.text-tools-active * { user-select: text !important; }
     margin-bottom: 12px;
 }
 
-/* Content tab sub-pills — reuse fd-tabs styling */
 .fd-content-pills {
     display: flex;
     gap: 0;
@@ -3336,7 +3293,6 @@ html.text-tools-active * { user-select: text !important; }
     margin-top: 1px;
 }
 
-/* ── Group detail tabs ── */
 .gd-tabs {
     flex-wrap: nowrap;
 }
@@ -3457,7 +3413,6 @@ html.text-tools-active * { user-select: text !important; }
     flex-shrink: 0;
 }
 
-/* ── Group Event custom date-time picker ── */
 .gev-dt-trigger {
     cursor: pointer;
     min-height: 38px;
@@ -3611,9 +3566,6 @@ html.text-tools-active * { user-select: text !important; }
     flex-shrink: 0;
 }
 
-/* ═══════════════════════════════════════════════════════════
-   NOTIFICATION BELL + PANEL
-   ═══════════════════════════════════════════════════════════ */
 .btn-notif {
     position: relative;
     background: none;
@@ -3764,7 +3716,6 @@ html.text-tools-active * { user-select: text !important; }
     white-space: nowrap;
     text-overflow: ellipsis;
 }
-/* Keep notif-title clipped so all items share the same height */
 .notif-item .notif-title {
     overflow: hidden;
     white-space: nowrap;
@@ -3913,9 +3864,6 @@ html.text-tools-active * { user-select: text !important; }
     border-radius: 0 2px 2px 0;
 }
 
-/* ═══════════════════════════════════════════════════════════
-   INSTANCE CARD (RIGHT SIDEBAR)
-   ═══════════════════════════════════════════════════════════ */
 .inst-card {
     background: var(--bg-card);
     border-radius: 12px;
@@ -4022,10 +3970,6 @@ html.text-tools-active * { user-select: text !important; }
     flex-shrink: 0;
 }
 
-/* ═══════════════════════════════════════════════════════════
-   DETAIL MODAL SHARED STYLES
-   ═══════════════════════════════════════════════════════════ */
-
 .wd-your-time {
     display: flex;
     align-items: center;
@@ -4090,7 +4034,6 @@ html.text-tools-active * { user-select: text !important; }
     margin-left: 4px;
 }
 
-/* ── Create Instance Modal ── */
 .ci-toggle-row {
     display: flex;
     align-items: center;
@@ -4955,9 +4898,6 @@ html.text-tools-active * { user-select: text !important; }
     text-align: center;
 }
 
-/* ══════════════════════════════════════════════════════════════════════
-   Timeline — Tab 12
-   ══════════════════════════════════════════════════════════════════════ */
 
 .tl-mode-row {
     display: flex;
@@ -4967,7 +4907,6 @@ html.text-tools-active * { user-select: text !important; }
     flex-shrink: 0;
 }
 
-/* ── List view wrap ── */
 .tl-list-wrap {
     padding: 12px 16px 24px;
 }
@@ -5101,7 +5040,6 @@ html.text-tools-active * { user-select: text !important; }
 .ft-status-chip.do-not-disturb { color: var(--status-busy);  border-color: var(--status-busy);   }
 .ft-status-chip.offline       { color: var(--status-offline); border-color: var(--status-offline); }
 
-/* ── Top bar ── */
 .tl-topbar {
     display: flex;
     align-items: center;
@@ -5109,14 +5047,12 @@ html.text-tools-active * { user-select: text !important; }
     padding: 14px 20px 8px;
     flex-shrink: 0;
 }
-/* Unified toolbar heights */
 .search-bar-row .search-input,
 .search-bar-row .vrcn-input { height: 32px; box-sizing: border-box; padding-top: 0; padding-bottom: 0; }
 .wd-create-select.vn-select .vn-select-trigger { height: 32px; box-sizing: border-box; }
 .tl-datebtn { padding: 0 10px; }
 #tlDateBtn.dp-active { background: color-mix(in srgb, var(--accent) 18%, transparent); color: var(--accent-lt); }
 
-/* ── Custom date picker ── */
 .tl-date-picker {
     position: fixed;
     z-index: 9999;
@@ -5196,7 +5132,6 @@ html.text-tools-active * { user-select: text !important; }
     border-top: 1px solid var(--brd);
 }
 
-/* ── Filter row ── */
 .tl-filter-row {
     display: flex;
     align-items: center;
@@ -5206,14 +5141,12 @@ html.text-tools-active * { user-select: text !important; }
     flex-wrap: wrap;
 }
 
-/* ── Timeline tab fills full .content height as flex column ── */
 #tab12.active {
     display: flex;
     flex-direction: column;
     height: 100%;
 }
 
-/* ── Scrollable container ── */
 .tl-container {
     flex: 1;
     overflow-y: auto;
@@ -5221,7 +5154,6 @@ html.text-tools-active * { user-select: text !important; }
     min-height: 0;
 }
 
-/* ── Fixed paginator bar ── */
 .tl-paginator-bar {
     flex-shrink: 0;
     position: relative;
@@ -5244,7 +5176,6 @@ html.text-tools-active * { user-select: text !important; }
 }
 .tl-paginator-bar:empty { display: none; }
 
-/* ── Outer wrap ── */
 .tl-wrap {
     position: relative;
     padding: 8px 0 24px;
@@ -5263,7 +5194,6 @@ html.text-tools-active * { user-select: text !important; }
     z-index: 0;
 }
 
-/* ── Date separator ── */
 .tl-date-sep {
     position: relative;
     display: flex;
@@ -5284,7 +5214,6 @@ html.text-tools-active * { user-select: text !important; }
     text-transform: uppercase;
 }
 
-/* ── Row ── */
 .tl-row {
     display: grid;
     grid-template-columns: 1fr 32px 1fr;
@@ -5294,7 +5223,6 @@ html.text-tools-active * { user-select: text !important; }
     z-index: 1;
 }
 
-/* ── Card sides ── */
 .tl-card-side {
     display: flex;
     min-width: 0;
@@ -5309,7 +5237,6 @@ html.text-tools-active * { user-select: text !important; }
     justify-content: flex-start;
 }
 
-/* ── Centre column ── */
 .tl-center-col {
     display: flex;
     flex-direction: column;
@@ -5326,7 +5253,6 @@ html.text-tools-active * { user-select: text !important; }
     flex-shrink: 0;
 }
 
-/* ── Card ── */
 .tl-card {
     background: var(--bg-card);
     border: 1px solid var(--brd);
@@ -5351,7 +5277,6 @@ html.text-tools-active * { user-select: text !important; }
     100% { box-shadow: none; border-color: var(--brd); }
 }
 
-/* ── Card header ── */
 .tl-card-header {
     display: flex;
     align-items: center;
@@ -5392,7 +5317,6 @@ html.text-tools-active * { user-select: text !important; }
     opacity: .7;
 }
 
-/* ── Card body ── */
 .tl-card-body {
     display: flex;
     align-items: center;
@@ -5410,7 +5334,6 @@ html.text-tools-active * { user-select: text !important; }
     gap: 3px;
 }
 
-/* ── Thumbnail ── */
 .tl-thumb {
     width: 52px;
     height: 38px;
@@ -5424,7 +5347,6 @@ html.text-tools-active * { user-select: text !important; }
     height: 42px;
 }
 
-/* ── Avatar ── */
 .tl-av {
     width: 40px;
     height: 40px;
@@ -5439,7 +5361,6 @@ html.text-tools-active * { user-select: text !important; }
     color: var(--tx2);
 }
 
-/* ── Text labels ── */
 .tl-main-label {
     font-size: 12px;
     font-weight: 600;
@@ -5451,7 +5372,6 @@ html.text-tools-active * { user-select: text !important; }
     color: var(--tx2);
 }
 
-/* ── Player avatar row ── */
 .tl-player-row {
     display: flex;
     align-items: center;
@@ -5494,7 +5414,6 @@ html.text-tools-active * { user-select: text !important; }
     margin-top: 2px;
 }
 
-/* ── Notification type chip ── */
 .tl-type-chip {
     display: inline-block;
     font-size: 9px;
@@ -5508,7 +5427,6 @@ html.text-tools-active * { user-select: text !important; }
     width: fit-content;
 }
 
-/* ── Detail modal helpers ── */
 .tl-detail-av {
     width: 64px;
     height: 64px;
@@ -5532,7 +5450,6 @@ html.text-tools-active * { user-select: text !important; }
     margin: 16px 0 8px;
 }
 
-/* ── Loading skeleton ── */
 .tl-loading {
     display: flex;
     flex-direction: column;
@@ -5555,12 +5472,6 @@ html.text-tools-active * { user-select: text !important; }
     width: 70%;
     align-self: flex-end;
 }
-
-/* ── fd-banner avatar fallback ── */
-
-/* ════════════════════════════════════════════════════════════════════
-   INVENTORY TAB
-   ════════════════════════════════════════════════════════════════════ */
 
 .inv-topbar {
     display: flex;
@@ -5620,8 +5531,6 @@ html.text-tools-active * { user-select: text !important; }
     text-transform: uppercase;
 }
 
-/* ── Inventory Upload Drop Zone ── */
-
 .iu-dropzone {
     border: 2px dashed var(--bg-hover);
     border-radius: 10px;
@@ -5637,8 +5546,6 @@ html.text-tools-active * { user-select: text !important; }
     border-color: var(--accent);
     background: rgba(56,132,255,.07);
 }
-
-/* ── Custom Dropdown (vn-select) ── */
 
 div.vn-select {
     position: relative;
@@ -5901,9 +5808,6 @@ div.vn-select {
     position: absolute; top: 62px; right: 10px;
     display: flex; gap: 6px; z-index: 10;
 }
-/* ════════════════════════════════════════════════════════
-   Time Spent — Tab 16
-   ════════════════════════════════════════════════════════ */
 
 .ts-root {
     display: flex;
@@ -6162,9 +6066,6 @@ div.vn-select {
     animation: ts-spin .8s linear infinite;
 }
 
-/* ══════════════════════════════════════════
-   Voice Fight
-══════════════════════════════════════════ */
 .vf-meter-wrap {
     height: 8px;
     background: var(--bg-input);
@@ -6366,11 +6267,6 @@ div.vn-select {
 }
 .vf-add-btn .msi { font-size: 14px; }
 
-/* ═══════════════════════════════════════════════════════════
-   DASHBOARD — Favorite Worlds · Group Activity · Recent Timeline
-   ═══════════════════════════════════════════════════════════ */
-
-/* ── See-all link in section labels ── */
 .dash-section-seeall {
     margin-left: auto;
     background: none;
@@ -6387,7 +6283,6 @@ div.vn-select {
 }
 .dash-section-seeall:hover { opacity: 1; }
 
-/* ── Favorite Worlds horizontal shelf (small cards) ── */
 .vrcn-dash-fav-shelf {
     position: relative;
     z-index: 1;
@@ -6426,7 +6321,6 @@ div.vn-select {
 .vrcn-dash-fav-shelf .vrcn-content-card .cc-meta { font-size: 10px; }
 .vrcn-dash-fav-shelf .vrcn-content-card .cc-meta .msi { font-size: 12px; }
 
-/* ── Recent Photos — photo grid ── */
 .dash-photo-grid {
     display: grid;
     grid-template-rows: repeat(2, 100px);
@@ -6473,7 +6367,6 @@ div.vn-select {
 }
 .dash-photo-item:hover .dpi-date { opacity: 1; }
 
-/* ── Group Activity grid ── */
 .vrcn-dash-group-activity {
     position: relative;
     z-index: 1;
@@ -6535,17 +6428,10 @@ div.vn-select {
 }
 .dash-group-meta .msi { font-size: 12px; }
 
-/* ── Recent Activity Timeline ── */
 #dashMyRecentTl .tl-list-wrap,
 #dashFriendsRecentTl .tl-list-wrap { padding: 0; }
 #dashMyRecentTl .tl-list-table,
 #dashFriendsRecentTl .tl-list-table { font-size: 11px; }
-
-/* ═══════════════════════════════════════════════════════════
-   DASHBOARD — Sections Layout System
-   ═══════════════════════════════════════════════════════════ */
-
-/* Flex column with gap replaces all the old margin-top rules */
 #dashSectionsContainer {
     display: flex;
     flex-direction: column;
@@ -6554,17 +6440,12 @@ div.vn-select {
     position: relative;
     z-index: 1;
 }
-/* Cancel old margin rules for children inside the container */
 #dashSectionsContainer .dash-section-label { margin-top: 0 !important; }
 #dashSectionsContainer .disc-tab-row { margin-top: 0; }
 
-/* my_instances wrap: hide when no instances (JS adds class) */
 .dash-section-wrap[data-section="my_instances"]:not(.mi-has-instances) { display: none; }
-
-/* Layout-hidden sections (set by applyDashLayout) */
 .dash-section-wrap[data-hidden] { display: none !important; }
 
-/* ── Dashboard Quick Controls widget ── */
 .dash-qc-grid {
     display: grid;
     grid-template-columns: repeat(6, 1fr);
@@ -6604,10 +6485,6 @@ div.vn-select {
     line-height: 1.3;
     pointer-events: none;
 }
-
-/* ═══════════════════════════════════════════════════════════
-   DASHBOARD — Layout Editor Modal
-   ═══════════════════════════════════════════════════════════ */
 
 .dash-layout-panel {
     background: var(--bg-card);
@@ -6680,7 +6557,6 @@ div.vn-select {
     flex-shrink: 0;
 }
 
-/* ── VRCN Messenger ── */
 #messengerPanel {
     position: fixed;
     bottom: 24px;
@@ -7027,7 +6903,6 @@ div.vn-select {
     align-items: center;
 }
 
-/* ── Discord Rich Presence ─────────────────────────────────────────────── */
 .dp-preview {
     display: flex;
     gap: 14px;
@@ -7088,9 +6963,6 @@ div.vn-select {
     background: var(--status-offline);
 }
 
-/* ═══════════════════════════════════════════════════════════
-   INSTANCE INFO MODAL — Player Table
-   ═══════════════════════════════════════════════════════════ */
 .iim-scroll {
     max-height: 420px;
     overflow-y: auto;
@@ -7173,7 +7045,6 @@ div.vn-select {
     align-items: center;
 }
 
-/* ── VR Wrist Overlay ──────────────────────────────────────────────────────── */
 .vro-setting-row {
     display: flex;
     align-items: center;
@@ -7196,7 +7067,6 @@ div.vn-select {
 }
 .vrcn-select:hover { border-color: var(--accent); }
 
-/* Transform sliders */
 .vro-transform-grid { display: flex; flex-direction: column; gap: 4px; }
 .vro-axis-row {
     display: flex;
@@ -7226,7 +7096,6 @@ div.vn-select {
     font-variant-numeric: tabular-nums;
 }
 
-/* Controller button visual */
 .vro-controller-visual {
     margin: 10px 0 4px;
 }
@@ -7269,7 +7138,6 @@ div.vn-select {
     font-weight: 600;
 }
 
-/* Keybind display */
 .vro-keybind-row {
     display: flex;
     align-items: center;
@@ -7304,14 +7172,11 @@ div.vn-select {
     font-weight: 700;
 }
 
-/* Controls row under status card */
 .vro-ctrl-btns {
     display: flex;
     gap: 8px;
     margin-top: 4px;
 }
-
-/* ── World Insights ─────────────────────────────────────────────────── */
 
 .wi-toolbar {
     display: flex;
@@ -7405,9 +7270,6 @@ div.vn-select {
 @keyframes wi-spin { to { transform: rotate(360deg); } }
 .wi-spin .msi { animation: wi-spin .8s linear infinite; }
 
-/* ═══════════════════════════════════════════════════════════
-   PERMINI — permanent auto-invite list
-   ═══════════════════════════════════════════════════════════ */
 .pm-header {
     display: flex;
     align-items: center;

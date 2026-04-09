@@ -194,6 +194,7 @@ public partial class AppShell
                 case "optimizeImgCache":
                 case "clearFfcCache":
                 case "forceFfcAll":
+                case "setupSaveLanguage":
                 case "setupSaveStartWithWindows":
                 case "setupSaveVrcPath":
                 case "setupSavePhotoDir":

@@ -116,17 +116,59 @@ function updateFavWorldGroupHeader() {
     const label = document.getElementById('favWorldGroupLabel');
     const editBtn = document.getElementById('favWorldGroupEditBtn');
     const badge = document.getElementById('favWorldGroupVrcPlusBadge');
+    const visEl = document.getElementById('favWorldGroupVisLabel');
+    const visDropWrap = document.getElementById('favWorldGroupVisDropWrap');
+    const visDrop = document.getElementById('favWorldGroupVisDrop');
     if (!label) return;
     if (!favWorldGroupFilter) {
         label.textContent = t('worlds.favorites.group.all', 'All Favorites');
         if (editBtn) editBtn.style.display = 'none';
         if (badge) badge.style.display = 'none';
+        if (visEl) visEl.style.display = 'none';
+        if (visDropWrap) visDropWrap.style.display = 'none';
     } else {
         const g = favWorldGroups.find(x => x.name === favWorldGroupFilter);
         label.textContent = g ? (g.displayName || g.name) : favWorldGroupFilter;
         if (editBtn) editBtn.style.display = '';
         if (badge) badge.style.display = (g?.type === 'vrcPlusWorld') ? '' : 'none';
+        if (visEl) {
+            visEl.textContent = g ? _favGroupVisLabel(g.visibility) : '';
+            visEl.style.display = (_worldEditMode || !g) ? 'none' : '';
+        }
+        if (visDropWrap) {
+            const showDrop = _worldEditMode && !!g;
+            visDropWrap.style.display = showDrop ? '' : 'none';
+            if (showDrop && visDrop) {
+                visDrop.value = g.visibility || 'private';
+                if (visDrop._vnRefresh) visDrop._vnRefresh();
+            }
+        }
     }
+}
+
+function _favGroupVisLabel(vis) {
+    if (vis === 'public')  return t('worlds.favorites.visibility.public',  'Visible for everyone');
+    if (vis === 'friends') return t('worlds.favorites.visibility.friends', 'Visible for friends');
+    return t('worlds.favorites.visibility.private', 'Visible only to you');
+}
+
+function _favGroupVisDropdown(groupName, groupType, currentVis) {
+    const opts = [
+        { value: 'public',  key: 'worlds.favorites.visibility.public',  label: 'Visible for everyone' },
+        { value: 'friends', key: 'worlds.favorites.visibility.friends', label: 'Visible for friends' },
+        { value: 'private', key: 'worlds.favorites.visibility.private', label: 'Visible only to you' },
+    ];
+    const optsHtml = opts.map(o =>
+        `<option value="${o.value}"${o.value === currentVis ? ' selected' : ''}>${esc(t(o.key, o.label))}</option>`
+    ).join('');
+    return `<select class="vrcn-dropdown" style="min-width:160px;" onchange="saveFavGroupVisibility(this.value,'${jsq(groupName)}')">${optsHtml}</select>`;
+}
+
+function saveFavGroupVisibility(visibility, groupName) {
+    const name = groupName || favWorldGroupFilter;
+    const g = favWorldGroups.find(x => x.name === name);
+    if (!g) return;
+    sendToCS({ action: 'vrcUpdateFavoriteGroup', groupType: g.type, groupName: g.name, displayName: g.displayName || g.name, visibility });
 }
 
 function startEditWorldGroupName() {
@@ -162,7 +204,10 @@ function saveWorldGroupName() {
 function onFavoriteGroupUpdated(data) {
     if (!data.ok) { cancelEditWorldGroupName(); return; }
     const g = favWorldGroups.find(x => x.name === data.groupName);
-    if (g) g.displayName = data.displayName;
+    if (g) {
+        if (data.displayName) g.displayName = data.displayName;
+        if (data.visibility)  g.visibility  = data.visibility;
+    }
     // Update dropdown option
     const sel = document.getElementById('favWorldGroupFilter');
     if (sel) {
@@ -171,6 +216,7 @@ function onFavoriteGroupUpdated(data) {
     }
     cancelEditWorldGroupName();
     updateFavWorldGroupHeader();
+    filterFavWorlds(); // re-render headers with updated visibility
 }
 
 /* === Shared world card renderer (search + favorites) === */
@@ -237,15 +283,21 @@ function filterFavWorlds() {
             const cap = Math.max(g.capacity || 100, 100);
             const isVrcPlus = g.type === 'vrcPlusWorld';
             const vrcBadge = isVrcPlus ? `<span class="vrcn-badge vrcplus">VRC+</span>` : '';
+            const visLabel = _favGroupVisLabel(g.visibility);
+            const visHtml = _worldEditMode
+                ? _favGroupVisDropdown(g.name, g.type, g.visibility)
+                : `<span style="font-size:11px;color:var(--tx3);font-weight:400;">${esc(visLabel)}</span>`;
             html += `<div class="fav-group-header${first ? ' fav-group-header-first' : ''}">
                 <span class="topbar-title">${esc(g.displayName || g.name)}</span>
                 ${vrcBadge}
                 <span class="fav-group-count">${groupWorlds.length}/${cap}</span>
+                ${visHtml}
             </div>`;
             html += groupWorlds.map(w => renderWorldCard(w)).join('');
             first = false;
         });
         el.innerHTML = html;
+        el.querySelectorAll('select.vrcn-dropdown').forEach(initVnSelect);
     } else {
         el.innerHTML = filtered.map(w => renderWorldCard(w)).join('');
     }
@@ -264,6 +316,7 @@ function toggleWorldEditMode() {
     const bar = document.getElementById('worldEditBar');
     if (bar) bar.style.display = 'flex';
     filterFavWorlds();
+    updateFavWorldGroupHeader();
 }
 
 function exitWorldEditMode() {
@@ -278,6 +331,7 @@ function exitWorldEditMode() {
     const picker = document.getElementById('worldEditMovePicker');
     if (picker) { picker.style.display = 'none'; picker.innerHTML = ''; }
     filterFavWorlds();
+    updateFavWorldGroupHeader();
 }
 
 function toggleWorldEditSelect(id, el) {

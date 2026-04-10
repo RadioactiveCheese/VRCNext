@@ -376,14 +376,18 @@ public class VRChatApiService
         return all;
     }
 
-    // Update a favorite group's display name
+    // Update a favorite group's display name and/or visibility
     // type: "world" or "vrcPlusWorld", name: "worlds1", "vrcPlusWorlds1", etc.
-    public async Task<bool> UpdateFavoriteGroupAsync(string type, string name, string displayName)
+    // visibility: "public", "friends", "private" (pass null to leave unchanged)
+    public async Task<bool> UpdateFavoriteGroupAsync(string type, string name, string displayName, string? visibility = null)
     {
         if (!IsLoggedIn || CurrentUserId == null) return false;
         try
         {
-            var body = JsonConvert.SerializeObject(new { displayName });
+            object bodyObj = visibility != null
+                ? (object)new { displayName, visibility }
+                : new { displayName };
+            var body = JsonConvert.SerializeObject(bodyObj);
             var content = new StringContent(body, System.Text.Encoding.UTF8, "application/json");
             var resp = await _http.PutAsync($"{BASE}/favorite/group/{type}/{name}/{CurrentUserId}", content);
             Log($"UpdateFavoriteGroup [{type}/{name}]: {(int)resp.StatusCode}");

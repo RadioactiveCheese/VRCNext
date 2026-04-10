@@ -917,6 +917,7 @@ public partial class AppShell
                             var cachedFavWorlds = _cache.LoadRaw(CacheHandler.KeyFavWorlds);
                             if (cachedFavWorlds != null) Invoke(() => SendToJS("vrcFavoriteWorlds", cachedFavWorlds));
                         }
+                        _authCtrl.ClearFavGroupsCache(); // ensure fresh visibility state from API
                         await _authCtrl.FetchAndCacheFavWorldsAsync();
                     });
                     break;
@@ -924,11 +925,12 @@ public partial class AppShell
                 case "vrcUpdateFavoriteGroup":
                     _ = Task.Run(async () =>
                     {
-                        var groupType = msg["groupType"]?.ToString() ?? "world";
-                        var groupName = msg["groupName"]?.ToString() ?? "";
+                        var groupType   = msg["groupType"]?.ToString() ?? "world";
+                        var groupName   = msg["groupName"]?.ToString() ?? "";
                         var displayName = msg["displayName"]?.ToString() ?? "";
-                        var ok = await _vrcApi.UpdateFavoriteGroupAsync(groupType, groupName, displayName);
-                        Invoke(() => SendToJS("vrcFavoriteGroupUpdated", new { ok, groupName, displayName }));
+                        var visibility  = msg["visibility"]?.ToString(); // null = don't change
+                        var ok = await _vrcApi.UpdateFavoriteGroupAsync(groupType, groupName, displayName, visibility);
+                        Invoke(() => SendToJS("vrcFavoriteGroupUpdated", new { ok, groupName, displayName, visibility }));
                     });
                     break;
 

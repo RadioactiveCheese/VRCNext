@@ -29,6 +29,7 @@ public class AuthController
     private int _favWorldsInFlight = 0;
     private int _favAvatarsInFlight = 0;
     private List<JObject>? _cachedFavGroups; // shared across FavWorlds + FavAvatars to avoid double fetch
+    public void ClearFavGroupsCache() => _cachedFavGroups = null;
 
     // Constructor
 
@@ -1092,6 +1093,7 @@ public class AuthController
         public string displayName { get; set; } = "";
         public string type        { get; set; } = "";
         public int    capacity    { get; set; } = 25;
+        public string visibility  { get; set; } = "private";
     }
 
     internal static List<WFavGroup> FillMissingWorldSlots(List<WFavGroup> groupList)
@@ -1158,7 +1160,8 @@ public class AuthController
                 .Select(g => new WFavGroup {
                     name        = g["name"]?.ToString() ?? "",
                     displayName = g["displayName"]?.ToString() ?? "",
-                    type        = g["type"]?.ToString() ?? "world"
+                    type        = g["type"]?.ToString() ?? "world",
+                    visibility  = g["visibility"]?.ToString() ?? "private",
                 })
                 .Where(g => !string.IsNullOrEmpty(g.name))
                 .ToList();

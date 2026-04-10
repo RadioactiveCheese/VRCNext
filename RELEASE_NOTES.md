@@ -1,4 +1,8 @@
-**2026.14.5**
+**2026.15.0**
+
+**World Section**
+
+* Added a **Visibility** option in Edit mode. You can now change the visibility of each Favorites group, allowing others to see which worlds you have favorited
 
 **Modal Changes Overall**
 * Increased the Modal size to make more space for new elements.

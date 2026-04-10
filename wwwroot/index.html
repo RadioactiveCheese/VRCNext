@@ -239,6 +239,14 @@
                         <span id="favWorldGroupLabel" style="font-size:13px;font-weight:600;color:var(--tx1);" data-i18n="worlds.favorites.group.all">All Favorites</span>
                         <span id="favWorldGroupVrcPlusBadge" class="vrcn-badge vrcplus" style="display:none;">VRC+</span>
                         <button id="favWorldGroupEditBtn" class="myp-edit-btn" onclick="startEditWorldGroupName()" style="display:none;" title="Rename category" data-i18n-title="worlds.favorites.rename_category"><span class="msi" style="font-size:14px;">edit</span></button>
+                        <span id="favWorldGroupVisLabel" style="display:none;font-size:11px;color:var(--tx3);font-weight:400;"></span>
+                        <div id="favWorldGroupVisDropWrap" style="display:none;">
+                            <select id="favWorldGroupVisDrop" class="vrcn-dropdown" onchange="saveFavGroupVisibility(this.value)" style="min-width:160px;">
+                                <option value="public" data-i18n="worlds.favorites.visibility.public">Visible for everyone</option>
+                                <option value="friends" data-i18n="worlds.favorites.visibility.friends">Visible for friends</option>
+                                <option value="private" data-i18n="worlds.favorites.visibility.private">Visible only to you</option>
+                            </select>
+                        </div>
                     </div>
                     <div id="favWorldGroupRenameRow" style="display:none;align-items:center;gap:6px;margin-bottom:10px;">
                         <input type="text" id="favWorldGroupNameInput" class="vrcn-edit-field" maxlength="64" style="flex:1;max-width:280px;">

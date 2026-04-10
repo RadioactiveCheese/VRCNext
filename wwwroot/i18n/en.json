@@ -1179,6 +1179,8 @@
   "context_menu.library.unhide": "Unhide",
   "context_menu.library.hide": "Hide",
   "context_menu.library.delete": "Delete",
+  "context_menu.image.download": "Download Image",
+  "context_menu.image.inspect": "Inspect Image",
   "context_menu.check_for_avatar": "Check for Avatar",
   "instance.unknown_world": "Unknown World",
   "instance.no_player_data": "No player data",

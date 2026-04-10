@@ -1152,6 +1152,8 @@
   "context_menu.library.unhide": "取消隐藏",
   "context_menu.library.hide": "隐藏",
   "context_menu.library.delete": "\u5220\u9664",
+  "context_menu.image.download": "下载图片",
+  "context_menu.image.inspect": "查看图片",
   "context_menu.check_for_avatar": "\u641c\u7d22\u5934\u50cf",
   "context_menu.dash_layout": "编辑仪表板",
   "dashboard.edit.title": "仪表板布局",

@@ -1155,6 +1155,8 @@
   "context_menu.library.unhide": "Afficher",
   "context_menu.library.hide": "Masquer",
   "context_menu.library.delete": "Supprimer",
+  "context_menu.image.download": "Télécharger l'image",
+  "context_menu.image.inspect": "Inspecter l'image",
   "context_menu.check_for_avatar": "Rechercher un avatar",
   "context_menu.dash_layout": "Modifier le tableau de bord",
   "dashboard.edit.title": "Mise en page du tableau de bord",

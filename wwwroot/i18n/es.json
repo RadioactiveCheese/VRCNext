@@ -1155,6 +1155,8 @@
   "context_menu.library.unhide": "Mostrar",
   "context_menu.library.hide": "Ocultar",
   "context_menu.library.delete": "Eliminar",
+  "context_menu.image.download": "Descargar imagen",
+  "context_menu.image.inspect": "Inspeccionar imagen",
   "context_menu.check_for_avatar": "Buscar avatar",
   "context_menu.dash_layout": "Editar dashboard",
   "dashboard.edit.title": "Diseño del dashboard",

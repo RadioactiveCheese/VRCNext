@@ -1,4 +1,4 @@
-**2026.14.0**
+**2026.14.2**
 
 **Download & Inspect Images**
 

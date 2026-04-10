@@ -1151,6 +1151,8 @@
   "context_menu.library.unhide": "表示",
   "context_menu.library.hide": "非表示",
   "context_menu.library.delete": "\u524a\u9664",
+  "context_menu.image.download": "画像をダウンロード",
+  "context_menu.image.inspect": "画像を表示",
   "context_menu.check_for_avatar": "\u30a2\u30d0\u30bf\u30fc\u3092\u691c\u7d22",
   "context_menu.dash_layout": "ダッシュボードを編集",
   "dashboard.edit.title": "ダッシュボードレイアウト",

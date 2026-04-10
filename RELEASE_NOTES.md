@@ -1,4 +1,10 @@
-**2026.14.2**
+**2026.14.5**
+
+**Group Modal**
+
+* The group owner is now shown below the group name
+* Added a **Visibility** option inside the group modal
+* Added a **Visibility** option to the context menu
 
 **Profile Changes**
 
@@ -35,3 +41,5 @@ This has now been split into two separate startup lists, so you can choose which
 * Fixed a rare .NET 9 runtime crash when reading VRChat log timestamps
 * VRCNext has sent bug reports when the app was killed with Taskmanager which caused internal spam on my end.
 * Fixed an issue that causes Start Up Apps not to be saved in Settings.
+* Reduced the status text limit from 64 chars. to 32 chars. as the API only allows max 32 chars.
+* Fixed an issue that caused images to not be updated when doing changes on the dashboard widget

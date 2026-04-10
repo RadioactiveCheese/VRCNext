@@ -120,6 +120,7 @@ function saveSettings() {
             vrcPath: document.getElementById('setVrcPath').value,
             extraExeDesktop: settings.extraExeDesktop || [],
             extraExeVR: settings.extraExeVR || [],
+            extraExe: [], // clear legacy field so migration doesn't re-fire after user deletes apps
             autoStart: false, // legacy â€” kept for JSON compat
             relayAutoStartVR:        document.getElementById('setAutoStartVR')?.checked       ?? false,
             relayAutoStartDesktop:   document.getElementById('setAutoStartDesktop')?.checked  ?? false,

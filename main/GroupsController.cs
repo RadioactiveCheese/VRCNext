@@ -65,6 +65,7 @@ public class GroupsController
                     privacy        = full["privacy"]?.ToString() ?? "",
                     joinState      = full["joinState"]?.ToString() ?? "",
                     isRepresenting = myMember?["isRepresenting"]?.Value<bool>() ?? false,
+                    visibility     = myMember?["visibility"]?.ToString() ?? "visible",
                     canCreateInstance = canCreate,
                     canPost, canEvent, canInvite,
                 });
@@ -171,12 +172,24 @@ public class GroupsController
                             var canManageRoles = myPerms.Any(p => p.ToString() == "*" || p.ToString() == "group-roles-manage");
                             var canAssignRoles = myPerms.Any(p => p.ToString() == "*" || p.ToString() == "group-roles-manage" || p.ToString() == "group-roles-assign");
 
+                            var ownerId = g["ownerId"]?.ToString() ?? "";
+                            var ownerMember = members.FirstOrDefault(m => m["userId"]?.ToString() == ownerId);
+                            var ownerDisplayName = ownerMember?["user"]?["displayName"]?.ToString()
+                                ?? ownerMember?["displayName"]?.ToString() ?? "";
+                            if (string.IsNullOrEmpty(ownerDisplayName) && !string.IsNullOrEmpty(ownerId))
+                            {
+                                var ownerUser = await _core.VrcApi.GetUserAsync(ownerId);
+                                ownerDisplayName = ownerUser?["displayName"]?.ToString() ?? "";
+                            }
+
                             _core.SendToJS("vrcGroupDetail", new {
                                 id = g["id"]?.ToString() ?? "", name = g["name"]?.ToString() ?? "",
                                 shortCode = g["shortCode"]?.ToString() ?? "", description = g["description"]?.ToString() ?? "",
                                 iconUrl = g["iconUrl"]?.ToString() ?? "", bannerUrl = g["bannerUrl"]?.ToString() ?? "",
                                 memberCount = g["memberCount"]?.Value<int>() ?? 0, privacy = g["privacy"]?.ToString() ?? "",
                                 joinState = g["joinState"]?.ToString() ?? "",
+                                ownerId, ownerDisplayName,
+                                visibility = myMember?["visibility"]?.ToString() ?? "",
                                 rules = g["rules"]?.ToString() ?? "",
                                 languages = (g["languages"] as JArray)?.Select(x => x.ToString()).ToArray() ?? Array.Empty<string>(),
                                 links     = (g["links"]     as JArray)?.Select(x => x.ToString()).ToArray() ?? Array.Empty<string>(),
@@ -360,6 +373,21 @@ public class GroupsController
                         _core.SendToJS("vrcActionResult", new { action = "representGroup", success = ok,
                             groupId = rgId,
                             message = ok ? "Now representing group" : "Failed to represent group" });
+                    });
+                }
+                break;
+            }
+
+            case "vrcSetGroupVisibility":
+            {
+                var svGroupId  = msg["groupId"]?.ToString() ?? "";
+                var svVis      = msg["visibility"]?.ToString() ?? "visible";
+                var svUserId   = _core.VrcApi.CurrentUserId ?? "";
+                if (!string.IsNullOrEmpty(svGroupId) && !string.IsNullOrEmpty(svUserId))
+                {
+                    _ = Task.Run(async () => {
+                        var ok = await _core.VrcApi.SetGroupMemberVisibilityAsync(svGroupId, svUserId, svVis);
+                        _core.SendToJS("groupVisibilityUpdated", new { groupId = svGroupId, visibility = svVis, success = ok });
                     });
                 }
                 break;

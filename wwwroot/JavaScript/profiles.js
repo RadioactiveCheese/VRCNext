@@ -666,9 +666,9 @@ function openStatusModal() {
     ).join('');
     const inp = document.getElementById('statusDescInput');
     inp.value = currentVrcUser.statusDescription || '';
-    document.getElementById('statusDescCount').textContent = (inp.value.length) + '/64';
+    document.getElementById('statusDescCount').textContent = (inp.value.length) + '/32';
     inp.oninput = () => {
-        document.getElementById('statusDescCount').textContent = inp.value.length + '/64';
+        document.getElementById('statusDescCount').textContent = inp.value.length + '/32';
     };
     m.style.display = 'flex';
     setTimeout(() => inp.focus(), 100);

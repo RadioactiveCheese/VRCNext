@@ -1400,6 +1400,21 @@ public class VRChatApiService
         return new JArray();
     }
 
+    public async Task<bool> SetGroupMemberVisibilityAsync(string groupId, string userId, string visibility)
+    {
+        if (!IsLoggedIn) return false;
+        try
+        {
+            var content = new System.Net.Http.StringContent(
+                $"{{\"visibility\":\"{visibility}\"}}",
+                System.Text.Encoding.UTF8, "application/json");
+            var resp = await _http.PutAsync($"{BASE}/groups/{groupId}/members/{userId}", content);
+            Log($"SetGroupMemberVisibility({groupId},{userId},{visibility}): {(int)resp.StatusCode}");
+            return resp.IsSuccessStatusCode;
+        }
+        catch (Exception ex) { Log($"SetGroupMemberVisibility exception: {ex.Message}"); return false; }
+    }
+
     public async Task<bool> ModerateUserAsync(string userId, string type)
     {
         if (!IsLoggedIn) return false;

@@ -94,6 +94,24 @@ function renderMyGroups(list) {
     if (typeof renderDashGroupActivity === 'function') renderDashGroupActivity();
 }
 
+function setGroupVisibility(groupId, visibility) {
+    sendToCS({ action: 'vrcSetGroupVisibility', groupId, visibility });
+    // Optimistic UI update
+    ['visible','friends','hidden'].forEach(v => {
+        const btn = document.getElementById('ggrpVis_' + v);
+        if (!btn) return;
+        const isActive = v === visibility;
+        const icons = { visible: 'public', friends: 'people', hidden: 'visibility_off' };
+        btn.classList.toggle('vrcn-btn-primary', isActive);
+        btn.querySelector('.msi').textContent = isActive ? 'check_circle' : icons[v];
+    });
+    // Update myGroups cache so context menu reflects new value
+    if (typeof myGroups !== 'undefined') {
+        const entry = myGroups.find(g => g.id === groupId);
+        if (entry) entry.visibility = visibility;
+    }
+}
+
 function openGroupDetail(groupId) {
     const el = document.getElementById('detailModalContent');
     el.innerHTML = sk('detail');
@@ -121,7 +139,11 @@ function renderGroupDetail(g) {
         ? `<div style="position:relative;display:inline-block;flex-shrink:0;"><img class="fd-avatar" src="${g.iconUrl}" onerror="this.style.display='none'">${iconEditBtn}</div>`
         : (canEdit ? `<div style="position:relative;display:inline-block;flex-shrink:0;"><div class="fd-avatar" style="display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:700;color:var(--tx3);">${esc((g.name||'?')[0])}</div>${iconEditBtn}</div>` : '');
     const headerMeta = [g.shortCode ? esc(g.shortCode) : '', esc(getGroupMembersText(g.memberCount || 0))].filter(Boolean).join(' &middot; ');
-    const headerHtml = `<div class="fd-content${banner ? ' fd-has-banner' : ''}"><div class="fd-header">${iconHtml}<div style="flex:1;min-width:0;"><div class="fd-name">${esc(g.name)}</div><div class="fd-status">${headerMeta}</div></div><span id="ggrpHeaderBadge" style="margin-left:auto;flex-shrink:0;">${g.joinState ? joinStateBadge(g.joinState) : ''}</span></div><div class="fd-badges-row">${idBadge(g.id)}</div>`;
+    const ownerLabel = g.ownerDisplayName || '';
+    const ownerHtml = (g.ownerId && ownerLabel)
+        ? `<div style="font-size:12px;color:var(--tx3);margin-top:2px;margin-bottom:4px;">${t('worlds.meta.by', 'by')} <span onclick="document.getElementById('modalDetail').style.display='none';openFriendDetail('${jsq(g.ownerId)}')" style="display:inline-flex;align-items:center;padding:1px 8px;border-radius:20px;background:var(--bg-hover);font-size:11px;font-weight:600;color:var(--tx1);cursor:pointer;line-height:1.8;">${esc(ownerLabel)}</span></div>`
+        : '';
+    const headerHtml = `<div class="fd-content${banner ? ' fd-has-banner' : ''}"><div class="fd-header">${iconHtml}<div style="flex:1;min-width:0;"><div class="fd-name">${esc(g.name)}</div>${ownerHtml}<div class="fd-status">${headerMeta}</div></div><span id="ggrpHeaderBadge" style="margin-left:auto;flex-shrink:0;">${g.joinState ? joinStateBadge(g.joinState) : ''}</span></div><div class="fd-badges-row">${idBadge(g.id)}</div>`;
 
     // Actions - moved to bottom bar
     const canPost   = g.canPost === true;
@@ -235,7 +257,25 @@ function renderGroupDetail(g) {
                     <button class="vrcn-button vrcn-btn-primary" onclick="saveGroupField('joinState','${gid_e}')">${t('common.save', 'Save')}</button>
                 </div>
             </div>` : ''}
-        </div>`;
+        </div>
+        ${g.isJoined ? `<div class="myp-section">
+            <div class="myp-section-header">
+                <span class="myp-section-title">${t('groups.visibility.title', 'Visibility')}</span>
+            </div>
+            <div id="ggrpVisibilityBtns" style="display:flex;gap:6px;flex-wrap:wrap;">
+                ${[
+                    { val: 'visible', icon: 'public',         key: 'groups.visibility.visible', fb: 'Visible for Everyone' },
+                    { val: 'friends', icon: 'people',         key: 'groups.visibility.friends', fb: 'Visible for Friends'  },
+                    { val: 'hidden',  icon: 'visibility_off', key: 'groups.visibility.hidden',  fb: 'Visible for None'     },
+                ].map(opt => {
+                    const active = (g.visibility || 'visible') === opt.val;
+                    return `<button class="vrcn-button${active ? ' vrcn-btn-primary' : ''}" id="ggrpVis_${opt.val}" onclick="setGroupVisibility('${gid_e}','${opt.val}')" style="flex:1;justify-content:center;min-width:0;font-size:11px;">
+                        <span class="msi" style="font-size:13px;">${active ? 'check_circle' : opt.icon}</span>
+                        ${esc(t(opt.key, opt.fb))}
+                    </button>`;
+                }).join('')}
+            </div>
+        </div>` : ''}`;
 
     // Tab: Posts
     const posts = g.posts || [];

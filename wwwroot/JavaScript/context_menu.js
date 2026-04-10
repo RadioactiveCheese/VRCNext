@@ -463,6 +463,8 @@
         const canPost = g && g.canPost === true;
         const canEvent = g && g.canEvent === true;
         const isRep = g && g.isRepresenting === true;
+        const isJoined = !!g;
+        const curVis = (g && g.visibility) || 'visible';
         const items = [
             { icon: 'open_in_new', label: cm('group.open_details', 'Open Details'), action: () => openGroupDetail(id) },
             { icon: 'share', label: cm('group.share', 'Share Group'), action: () => copyWithToast('https://vrchat.com/home/group/' + id, 'group.share_copied', 'Group link copied to clipboard') },
@@ -472,9 +474,37 @@
         if (canEvent) items.push({ icon: 'event', label: cm('group.events', 'Events'), action: () => openGroupEventModal(id) });
         if (canPost || canEvent) items.push('sep');
         items.push({ icon: 'shield_person', label: cm('group.represent', 'Represent this group'), action: () => sendToCS({ action: 'vrcRepresentGroup', groupId: id }), disabled: isRep });
+        if (isJoined) {
+            items.push({ icon: 'visibility', label: cm('group.visibility', 'Visibility'), submenuFn: btn => showGroupVisibilitySubmenu(id, curVis, btn) });
+        }
         items.push('sep');
         items.push({ icon: 'logout', label: cm('group.leave', 'Leave Group'), action: () => sendToCS({ action: 'vrcLeaveGroup', groupId: id }), danger: true, confirm: true });
         return items;
+    }
+
+    function showGroupVisibilitySubmenu(groupId, currentVis, parentBtn) {
+        const opts = [
+            { val: 'visible', icon: 'public',         key: 'groups.visibility.visible', fb: 'Visible for Everyone' },
+            { val: 'friends', icon: 'people',          key: 'groups.visibility.friends', fb: 'Visible for Friends'  },
+            { val: 'hidden',  icon: 'visibility_off',  key: 'groups.visibility.hidden',  fb: 'Visible for None'     },
+        ];
+        submenu.innerHTML = opts.map(o => {
+            const active = currentVis === o.val;
+            return `<button class="vn-ctx-item" data-vis="${esc(o.val)}" data-gid="${esc(groupId)}">
+                <span class="msi" style="font-size:14px;">${o.icon}</span>
+                <span class="vn-ctx-label">${esc(typeof t === 'function' ? t(o.key, o.fb) : o.fb)}</span>
+                ${active ? '<span class="msi vn-ctx-check">check</span>' : ''}
+            </button>`;
+        }).join('');
+        submenu.querySelectorAll('[data-vis]').forEach(btn => {
+            btn.addEventListener('click', e => {
+                e.stopPropagation();
+                if (typeof setGroupVisibility === 'function') setGroupVisibility(btn.dataset.gid, btn.dataset.vis);
+                hideMenu();
+            });
+            btn.addEventListener('mouseenter', () => clearTimeout(submenuTimer));
+        });
+        positionSubmenu(parentBtn);
     }
 
     function buildGroupMemberItems(userId, grpCtx, memberRoleIds = []) {

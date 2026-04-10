@@ -1047,6 +1047,7 @@ public partial class AppShell
                 case "vrcGetGroupRoleMembers":
                 case "vrcLeaveGroup":
                 case "vrcRepresentGroup":
+                case "vrcSetGroupVisibility":
                     await _groups.HandleMessage(action, msg);
                     break;
 

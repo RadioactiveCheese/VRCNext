@@ -463,6 +463,22 @@ window.external.receiveMessage(rawMsg => {
             case 'vrcGroupDetail':
                 renderGroupDetail(payload);
                 break;
+            case 'groupVisibilityUpdated':
+                if (payload.success) {
+                    const icons = { visible: 'public', friends: 'people', hidden: 'visibility_off' };
+                    ['visible','friends','hidden'].forEach(v => {
+                        const btn = document.getElementById('ggrpVis_' + v);
+                        if (!btn) return;
+                        const isActive = v === payload.visibility;
+                        btn.classList.toggle('vrcn-btn-primary', isActive);
+                        btn.querySelector('.msi').textContent = isActive ? 'check_circle' : icons[v];
+                    });
+                    if (typeof myGroups !== 'undefined') {
+                        const entry = myGroups.find(g => g.id === payload.groupId);
+                        if (entry) entry.visibility = payload.visibility;
+                    }
+                }
+                break;
             case 'vrcGroupBans':
                 renderGroupBans(payload.groupId, payload.bans);
                 break;

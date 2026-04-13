@@ -77,6 +77,29 @@ public partial class AppShell
         return t.ToString();
     }
 
+    // Loads the inventory cache JSON, sets the value at <paramref name="path"/> (dot-separated)..
+    private void InvCacheSaveSection(string path, object value)
+    {
+        try
+        {
+            var root = (_cache.LoadRaw(CacheHandler.KeyInventory) as JObject) ?? new JObject();
+            var parts = path.Split('.');
+            JObject node = root;
+            for (int i = 0; i < parts.Length - 1; i++)
+            {
+                if (node[parts[i]] is not JObject child)
+                {
+                    child = new JObject();
+                    node[parts[i]] = child;
+                }
+                node = child;
+            }
+            node[parts[^1]] = JToken.FromObject(value);
+            _cache.Save(CacheHandler.KeyInventory, root);
+        }
+        catch { }
+    }
+
     // Permini loader
 
     private void LoadPerminiList()

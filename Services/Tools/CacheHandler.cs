@@ -13,6 +13,7 @@ public class CacheHandler
     public static readonly string KeyGroups         = "Caches/groups_cache.json";
     public static readonly string KeyFriends        = "Caches/friends_cache.json";
     public static readonly string KeyMutuals        = "Caches/mutual_cache.json";
+    public static readonly string KeyInventory       = "Caches/inventory_cache.json";
     public static readonly string KeyBlockedPersons = "Caches/blocked_persons.json";
     public static readonly string KeyMutedPersons   = "Caches/muted_persons.json";
     public static readonly string KeyCustomColors   = "custom_colors.json";
@@ -65,6 +66,7 @@ public class CacheHandler
             Delete(KeyAvatars);
             Delete(KeyGroups);
             Delete(KeyFriends);
+            Delete(KeyInventory);
             Delete(KeyBlockedPersons);
             Delete(KeyMutedPersons);
             var profilesDir = Path.Combine(_dir, "profiles");

@@ -1270,6 +1270,18 @@ public partial class AppShell
                     {
                         try
                         {
+                            // Serve from cache if fresh
+                            if (_settings.FfcEnabled && _cache.IsFresh(CacheHandler.KeyInventory, TimeSpan.FromHours(12)))
+                            {
+                                var cached = _cache.LoadRaw(CacheHandler.KeyInventory) as JObject;
+                                var cachedSection = cached?["files"]?[invTag];
+                                if (cachedSection != null)
+                                {
+                                    Invoke(() => SendToJS("invFiles", new { tag = invTag, files = cachedSection }));
+                                    return;
+                                }
+                            }
+
                             var files = await _vrcApi.GetInventoryFilesAsync(invTag);
                             // Also fetch emojianimated when tag=emoji
                             if (invTag == "emoji")
@@ -1278,12 +1290,12 @@ public partial class AppShell
                                 foreach (var a in animated)
                                     files.Add(a);
                             }
-                            var list = files.OfType<Newtonsoft.Json.Linq.JObject>().Select(f =>
+                            var list = files.OfType<JObject>().Select(f =>
                             {
-                                var versions = (f["versions"] as Newtonsoft.Json.Linq.JArray) ?? new Newtonsoft.Json.Linq.JArray();
-                                var latest = versions.OfType<Newtonsoft.Json.Linq.JObject>()
+                                var versions = (f["versions"] as JArray) ?? new JArray();
+                                var latest = versions.OfType<JObject>()
                                     .LastOrDefault(v => v["status"]?.ToString() == "complete")
-                                    ?? versions.OfType<Newtonsoft.Json.Linq.JObject>().LastOrDefault();
+                                    ?? versions.OfType<JObject>().LastOrDefault();
                                 var fileUrl = latest?["file"]?["url"]?.ToString() ?? "";
                                 var versionId = latest?["version"]?.Value<int>() ?? 1;
                                 var sizeBytes = latest?["file"]?["sizeInBytes"]?.Value<long>() ?? 0;
@@ -1292,7 +1304,7 @@ public partial class AppShell
                                 {
                                     id = f["id"]?.ToString() ?? "",
                                     name = f["name"]?.ToString() ?? "",
-                                    tags = (f["tags"] as Newtonsoft.Json.Linq.JArray)?.ToObject<List<string>>() ?? new List<string>(),
+                                    tags = (f["tags"] as JArray)?.ToObject<List<string>>() ?? new List<string>(),
                                     animationStyle = f["animationStyle"]?.ToString() ?? "",
                                     maskTag = f["maskTag"]?.ToString() ?? "",
                                     fileUrl,
@@ -1301,6 +1313,8 @@ public partial class AppShell
                                     createdAt,
                                 };
                             }).OrderByDescending(f => f.createdAt).ToList();
+
+                            if (_settings.FfcEnabled) InvCacheSaveSection("files." + invTag, list);
                             Invoke(() => SendToJS("invFiles", new { tag = invTag, files = list }));
                         }
                         catch (Exception ex)
@@ -1325,6 +1339,7 @@ public partial class AppShell
                             {
                                 var bytes = System.IO.File.ReadAllBytes(path);
                                 var (ok, file, error) = await _vrcApi.UploadInventoryImageAsync(bytes, uploadTag);
+                                if (ok) _cache.Delete(CacheHandler.KeyInventory);
                                 if (ok && file != null)
                                 {
                                     var versions = (file["versions"] as Newtonsoft.Json.Linq.JArray) ?? new Newtonsoft.Json.Linq.JArray();
@@ -1377,6 +1392,7 @@ public partial class AppShell
                             var bytes2 = Convert.FromBase64String(raw);
 
                             var (ok2, file2, error2) = await _vrcApi.UploadInventoryImageAsync(bytes2, uploadTag2, animStyle, maskTagVal);
+                            if (ok2) _cache.Delete(CacheHandler.KeyInventory);
                             if (ok2 && file2 != null)
                             {
                                 var versions2 = (file2["versions"] as Newtonsoft.Json.Linq.JArray) ?? new Newtonsoft.Json.Linq.JArray();
@@ -1420,6 +1436,7 @@ public partial class AppShell
                         _ = Task.Run(async () =>
                         {
                             var ok = await _vrcApi.DeleteInventoryFileAsync(delFileId);
+                            if (ok) _cache.Delete(CacheHandler.KeyInventory);
                             Invoke(() => SendToJS("invDeleteResult", new { success = ok, fileId = delFileId }));
                         });
                     }
@@ -1435,27 +1452,40 @@ public partial class AppShell
                         {
                             try
                             {
-                                var prints = await _vrcApi.GetUserPrintsAsync(printUserId);
-                                var list = prints.OfType<Newtonsoft.Json.Linq.JObject>().Select(p =>
+                                // Serve from cache if fresh
+                                if (_settings.FfcEnabled && _cache.IsFresh(CacheHandler.KeyInventory, TimeSpan.FromHours(12)))
                                 {
-                                    // Try to get image URL from files object
-                                    var filesObj = p["files"] as Newtonsoft.Json.Linq.JObject;
+                                    var cached = _cache.LoadRaw(CacheHandler.KeyInventory) as JObject;
+                                    var cachedSection = cached?["prints"];
+                                    if (cachedSection != null)
+                                    {
+                                        Invoke(() => SendToJS("invPrints", new { prints = cachedSection }));
+                                        return;
+                                    }
+                                }
+
+                                var prints = await _vrcApi.GetUserPrintsAsync(printUserId);
+                                var list = prints.OfType<JObject>().Select(p =>
+                                {
+                                    var filesObj = p["files"] as JObject;
                                     var imageUrl = filesObj?["image"]?.ToString()
                                         ?? p["imageUrl"]?.ToString()
                                         ?? p["thumbnailImageUrl"]?.ToString()
                                         ?? "";
                                     return new
                                     {
-                                        id = p["id"]?.ToString() ?? "",
-                                        authorId = p["authorId"]?.ToString() ?? "",
+                                        id         = p["id"]?.ToString() ?? "",
+                                        authorId   = p["authorId"]?.ToString() ?? "",
                                         authorName = p["authorName"]?.ToString() ?? "",
-                                        worldId = p["worldId"]?.ToString() ?? "",
-                                        worldName = p["worldName"]?.ToString() ?? "",
-                                        note = p["note"]?.ToString() ?? "",
-                                        createdAt = IsoDate(p["createdAt"] ?? p["timestamp"]),
+                                        worldId    = p["worldId"]?.ToString() ?? "",
+                                        worldName  = p["worldName"]?.ToString() ?? "",
+                                        note       = p["note"]?.ToString() ?? "",
+                                        createdAt  = IsoDate(p["createdAt"] ?? p["timestamp"]),
                                         imageUrl,
                                     };
                                 }).OrderByDescending(p => p.createdAt).ToList();
+
+                                if (_settings.FfcEnabled) InvCacheSaveSection("prints", list);
                                 Invoke(() => SendToJS("invPrints", new { prints = list }));
                             }
                             catch (Exception ex)
@@ -1478,8 +1508,20 @@ public partial class AppShell
                     {
                         try
                         {
+                            // Serve from cache if fresh
+                            if (_settings.FfcEnabled && _cache.IsFresh(CacheHandler.KeyInventory, TimeSpan.FromHours(12)))
+                            {
+                                var cached = _cache.LoadRaw(CacheHandler.KeyInventory) as JObject;
+                                var cachedSection = cached?["inventory"];
+                                if (cachedSection != null)
+                                {
+                                    Invoke(() => SendToJS("invInventory", cachedSection));
+                                    return;
+                                }
+                            }
+
                             var (items, total) = await _vrcApi.GetInventoryItemsAsync();
-                            var list = items.OfType<Newtonsoft.Json.Linq.JObject>().Select(item => new
+                            var list = items.OfType<JObject>().Select(item => new
                             {
                                 id          = item["id"]?.ToString() ?? "",
                                 name        = item["name"]?.ToString() ?? "Item",
@@ -1490,7 +1532,9 @@ public partial class AppShell
                                 isArchived  = item["isArchived"]?.Value<bool>() ?? false,
                                 createdAt   = IsoDate(item["created_at"]),
                             }).ToList();
-                            Invoke(() => SendToJS("invInventory", new { items = list, totalCount = total }));
+                            var payload = new { items = list, totalCount = total };
+                            if (_settings.FfcEnabled) InvCacheSaveSection("inventory", payload);
+                            Invoke(() => SendToJS("invInventory", payload));
                         }
                         catch (Exception ex)
                         {

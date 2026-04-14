@@ -1596,7 +1596,7 @@
   "settings.language.restart_btn": "Restart VRCNext",
   "settings.crash.title": "Crash Reporting",
   "settings.crash.label": "Send anonymous crash reports",
-  "settings.crash.desc": "If VRCNext crashes, the stack trace is sent anonymously to help fix issues. No personal data is included: no file paths, usernames, or machine names. Only the crash stack trace.",
+  "settings.crash.desc": "If VRCNext crashes and this is enabled, the crash report is sent automatically. If disabled, you will be asked manually on next startup.",
   "settings.crash.restart_after_crash": "Restart After Crash",
   "settings.crash.restart_after_crash_desc": "VRCNext will automatically restart after an unexpected crash. Does not apply when the app is closed normally or force-quit via Task Manager.",
   "settings.update.title": "Update VRCNext",
@@ -1641,7 +1641,7 @@
   "setup.page3.password_placeholder": "Password",
   "setup.page3.connect_btn": "Connect",
   "setup.page4.title": "VRChat Launch Location",
-  "setup.page4.desc_html": "Please locate the <strong>launch.exe</strong> in your VRChat root folder. This is usually found in your Steam library folder. If you can't find it, right-click VRChat in Steam \u2192 Properties \u2192 Installed Files \u2192 Browse.",
+  "setup.page4.desc_html": "Please locate the <strong>launch.exe</strong> in your VRChat root folder. This is usually found in your Steam library folder. If you can't find it, right-click VRChat in Steam → Properties → Installed Files → Browse.",
   "setup.page4.browse_btn": "Browse",
   "setup.page5.title": "VRChat Image Library",
   "setup.page5.desc": "Point VRCNext to your VRChat screenshot folder so the app can monitor new photos, show them in your media library, and track which worlds they were taken in.",
@@ -1650,7 +1650,7 @@
   "setup.page6.desc_html": "Make sure to enable <strong>Metadata</strong> in your VRChat camera settings. This allows VRCNext to track which world each photo was taken in, so you can easily find that world again, even months later!",
   "setup.page6.step1": "Open the <strong>Camera</strong> in VRChat via the quick menu",
   "setup.page6.step2": "Go to the camera <strong>Settings</strong> panel",
-  "setup.page6.step3": "Enable <strong>\u201cSave Metadata to Photo\u201d</strong> which embeds world info into each screenshot",
+  "setup.page6.step3": "Enable <strong>“Save Metadata to Photo”</strong> which embeds world info into each screenshot",
   "setup.page6.step4": "<strong>Done!</strong> VRCNext will automatically read this data and show the world on your photos",
   "setup.page7.title": "Start with Windows",
   "setup.page7.desc": "Should VRCNext launch automatically when Windows starts? It will open minimized in the taskbar so it is ready when you need it.",
@@ -1663,5 +1663,8 @@
   "setup.tfa.cancel": "Cancel",
   "setup.tfa.verify": "Verify",
   "setup.tfa.msg_totp": "Enter the 6-digit code from your authenticator app.",
-  "setup.tfa.msg_email": "Enter the 6-digit code sent to your email."
+  "setup.tfa.msg_email": "Enter the 6-digit code sent to your email.",
+  "crash.modal.title": "VRCNext has crashed",
+  "crash.modal.msg": "Would you like to send the crash report to the developers to help them fix the issue?\n\nThe crash log is anonymous and only contains the stack trace of the crash. It does not include any personal information or user data.",
+  "crash.modal.send": "Send Report"
 }

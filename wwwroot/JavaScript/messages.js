@@ -40,6 +40,7 @@ window.external.receiveMessage(rawMsg => {
             case 'imgCacheOptimizeProgress': handleImgCacheOptimizeProgress(payload); break;
             case 'log': addLog(payload.msg, payload.color); break;
             case 'toast': showToast(payload.ok, payload.msg); break;
+            case 'showCrashModal': showCrashModal(payload); break;
             case 'wsStatus': {
                 const badge = document.getElementById('wsBadge');
                 if (badge) {
@@ -808,3 +809,30 @@ case 'popularWorlds':
     }
 });
 sendToCS({ action: 'ready' });
+
+// Crash Report Modal
+
+function showCrashModal(payload) {
+    const preview = document.getElementById('crashLogPreview');
+    if (preview) {
+        preview.innerHTML = '';
+        const lines = (payload.preview || '').split('\n');
+        lines.forEach(line => {
+            const row = document.createElement('div');
+            row.className = 'li-f';
+            const msg = document.createElement('span');
+            msg.className = 'li-msg';
+            // Style section header lines differently
+            if (line.startsWith('═══') || line.startsWith('───')) {
+                msg.style.color = 'var(--tx3)';
+                msg.style.fontWeight = '600';
+            } else if (line.trim().startsWith('at ') || line.trim().startsWith('Type') || line.trim().startsWith('Message')) {
+                msg.style.color = 'var(--err)';
+            }
+            msg.textContent = line || '\u00a0';
+            row.appendChild(msg);
+            preview.appendChild(row);
+        });
+    }
+    document.getElementById('modalCrash').style.display = '';
+}

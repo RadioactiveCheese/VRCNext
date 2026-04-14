@@ -1,4 +1,10 @@
-**2026.15.4**
+**2026.15.5**
+
+**Crash Reports**
+
+* When automatic reports are disabled, a window will appear the next time VRCNext starts, asking whether you want to send the crash report anonymously with redacted paths. This makes error reporting safe and easy.
+* Replaced the old webhook URL with a new hashed one for error reporting. Previously, the webhook URL was exposed in this GitHub repository, which could have made it easy for an attacker to misuse it. Do not worry, this did not put users at risk. The issue was on my side, since anyone could have used the old URL to send fake data.
+
 
 **Custom Chatbox**
 

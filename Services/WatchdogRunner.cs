@@ -1,5 +1,4 @@
 ﻿using System.Diagnostics;
-using System.Net.Http.Headers;
 using System.Runtime.InteropServices;
 using System.Text;
 
@@ -72,8 +71,14 @@ internal static class WatchdogRunner
 
             File.WriteAllText(path, sb.ToString(), Encoding.UTF8);
 
-            // Send anonymous crash data to developer Discord webhook (if user has not opted out)
-            SendToDiscordAsync(sentinelContent, sb.ToString()).GetAwaiter().GetResult();
+            // Mark crash as pending so the next startup shows the report modal
+            try
+            {
+                var logsDir     = Path.GetDirectoryName(crashDir) ?? crashDir;
+                var pendingPath = Path.Combine(logsDir, "pending_crash.txt");
+                File.WriteAllText(pendingPath, path, Encoding.UTF8);
+            }
+            catch { }
         }
         catch { }
 
@@ -94,62 +99,6 @@ internal static class WatchdogRunner
             }
         }
         catch { }
-    }
-
-    // Discord webhook.
-
-    private const string WebhookUrl =
-        "https://discord.com/api/webhooks/1491312855969169408/BHNBz7Ke4p8NYXH2x-pIyj6MwaMhCh6hKJKxTRiaF9aI7HeVf6ebMQ1Wsx3AJLH7pYv7";
-
-    private static async Task SendToDiscordAsync(string sentinelContent, string fullReport)
-    {
-        try
-        {
-            // Check user opt-out: read settings.json from AppData
-            if (!IsCrashReportingEnabled()) return;
-
-            // Extract only the two useful sections — strip everything else
-            var payload = ExtractAndSanitize(fullReport);
-            if (string.IsNullOrWhiteSpace(payload)) return;
-
-            // Header line: version + .NET + OS (no paths, no usernames)
-            var version = ParseSentinelField(sentinelContent, "Version");
-            var dotnet  = RuntimeInformation.FrameworkDescription;
-            var os      = RuntimeInformation.OSDescription;
-            var header  = $"**VRCNext crash** | v{version} | {dotnet} | {os}";
-
-            using var http    = new HttpClient { Timeout = TimeSpan.FromSeconds(15) };
-            using var form    = new MultipartFormDataContent();
-            var payloadBytes  = Encoding.UTF8.GetBytes(payload);
-            var fileContent   = new ByteArrayContent(payloadBytes);
-            fileContent.Headers.ContentType = new MediaTypeHeaderValue("text/plain");
-
-            form.Add(new StringContent(header),  "content");
-            form.Add(fileContent, "files[0]", $"crash_{DateTime.Now:yyyy-MM-dd_HH-mm-ss}.txt");
-
-            await http.PostAsync(WebhookUrl, form);
-        }
-        catch { /* never let webhook failure affect crash reporting or app startup */ }
-    }
-
-    private static bool IsCrashReportingEnabled()
-    {
-        try
-        {
-            var settingsPath = Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-                "VRCNext", "settings.json");
-            if (!File.Exists(settingsPath)) return true; // default on
-
-            var json = File.ReadAllText(settingsPath, Encoding.UTF8);
-            // Quick parse — avoid pulling in Newtonsoft in the watchdog hot path
-            // Property can be "SendCrashData":false or "sendCrashData":false
-            var match = RxSendCrashData.Match(json);
-            if (match.Success)
-                return match.Groups[1].Value.Equals("true", StringComparison.OrdinalIgnoreCase);
-        }
-        catch { }
-        return true; // default on
     }
 
     private static bool IsRestartAfterCrashEnabled()
@@ -181,46 +130,6 @@ internal static class WatchdogRunner
         }
         catch { }
         return int.MaxValue; // unknown → assume long uptime, allow restart
-    }
-
-    /// <summary>
-    /// Extracts only the CLR stderr and Event Log sections from the full report,
-    /// then strips all Windows paths so no personal data is sent.
-    /// </summary>
-    private static string ExtractAndSanitize(string report)
-    {
-        var sb = new StringBuilder();
-
-        // Pull out the two sections we want
-        sb.Append(ExtractSection(report, "─── CLR stderr"));
-        sb.Append(ExtractSection(report, "─── Windows Application Event Log"));
-
-        var result = sb.ToString();
-        if (string.IsNullOrWhiteSpace(result)) return result;
-
-        // Strip Windows absolute paths — these may contain the username (C:\Users\<name>\...)
-        result = RxWindowsPath.Replace(result, "<path-redacted>");
-
-        // Strip Faulting process id / fault offset / start time / report id (not useful, potentially identifying)
-        result = RxFaultPid.Replace(result, "$1<pid>");
-        result = RxFaultOffset.Replace(result, "$1<offset>");
-        result = RxFaultTime.Replace(result, "$1<ts>");
-        result = RxReportId.Replace(result, "$1<id>");
-
-        return result;
-    }
-
-    /// <summary>Extracts one section from the report, from its header line to the next separator line.</summary>
-    private static string ExtractSection(string report, string sectionHeader)
-    {
-        var start = report.IndexOf(sectionHeader, StringComparison.Ordinal);
-        if (start < 0) return "";
-
-        // Finds where the next section begins by searching for the section-header separator string.
-        var nextSection = report.IndexOf("\n─── ", start + sectionHeader.Length, StringComparison.Ordinal);
-        var end = nextSection >= 0 ? nextSection + 1 : report.Length;
-
-        return report[start..end].TrimEnd() + "\n\n";
     }
 
     private static string ParseSentinelField(string sentinel, string fieldName)
@@ -316,18 +225,6 @@ internal static class WatchdogRunner
     }
 
     // Compiled regexes.
-    private static readonly System.Text.RegularExpressions.Regex RxSendCrashData =
-        new(@"""[Ss]end[Cc]rash[Dd]ata""\s*:\s*(true|false)", System.Text.RegularExpressions.RegexOptions.IgnoreCase | System.Text.RegularExpressions.RegexOptions.Compiled);
     private static readonly System.Text.RegularExpressions.Regex RxRestartAfterCrash =
         new(@"""[Rr]estart[Aa]fter[Cc]rash""\s*:\s*(true|false)", System.Text.RegularExpressions.RegexOptions.IgnoreCase | System.Text.RegularExpressions.RegexOptions.Compiled);
-    private static readonly System.Text.RegularExpressions.Regex RxWindowsPath =
-        new(@"[A-Za-z]:\\[^\s\n,""']+", System.Text.RegularExpressions.RegexOptions.Compiled);
-    private static readonly System.Text.RegularExpressions.Regex RxFaultPid =
-        new(@"(Faulting process id:\s*)0x[0-9a-fA-F]+", System.Text.RegularExpressions.RegexOptions.Compiled);
-    private static readonly System.Text.RegularExpressions.Regex RxFaultOffset =
-        new(@"(Fault offset:\s*)0x[0-9a-fA-F]+", System.Text.RegularExpressions.RegexOptions.Compiled);
-    private static readonly System.Text.RegularExpressions.Regex RxFaultTime =
-        new(@"(Faulting application start time:\s*)0x[0-9a-fA-F]+", System.Text.RegularExpressions.RegexOptions.Compiled);
-    private static readonly System.Text.RegularExpressions.Regex RxReportId =
-        new(@"(Report Id:\s*)[0-9a-f\-]+", System.Text.RegularExpressions.RegexOptions.Compiled);
 }

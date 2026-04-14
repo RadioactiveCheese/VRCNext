@@ -443,6 +443,82 @@ public partial class AppShell
     }
 #endif
 
+
+    // Webhook URL stored as XOR-encrypted bytes. Key is injected at build time via secrets.bat, never in source.
+    private static readonly byte[] _whEnc = {
+        62, 38, 55, 62, 22, 66, 91, 110, 20, 25, 65, 83, 93, 68, 55, 70, 10, 1, 20, 105, 13, 6, 27, 74,
+        4, 51, 48, 43, 33, 10, 19, 7, 110, 65, 68, 11, 3, 4, 14, 96, 94, 90, 88, 65, 119, 94, 69, 74,
+        87, 65, 110, 107, 108, 34, 10, 15, 45, 3, 30, 40, 3, 123, 103, 76, 12, 47, 92, 62, 42, 46, 52, 23,
+        75, 92, 26, 35, 35, 118, 127, 21, 14, 2, 30, 59, 49, 3, 82, 103, 101, 97, 81, 3, 1, 65, 13, 62,
+        50, 45, 86, 43, 2, 42, 122, 8, 61, 19, 4, 15, 50, 4, 97, 87, 119, 83, 33, 13, 24, 32, 77, 1, 60
+    };
+    private static readonly byte[] _whKey = System.Text.Encoding.ASCII.GetBytes(BuildSecrets.WhKey);
+
+    private static string DecryptWebhook()
+    {
+        var b = new byte[_whEnc.Length];
+        for (int i = 0; i < b.Length; i++)
+            b[i] = (byte)(_whEnc[i] ^ _whKey[i % _whKey.Length]);
+        return System.Text.Encoding.UTF8.GetString(b);
+    }
+
+    internal void CheckAndShowPendingCrash()
+    {
+        var crashPath = Services.CrashHandler.GetPendingCrashFilePath();
+        if (crashPath == null) return;
+
+        if (_settings.SendCrashData)
+        {
+            // Auto-send when the user has crash reporting enabled
+            _ = SendPendingCrashReportAsync(silent: true);
+        }
+        else
+        {
+            // Show manual modal so the user can decide
+            try
+            {
+                var content = System.IO.File.ReadAllText(crashPath, System.Text.Encoding.UTF8);
+                var preview = Services.CrashHandler.GetPreviewText(content);
+                SendToJS("showCrashModal", new { preview });
+            }
+            catch { Services.CrashHandler.ClearPendingCrash(); }
+        }
+    }
+
+    internal async Task SendPendingCrashReportAsync(bool silent = false)
+    {
+        try
+        {
+            var crashPath = Services.CrashHandler.GetPendingCrashFilePath();
+            if (crashPath == null) { Services.CrashHandler.ClearPendingCrash(); return; }
+
+            var fullReport = System.IO.File.ReadAllText(crashPath, System.Text.Encoding.UTF8);
+            var sanitized  = Services.CrashHandler.SanitizeForReport(fullReport);
+            if (string.IsNullOrWhiteSpace(sanitized)) sanitized = "(no extractable content)";
+
+            var url     = DecryptWebhook();
+            var asm     = System.Reflection.Assembly.GetEntryAssembly() ?? System.Reflection.Assembly.GetExecutingAssembly();
+            var version = asm.GetName().Version?.ToString() ?? "?";
+            var header  = $"**VRCNext crash** | v{version} | {System.Runtime.InteropServices.RuntimeInformation.FrameworkDescription} | {System.Runtime.InteropServices.RuntimeInformation.OSDescription}";
+
+            using var http        = new System.Net.Http.HttpClient { Timeout = TimeSpan.FromSeconds(15) };
+            using var form        = new System.Net.Http.MultipartFormDataContent();
+            var payloadBytes      = System.Text.Encoding.UTF8.GetBytes(sanitized);
+            var fileContent       = new System.Net.Http.ByteArrayContent(payloadBytes);
+            fileContent.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("text/plain");
+            form.Add(new System.Net.Http.StringContent(header), "content");
+            form.Add(fileContent, "files[0]", $"crash_{DateTime.Now:yyyy-MM-dd_HH-mm-ss}.txt");
+
+            await http.PostAsync(url, form);
+            Services.CrashHandler.ClearPendingCrash();
+            if (!silent) SendToJS("toast", new { ok = true, msg = "Crash report sent. Thank you!" });
+        }
+        catch
+        {
+            if (!silent) SendToJS("toast", new { ok = false, msg = "Failed to send crash report." });
+        }
+    }
+
     // SendToJS
 
     private void SendToJS(string type, object? payload = null)

@@ -1791,5 +1791,18 @@
         </div>
     </div>
 </div>
+    <!-- Crash Report Modal -->
+    <div class="modal-overlay" id="modalCrash" style="display:none;">
+        <div class="modal-box" style="width:750px;max-width:90%;">
+            <div class="modal-icon" style="background:rgba(224,108,117,.12);color:var(--err);"><span class="msi" style="font-size:22px;">bug_report</span></div>
+            <div class="modal-title" data-i18n="crash.modal.title">VRCNext has crashed</div>
+            <div class="modal-msg" data-i18n="crash.modal.msg">Would you like to send the crash report to the developers to help them fix the issue? The crash log is anonymous and only contains the stack trace of the crash. It does not include any personal information or user data.</div>
+            <div class="log-area" id="crashLogPreview" style="max-height:200px;margin:14px 0 4px;font-size:10.5px;"></div>
+            <div class="modal-btns" style="justify-content:space-between;">
+                <button class="vrcn-button-round vrcn-btn-join" onclick="document.getElementById('modalCrash').style.display='none';sendToCS({action:'sendCrashReport'})" data-i18n="crash.modal.send">Send Report</button>
+                <button class="vrcn-button-round" onclick="document.getElementById('modalCrash').style.display='none';sendToCS({action:'dismissCrashReport'})" data-i18n="common.close">Close</button>
+            </div>
+        </div>
+    </div>
 </body>
 </html>

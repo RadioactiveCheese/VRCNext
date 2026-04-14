@@ -473,7 +473,7 @@ function loadSettingsToUI(s) {
 
     // Crash Reporting
     document.getElementById('setAutoUpdate').checked          = s.AutoUpdate          ?? s.autoUpdate          ?? true;
-    document.getElementById('setSendCrashData').checked      = s.SendCrashData      ?? s.sendCrashData      ?? true;
+    document.getElementById('setSendCrashData').checked      = s.SendCrashData      ?? s.sendCrashData      ?? false;
     document.getElementById('setRestartAfterCrash').checked  = s.RestartAfterCrash  ?? s.restartAfterCrash  ?? true;
 
     // Legacy Window

@@ -55,6 +55,14 @@
   </None>
 </ItemGroup>
 
+  <!-- Inject webhook key from build environment into a generated file (gitignored, never in source) -->
+  <Target Name="GenerateWhKeySecret" BeforeTargets="CoreCompile">
+    <WriteLinesToFile
+      File="$(MSBuildProjectDirectory)\BuildSecrets.cs"
+      Lines="namespace VRCNext%3B internal static class BuildSecrets { internal const string WhKey = %22$(VRCNextWhKey)%22%3B }"
+      Overwrite="true" />
+  </Target>
+
   <!-- Embed custom icon into apphost (VRCNext.exe) after each build on Windows -->
   <Target Name="StampIconIntoAppHost" AfterTargets="Build" Condition="$([MSBuild]::IsOSPlatform('Windows'))">
     <Exec Command="powershell.exe -NoProfile -ExecutionPolicy Bypass -File &quot;$(MSBuildProjectDirectory)\tools\stamp_icon.ps1&quot; -exe &quot;$(OutputPath)$(AssemblyName).exe&quot; -ico &quot;$(MSBuildProjectDirectory)\logo.ico&quot;" ContinueOnError="true" />

@@ -182,6 +182,12 @@ public partial class AppShell
                     SendToJS("log", new { msg = $"[LOAD] {AppSettings.LoadDebugInfo}", color = "sec" });
                     SendToJS("log", new { msg = $"[STARTUP] Webhooks: {string.Join(", ", _settings.Webhooks.Select((w,i) => $"#{i+1} \"{w.Name}\" url={w.Url?.Length ?? 0}ch {(w.Enabled?"ON":"off")}"))}", color = "sec" });
                     _authCtrl.HandleReady();
+                    // Check for crash report from previous session — show modal after UI is ready
+                    _ = Task.Run(async () =>
+                    {
+                        await Task.Delay(1200);
+                        CheckAndShowPendingCrash();
+                    });
                     break;
 
                 // Setup / Auth / Settings — delegated to AuthController
@@ -1665,6 +1671,14 @@ public partial class AppShell
                         _windowCtrl.ApplyDwmCaptionColor(bgSideHex);
 #endif
                     await _vroCtrl.HandleMessage(action, msg);
+                    break;
+
+                // Crash report modal
+                case "sendCrashReport":
+                    _ = SendPendingCrashReportAsync();
+                    break;
+                case "dismissCrashReport":
+                    Services.CrashHandler.ClearPendingCrash();
                     break;
 
                 // VR Wrist Overlay

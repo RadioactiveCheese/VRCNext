@@ -11,9 +11,10 @@ namespace VRCNext.Services;
 /// </summary>
 internal static class CrashHandler
 {
-    private static string _crashDir     = "";
-    private static string _sentinelPath = "";
-    private static string _stderrPath   = "";
+    private static string _crashDir        = "";
+    private static string _sentinelPath    = "";
+    private static string _stderrPath      = "";
+    private static string _pendingCrashPath = "";
 
     // Breadcrumb trail — last 40 operations before crash
     private static readonly System.Collections.Concurrent.ConcurrentQueue<string> _breadcrumbs = new();
@@ -35,8 +36,9 @@ internal static class CrashHandler
         var logsDir = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
             "VRCNext", "Logs");
-        _crashDir     = Path.Combine(logsDir, "Crashes");
-        _sentinelPath = Path.Combine(logsDir, "session.sentinel");
+        _crashDir         = Path.Combine(logsDir, "Crashes");
+        _sentinelPath     = Path.Combine(logsDir, "session.sentinel");
+        _pendingCrashPath = Path.Combine(logsDir, "pending_crash.txt");
         Directory.CreateDirectory(_crashDir);
 
         // Redirect Win32 STD_ERROR_HANDLE
@@ -273,8 +275,86 @@ internal static class CrashHandler
             sb.AppendLine("═══════════════════════════════════════════════════════════════");
 
             File.WriteAllText(path, sb.ToString(), Encoding.UTF8);
+
+            // Mark crash as pending so the next startup shows the report modal
+            if (isTerminating) WritePendingCrashMarker(path);
         }
         catch { }
+    }
+
+    // ── Pending-crash helpers (called from AppShell on next startup) ────────
+
+    private static void WritePendingCrashMarker(string crashFilePath)
+    {
+        try { File.WriteAllText(_pendingCrashPath, crashFilePath, Encoding.UTF8); } catch { }
+    }
+
+    /// <summary>Returns the path to the pending crash file, or null if none exists.</summary>
+    public static string? GetPendingCrashFilePath()
+    {
+        try
+        {
+            if (!File.Exists(_pendingCrashPath)) return null;
+            var path = File.ReadAllText(_pendingCrashPath, Encoding.UTF8).Trim();
+            return File.Exists(path) ? path : null;
+        }
+        catch { return null; }
+    }
+
+    public static void ClearPendingCrash()
+    {
+        try { if (File.Exists(_pendingCrashPath)) File.Delete(_pendingCrashPath); } catch { }
+    }
+
+    /// <summary>
+    /// Returns the key sections of a crash log as plain text for display in the modal preview.
+    /// Extracts Exception + Breadcrumbs for managed crashes; falls back to the first 80 lines.
+    /// </summary>
+    public static string GetPreviewText(string crashContent, int maxLines = 80)
+    {
+        var exception   = ExtractCrashSection(crashContent, "─── Exception");
+        var breadcrumbs = ExtractCrashSection(crashContent, "─── Recent Activity");
+        var combined = string.Concat(exception, breadcrumbs);
+        if (string.IsNullOrWhiteSpace(combined))
+            combined = crashContent; // watchdog report — show full content
+
+        return string.Join('\n', combined.Split('\n').Take(maxLines));
+    }
+
+    /// <summary>
+    /// Strips personal data from a crash report and extracts the sections useful for developers.
+    /// Safe to send to an external endpoint.
+    /// </summary>
+    public static string SanitizeForReport(string crashContent)
+    {
+        var sb = new StringBuilder();
+        foreach (var header in new[] { "─── Exception", "─── Recent Activity", "─── CLR stderr", "─── Windows Application Event Log" })
+        {
+            var section = ExtractCrashSection(crashContent, header);
+            if (!string.IsNullOrWhiteSpace(section)) sb.Append(section);
+        }
+        var result = sb.ToString();
+        if (string.IsNullOrWhiteSpace(result)) result = crashContent;
+
+        // Strip Windows absolute paths (may contain username in C:\Users\<name>\...)
+        result = System.Text.RegularExpressions.Regex.Replace(result,
+            @"[A-Za-z]:\\[^\s\n,""']+", "<path-redacted>");
+        // Redact Machine Name / User Name fields
+        result = System.Text.RegularExpressions.Regex.Replace(result,
+            @"(Machine Name\s*:\s*)\S+", "$1<redacted>", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+        result = System.Text.RegularExpressions.Regex.Replace(result,
+            @"(User Name\s*:\s*)\S+", "$1<redacted>", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+
+        return result;
+    }
+
+    private static string ExtractCrashSection(string report, string sectionHeader)
+    {
+        var start = report.IndexOf(sectionHeader, StringComparison.Ordinal);
+        if (start < 0) return "";
+        var nextSection = report.IndexOf("\n─── ", start + sectionHeader.Length, StringComparison.Ordinal);
+        var end = nextSection >= 0 ? nextSection + 1 : report.Length;
+        return report[start..end].TrimEnd() + "\n\n";
     }
 
     private static void WriteException(StringBuilder sb, Exception ex, int depth)

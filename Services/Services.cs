@@ -377,7 +377,7 @@ public class AppSettings
     public bool AutoUpdate { get; set; } = true;
 
     // Crash Reporting, send anonymous stack traces to the developer via Discord webhook
-    public bool SendCrashData { get; set; } = true;
+    public bool SendCrashData { get; set; } = false;
     // Restart after crash. We do ignore task manager kills here!
     public bool RestartAfterCrash { get; set; } = true;
 

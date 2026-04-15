@@ -40,6 +40,13 @@
     <PackageReference Include="DiscordRichPresence" Version="1.2.1.24" />
   </ItemGroup>
   <ItemGroup>
+    <Compile  Remove="translations\**" />
+    <Content  Remove="translations\**" />
+    <EmbeddedResource Remove="translations\**" />
+    <None     Remove="translations\**" />
+  </ItemGroup>
+
+  <ItemGroup>
     <Content Include="wwwroot\**" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 

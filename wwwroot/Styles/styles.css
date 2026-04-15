@@ -559,8 +559,8 @@ c
     inset: -4px;
     border-radius: 50%;
     border: 2px solid #1DB954;
-    opacity: 0;
-    animation: play-pulse 2.5s ease-out infinite;
+    opacity: .28;
+    animation: none;
     pointer-events: none;
 }
 
@@ -682,7 +682,7 @@ c
 .mini-badge.online .mini-badge-icon {
     font-size: 13px;
     color: var(--ok);
-    animation: pulse 2s infinite;
+    animation: none;
 }
 
 .mini-badge.online .mini-badge-label {
@@ -1210,8 +1210,8 @@ html.text-tools-active * { user-select: text !important; }
     min-width: 30px;
     max-width: 90px;
 }
-.content:has(#tab7.active),
-.content:has(#tab12.active) { overflow-y: hidden; padding-bottom: 0; }
+.content.tab7-active,
+.content.tab12-active { overflow-y: hidden; padding-bottom: 0; }
 #tab7.active {
     display: flex;
     flex-direction: column;
@@ -4508,7 +4508,7 @@ html.text-tools-active * { user-select: text !important; }
         var(--bg-hover) 50%,
         var(--bg-input) 75%);
     background-size: 1200px 100%;
-    animation: sk-shimmer 1.4s infinite linear;
+    animation: sk-shimmer 1.4s linear 2;
     border-radius: 6px;
 }
 
@@ -5431,7 +5431,7 @@ html.text-tools-active * { user-select: text !important; }
     border-radius: 10px;
     background: linear-gradient(90deg, var(--bg-card) 25%, var(--bg-hover) 50%, var(--bg-card) 75%);
     background-size: 200% 100%;
-    animation: skShimmer 1.4s infinite;
+    animation: sk-shimmer 1.4s linear 2;
 }
 
 .tl-sk-short {

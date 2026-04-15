@@ -1053,6 +1053,11 @@ function showTab(i) {
     if (_prevTab === 7 && i !== 7) destroyLibrary();
     _prevTab = i;
     document.querySelectorAll('.tab').forEach((t, j) => t.classList.toggle('active', j === i));
+    const contentEl = document.querySelector('.content');
+    if (contentEl) {
+        contentEl.classList.toggle('tab7-active', i === 7);
+        contentEl.classList.toggle('tab12-active', i === 12);
+    }
     // Clear active from all nav-btns (including sub-items and group headers)
     document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
     document.querySelectorAll('.nav-group').forEach(g => g.classList.remove('has-active'));

@@ -1,4 +1,4 @@
-**2026.16.0**
+**2026.16.1**
 
 **Sharable Messenger Content**
 With sharable Messenger Content, you can copy an Avatar ID, World ID, Profile ID, and more, then paste it into Messenger. When you send one of these IDs through the VRCN Messenger, your friend will see a preview of the content and can click it to open it directly in VRCNext.
@@ -21,4 +21,6 @@ The Dashboard now includes a new tab that shows a clock, the time you have spent
 **Fixes**
 * Fixed some image cache related issues.
 * Fixed LogWatcher concurrent poll race condition that caused the app to freeze and stop updating when many players joined/left at once.
+* Fixed a crash on app close caused by a NullReferenceException in SQLite when disposing the timeline database connection.
+* Fixed VR Overlay notifications showing `?` instead of `→` in status/location texts (IPC pipe was using ANSI encoding instead of UTF-8).
 

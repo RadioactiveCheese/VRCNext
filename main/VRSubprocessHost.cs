@@ -59,6 +59,8 @@ public sealed class VRSubprocessHost : IDisposable
             RedirectStandardError  = false,
             UseShellExecute        = false,
             CreateNoWindow         = true,
+            StandardInputEncoding  = new System.Text.UTF8Encoding(false),
+            StandardOutputEncoding = new System.Text.UTF8Encoding(false),
         };
 
         _process = Process.Start(psi)!;

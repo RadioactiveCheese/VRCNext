@@ -1698,7 +1698,6 @@ public class TimelineService : IDisposable
     {
         if (_disposed) return;
         _disposed = true;
-        try { _db.Close(); } catch { }
-        _db.Dispose();
+        try { _db?.Dispose(); } catch { }
     }
 }

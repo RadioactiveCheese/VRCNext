@@ -94,8 +94,9 @@ namespace VRCNext.Services
         private Bitmap?   _bitmap;
         private const int W = 512;
         private const int H = 384;
+        private const int RenderScale = 2; // render at 2× resolution for sharper overlay
         // Preallocated RGBA pixel buffer for CPU→staging copy
-        private readonly byte[] _uploadBuf = new byte[W * H * 4];
+        private readonly byte[] _uploadBuf = new byte[W * H * 4 * RenderScale * RenderScale];
         // SMTC poll — query media session every ~3 s (270 × 11 ms)
         private int  _smtcTick = 0;
         private bool _smtcPolling = false;
@@ -627,7 +628,7 @@ namespace VRCNext.Services
                 var mouseScale = new HmdVector2_t { v0 = W, v1 = H };
                 OpenVR.Overlay.SetOverlayMouseScale(_overlayHandle, ref mouseScale);
 
-                _bitmap = new Bitmap(W, H, PixelFormat.Format32bppArgb);
+                _bitmap = new Bitmap(W * RenderScale, H * RenderScale, PixelFormat.Format32bppArgb);
 
                 // D3D11: staging (CPU-writable) + overlay (GPU, SteamVR reads from it).
                 try
@@ -639,7 +640,7 @@ namespace VRCNext.Services
                     // Overlay texture: GPU-only, SteamVR reads from it each compositor frame
                     var overlayDesc = new Texture2DDescription
                     {
-                        Width = W, Height = H, MipLevels = 1, ArraySize = 1,
+                        Width = W * RenderScale, Height = H * RenderScale, MipLevels = 1, ArraySize = 1,
                         Format = Format.R8G8B8A8_UNorm,   // RGBA — safest for SteamVR
                         SampleDescription = new SampleDescription(1, 0),
                         Usage = ResourceUsage.Default,
@@ -650,7 +651,7 @@ namespace VRCNext.Services
                     // Staging texture: CPU-writable, source for CopyResource
                     var stagingDesc = new Texture2DDescription
                     {
-                        Width = W, Height = H, MipLevels = 1, ArraySize = 1,
+                        Width = W * RenderScale, Height = H * RenderScale, MipLevels = 1, ArraySize = 1,
                         Format = Format.R8G8B8A8_UNorm,
                         SampleDescription = new SampleDescription(1, 0),
                         Usage = ResourceUsage.Staging,
@@ -1702,14 +1703,13 @@ namespace VRCNext.Services
                 }
             }
 
-            // Notifications tab action button clicks (join + accept)
-            // Square button: jbW = h-4 = itemH-4-4 = 70px, jbX = x+w-jbW-2 = 12+488-70-2 = 428
-            if (_activeTab == 0)
+
+            if (_activeTab == 1)
             {
                 const int contentY2 = 72, itemH2 = 78;
                 int gdix2 = (int)(nx * W);
                 int gdiy2 = (int)((1f - ny) * H);
-                // jbX = 12 + (W-24) - (itemH2-4-4) - 2 = W - 86; right edge = W - 12 - 2 = W-14
+
                 if (gdix2 >= W - 86 && gdix2 <= W - 14)
                 {
                     int row2 = (gdiy2 - contentY2) / itemH2;
@@ -2375,11 +2375,12 @@ namespace VRCNext.Services
                     || MathF.Abs(_friendsScrollVY)  > 0.5f;
 
                 using var g = Graphics.FromImage(_bitmap);
-                g.SmoothingMode     = scrolling ? SmoothingMode.None          : SmoothingMode.AntiAlias;
-                g.TextRenderingHint = scrolling ? TextRenderingHint.SystemDefault : TextRenderingHint.ClearTypeGridFit;
+                g.SmoothingMode     = scrolling ? SmoothingMode.None : SmoothingMode.AntiAlias;
+                g.TextRenderingHint = TextRenderingHint.AntiAlias; // ClearType doesn't work with ScaleTransform
                 g.InterpolationMode = scrolling ? System.Drawing.Drawing2D.InterpolationMode.Bilinear
                                                 : System.Drawing.Drawing2D.InterpolationMode.HighQualityBicubic;
                 g.Clear(Color.Transparent);
+                g.ScaleTransform(RenderScale, RenderScale);
 
                 DrawBackground(g);
                 DrawTabBar(g);
@@ -3601,11 +3602,12 @@ namespace VRCNext.Services
             if (_bitmap == null || OpenVR.Overlay == null || _overlayHandle == 0) return;
 
             // 1. Copy GDI+ bitmap (BGRA) → _uploadBuf with R↔B swap for R8G8B8A8_UNorm
-            var bmpRect = new Rectangle(0, 0, W, H);
+            int RW = W * RenderScale, RH = H * RenderScale;
+            var bmpRect = new Rectangle(0, 0, RW, RH);
             var bmpData = _bitmap.LockBits(bmpRect, ImageLockMode.ReadOnly, PixelFormat.Format32bppArgb);
             try
             {
-                int bytes = W * H * 4;
+                int bytes = RW * RH * 4;
                 Marshal.Copy(bmpData.Scan0, _uploadBuf, 0, bytes);
                 for (int i = 0; i < bytes; i += 4)
                     (_uploadBuf[i], _uploadBuf[i + 2]) = (_uploadBuf[i + 2], _uploadBuf[i]);
@@ -3619,8 +3621,8 @@ namespace VRCNext.Services
                     Vortice.Direct3D11.MapFlags.None);
                 try
                 {
-                    int rowBytes = W * 4;
-                    for (int y = 0; y < H; y++)
+                    int rowBytes = RW * 4;
+                    for (int y = 0; y < RH; y++)
                         Marshal.Copy(_uploadBuf, y * rowBytes,
                             IntPtr.Add(mapped.DataPointer, (int)(y * mapped.RowPitch)), rowBytes);
                 }
@@ -3639,7 +3641,7 @@ namespace VRCNext.Services
             else
             {
                 var pinned = GCHandle.Alloc(_uploadBuf, GCHandleType.Pinned);
-                try { OpenVR.Overlay.SetOverlayRaw(_overlayHandle, pinned.AddrOfPinnedObject(), (uint)W, (uint)H, 4); }
+                try { OpenVR.Overlay.SetOverlayRaw(_overlayHandle, pinned.AddrOfPinnedObject(), (uint)RW, (uint)RH, 4); }
                 finally { pinned.Free(); }
             }
         }

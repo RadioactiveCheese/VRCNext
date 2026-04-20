@@ -66,21 +66,19 @@ public class WindowController
         const uint WM_SYSCOMMAND = 0x0112;
         const int  SC_MINIMIZE   = 0xF020;
 
+        if (msg == WM_NCDESTROY)
+        {
+            _subclassProc = null;
+            return DefSubclassProc(hWnd, msg, wParam, lParam);
+        }
+
+        if (_ncDestroyed)
+            return 0;
+
         if (msg == WM_DESTROY)
         {
             _ncDestroyed = true;
-            return DefSubclassProc(hWnd, msg, wParam, lParam); // safe — handle still valid here
-        }
-
-        // Drop everything after teardown started, EXCEPT WM_NCDESTROY which needs cleanup.
-        if (_ncDestroyed)
-        {
-            if (msg == WM_NCDESTROY && _subclassProc != null)
-            {
-                RemoveWindowSubclass(hWnd, _subclassProc, SubclassId);
-                _subclassProc = null;
-            }
-            return 0;
+            return DefSubclassProc(hWnd, msg, wParam, lParam);
         }
 
         if (msg == WM_SIZE && wParam == 1 /*SIZE_MINIMIZED*/)
@@ -95,7 +93,7 @@ public class WindowController
         if (msg == WM_SYSCOMMAND && (wParam.ToInt32() & 0xFFF0) == SC_MINIMIZE && _minimizeToTray)
         {
             ShowWindow(hWnd, SW_HIDE);
-            OnMinimized?.Invoke(); // SW_HIDE does not send WM_SIZE, so trigger here
+            OnMinimized?.Invoke();
             return 0;
         }
 

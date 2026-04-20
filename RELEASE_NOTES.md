@@ -1,18 +1,9 @@
-**2026.16.2**
+**2026.16.3**
 
-**User Profiles**
-
-* Added a **VRC+** badge to user profiles. It will be shown when a user supports VRChat with VRC+.
-* Added **Mutual Groups** to user profiles. these can be found inside the "Mutuals" Tab.
-
-**Changes**
-
-* Renamed sidebar section "IN INSTANCE" to "SAME INSTANCE" across all supported languages.
+**VR Overlay**
+* Doubled the overlay rendering resolution (1024×768 instead of 512×384) for a sharper image when holding the overlay close.
 
 **Fixes**
-
-* Fixed modals going off-screen when zooming in with CTRL + Scroll. Modals now stay fully within the visible area at any zoom level.
-
-**Removed**
-
-* Removed the **Mutual** badge, as it is no longer needed since the mutual count is already shown in the navigation bar inside user profiles.
+* Fixed VR overlay notifications tab Accept and Join buttons were not responding to clicks.
+* Fixed a native crash (0xC0000005 Access Violation) on app close caused by incorrect WM_NCDESTROY handling in the window subclass teardown.
+* Fixed SQLite crash on app close (NullReferenceException when disposing the timeline database connection).

@@ -1089,6 +1089,7 @@ function showTab(i) {
     if (i === 0) renderDashboard();
     if (i === 1 && favWorldsData.length === 0) sendToCS({ action: 'vrcGetFavoriteWorlds' });
     if (i === 2 && !myGroupsLoaded) loadMyGroups();
+    if (i === 23) { if (!myGroupsLoaded) loadMyGroups(); if (typeof onSnipeTabOpen === 'function') onSnipeTabOpen(); }
     if (i === 3 && favFriendsData.length === 0) sendToCS({ action: 'vrcGetFavoriteFriends' });
     if (i === 4) { if (!avatarsLoaded) refreshAvatars(); }
     if (i === 7) { if (!libraryFiles.length) refreshLibrary(); else filterLibrary(); }

@@ -730,6 +730,9 @@ case 'popularWorlds':
             case 'kxdMeter': updateKxdMeter(payload.level); break;
             case 'kxdRecognized': handleKxdRecognized(payload); break;
             case 'kxdTranslated': handleKxdTranslated(payload); break;
+            case 'snipeStatus': handleSnipeStatus(payload); break;
+            case 'snipeFound': handleSnipeFound(payload); break;
+            case 'snipeJoinResult': handleSnipeJoinResult(payload); break;
             case 'oscState':
                 handleOscState(payload);
                 break;

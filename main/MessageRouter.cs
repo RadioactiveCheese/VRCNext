@@ -1289,6 +1289,13 @@ public partial class AppShell
                     _kxdCtrl.HandleMessage(action, msg);
                     break;
 
+                // Event Snipe
+                case "vrcStartSnipe":
+                case "vrcStopSnipe":
+                case "vrcSnipeStatus":
+                    await _snipeCtrl.HandleMessage(action, msg);
+                    break;
+
                 // OSC Tool
                 case "oscConnect":
                 case "oscDisconnect":

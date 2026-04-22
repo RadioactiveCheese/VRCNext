@@ -45,6 +45,7 @@ public partial class AppShell
     private VoiceFightController _vfCtrl = null!;
     private KikitanXDController _kxdCtrl = null!;
     private RelayController _relayCtrl = null!;
+    private SnipeController _snipeCtrl = null!;
     private WindowController _windowCtrl = null!;
     private ImageCacheService? _imgCache;
     private readonly CacheHandler _cache = new();
@@ -164,6 +165,7 @@ public partial class AppShell
         _chatboxCtrl = new ChatboxController(_core, _vroCtrl);
         _vfCtrl = new VoiceFightController(_core, _vroCtrl);
         _kxdCtrl = new KikitanXDController(_core);
+        _snipeCtrl = new SnipeController(_core);
         _relayCtrl = new RelayController(_core, _friends, _instance, _notifications, _vroCtrl);
         _windowCtrl = new WindowController(_core);
 #if WINDOWS
@@ -416,6 +418,7 @@ public partial class AppShell
         _sfCtrl?.Dispose();
         _vfCtrl?.Dispose();
         _kxdCtrl?.Dispose();
+        _snipeCtrl?.Dispose();
         _discordCtrl?.Dispose();
         _chatboxCtrl?.Dispose();
         _vroCtrl?.Dispose();

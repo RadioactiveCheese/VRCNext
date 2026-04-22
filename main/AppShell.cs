@@ -46,6 +46,7 @@ public partial class AppShell
     private KikitanXDController _kxdCtrl = null!;
     private RelayController _relayCtrl = null!;
     private WindowController _windowCtrl = null!;
+    private SnipeController _snipeCtrl = null!;
     private ImageCacheService? _imgCache;
     private readonly CacheHandler _cache = new();
     private static readonly System.Text.RegularExpressions.Regex _vrcImgUrlRegex = new(
@@ -166,6 +167,7 @@ public partial class AppShell
         _kxdCtrl = new KikitanXDController(_core);
         _relayCtrl = new RelayController(_core, _friends, _instance, _notifications, _vroCtrl);
         _windowCtrl = new WindowController(_core);
+        _snipeCtrl = new SnipeController(_core);
 #if WINDOWS
         WindowController.OnMinimized = () => _memTrim.TrimNow();
 #endif
@@ -417,6 +419,7 @@ public partial class AppShell
         _vfCtrl?.Dispose();
         _kxdCtrl?.Dispose();
         _discordCtrl?.Dispose();
+        _snipeCtrl?.Dispose();
         _chatboxCtrl?.Dispose();
         _vroCtrl?.Dispose();
         _timeline.Dispose();

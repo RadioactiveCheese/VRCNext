@@ -424,7 +424,7 @@ function renderGroupDetail(g) {
         <div id="gdTabMembers" style="display:none;">${membersTab}</div>
         ${g.canManageRoles ? `<div id="gdTabRoles" style="display:none;">${rolesTab}</div>` : ''}
         ${g.canBan ? `<div id="gdTabBanned" style="display:none;">${bannedTab}</div>` : ''}
-        <div style="margin-top:10px;display:flex;justify-content:space-between;align-items:center;"><div style="display:flex;gap:8px;">${inviteBtn}${createPostBtn}${createEventBtn}${leaveJoinBtn}</div><button class="vrcn-button-round" onclick="document.getElementById('modalDetail').style.display='none'">${t('common.close', 'Close')}</button></div>
+        <div style="margin-top:10px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;"><div style="display:flex;gap:8px;flex-wrap:wrap;">${inviteBtn}${createPostBtn}${createEventBtn}<button class="vrcn-button-round" onclick="document.getElementById('modalDetail').style.display='none';openSnipeForGroup('${gidJs}')"><span class="msi" style="font-size:16px;vertical-align:middle;margin-right:4px;">gps_fixed</span>${t('groups.actions.snipe', 'Snipe')}</button>${leaveJoinBtn}</div><button class="vrcn-button-round" onclick="document.getElementById('modalDetail').style.display='none'">${t('common.close', 'Close')}</button></div>
     </div>`;
     applyGroupDetailTranslations(g);
 }
@@ -1752,4 +1752,94 @@ function handleGroupInviteProgress(payload) {
             if (btn) { btn.disabled = count === 0; }
         }, 1500);
     }
+}
+
+function toggleSnipePanel(){
+    const panel = document.getElementById('snipePanel');
+    if (!panel) return;
+    panel.style.display = panel.style.display === 'none' ? '' : 'none';
+}
+
+function openSnipeForGroup(groupId) {
+    showTab(2);
+    const panel = document.getElementById('snipePanel');
+    const input = document.getElementById('snipeGroupIdInput');
+    if (panel) panel.style.display = '';
+    if (input) { input.value = groupId; input.focus(); }
+}
+
+function startSnipe() {
+    const groupId = (document.getElementById('snipeGroupIdInput')?.value || '').trim();
+    if (!groupId) { showToast(false, t('groups.snipe.toast.no_group_id', 'Group ID is required')); return; }
+    const worldId    = (document.getElementById('snipeWorldIdInput')?.value || '').trim();
+    const autoJoin   = document.getElementById('snipeAutoJoin')?.checked ?? true;
+    const minCap     = parseInt(document.getElementById('snipeMinCap')?.value || '0', 10) || 0;
+    const accessTypes = Array.from(document.querySelectorAll('.snipe-access-type:checked')).map(el => el.value);
+    sendToCS({ action: 'vrcStartSnipe', groupId, worldId, autoJoin, minCapacity: minCap, accessTypes });
+}
+
+function stopSnipe() {
+    sendToCS({ action: 'vrcStopSnipe' });
+}
+
+function handleSnipeStatus(p) {
+    const dot    = document.getElementById('snipeActiveDot');
+    const toggle = document.getElementById('snipeToggleBtn');
+    const start  = document.getElementById('snipeStartBtn');
+    const stop   = document.getElementById('snipeStopBtn');
+    const status = document.getElementById('snipeStatusText');
+    if (p.active) {
+        if (toggle) toggle.classList.add('vrcn-btn-primary');
+        if (dot)    dot.style.display = '';
+        if (start)  start.style.display = 'none';
+        if (stop)   stop.style.display = '';
+        if (status) {
+            if (p.rateLimited) {
+                status.textContent = tf('groups.snipe.status.rate_limited', { seconds: Math.round((p.backoffMs || 0) / 1000) }, 'Rate limited – backing off {seconds}s');
+                status.style.color = 'var(--warn, orange)';
+            } else {
+                status.textContent = tf('groups.snipe.status.active', { groupId: p.groupId || '' }, 'Active – {groupId}');
+                status.style.color = 'var(--ok, #4caf50)';
+            }
+        }
+    } else {
+        if (toggle) toggle.classList.remove('vrcn-btn-primary');
+        if (dot)    dot.style.display = 'none';
+        if (start)  start.style.display = '';
+        if (stop)   stop.style.display = 'none';
+        if (status) { status.textContent = p.error || t('groups.snipe.status.idle', 'Idle'); status.style.color = 'var(--tx3)'; }
+    }
+}
+
+function handleSnipeFound(p) {
+    const log = document.getElementById('snipeLog');
+    if (log) {
+        const row = document.createElement('div');
+        row.className = 'fd-group-card';
+        row.style.cssText = 'display:flex;align-items:center;justify-content:space-between;padding:8px 12px;cursor:default;';
+        const info = document.createElement('div');
+        info.style.fontSize = '12px';
+        info.innerHTML = `<div style="font-weight:600;color:var(--tx0);">${esc(p.worldName || p.worldId || '?')}</div>
+            <div style="color:var(--tx3);font-size:10px;">${esc(p.accessType || '')} · ${p.userCount ?? '?'}/${p.capacity ?? '?'}</div>`;
+        const joinBtn = document.createElement('button');
+        joinBtn.className = 'vrcn-button-round vrcn-btn-join';
+        joinBtn.style.flexShrink = '0';
+        const loc = p.location || '';
+        joinBtn.onclick = () => sendToCS({ action: 'vrcJoinFriend', location: loc });
+        joinBtn.innerHTML = `<span class="msi" style="font-size:14px;">login</span> Join`;
+        row.appendChild(info);
+        row.appendChild(joinBtn);
+        log.insertBefore(row, log.firstChild);
+        const panel = document.getElementById('snipePanel');
+        if (panel) panel.style.display = '';
+    }
+    showToast(true, tf('groups.snipe.toast.found', { name: p.worldName || p.worldId || p.instanceId || '?' }, 'New instance: {name}'));
+}
+
+function handleSnipeJoinResult(p) {
+    showToast(p.success,
+        p.success
+            ? t('groups.snipe.toast.joined', 'Joined!')
+            : tf('groups.snipe.toast.join_failed', { error: p.error || 'unknown' }, 'Join failed: {error}')
+    );
 }

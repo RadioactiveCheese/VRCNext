@@ -421,6 +421,8 @@ public class ImageCacheService
     {
         if (url.Contains("/variant/")) return "";
         if (url.Contains("/api/1/file/")) return "";
+        if (url.Contains("/api/1/image/") && url.EndsWith("/256"))
+            return url[..^3] + "512";
         return url;
     }
 

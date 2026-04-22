@@ -2596,9 +2596,18 @@ public class VRChatApiService
     // Priority: userIcon (profile pic) → profilePicOverride (banner) → currentAvatarThumbnailImageUrl (avatar thumbnail)
     public static string GetUserImage(JObject user)
     {
-        return user["userIcon"]?.ToString() is string s1 && !string.IsNullOrEmpty(s1) ? s1 :
-               user["profilePicOverride"]?.ToString() is string s2 && !string.IsNullOrEmpty(s2) ? s2 :
-               user["currentAvatarThumbnailImageUrl"]?.ToString() is string s3 && !string.IsNullOrEmpty(s3) ? s3 : "";
+        var url = user["userIcon"]?.ToString() is string s1 && !string.IsNullOrEmpty(s1) ? s1 :
+                  user["profilePicOverride"]?.ToString() is string s2 && !string.IsNullOrEmpty(s2) ? s2 :
+                  user["currentAvatarThumbnailImageUrl"]?.ToString() is string s3 && !string.IsNullOrEmpty(s3) ? s3 : "";
+        return UpgradeImageResolution(url);
+    }
+
+    // Upgrades VRChat thumbnail URLs from /256 to /512.
+    public static string UpgradeImageResolution(string url)
+    {
+        if (url.Contains("/api/1/image/") && url.EndsWith("/256"))
+            return url[..^3] + "512";
+        return url;
     }
 
     // Helper to parse location string

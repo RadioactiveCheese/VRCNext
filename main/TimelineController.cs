@@ -529,6 +529,46 @@ public class TimelineController
             }
         }
 
+        // 3) Avatar images (avatar_switch — UserId is the avatarId, fetch via GetAvatarAsync)
+        var avatarEventRefs  = events
+            .Where(e => e.Type == "avatar_switch" && string.IsNullOrEmpty(e.UserImage) && !string.IsNullOrEmpty(e.UserId))
+            .Select(e => (evId: e.Id, avatarId: e.UserId))
+            .ToList();
+        if (avatarEventRefs.Count > 0)
+        {
+            var fetchedAvatarImgs = new Dictionary<string, string>();
+            foreach (var aid in avatarEventRefs.Select(r => r.avatarId).Distinct())
+                fetchedAvatarImgs[aid] = "";
+
+            var avSem = new SemaphoreSlim(3);
+            await Task.WhenAll(fetchedAvatarImgs.Keys.Select(async aid =>
+            {
+                await avSem.WaitAsync();
+                try
+                {
+                    if (ct.IsCancellationRequested) return;
+                    var av = await _core.VrcApi.GetAvatarAsync(aid);
+                    if (av != null)
+                    {
+                        var img = av["thumbnailImageUrl"]?.ToString() ?? av["imageUrl"]?.ToString() ?? "";
+                        if (!string.IsNullOrEmpty(img)) fetchedAvatarImgs[aid] = img;
+                    }
+                    await Task.Delay(250);
+                }
+                finally { avSem.Release(); }
+            }));
+
+            foreach (var (evId, aid) in avatarEventRefs)
+            {
+                if (!fetchedAvatarImgs.TryGetValue(aid, out var img) || string.IsNullOrEmpty(img)) continue;
+                var localImg = img;
+                _core.Timeline.UpdateEvent(evId, ev => { if (string.IsNullOrEmpty(ev.UserImage)) ev.UserImage = localImg; });
+                var localEv = events.FirstOrDefault(e => e.Id == evId);
+                if (localEv != null && string.IsNullOrEmpty(localEv.UserImage)) localEv.UserImage = img;
+                anyResolved = true;
+            }
+        }
+
         if (fetchedImgs.Count > 0)
         {
             var toFetch  = fetchedImgs.Keys.Take(60).ToList();

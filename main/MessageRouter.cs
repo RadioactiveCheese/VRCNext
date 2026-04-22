@@ -1246,13 +1246,6 @@ public partial class AppShell
                     await _groups.HandleMessage(action, msg);
                     break;
 
-                // Instance Sniping
-                case "vrcStartSnipe":
-                case "vrcStopSnipe":
-                case "vrcSnipeStatus":
-                    await _snipeCtrl.HandleMessage(action, msg);
-                    break;
-
                 // Custom Chatbox OSC
                 case "chatboxConfig":
                 case "chatboxStop":

@@ -643,6 +643,8 @@ function getPageTitle(i) {
         t('page.discord_presence', 'Discord Presence'),
         t('page.vr_overlay', 'VR Overlay'),
         t('page.permini', 'Permini'),
+        t('page.kikitan_xd', 'Kikitan XD'),
+        t('page.event_snipe', 'Event Snipe'),
     ][i] ?? '';
 }
 

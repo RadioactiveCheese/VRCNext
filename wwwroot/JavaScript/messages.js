@@ -830,15 +830,6 @@ case 'popularWorlds':
         case 'vroStopWaterSound':
             if (waterAudio) { waterAudio.loop = false; waterAudio.pause(); waterAudio.currentTime = 0; }
             break;
-        case 'snipeStatus':
-            handleSnipeStatus(payload);
-            break;
-        case 'snipeFound':
-            handleSnipeFound(payload);
-            break;
-        case 'snipeJoinResult':
-            handleSnipeJoinResult(payload);
-            break;
     }
 });
 sendToCS({ action: 'ready' });

@@ -1159,6 +1159,8 @@
   "context_menu.friend.invite": "招待",
   "context_menu.friend.invite_message": "メッセージ付きで招待",
   "context_menu.friend.invite_image": "画像付きで招待",
+  "context_menu.friend.invite_group": "グループに招待",
+  "context_menu.friend.invite_group_sent": "招待を送信しました！",
   "context_menu.friend.boop": "Boop!",
   "context_menu.friend.messenger": "メッセンジャー",
   "context_menu.friend.unfavorite": "お気に入り解除",

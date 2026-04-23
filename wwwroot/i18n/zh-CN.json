@@ -1160,6 +1160,8 @@
   "context_menu.friend.invite": "邀请",
   "context_menu.friend.invite_message": "附带消息邀请",
   "context_menu.friend.invite_image": "附带图片邀请",
+  "context_menu.friend.invite_group": "邀请加入群组",
+  "context_menu.friend.invite_group_sent": "邀请已发送！",
   "context_menu.friend.boop": "Boop！",
   "context_menu.friend.messenger": "信使",
   "context_menu.friend.unfavorite": "取消收藏",

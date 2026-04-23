@@ -538,6 +538,26 @@
         positionSubmenu(parentBtn);
     }
 
+    function showGroupInviteForUserSubmenu(userId, groups, parentBtn) {
+        submenu.innerHTML = groups.map(g => `
+            <button class="vn-ctx-item" data-gid="${esc(g.id)}" data-uid="${esc(userId)}">
+                <span class="msi" style="font-size:14px;">group</span>
+                <span class="vn-ctx-label">${esc(g.name || g.id)}</span>
+            </button>`).join('');
+        submenu.querySelectorAll('[data-gid]').forEach(btn => {
+            btn.addEventListener('click', e => {
+                e.stopPropagation();
+                const gid = btn.dataset.gid;
+                const uid = btn.dataset.uid;
+                sendToCS({ action: 'vrcInviteToGroup', groupId: gid, userIds: [uid] });
+                showToast(true, cm('friend.invite_group_sent', 'Invite sent!'));
+                hideMenu();
+            });
+            btn.addEventListener('mouseenter', () => clearTimeout(submenuTimer));
+        });
+        positionSubmenu(parentBtn);
+    }
+
     function buildGroupMemberItems(userId, grpCtx, memberRoleIds = []) {
         const modItems = [];
         if (grpCtx.canKick) {
@@ -831,6 +851,10 @@
                 actionItems.push({ icon: 'send', label: cm('friend.invite', 'Invite'), action: () => sendToCS({ action: 'vrcInviteFriend', userId: id }) });
                 actionItems.push({ icon: 'forward_to_inbox', label: cm('friend.invite_message', 'Invite with Message'), action: () => openFriendInviteModal(id, f.displayName || id, 'message') });
                 if (hasVrcPlus) actionItems.push({ icon: 'add_photo_alternate', label: cm('friend.invite_image', 'Invite with Image'), action: () => openFriendInviteModal(id, f.displayName || id, 'photo') });
+            }
+            const invitableGroups = (typeof myGroups !== 'undefined') ? myGroups.filter(g => g.canInvite === true) : [];
+            if (invitableGroups.length > 0) {
+                actionItems.push({ icon: 'group_add', label: cm('friend.invite_group', 'Invite to Group'), submenuFn: btn => showGroupInviteForUserSubmenu(id, invitableGroups, btn) });
             }
             actionItems.push({ icon: 'waving_hand', label: cm('friend.boop', 'Boop!'), action: () => { if (typeof msgrRegisterBoopSent === 'function') msgrRegisterBoopSent(id); sendToCS({ action: 'vrcBoop', userId: id }); } });
             actionItems.push({ icon: 'chat', label: cm('friend.messenger', 'Messenger'), action: () => openMessenger(id, f.displayName || id, f.image || '', f.status || '', f.statusDescription || '') });

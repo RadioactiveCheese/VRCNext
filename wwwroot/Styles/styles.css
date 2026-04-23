@@ -1595,6 +1595,7 @@ html.text-tools-active * { user-select: text !important; }
 .modal-nav-instant .modal-overlay,
 .modal-nav-instant .modal-box { animation: none !important; }
 #modalStatus { z-index: 10002; }
+#modalInvite { z-index: 10002; }
 
 /* Modal navigation breadcrumb — static shell part */
 .myp-breadcrumb-bar {
@@ -4832,7 +4833,7 @@ html.text-tools-active * { user-select: text !important; }
 .inv-world-info {
     position: absolute;
     bottom: 12px;
-    left: 16px;
+    left: 32px;
     right: 44px;
     z-index: 1;
 }

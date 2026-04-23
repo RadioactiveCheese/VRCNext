@@ -1187,6 +1187,8 @@
   "context_menu.friend.invite": "Invite",
   "context_menu.friend.invite_message": "Invite with Message",
   "context_menu.friend.invite_image": "Invite with Image",
+  "context_menu.friend.invite_group": "Invite to Group",
+  "context_menu.friend.invite_group_sent": "Invite sent!",
   "context_menu.friend.boop": "Boop!",
   "context_menu.friend.messenger": "Messenger",
   "context_menu.friend.unfavorite": "Unfavorite",

@@ -1165,6 +1165,8 @@
   "context_menu.friend.invite": "Einladen",
   "context_menu.friend.invite_message": "Mit Nachricht einladen",
   "context_menu.friend.invite_image": "Mit Bild einladen",
+  "context_menu.friend.invite_group": "In Gruppe einladen",
+  "context_menu.friend.invite_group_sent": "Einladung gesendet!",
   "context_menu.friend.boop": "Boop!",
   "context_menu.friend.messenger": "Messenger",
   "context_menu.friend.unfavorite": "Aus Favoriten entfernen",

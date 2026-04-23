@@ -5,8 +5,11 @@ This update is mostly focused on design consistency. Many modals did not share t
 **Changes**
 - Unified left/right padding across all modals — World Detail, World Search, Create Instance, My Instance, Avatar Detail, Permini Picker, and all Timeline detail modals now match the 32px side spacing of the User/Profile modal
 - Timeline list view columns now have fixed widths across all categories and subcategories — switching filters no longer causes columns to shift or rebalance
+- Context menu: Added "Invite to Group" option when right-clicking a friend — shows a submenu of joined groups with invite permission; selecting a group directly sends the invite without opening a modal
 
 **Fixes**
+- Fixed Group Invite modal appearing behind the Group Detail modal — `modalInvite` had no explicit z-index (defaulted to 10000, below `modalDetail`'s 10001); now set to 10002
+- Fixed Invite modal world title and subtitle not aligned with the search bar and friend list below — `.inv-world-info` was positioned at 16px from the left instead of 32px
 - Fixed Kikitan XD noise gate marker not showing at the correct position on initialization — `updateKxdMeter` was not called when settings were loaded, so the gate line stayed at 0% until the slider was moved
 - Fixed white stripe appearing at the bottom of scrollable areas (Timeline, modals, etc.) — caused by unstyled browser-default scrollbars; all scrollbars are now globally themed to match the dark UI
 - Fixed right-click context menu not appearing on Friend Location small cards on the dashboard

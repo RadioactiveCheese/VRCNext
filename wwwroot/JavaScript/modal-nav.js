@@ -63,6 +63,7 @@ function _navDoOpen(type, id, id2) {
         case 'avatar':      openAvatarDetail(id);           break;
         case 'group':       openGroupDetail(id);            break;
         case 'event':       openEventDetail(id, id2);       break;
+        case 'instance':    if (typeof _reopenCachedInstance === 'function') _reopenCachedInstance(id); break;
     }
 }
 
@@ -88,6 +89,11 @@ function _navCloseCurrentSilent() {
             if (md) md.style.display = 'none';
             break;
         }
+        case 'instance': {
+            const mi = document.getElementById('modalMyInstance');
+            if (mi) mi.style.display = 'none';
+            break;
+        }
     }
 }
 
@@ -96,6 +102,7 @@ const _NAV_SHELLS = [
     { overlay: 'modalWorldDetail',  bar: 'wd_navBar', p: 'wd' },
     { overlay: 'modalDetail',       bar: 'dt_navBar', p: 'dt' },
     { overlay: 'modalAvatarDetail', bar: 'av_navBar', p: 'av' },
+    { overlay: 'modalMyInstance',   bar: 'mi_navBar', p: 'mi' },
 ];
 
 const _NAV_SLOTS = 5;
@@ -178,6 +185,7 @@ function _navTypeLabel(type) {
         avatar:      typeof t === 'function' ? t('nav.modal.avatar',      'Avatar')  : 'Avatar',
         group:       typeof t === 'function' ? t('nav.modal.group',       'Group')   : 'Group',
         event:       typeof t === 'function' ? t('nav.modal.event',       'Event')   : 'Event',
+        instance:    typeof t === 'function' ? t('nav.modal.instance',    'Instance'): 'Instance',
     };
     return labels[type] || type;
 }

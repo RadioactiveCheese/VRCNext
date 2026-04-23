@@ -359,27 +359,41 @@ function removeMyInstance(location) {
     showToast(true, t('dashboard.instances.removed', 'Instance removed.'));
 }
 
-function closeMyInstanceDetail() {
+const _instanceDetailCache = {};
+
+function closeMyInstanceDetail(silent) {
     document.getElementById('modalMyInstance').style.display = 'none';
+    if (!silent) navClear();
+}
+
+function _reopenCachedInstance(location) {
+    const fn = _instanceDetailCache[location];
+    if (typeof fn === 'function') fn();
 }
 
 function openInstanceDetailFromData(inst) {
     if (!inst || inst.error) { showToast(false, t('instance.load_error', 'Could not load instance.')); return; }
+    if (inst.location) {
+        _instanceDetailCache[inst.location] = () => _renderInstanceDetailContent(inst);
+        navOpenModal('instance', inst.location, inst.worldName || '');
+    } else {
+        _renderInstanceDetailContent(inst);
+    }
+}
+
+function _renderInstanceDetailContent(inst) {
     const m = document.getElementById('modalMyInstance');
     const c = document.getElementById('myInstanceContent');
     if (!m || !c) return;
-    m.style.display = 'flex';
 
     const thumb    = inst.worldThumb || '';
     const worldId  = inst.worldId || inst.location?.split(':')[0] || '';
     const { cls, label: typeLabel } = getInstanceBadge(inst.instanceType);
     const instNum  = (inst.location || '').match(/:(\d+)/)?.[1] || '';
 
-    // Friends by API location
     const locFriends = (typeof vrcFriendsData !== 'undefined')
         ? vrcFriendsData.filter(f => f.location && f.location.match(/:(\d+)/)?.[1] === instNum)
         : [];
-    // Also check LogWatcher players (catches DnD/Ask Me friends whose location is "private")
     const locBase = (inst.location || '').split('~')[0];
     const curBase = (currentInstanceData?.location || '').split('~')[0];
     const logUsers = (locBase && curBase === locBase && currentInstanceData?.users) ? currentInstanceData.users : [];
@@ -397,7 +411,6 @@ function openInstanceDetailFromData(inst) {
     const bannerHtml = thumb
         ? `<div class="fd-banner"><img src="${thumb}" onerror="this.parentElement.style.display='none'"><div class="fd-banner-fade"></div></div>`
         : '';
-
     const copyBadge = instNum
         ? `<span class="vrcn-id-clip" onclick="copyInstanceLink('${jsq(inst.location || '')}')"><span class="msi" style="font-size:12px;">content_copy</span>#${esc(instNum)}</span>`
         : '';
@@ -405,7 +418,7 @@ function openInstanceDetailFromData(inst) {
     let friendsHtml = `<div class="wd-friends-label">${tf('dashboard.instances.friends_title', { count: instFriends.length }, 'FRIENDS IN THIS INSTANCE ({count})')}</div><div class="wd-friends-list">`;
     if (instFriends.length > 0) {
         instFriends.forEach(f => {
-            friendsHtml += renderProfileItem(f, `closeMyInstanceDetail();openFriendDetail('${jsq(f.id || '')}')`);
+            friendsHtml += renderProfileItem(f, `navOpenModal('friend','${jsq(f.id || '')}','${jsq(f.displayName || '')}')`);
         });
     } else {
         friendsHtml += `<div class="vrcn-profile-item" style="pointer-events:none;opacity:0.55;">
@@ -419,34 +432,38 @@ function openInstanceDetailFromData(inst) {
     friendsHtml += '</div>';
 
     const loc = (inst.location || '').replace(/'/g, "\\'");
-    c.innerHTML = `${bannerHtml}<div class="fd-content${thumb ? ' fd-has-banner' : ''}" style="padding:16px;">
+    c.innerHTML = `${bannerHtml}<div class="fd-content${thumb ? ' fd-has-banner' : ''}" style="padding:16px 24px;">
         <h2 style="margin:0 0 4px;color:var(--tx0);font-size:18px;">${esc(inst.worldName || worldId || t('dashboard.instances.unknown_world', 'Unknown World'))}</h2>
         <div class="fd-badges-row"><span class="vrcn-badge ${cls}">${typeLabel}</span>${getOwnerBadgeHtml(inst.ownerId || '', inst.ownerName || '', inst.ownerGroup || '', 'closeMyInstanceDetail()')}${copyBadge}</div>
         ${friendsHtml}
         <div class="fd-actions">
             <button class="vrcn-button-round vrcn-btn-join" onclick="closeMyInstanceDetail();sendToCS({action:'vrcJoinFriend',location:'${loc}'})">${t('dashboard.instances.join_world', 'Join World')}</button>
-            <button class="vrcn-button-round" onclick="closeMyInstanceDetail();openWorldSearchDetail('${jsq(worldId)}')">${t('dashboard.instances.open_world', 'Open World')}</button>
+            <button class="vrcn-button-round" onclick="navOpenModal('worldSearch','${jsq(worldId)}','')">${t('dashboard.instances.open_world', 'Open World')}</button>
             <button class="vrcn-button-round" style="margin-left:auto;" onclick="closeMyInstanceDetail()">${t('common.close', 'Close')}</button>
         </div>
     </div>`;
+    m.style.display = 'flex';
 }
 
 function openMyInstanceDetail(worldId, location) {
     const inst = _myInstancesData.find(i => i.location === location) || _myInstancesData.find(i => i.worldId === worldId);
     if (!inst) return;
+    _instanceDetailCache[inst.location] = () => _renderMyInstanceContent(inst);
+    navOpenModal('instance', inst.location, inst.worldName || '');
+}
 
+function _renderMyInstanceContent(inst) {
     const m  = document.getElementById('modalMyInstance');
     const c  = document.getElementById('myInstanceContent');
+    if (!m || !c) return;
     const thumb = inst.worldThumb || '';
+    const worldId = inst.worldId || '';
     const { cls, label: typeLabel } = getInstanceBadge(inst.instanceType);
     const instNum = (inst.location || '').match(/:(\d+)/)?.[1] || '';
-    const canJoin = inst.instanceType !== 'private' && inst.instanceType !== 'invite_plus';
 
-    // Friends by API location
     const locFriends2 = (typeof vrcFriendsData !== 'undefined')
         ? vrcFriendsData.filter(f => f.location && f.location.match(/:(\d+)/)?.[1] === instNum)
         : [];
-    // Also check LogWatcher players (catches DnD/Ask Me friends whose location is "private")
     const locBase2 = (inst.location || '').split('~')[0];
     const curBase2 = (currentInstanceData?.location || '').split('~')[0];
     const logUsers2 = (locBase2 && curBase2 === locBase2 && currentInstanceData?.users) ? currentInstanceData.users : [];
@@ -464,7 +481,6 @@ function openMyInstanceDetail(worldId, location) {
     const bannerHtml = thumb
         ? `<div class="fd-banner"><img src="${thumb}" onerror="this.parentElement.style.display='none'"><div class="fd-banner-fade"></div></div>`
         : '';
-
     const copyBadge = instNum
         ? `<span class="vrcn-id-clip" onclick="copyInstanceLink('${jsq(inst.location)}')"><span class="msi" style="font-size:12px;">content_copy</span>#${esc(instNum)}</span>`
         : '';
@@ -472,7 +488,7 @@ function openMyInstanceDetail(worldId, location) {
     let friendsHtml = `<div class="wd-friends-label">${tf('dashboard.instances.friends_title', { count: instFriends.length }, 'FRIENDS IN THIS INSTANCE ({count})')}</div><div class="wd-friends-list">`;
     if (instFriends.length > 0) {
         instFriends.forEach(f => {
-            friendsHtml += renderProfileItem(f, `closeMyInstanceDetail();openFriendDetail('${jsq(f.id || '')}')`);
+            friendsHtml += renderProfileItem(f, `navOpenModal('friend','${jsq(f.id || '')}','${jsq(f.displayName || '')}')`);
         });
     } else {
         friendsHtml += `<div class="vrcn-profile-item" style="pointer-events:none;opacity:0.55;">
@@ -491,7 +507,7 @@ function openMyInstanceDetail(worldId, location) {
     const mit  = jsq(inst.instanceType || '');
     const loc  = (inst.location || '').replace(/'/g, "\\'");
 
-    c.innerHTML = `${bannerHtml}<div class="fd-content${thumb ? ' fd-has-banner' : ''}" style="padding:16px;">
+    c.innerHTML = `${bannerHtml}<div class="fd-content${thumb ? ' fd-has-banner' : ''}" style="padding:16px 24px;">
         <h2 style="margin:0 0 4px;color:var(--tx0);font-size:18px;">${esc(inst.worldName || inst.worldId || t('dashboard.instances.unknown_world', 'Unknown World'))}</h2>
         <div style="display:flex;justify-content:flex-end;gap:6px;margin-bottom:4px;">
             <button class="vrcn-button-round" title="${esc(t('dashboard.instances.invite_friends', 'Invite Friends'))}" onclick="closeMyInstanceDetail();openInviteModalForLocation('${mloc}','${mwn}','${mwt}','${mit}')"><span class="msi" style="font-size:16px;">person_add</span></button>
@@ -501,7 +517,7 @@ function openMyInstanceDetail(worldId, location) {
         ${friendsHtml}
         <div class="fd-actions">
             <button class="vrcn-button-round vrcn-btn-join" onclick="closeMyInstanceDetail();sendToCS({action:'vrcJoinFriend',location:'${loc}'})">${t('dashboard.instances.join_world', 'Join World')}</button>
-            <button class="vrcn-button-round" onclick="closeMyInstanceDetail();openWorldSearchDetail('${jsq(worldId)}')">${t('dashboard.instances.open_world', 'Open World')}</button>
+            <button class="vrcn-button-round" onclick="navOpenModal('worldSearch','${jsq(worldId)}','')">${t('dashboard.instances.open_world', 'Open World')}</button>
             <button class="vrcn-button-round" style="margin-left:auto;" onclick="closeMyInstanceDetail()">${t('common.close', 'Close')}</button>
         </div>
     </div>`;

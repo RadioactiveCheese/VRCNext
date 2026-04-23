@@ -375,9 +375,9 @@
             if (path) return buildLibCardItems(path, url, type, name);
         }
 
-        const groupCard = el.closest('#myGroupsGrid .vrcn-content-card, #dashGroupActivityGrid .dash-group-card');
+        const groupCard = el.closest('#myGroupsGrid .vrcn-content-card, #dashGroupActivityGrid .dash-group-card, #searchGroupsResults .vrcn-content-card, .fd-group-card');
         if (groupCard) {
-            const id = extractId(groupCard, /openGroupDetail\('([^']+)'\)/);
+            const id = extractGroupId(groupCard);
             if (id) return buildGroupItems(id);
         }
 
@@ -473,16 +473,33 @@
             || null;
     }
 
+    function extractGroupId(el) {
+        const onclick = el.getAttribute('onclick') || '';
+        return onclick.match(/openGroupDetail\('([^']+)'\)/)?.[1]
+            || onclick.match(/navOpenModal\('group','([^']+)'/)?.[1]
+            || null;
+    }
+
     /* Menu item builders */
     function buildGroupItems(id) {
         const g = (typeof myGroups !== 'undefined') && myGroups.find(x => x.id === id);
-        const canPost = g && g.canPost === true;
-        const canEvent = g && g.canEvent === true;
-        const isRep = g && g.isRepresenting === true;
         const isJoined = !!g;
-        const curVis = (g && g.visibility) || 'visible';
+
+        if (!isJoined) {
+            return [
+                { icon: 'open_in_new', label: cm('group.open_details', 'Open Details'), action: () => navOpenModal('group', id, '') },
+                { icon: 'share', label: cm('group.share', 'Share Group'), action: () => copyWithToast('https://vrchat.com/home/group/' + id, 'group.share_copied', 'Group link copied to clipboard') },
+                'sep',
+                { icon: 'group_add', label: cm('group.join', 'Join Group'), action: () => sendToCS({ action: 'vrcJoinGroup', groupId: id }) },
+            ];
+        }
+
+        const canPost = g.canPost === true;
+        const canEvent = g.canEvent === true;
+        const isRep = g.isRepresenting === true;
+        const curVis = g.visibility || 'visible';
         const items = [
-            { icon: 'open_in_new', label: cm('group.open_details', 'Open Details'), action: () => navOpenModal('group', id, g?.name || '') },
+            { icon: 'open_in_new', label: cm('group.open_details', 'Open Details'), action: () => navOpenModal('group', id, g.name || '') },
             { icon: 'share', label: cm('group.share', 'Share Group'), action: () => copyWithToast('https://vrchat.com/home/group/' + id, 'group.share_copied', 'Group link copied to clipboard') },
             'sep',
         ];
@@ -490,9 +507,7 @@
         if (canEvent) items.push({ icon: 'event', label: cm('group.events', 'Events'), action: () => openGroupEventModal(id) });
         if (canPost || canEvent) items.push('sep');
         items.push({ icon: 'shield_person', label: cm('group.represent', 'Represent this group'), action: () => sendToCS({ action: 'vrcRepresentGroup', groupId: id }), disabled: isRep });
-        if (isJoined) {
-            items.push({ icon: 'visibility', label: cm('group.visibility', 'Visibility'), submenuFn: btn => showGroupVisibilitySubmenu(id, curVis, btn) });
-        }
+        items.push({ icon: 'visibility', label: cm('group.visibility', 'Visibility'), submenuFn: btn => showGroupVisibilitySubmenu(id, curVis, btn) });
         items.push('sep');
         items.push({ icon: 'logout', label: cm('group.leave', 'Leave Group'), action: () => sendToCS({ action: 'vrcLeaveGroup', groupId: id }), danger: true, confirm: true });
         return items;

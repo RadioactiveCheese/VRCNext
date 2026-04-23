@@ -105,6 +105,59 @@ public class GroupsController
                 break;
             }
 
+            case "vrcGetDashGroupInstances":
+            {
+                _ = Task.Run(async () =>
+                {
+                    var rawGroups = await _core.VrcApi.GetUserGroupsAsync();
+                    var groupList = rawGroups.Cast<JObject>()
+                        .Select(g => new {
+                            gid  = g["groupId"]?.ToString() ?? g["id"]?.ToString() ?? "",
+                            name = g["name"]?.ToString() ?? "",
+                            icon = g["iconUrl"]?.ToString() ?? "",
+                        })
+                        .Where(g => !string.IsNullOrEmpty(g.gid))
+                        .GroupBy(g => g.gid).Select(grp => grp.First())
+                        .ToList();
+
+                    _core.SendToJS("log", new { msg = $"[DASH-GRP-INST] fetching instances for {groupList.Count} groups", color = "sec" });
+
+                    // Throttle parallelism to 4 concurrent requests to avoid VRChat rate limiting
+                    using var sem = new SemaphoreSlim(4);
+                    var tasks = groupList.Select(async g =>
+                    {
+                        await sem.WaitAsync();
+                        try
+                        {
+                            var instances = await _core.VrcApi.GetGroupInstancesAsync(g.gid);
+                            return (g.gid, groupName: g.name, groupIcon: g.icon, instances);
+                        }
+                        finally { sem.Release(); }
+                    });
+                    var results = await Task.WhenAll(tasks);
+
+                    var combined = results
+                        .SelectMany(r => r.instances.Cast<JObject>().Select(i => new {
+                            groupId   = r.gid,
+                            groupName = r.groupName,
+                            groupIcon = r.groupIcon,
+                            location  = i["location"]?.ToString() ?? "",
+                            worldName = i["world"]?["name"]?.ToString() ?? "",
+                            worldThumb = i["world"]?["thumbnailImageUrl"]?.ToString()
+                                      ?? i["world"]?["imageUrl"]?.ToString() ?? "",
+                            userCount = i["userCount"]?.Value<int>() ?? i["n_users"]?.Value<int>() ?? 0,
+                            capacity  = i["world"]?["capacity"]?.Value<int>() ?? 0,
+                        }))
+                        .Where(x => !string.IsNullOrEmpty(x.location))
+                        .OrderByDescending(x => x.userCount)
+                        .ToList();
+
+                    _core.SendToJS("log", new { msg = $"[DASH-GRP-INST] {combined.Count} total instances across all groups", color = "sec" });
+                    _core.SendToJS("vrcDashGroupInstances", combined);
+                });
+                break;
+            }
+
             case "vrcGetMyGroups":
             {
                 if (_core.Settings.FfcEnabled)

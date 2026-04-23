@@ -952,6 +952,8 @@
   "dashboard.section.own_avatars": "我的虚拟形象",
   "dashboard.section.recent_photos": "最近照片",
   "dashboard.section.your_groups": "你的群组",
+  "dashboard.section.group_activity": "群组活动",
+  "dashboard.section.group_activity_empty": "当前没有活跃的群组实例",
   "dashboard.section.recently_visited": "最近访问",
   "dashboard.section.popular_worlds": "热门世界",
   "dashboard.section.active_worlds": "非常活跃的世界",

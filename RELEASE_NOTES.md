@@ -1,11 +1,12 @@
-**2026.17.4**
+**2026.18.0**
 
 This update is mostly focused on design consistency. Many modals did not share the same padding and CSS, so those styles have now been unified. It also includes a number of bug fixes following my database and modal system refactor, which had caused the context menu to stop working as intended.
 
-**Changes**
+**Changes And New**
 - Unified left/right padding across all modals — World Detail, World Search, Create Instance, My Instance, Avatar Detail, Permini Picker, and all Timeline detail modals now match the 32px side spacing of the User/Profile modal
 - Timeline list view columns now have fixed widths across all categories and subcategories — switching filters no longer causes columns to shift or rebalance
 - Context menu: Added "Invite to Group" option when right-clicking a friend — shows a submenu of joined groups with invite permission; selecting a group directly sends the invite without opening a modal
+- New dashboard widget: Group Activity — shows active instances across all joined groups using the same card layout as Friends Location; clicking an instance opens the instance detail modal
 
 **Fixes**
 - Fixed Group Invite modal appearing behind the Group Detail modal — `modalInvite` had no explicit z-index (defaulted to 10000, below `modalDetail`'s 10001); now set to 10002

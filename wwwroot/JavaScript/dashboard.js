@@ -65,6 +65,7 @@ function renderDashboard() {
     renderDashPopularWorlds();
     renderDashActiveWorlds();
     renderDashGroupActivity();
+    renderDashGroupActivityInstances();
     renderDashRecentTimeline();
     if (currentVrcUser && _dashUpcomingEvents === null && !_dashUpcomingLoading && !_dashLayout.hidden.includes('upcoming_events')) {
         refreshDashUpcomingEvents();
@@ -891,6 +892,80 @@ function renderDashGroupActivity() {
     }).join('');
 }
 
+/* === Dashboard — Group Activity Instances === */
+
+let _dashGroupInstances = null;
+let _dashGroupInstancesInFlight = false;
+
+function loadDashGroupInstances() {
+    if (_dashGroupInstancesInFlight) return;
+    _dashGroupInstancesInFlight = true;
+    sendToCS({ action: 'vrcGetDashGroupInstances' });
+}
+
+function onDashGroupInstances(instances) {
+    _dashGroupInstancesInFlight = false;
+    _dashGroupInstances = instances || [];
+    renderDashGroupActivityInstances();
+}
+
+function renderDashGroupActivityInstances() {
+    const el = document.getElementById('dashGroupActivityShelf');
+    if (!el) return;
+    if (!currentVrcUser) {
+        el.innerHTML = `<div class="empty-msg">${t('dashboard.groups.login', 'Login to see your groups')}</div>`;
+        return;
+    }
+    if (_dashGroupInstances === null) {
+        el.innerHTML = _dashWorldShelfSkeleton();
+        loadDashGroupInstances();
+        return;
+    }
+    if (!_dashGroupInstances.length) {
+        el.innerHTML = `<div class="empty-msg">${t('dashboard.section.group_activity_empty', 'No active group instances right now')}</div>`;
+        return;
+    }
+    el.innerHTML = _dashGroupInstances.slice(0, 24).map(inst => {
+        const thumb    = inst.worldThumb || '';
+        const wname    = inst.worldName || t('dashboard.instances.unknown_world', 'Unknown World');
+        const gname    = inst.groupName || '';
+        const loc      = (inst.location || '').replace(/'/g, "\\'");
+        const users    = inst.capacity > 0 ? `${inst.userCount}/${inst.capacity}` : (inst.userCount ? String(inst.userCount) : '');
+        const iconHtml = inst.groupIcon
+            ? `<img class="dash-feed-avatar" src="${inst.groupIcon}" onerror="this.style.display='none'">`
+            : `<div class="dash-feed-avatar" style="display:flex;align-items:center;justify-content:center;"><span class="msi" style="font-size:14px;color:rgba(255,255,255,.6)">group</span></div>`;
+        return `<div class="dash-floc-card" onclick="openGroupInstanceDetail('${loc}')">
+            <div class="dash-floc-bg"${thumb ? ` style="background-image:url('${cssUrl(thumb)}')"` : ''}></div>
+            <div class="dash-floc-scrim"></div>
+            ${iconHtml}
+            <div class="dash-feed-info">
+                <div class="dash-feed-name">${esc(gname)}</div>
+                <div class="dash-feed-status">${esc(wname)}</div>
+                <div class="dash-feed-loc">${users ? `<span class="msi" style="font-size:10px;vertical-align:middle;">person</span> ${esc(users)}` : ''}</div>
+            </div>
+        </div>`;
+    }).join('');
+}
+
+function openGroupInstanceDetail(location) {
+    if (!location) return;
+    const { worldId, instanceType, ownerId } = (typeof parseFriendLocation === 'function')
+        ? parseFriendLocation(location)
+        : { worldId: '', instanceType: 'group', ownerId: '' };
+    const cached = (worldId && typeof dashWorldCache !== 'undefined') ? (dashWorldCache[worldId] || {}) : {};
+    const inst = (_dashGroupInstances || []).find(x => x.location === location);
+    openInstanceDetailFromData({
+        worldId,
+        location,
+        worldName:  cached.name || inst?.worldName || worldId || '',
+        worldThumb: cached.thumbnailImageUrl || cached.imageUrl || inst?.worldThumb || '',
+        instanceType,
+        ownerId:    ownerId || '',
+        ownerName:  '',
+        ownerGroup: inst?.groupName || '',
+    });
+}
+
 /* === Dashboard — Recent Activity Timeline === */
 
 function _dashTlSkeleton(n = 5) {
@@ -998,6 +1073,7 @@ const DASH_SECTION_META = [
     { id: 'own_avatars',             nameKey: 'dashboard.section.own_avatars',             name: 'My Avatars' },
     { id: 'recent_photos',           nameKey: 'dashboard.section.recent_photos',           name: 'Recent Photos' },
     { id: 'groups',                  nameKey: 'dashboard.section.your_groups',             name: 'Your Groups' },
+    { id: 'group_activity',          nameKey: 'dashboard.section.group_activity',           name: 'Group Activity' },
     { id: 'upcoming_events',         nameKey: 'dashboard.section.upcoming_events',         name: 'Upcoming Events' },
     { id: 'recently_visited',        nameKey: 'dashboard.section.recently_visited',        name: 'Recently Visited' },
     { id: 'popular_worlds',          nameKey: 'dashboard.section.popular_worlds',          name: 'Popular Worlds' },
@@ -1050,6 +1126,7 @@ function applyDashLayout() {
         if (!hidden && id === 'active_worlds') renderDashActiveWorlds();
         if (!hidden && id === 'discovery') { renderDiscoverySection(); if (!_popularInFlight && (!_popularCache.worlds.length || Date.now() - _popularCache.ts > DISC_CACHE_TTL)) _fetchPopularWorlds(); }
         if (!hidden && id === 'groups') renderDashGroupActivity();
+        if (!hidden && id === 'group_activity') renderDashGroupActivityInstances();
         if (!hidden && id === 'my_recent_activity') renderDashMyRecentTimeline();
         if (!hidden && id === 'friends_recent_activity') renderDashFriendsRecentTimeline();
         if (!hidden && id === 'upcoming_events') { renderDashUpcomingEvents(); if (_dashUpcomingEvents === null && !_dashUpcomingLoading) refreshDashUpcomingEvents(); }
@@ -1255,6 +1332,7 @@ function rerenderDashTranslations() {
     renderDashPopularWorlds();
     renderDashActiveWorlds();
     renderDashGroupActivity();
+    renderDashGroupActivityInstances();
     renderDashMyRecentTimeline();
     renderDashFriendsRecentTimeline();
     renderDashQuickControls();

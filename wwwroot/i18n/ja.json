@@ -952,6 +952,8 @@
   "dashboard.section.own_avatars": "マイアバター",
   "dashboard.section.recent_photos": "最近の写真",
   "dashboard.section.your_groups": "あなたのグループ",
+  "dashboard.section.group_activity": "グループアクティビティ",
+  "dashboard.section.group_activity_empty": "現在アクティブなグループインスタンスはありません",
   "dashboard.section.recently_visited": "最近訪問",
   "dashboard.section.popular_worlds": "人気ワールド",
   "dashboard.section.active_worlds": "アクティブなワールド",

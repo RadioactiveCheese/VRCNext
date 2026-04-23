@@ -469,6 +469,9 @@ window.external.receiveMessage(rawMsg => {
                 if (document.getElementById('ciGroupRow')?.style.display !== 'none')
                     renderCiGroupPicker(myGroups);
                 break;
+            case 'vrcDashGroupInstances':
+                if (typeof onDashGroupInstances === 'function') onDashGroupInstances(payload);
+                break;
             case 'vrcGroupDetail':
                 renderGroupDetail(payload);
                 break;

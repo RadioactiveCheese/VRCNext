@@ -1305,6 +1305,7 @@ public partial class AppShell
                 case "vrcRemoveGroupMemberRole":
                 case "vrcCreateGroupEvent":
                 case "vrcInviteToGroup":
+                case "vrcGetDashGroupInstances":
                 case "vrcGetMutualsForNetwork":
                 case "vrcSaveMutualCache":
                 case "vrcLoadMutualCache":

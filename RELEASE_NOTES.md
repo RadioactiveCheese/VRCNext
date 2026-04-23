@@ -5,4 +5,7 @@
 - Fixed right-click context menu not appearing on Mutual Friends in user profiles
 - Fixed right-click context menu not appearing on Group Members / Roles (ban, kick, assign role etc.)
 - Fixed right-click context menu not appearing on World cards in user profile (Favorites tab, Worlds tab)
-- Fixed "View Profile" in context menu not pushing breadcrumb / opening behind group modal — now uses navOpenModal like a normal click
+- Fixed "View Profile" in context menu not pushing breadcrumb / opening behind existing modal
+- Fixed "Open Details" on Group cards in context menu not pushing breadcrumb
+- Fixed "Open Details" on World cards (instance view, world grid) in context menu not pushing breadcrumb
+- Fixed VRC clipboard link context menu items (user, world, group, avatar) not pushing breadcrumb

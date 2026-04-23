@@ -113,16 +113,23 @@ function setGroupVisibility(groupId, visibility) {
 }
 
 function openGroupDetail(groupId) {
+    if (typeof navSetCurrent === 'function') navSetCurrent('group', groupId);
     const el = document.getElementById('detailModalContent');
     el.innerHTML = sk('detail');
     document.getElementById('modalDetail').style.display = 'flex';
     sendToCS({ action: 'vrcGetGroup', groupId });
 }
 
+function closeGroupDetail(fromNav = false) {
+    document.getElementById('modalDetail').style.display = 'none';
+    if (!fromNav && typeof navClear === 'function') navClear();
+}
+
 function renderGroupDetail(g) {
     window._currentGroupDetailFull = g;
     window._currentGroupDetail = { id: g.id, canKick: g.canKick === true, canBan: g.canBan === true, canManageRoles: g.canManageRoles === true, canAssignRoles: g.canAssignRoles === true, languages: g.languages || [], links: g.links || [], joinState: g.joinState || '', roles: g.roles || [] };
     window._gdBannedLoaded = false;
+    if (typeof navUpdateLabel === 'function') navUpdateLabel(g.name || '');
     window._gdMemberRoleIds = {};
     const el = document.getElementById('detailModalContent');
     const canEdit = g.canEdit === true;
@@ -141,7 +148,7 @@ function renderGroupDetail(g) {
     const headerMeta = [g.shortCode ? esc(g.shortCode) : '', esc(getGroupMembersText(g.memberCount || 0))].filter(Boolean).join(' &middot; ');
     const ownerLabel = g.ownerDisplayName || '';
     const ownerHtml = (g.ownerId && ownerLabel)
-        ? `<div style="font-size:12px;color:var(--tx3);margin-top:2px;margin-bottom:4px;">${t('worlds.meta.by', 'by')} <span onclick="document.getElementById('modalDetail').style.display='none';openFriendDetail('${jsq(g.ownerId)}')" style="display:inline-flex;align-items:center;padding:1px 8px;border-radius:20px;background:var(--bg-hover);font-size:11px;font-weight:600;color:var(--tx1);cursor:pointer;line-height:1.8;">${esc(ownerLabel)}</span></div>`
+        ? `<div style="font-size:12px;color:var(--tx3);margin-top:2px;margin-bottom:4px;">${t('worlds.meta.by', 'by')} <span onclick="navOpenModal('friend','${jsq(g.ownerId)}','${jsq(ownerLabel)}')" style="display:inline-flex;align-items:center;padding:1px 8px;border-radius:20px;background:var(--bg-hover);font-size:11px;font-weight:600;color:var(--tx1);cursor:pointer;line-height:1.8;">${esc(ownerLabel)}</span></div>`
         : '';
     const headerHtml = `<div class="fd-content${banner ? ' fd-has-banner' : ''}"><div class="fd-header">${iconHtml}<div style="flex:1;min-width:0;"><div class="fd-name">${esc(g.name)}</div>${ownerHtml}<div class="fd-status">${headerMeta}</div></div><span id="ggrpHeaderBadge" style="margin-left:auto;flex-shrink:0;">${g.joinState ? joinStateBadge(g.joinState) : ''}</span></div><div class="fd-badges-row">${idBadge(g.id)}</div>`;
 
@@ -328,7 +335,7 @@ function renderGroupDetail(g) {
             const delEvtBtn = (canEvent && e.id)
                 ? `<button class="gd-post-del" onclick="event.stopPropagation();deleteGroupEvent('${esc(g.id)}','${cid}',this)" title="${esc(t('groups.events.delete_title', 'Delete event'))}"><span class="msi">delete</span></button>`
                 : '';
-            eventsTab += `<div class="fd-group-card" data-event-id="${cid}" style="display:block;cursor:pointer;padding:12px;" onclick="openEventDetail('${gid}','${cid}')">
+            eventsTab += `<div class="fd-group-card" data-event-id="${cid}" style="display:block;cursor:pointer;padding:12px;" onclick="navOpenModal('event','${gid}','${esc(e.title || '')}','${cid}')">
                 ${imgHtml}
                 <div style="display:flex;align-items:center;justify-content:space-between;gap:6px;">
                     <div style="font-size:13px;font-weight:600;color:var(--tx0);">${esc(e.title || 'Untitled Event')}${badge}</div>
@@ -588,7 +595,7 @@ function renderGroupMemberCard(m) {
         if (!window._gdMemberRoleIds) window._gdMemberRoleIds = {};
         window._gdMemberRoleIds[m.id] = m.roleIds;
     }
-    return renderProfileItem(m, `closeDetailModal();openFriendDetail('${jsq(m.id || '')}')`);
+    return renderProfileItem(m, `navOpenModal('friend','${jsq(m.id || '')}','${jsq(m.displayName || '')}')`);
 }
 
 const _grpFieldIds = {
@@ -1674,7 +1681,7 @@ function renderGroupBans(groupId, bans) {
         list.innerHTML = renderGroupEmptyMessage('groups.empty.no_banned_members', 'No banned members');
         return;
     }
-    list.innerHTML = bans.map(b => renderProfileItem(b, `closeDetailModal();openFriendDetail('${jsq(b.id || '')}')`)).join('');
+    list.innerHTML = bans.map(b => renderProfileItem(b, `navOpenModal('friend','${jsq(b.id || '')}','${jsq(b.displayName || '')}')`)).join('');
 }
 
 /* === Group Invite (reuses modalInvite / inviteBox) === */

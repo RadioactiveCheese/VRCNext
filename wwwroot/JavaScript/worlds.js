@@ -437,8 +437,7 @@ function worldEditRemoveSelected() {
 
 /* === Detail Modals (shared) === */
 function openWorldSearchDetail(id) {
-    // Close profile modal if open (e.g. opening world from profile Content tab)
-    if (typeof closeFriendDetail === 'function') closeFriendDetail();
+    if (typeof navSetCurrent === 'function') navSetCurrent('worldSearch', id);
     _wdCurrentId = id;
     const el = document.getElementById('detailModalContent');
     el.innerHTML = sk('detail');
@@ -454,6 +453,7 @@ function refreshWorldInstances() {
 }
 
 function renderWorldSearchDetail(w) {
+    if (typeof navUpdateLabel === 'function') navUpdateLabel(w.name || '');
     // Stop refresh spinner if running
     const refreshBtn = document.getElementById('wdInstancesRefreshBtn');
     if (refreshBtn) refreshBtn.classList.remove('spinning');
@@ -550,7 +550,7 @@ function renderWorldSearchDetail(w) {
     el.innerHTML = `${thumb ? `<div class="fd-banner"><img src="${thumb}" onerror="this.parentElement.style.display='none'"><div class="fd-banner-fade"></div><button class="btn-notif" style="position:absolute;top:8px;right:8px;z-index:3;" title="${esc(t('common.share','Share'))}" onclick="navigator.clipboard.writeText('https://vrchat.com/home/world/${esc(wid)}').then(()=>showToast(true,t('common.link_copied','Link copied!')))"><span class="msi" style="font-size:20px;">share</span></button></div>` : ''}
         <div class="fd-content${thumb ? ' fd-has-banner' : ''}" style="padding:20px;">
         <h2 style="margin:0 0 4px;color:var(--tx0);font-size:18px;">${esc(w.name)}</h2>
-        <div style="font-size:12px;color:var(--tx3);margin-bottom:12px;">${t('worlds.meta.by', 'by')} ${w.authorId ? `<span onclick="document.getElementById('modalDetail').style.display='none';openFriendDetail('${esc(w.authorId)}')" style="display:inline-flex;align-items:center;padding:1px 8px;border-radius:20px;background:var(--bg-hover);font-size:11px;font-weight:600;color:var(--tx1);cursor:pointer;line-height:1.8;">${esc(w.authorName)}</span>` : esc(w.authorName)}</div>
+        <div style="font-size:12px;color:var(--tx3);margin-bottom:12px;">${t('worlds.meta.by', 'by')} ${w.authorId ? `<span onclick="navOpenModal('friend','${esc(w.authorId)}','${esc(w.authorName || '')}')" style="display:inline-flex;align-items:center;padding:1px 8px;border-radius:20px;background:var(--bg-hover);font-size:11px;font-weight:600;color:var(--tx1);cursor:pointer;line-height:1.8;">${esc(w.authorName)}</span>` : esc(w.authorName)}</div>
         ${tabsHtml}
         <div id="wdTabInfo">
         <div class="fd-badges-row">
@@ -611,11 +611,12 @@ function switchWdTab(tab, btn) {
     }
 }
 
-function closeWorldSearchDetail() {
+function closeWorldSearchDetail(fromNav = false) {
     if (_wdLiveTimer) { clearInterval(_wdLiveTimer); _wdLiveTimer = null; }
     _wdCurrentWorldId = '';
     if (typeof _wiReset === 'function') _wiReset();
     document.getElementById('modalDetail').style.display = 'none';
+    if (!fromNav && typeof navClear === 'function') navClear();
 }
 
 function toggleWorldFavPicker(worldId) {
@@ -996,6 +997,7 @@ function onCreateInstanceWorldResolved(dict) {
 /* === World Detail Modal === */
 function openWorldDetail(worldId) {
     if (!worldId) return;
+    if (typeof navSetCurrent === 'function') navSetCurrent('world', worldId);
     const m = document.getElementById('modalWorldDetail');
     const c = document.getElementById('worldDetailContent');
 
@@ -1081,7 +1083,7 @@ function openWorldDetail(worldId) {
         friendsHtml += '<div class="wd-friends-list">';
         if (myInstFriends.length > 0) {
             myInstFriends.forEach(f => {
-                friendsHtml += renderProfileItem(f, `closeWorldDetail();openFriendDetail('${jsq(f.id || '')}')`);
+                friendsHtml += renderProfileItem(f, `navOpenModal('friend','${jsq(f.id || '')}','${jsq(f.displayName || '')}')`);
             });
         } else {
             friendsHtml += `<div class="vrcn-profile-item" style="pointer-events:none;opacity:0.55;">
@@ -1118,7 +1120,7 @@ function openWorldDetail(worldId) {
         }
         friendsHtml += '<div class="wd-friends-list">';
         inst.friends.forEach(f => {
-            friendsHtml += renderProfileItem(f, `closeWorldDetail();openFriendDetail('${jsq(f.id || '')}')`);
+            friendsHtml += renderProfileItem(f, `navOpenModal('friend','${jsq(f.id || '')}','${jsq(f.displayName || '')}')`);
         });
         friendsHtml += '</div>';
     });
@@ -1146,7 +1148,7 @@ function openWorldDetail(worldId) {
 
     let actionsHtml = '<div class="fd-actions">';
     if (canJoin) actionsHtml += `<button class="vrcn-button-round vrcn-btn-join" onclick="worldJoinAction('${loc}')">${t('dashboard.instances.join_world', 'Join World')}</button>`;
-    actionsHtml += `<button class="vrcn-button-round" onclick="closeWorldDetail();openWorldSearchDetail('${wid}')">${t('dashboard.instances.open_world', 'Open World')}</button>`;
+    actionsHtml += `<button class="vrcn-button-round" onclick="navOpenModal('worldSearch','${wid}','${esc(w.name || '')}')">${t('dashboard.instances.open_world', 'Open World')}</button>`;
     actionsHtml += `<button class="vrcn-button-round" style="margin-left:auto;" onclick="closeWorldDetail()">${t('common.close', 'Close')}</button>`;
     actionsHtml += '</div>';
 
@@ -1161,8 +1163,9 @@ function openWorldDetail(worldId) {
     m.style.display = 'flex';
 }
 
-function closeWorldDetail() {
+function closeWorldDetail(fromNav = false) {
     document.getElementById('modalWorldDetail').style.display = 'none';
+    if (!fromNav && typeof navClear === 'function') navClear();
 }
 
 function worldJoinAction(location) {

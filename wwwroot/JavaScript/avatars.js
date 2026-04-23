@@ -843,16 +843,17 @@ let _avDetailData = null;
 let _avEditTags   = [];
 
 function openAvatarDetail(avatarId) {
-    if (typeof closeFriendDetail === 'function') closeFriendDetail();
+    if (typeof navSetCurrent === 'function') navSetCurrent('avatar', avatarId);
     const c = document.getElementById('avatarDetailContent');
     if (c) c.innerHTML = sk('detail');
     document.getElementById('modalAvatarDetail').style.display = 'flex';
     sendToCS({ action: 'vrcGetAvatarDetail', avatarId });
 }
 
-function closeAvatarDetail() {
+function closeAvatarDetail(fromNav = false) {
     document.getElementById('modalAvatarDetail').style.display = 'none';
     _avDetailData = null;
+    if (!fromNav && typeof navClear === 'function') navClear();
 }
 
 const _avFieldIds = {
@@ -927,6 +928,7 @@ function avRemoveTag(idx) {
 
 function renderAvatarDetail(a) {
     _avDetailData = a;
+    if (typeof navUpdateLabel === 'function') navUpdateLabel(a.name || '');
     const c = document.getElementById('avatarDetailContent');
     if (!c) return;
 
@@ -955,7 +957,7 @@ function renderAvatarDetail(a) {
     }
 
     const authorHtml = a.authorId
-        ? `<span onclick="closeAvatarDetail();openFriendDetail('${jsq(a.authorId)}')" style="display:inline-flex;align-items:center;padding:1px 8px;border-radius:20px;background:var(--bg-hover);font-size:11px;font-weight:600;color:var(--tx1);cursor:pointer;line-height:1.8;">${esc(a.authorName || a.authorId)}</span>`
+        ? `<span onclick="navOpenModal('friend','${jsq(a.authorId)}','${jsq(a.authorName || '')}')" style="display:inline-flex;align-items:center;padding:1px 8px;border-radius:20px;background:var(--bg-hover);font-size:11px;font-weight:600;color:var(--tx1);cursor:pointer;line-height:1.8;">${esc(a.authorName || a.authorId)}</span>`
         : esc(a.authorName || '');
 
     const metaRows = [

@@ -1,0 +1,180 @@
+let _navStack        = [];
+let _navIdx          = -1;
+let _navCurrentEntry = null;
+
+function navSetCurrent(type, id, id2) {
+    _navCurrentEntry = { type, id: id || '', id2: id2 || '', label: '' };
+}
+
+function navOpenModal(type, id, label, id2) {
+    if (!id) return;
+
+    if (_navIdx === -1 && _navCurrentEntry && _navCurrentEntry.id) {
+        _navStack.push({ ..._navCurrentEntry });
+        _navIdx = 0;
+    }
+
+    const cur = _navIdx >= 0 ? _navStack[_navIdx] : null;
+    if (cur && cur.type === type && cur.id === id && cur.id2 === (id2 || '')) return;
+
+    _navCloseCurrentSilent();
+
+    _navStack = _navStack.slice(0, _navIdx + 1);
+    _navStack.push({ type, id, label: label || '', id2: id2 || '' });
+    _navIdx = _navStack.length - 1;
+
+    _navDoOpen(type, id, id2);
+    _navRender();
+}
+
+function navGoTo(idx) {
+    if (idx < 0 || idx >= _navStack.length || idx === _navIdx) return;
+    _navCloseCurrentSilent();
+    _navIdx = idx;
+    const e = _navStack[_navIdx];
+    _navCurrentEntry = { ...e };
+    _navDoOpen(e.type, e.id, e.id2);
+    _navRender();
+}
+
+function navClear() {
+    _navStack        = [];
+    _navIdx          = -1;
+    _navCurrentEntry = null;
+    _navRender();
+}
+
+function navUpdateLabel(label) {
+    if (_navCurrentEntry) _navCurrentEntry.label = label;
+    if (_navIdx >= 0 && _navStack[_navIdx]) {
+        _navStack[_navIdx].label = label;
+        _navRender();
+    }
+}
+
+function _navDoOpen(type, id, id2) {
+    switch (type) {
+        case 'friend':      openFriendDetail(id);           break;
+        case 'world':       openWorldDetail(id);            break;
+        case 'worldSearch': openWorldSearchDetail(id);      break;
+        case 'avatar':      openAvatarDetail(id);           break;
+        case 'group':       openGroupDetail(id);            break;
+        case 'event':       openEventDetail(id, id2);       break;
+    }
+}
+
+function _navCloseCurrentSilent() {
+    const entry = (_navIdx >= 0 && _navStack[_navIdx]) ? _navStack[_navIdx] : _navCurrentEntry;
+    if (!entry) return;
+    switch (entry.type) {
+        case 'friend':
+            if (typeof closeFriendDetail === 'function') closeFriendDetail(true);
+            break;
+        case 'world':
+            if (typeof closeWorldDetail === 'function') closeWorldDetail(true);
+            break;
+        case 'worldSearch':
+            if (typeof closeWorldSearchDetail === 'function') closeWorldSearchDetail(true);
+            break;
+        case 'avatar':
+            if (typeof closeAvatarDetail === 'function') closeAvatarDetail(true);
+            break;
+        case 'group':
+        case 'event': {
+            const md = document.getElementById('modalDetail');
+            if (md) md.style.display = 'none';
+            break;
+        }
+    }
+}
+
+const _NAV_SHELLS = [
+    { overlay: 'modalFriendDetail', bar: 'fd_navBar', p: 'fd' },
+    { overlay: 'modalWorldDetail',  bar: 'wd_navBar', p: 'wd' },
+    { overlay: 'modalDetail',       bar: 'dt_navBar', p: 'dt' },
+    { overlay: 'modalAvatarDetail', bar: 'av_navBar', p: 'av' },
+];
+
+const _NAV_SLOTS = 5;
+
+function _navRender() {
+    const show     = _navStack.length >= 2 && _navIdx > 0;
+    const start    = Math.max(0, (_navIdx + 1) - _NAV_SLOTS);
+    const ovVisible = start > 0;
+
+    for (const s of _NAV_SHELLS) {
+        const bar = document.getElementById(s.bar);
+        if (!bar) continue;
+        bar.style.display = show ? 'flex' : 'none';
+        if (!show) {
+            const ov = document.getElementById(s.p + '_ov');
+            if (ov) ov.hidden = true;
+            for (let i = 0; i < _NAV_SLOTS; i++) {
+                const sep = document.getElementById(s.p + '_s' + i);
+                const btn = document.getElementById(s.p + '_b' + i);
+                const cur = document.getElementById(s.p + '_cur' + i);
+                if (sep) sep.hidden = true;
+                if (btn) btn.hidden = true;
+                if (cur) cur.hidden = true;
+            }
+            continue;
+        }
+
+        const ov = document.getElementById(s.p + '_ov');
+        if (ov) ov.hidden = !ovVisible;
+
+        for (let i = 0; i < _NAV_SLOTS; i++) {
+            const si  = start + i;
+            const sep = document.getElementById(s.p + '_s' + i);
+            const btn = document.getElementById(s.p + '_b' + i);
+            const cur = document.getElementById(s.p + '_cur' + i);
+            if (!sep || !btn || !cur) continue;
+
+            const slotUsed  = si <= _navIdx;
+            const isCurrent = si === _navIdx;
+
+            if (!slotUsed) {
+                sep.hidden = true;
+                btn.hidden = true;
+                cur.hidden = true;
+                continue;
+            }
+
+            const name = _navStack[si].label || _navTypeLabel(_navStack[si].type);
+
+            sep.hidden = (i === 0 && !ovVisible);
+            btn.hidden = isCurrent;
+            cur.hidden = !isCurrent;
+
+            if (!isCurrent) {
+                btn.textContent = _trunc(name);
+                btn.title       = name;
+                btn.onclick     = (function(idx) { return function() { navGoTo(idx); }; })(si);
+            } else {
+                cur.textContent = _trunc(name);
+                cur.title       = name;
+            }
+        }
+    }
+}
+
+function _trunc(s, max = 12) {
+    s = String(s || '');
+    return s.length > max ? s.slice(0, max) + '…' : s;
+}
+
+function _esc(s) {
+    return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function _navTypeLabel(type) {
+    const labels = {
+        friend:      typeof t === 'function' ? t('nav.modal.friend',      'Profile') : 'Profile',
+        world:       typeof t === 'function' ? t('nav.modal.world',       'World')   : 'World',
+        worldSearch: typeof t === 'function' ? t('nav.modal.world',       'World')   : 'World',
+        avatar:      typeof t === 'function' ? t('nav.modal.avatar',      'Avatar')  : 'Avatar',
+        group:       typeof t === 'function' ? t('nav.modal.group',       'Group')   : 'Group',
+        event:       typeof t === 'function' ? t('nav.modal.event',       'Event')   : 'Event',
+    };
+    return labels[type] || type;
+}

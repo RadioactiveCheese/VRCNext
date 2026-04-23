@@ -58,7 +58,10 @@ function vrcRefresh() {
     refreshNotifications();
 }
 
-function closeDetailModal() { document.getElementById('modalDetail').style.display = 'none'; }
+function closeDetailModal(fromNav = false) {
+    document.getElementById('modalDetail').style.display = 'none';
+    if (!fromNav && typeof navClear === 'function') navClear();
+}
 
 function statusDotClass(s) {
     if (!s) return 's-offline';
@@ -755,6 +758,7 @@ function fdSaveNote() {
 }
 
 function openFriendDetail(userId) {
+    if (typeof navSetCurrent === 'function') navSetCurrent('friend', userId);
     const m = document.getElementById('modalFriendDetail');
     const c = document.getElementById('friendDetailContent');
     c.innerHTML = sk('profile');
@@ -762,11 +766,12 @@ function openFriendDetail(userId) {
     sendToCS({ action: 'vrcGetFriendDetail', userId: userId });
 }
 
-function closeFriendDetail() {
+function closeFriendDetail(fromNav = false) {
     if (_fdLiveTimer) { clearInterval(_fdLiveTimer); _fdLiveTimer = null; }
     document.getElementById('modalFriendDetail').style.display = 'none';
     currentFriendDetail = null;
     window._fdAllMutuals = null;
+    if (!fromNav && typeof navClear === 'function') navClear();
 }
 
 
@@ -803,7 +808,7 @@ function filterFdMutuals() {
         ? (window._fdAllMutuals || []).filter(m => (m.displayName || '').toLowerCase().includes(q))
         : (window._fdAllMutuals || []);
     grid.innerHTML = filtered.length
-        ? filtered.map(mu => renderProfileItem(mu, `closeFriendDetail();openFriendDetail('${jsq(mu.id)}')`)).join('')
+        ? filtered.map(mu => renderProfileItem(mu, `navOpenModal('friend','${jsq(mu.id)}','${jsq(mu.displayName || '')}')`)).join('')
         : `<div style="padding:12px;grid-column:1/-1;text-align:center;font-size:12px;color:var(--tx3);">${t('profiles.mutuals.no_results', 'No results')}</div>`;
 }
 
@@ -868,7 +873,7 @@ function renderUserFavWorlds(payload) {
             panelsHtml += `<div class="vrcn-world-grid-small">`;
             for (const w of g.worlds) {
                 const thumb = w.thumbnailImageUrl || '';
-                panelsHtml += `<div class="vrcn-world-card-small" onclick="closeFriendDetail();openWorldSearchDetail('${jsq(w.id)}')">
+                panelsHtml += `<div class="vrcn-world-card-small" onclick="navOpenModal('worldSearch','${jsq(w.id)}','${jsq(w.name || '')}')">
                     <div class="vwcs-bg"${thumb ? ` style="background-image:url('${cssUrl(thumb)}')"` : ''}></div>
                     <div class="vwcs-scrim"></div>
                     <div class="vwcs-info">
@@ -1004,6 +1009,7 @@ function fdToggleBio(btn) {
 
 function renderFriendDetail(d) {
     currentFriendDetail = d;
+    if (typeof navUpdateLabel === 'function') navUpdateLabel(d.displayName || '');
     const c = document.getElementById('friendDetailContent');
     const img = d.image || '';
     const imgTag = img
@@ -1013,7 +1019,7 @@ function renderFriendDetail(d) {
     let worldHtml = '';
     if (d.worldName) {
         const { worldId: fdWorldId } = parseFriendLocation(d.location);
-        const onclick = fdWorldId ? `closeFriendDetail();openWorldSearchDetail('${esc(fdWorldId)}')` : '';
+        const onclick = fdWorldId ? `navOpenModal('worldSearch','${esc(fdWorldId)}','${esc(d.worldName || '')}')` : '';
         const _loc = d.location || '';
         const _instId     = _loc.includes(':') ? (_loc.split(':')[1] || '').split('~')[0] : '';
         const _regionRaw  = (_loc.match(/~region\(([^)]+)\)/) || [])[1] || '';
@@ -1168,7 +1174,7 @@ function renderFriendDetail(d) {
     let repGroupInfoHtml = '';
     if (repG && repG.id) {
         const repIcon = repG.iconUrl ? `<img class="fd-group-icon" src="${repG.iconUrl}" onerror="this.style.display='none'">` : `<div class="fd-group-icon fd-group-icon-empty"><span class="msi" style="font-size:18px;">group</span></div>`;
-        repGroupInfoHtml = `<div class="fd-group-rep-label">${t('profiles.badges.representing', 'Representing')}</div><div class="fd-group-card fd-group-rep" onclick="closeFriendDetail();openGroupDetail('${esc(repG.id)}')">
+        repGroupInfoHtml = `<div class="fd-group-rep-label">${t('profiles.badges.representing', 'Representing')}</div><div class="fd-group-card fd-group-rep" onclick="navOpenModal('group','${esc(repG.id)}','${esc(repG.name || '')}')">
             ${repIcon}<div class="fd-group-card-info"><div class="fd-group-card-name">${esc(repG.name)}</div><div class="fd-group-card-meta">${esc(repG.shortCode || '')}${repG.discriminator ? '.' + esc(repG.discriminator) : ''} &middot; ${esc(getGroupMemberText(repG.memberCount))}</div></div>
         </div>`;
     }
@@ -1179,7 +1185,7 @@ function renderFriendDetail(d) {
     if (repG && repG.id) {
         const repIcon = repG.iconUrl ? `<img class="fd-group-icon" src="${repG.iconUrl}" onerror="this.style.display='none'">` : `<div class="fd-group-icon fd-group-icon-empty"><span class="msi" style="font-size:18px;">group</span></div>`;
         groupsContent += `<div class="fd-group-rep-label">${t('profiles.badges.representing', 'Representing')}</div>
-        <div class="fd-group-card fd-group-rep" onclick="closeFriendDetail();openGroupDetail('${esc(repG.id)}')">
+        <div class="fd-group-card fd-group-rep" onclick="navOpenModal('group','${esc(repG.id)}','${esc(repG.name || '')}')">
             ${repIcon}<div class="fd-group-card-info"><div class="fd-group-card-name">${esc(repG.name)}</div><div class="fd-group-card-meta">${esc(repG.shortCode || '')}${repG.discriminator ? '.' + esc(repG.discriminator) : ''}${repG.memberCount ? ' &middot; ' + esc(getGroupMemberText(repG.memberCount, false)) : ''}</div></div>
         </div>`;
     }
@@ -1191,7 +1197,7 @@ function renderFriendDetail(d) {
             groupsContent += `<div style="display:grid;grid-template-columns:1fr 1fr;column-gap:6px;">`;
             otherGroups.forEach(g => {
                 const gIcon = g.iconUrl ? `<img class="fd-group-icon" src="${g.iconUrl}" onerror="this.style.display='none'">` : `<div class="fd-group-icon fd-group-icon-empty"><span class="msi" style="font-size:18px;">group</span></div>`;
-                groupsContent += `<div class="fd-group-card" onclick="closeFriendDetail();openGroupDetail('${esc(g.id)}')">
+                groupsContent += `<div class="fd-group-card" onclick="navOpenModal('group','${esc(g.id)}','${esc(g.name || '')}')">
                     ${gIcon}<div class="fd-group-card-info"><div class="fd-group-card-name">${esc(g.name)}</div><div class="fd-group-card-meta">${g.memberCount ? esc(getGroupMemberText(g.memberCount, false)) : ''}</div></div>
                 </div>`;
             });
@@ -1228,7 +1234,7 @@ function renderFriendDetail(d) {
         </div>`;
         mutualsFriendsHtml += '<div id="fdMutualsGrid" style="display:grid;grid-template-columns:1fr 1fr;column-gap:6px;">';
         allMutuals.forEach(mu => {
-            mutualsFriendsHtml += renderProfileItem(mu, `closeFriendDetail();openFriendDetail('${jsq(mu.id)}')`);
+            mutualsFriendsHtml += renderProfileItem(mu, `navOpenModal('friend','${jsq(mu.id)}','${jsq(mu.displayName || '')}')`);
         });
         mutualsFriendsHtml += '</div>';
     }
@@ -1245,7 +1251,7 @@ function renderFriendDetail(d) {
             const icon = g.iconUrl
                 ? `<img class="fd-group-icon" src="${esc(g.iconUrl)}" onerror="this.style.display='none'">`
                 : `<div class="fd-group-icon fd-group-icon-empty"><span class="msi" style="font-size:18px;">group</span></div>`;
-            mutualsGroupsHtml += `<div class="fd-group-card" style="margin-bottom:0;" onclick="closeFriendDetail();openGroupDetail('${jsq(g.id)}')">
+            mutualsGroupsHtml += `<div class="fd-group-card" style="margin-bottom:0;" onclick="navOpenModal('group','${jsq(g.id)}','${esc(g.name || '')}')">
                 ${icon}<div class="fd-group-card-info">
                     <div class="fd-group-card-name">${esc(g.name)}</div>
                     <div class="fd-group-card-meta">${esc(g.shortCode || '')}${g.discriminator ? '.' + esc(g.discriminator) : ''} &middot; ${esc(getGroupMemberText(g.memberCount))}</div>
@@ -1316,7 +1322,7 @@ function renderFriendDetail(d) {
             const wid = jsq(w.id);
             const tags = (w.tags || []).filter(t => t.startsWith('author_tag_')).map(t => t.replace('author_tag_','')).slice(0,3);
             const tagsHtml = tags.length ? `<div class="cc-tags">${tags.map(t => `<span class="vrcn-badge">${esc(t)}</span>`).join('')}</div>` : '';
-            worldsGridHtml += `<div class="vrcn-content-card" onclick="closeFriendDetail();openWorldSearchDetail('${wid}')">
+            worldsGridHtml += `<div class="vrcn-content-card" onclick="navOpenModal('worldSearch','${wid}','${esc(w.name || '')}')">
                 <div class="cc-bg" style="background-image:url('${cssUrl(thumb)}')"></div>
                 <div class="cc-scrim"></div>
                 <div class="cc-content">

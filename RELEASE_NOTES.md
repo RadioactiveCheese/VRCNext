@@ -3,3 +3,7 @@
 **Performance**
 
 - Reduced WebView2 memory usage by around 60 MB via Chromium browser flags (disabled GPU process, capped JS heap to 64 MB, disabled disk cache and background networking)
+
+**Navigation**
+
+- Added breadcrumb navigation to all modals (Profile, World, Group, Avatar, Event) — navigate between linked items and trace your path back with a single click

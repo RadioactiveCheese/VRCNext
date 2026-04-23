@@ -1,4 +1,4 @@
-**2026.18.0**
+**2026.18.0 Stable**
 
 This update is mostly focused on design consistency. Many modals did not share the same padding and CSS, so those styles have now been unified. It also includes a number of bug fixes following my database and modal system refactor, which had caused the context menu to stop working as intended.
 

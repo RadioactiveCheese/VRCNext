@@ -7,6 +7,8 @@
 **Fixes**
 
 - Removed CSS border-radius from the app root — window corners are now sharp and let Windows handle rounding, fixing visible rounded edges when Legacy Window mode is enabled
+- Fixed "VRCNext läuft bereits" popup appearing on restart (language change, Legacy Window toggle) — new instance now waits for the old process to fully exit before acquiring the mutex
+- Localized the "already running" message for all supported languages (EN, DE, ES, FR, JA, ZH-CN)
 
 **Navigation**
 

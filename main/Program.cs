@@ -45,9 +45,35 @@ static class Program
         mutex.Dispose();
         if (showError)
             MessageBox.Show(
-                "VRCNext läuft bereits.\nBitte schließe die laufende Instanz zuerst.",
+                GetAlreadyRunningMessage(),
                 "VRCNext", MessageBoxButtons.OK,
                 MessageBoxIcon.Information);
         return false;
+    }
+
+    static string GetAlreadyRunningMessage()
+    {
+        try
+        {
+            var path = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+                "VRCNext", "settings.json");
+            var json = File.ReadAllText(path);
+            var match = System.Text.RegularExpressions.Regex.Match(json, "\"[Ll]anguage\"\\s*:\\s*\"([^\"]+)\"");
+            var lang = match.Success ? match.Groups[1].Value : "en";
+            return lang switch
+            {
+                "de"    => "VRCNext läuft bereits.\nBitte schließe die laufende Instanz zuerst.",
+                "es"    => "VRCNext ya está en ejecución.\nCierra la instancia en ejecución primero.",
+                "fr"    => "VRCNext est déjà en cours d'exécution.\nVeuillez d'abord fermer l'instance en cours.",
+                "ja"    => "VRCNextはすでに起動しています。\n実行中のインスタンスを先に閉じてください。",
+                "zh-CN" => "VRCNext已在运行。\n请先关闭正在运行的实例。",
+                _       => "VRCNext is already running.\nPlease close the running instance first.",
+            };
+        }
+        catch
+        {
+            return "VRCNext is already running.\nPlease close the running instance first.";
+        }
     }
 }

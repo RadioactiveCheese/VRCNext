@@ -4,8 +4,10 @@ This update is mostly focused on design consistency. Many modals did not share t
 
 **Changes**
 - Unified left/right padding across all modals — World Detail, World Search, Create Instance, My Instance, Avatar Detail, Permini Picker, and all Timeline detail modals now match the 32px side spacing of the User/Profile modal
+- Timeline list view columns now have fixed widths across all categories and subcategories — switching filters no longer causes columns to shift or rebalance
 
 **Fixes**
+- Fixed white stripe appearing at the bottom of scrollable areas (Timeline, modals, etc.) — caused by unstyled browser-default scrollbars; all scrollbars are now globally themed to match the dark UI
 - Fixed right-click context menu not appearing on Friend Location small cards on the dashboard
 - Fixed right-click context menu not appearing on Mutual Friends in user profiles
 - Fixed right-click context menu not appearing on Group Members / Roles (ban, kick, assign role etc.)

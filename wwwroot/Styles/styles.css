@@ -176,6 +176,11 @@ body {
     opacity: 1;
 }
 
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--brd); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--accent); }
+::-webkit-scrollbar-corner { background: transparent; }
 .vrcn-scrollbar ::-webkit-scrollbar { width: 5px; }
 .vrcn-scrollbar ::-webkit-scrollbar-track { background: transparent; }
 .vrcn-scrollbar ::-webkit-scrollbar-thumb { background: var(--brd); border-radius: 3px; }
@@ -4965,6 +4970,7 @@ html.text-tools-active * { user-select: text !important; }
     width: 100%;
     border-collapse: collapse;
     font-size: 12px;
+    table-layout: fixed;
 }
 
 .tl-list-table thead tr {
@@ -5001,7 +5007,7 @@ html.text-tools-active * { user-select: text !important; }
     white-space: nowrap;
     color: var(--tx2) !important;
     font-size: 11px !important;
-    min-width: 150px;
+    width: 155px;
 }
 
 .tl-list-type {
@@ -5009,7 +5015,7 @@ html.text-tools-active * { user-select: text !important; }
     display: flex !important;
     align-items: center;
     gap: 5px;
-    min-width: 110px;
+    width: 135px;
     font-weight: 600;
 }
 .tl-list-icon {
@@ -5020,15 +5026,16 @@ html.text-tools-active * { user-select: text !important; }
 .tl-list-user {
     white-space: nowrap;
     font-weight: 600;
-    min-width: 100px;
-    max-width: 160px;
+    width: 130px;
     overflow: hidden;
     text-overflow: ellipsis;
 }
 
 .tl-list-detail {
     color: var(--tx2) !important;
-    max-width: 340px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .tl-list-na {

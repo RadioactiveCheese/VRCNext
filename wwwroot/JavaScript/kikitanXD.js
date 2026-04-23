@@ -166,6 +166,7 @@ function populateKxdDevices(p) {
         if (slider) slider.value = kxdNoiseGatePct;
         const label = document.getElementById('kxdGateVal');
         if (label) label.textContent = kxdNoiseGatePct + '%';
+        updateKxdMeter(0);
     }
 
     kxdUpdateTranslateVisibility();

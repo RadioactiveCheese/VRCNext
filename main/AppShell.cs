@@ -314,6 +314,17 @@ public partial class AppShell
             .SetUseOsDefaultLocation(false)
             .SetLeft(startX)
             .SetTop(startY)
+#if WINDOWS
+            .SetBrowserControlInitParameters(
+                "--disable-gpu " +
+                "--js-flags=--max-old-space-size=64 " +
+                "--renderer-process-limit=1 " +
+                "--disk-cache-size=1 " +
+                "--disable-gpu-shader-disk-cache " +
+                "--disable-background-networking " +
+                "--disable-sync " +
+                "--no-first-run")
+#endif
             .RegisterWebMessageReceivedHandler((_, message) => { _ = OnWebMessage(message); });
         if (File.Exists(iconPath)) windowBuilder.SetIconFile(iconPath);
         _window = windowBuilder.Load(startPage);

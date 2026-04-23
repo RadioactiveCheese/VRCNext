@@ -54,6 +54,9 @@ let _ftlSearchPage   = 0;
 // Events for the profile mini-timeline (populated per-profile-open, used by openTlDetail)
 let _fdTimelineEvents = [];
 
+// Events for the profile "Last Activity" pill (friend_events for this user)
+let _fdUserActivityEvents = [];
+
 // Filter button map
 const TL_FILTER_IDS = {
     all:           'tlFAll',
@@ -1757,6 +1760,24 @@ function openFtDetail(id) {
         case 'friend_removed':    renderFtDetailRemoved(ev, el);    break;
     }
 
+    document.getElementById('modalDetail').style.display = 'flex';
+}
+
+function openFdActivityDetail(id) {
+    const ev = _fdUserActivityEvents.find(e => e.id === id);
+    if (!ev) return;
+    const el = document.getElementById('detailModalContent');
+    if (!el) return;
+    switch (ev.type) {
+        case 'friend_gps':        renderFtDetailGps(ev, el);        break;
+        case 'friend_status':     renderFtDetailStatus(ev, el);     break;
+        case 'friend_statusdesc': renderFtDetailStatusDesc(ev, el); break;
+        case 'friend_online':      renderFtDetailOnline(ev, el);     break;
+        case 'friend_offline':     renderFtDetailOffline(ev, el);    break;
+        case 'friend_bio':        renderFtDetailBio(ev, el);        break;
+        case 'friend_added':      renderFtDetailAdded(ev, el);      break;
+        case 'friend_removed':    renderFtDetailRemoved(ev, el);    break;
+    }
     document.getElementById('modalDetail').style.display = 'flex';
 }
 

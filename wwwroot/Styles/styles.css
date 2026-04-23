@@ -2170,13 +2170,48 @@ html.text-tools-active * { user-select: text !important; }
 
 .fd-avatar { width: 64px; height: 64px; border-radius: 14px; }
 
+.fd-status-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+    margin-top: 4px;
+}
+
 .fd-status {
     font-size: 11px;
     color: var(--tx1);
     display: flex;
     align-items: center;
     gap: 5px;
-    margin-top: 3px;
+}
+
+.fd-rep-group-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 2px 8px 2px 3px;
+    border-radius: 6px;
+    background: var(--bg-input);
+    color: var(--tx1);
+    cursor: pointer;
+    transition: background .15s;
+}
+.fd-rep-group-badge:hover { background: var(--bg-hover); }
+.fd-rep-group-badge-icon {
+    width: 16px;
+    height: 16px;
+    border-radius: 4px;
+    object-fit: cover;
+    flex-shrink: 0;
+}
+.fd-rep-group-badge-name {
+    max-width: 140px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .fd-bio {
@@ -2996,7 +3031,7 @@ html.text-tools-active * { user-select: text !important; }
 .fd-pronouns {
     font-size: 11px;
     color: var(--tx2);
-    margin-top: 1px;
+    margin-top: 4px;
 }
 
 .fd-lang-tags {

@@ -653,6 +653,8 @@
   "profiles.notes.placeholder": "Schreibe eine Notiz ueber diesen Nutzer...",
   "profiles.notes.vrc_note": "VRC-Notiz",
   "profiles.notes.no_note": "Noch keine Notiz vorhanden",
+  "profiles.user_activity.title": "Letzte Aktivität",
+  "profiles.user_activity.empty": "Noch keine Aktivität aufgezeichnet",
   "profiles.notes.saved": "Gespeichert",
   "profiles.notes.failed": "Fehlgeschlagen",
   "profiles.mutuals.no_results": "Keine Ergebnisse",

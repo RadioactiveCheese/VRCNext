@@ -791,11 +791,11 @@ function handleAvatarByFileId(payload) {
             const authorHtml = payload.avatarAuthor
                 ? `<div class="fd-group-card-meta">${esc(payload.avatarAuthor)}</div>` : '';
             section.innerHTML = `<div class="fd-group-rep-label">${t('profiles.badges.current_avatar', 'Current Avatar')}</div>
-                <div class="fd-group-card fd-group-rep" onclick="openAvatarDetail('${payload.avatarId}')">
+                <div class="fd-group-card fd-group-rep" onclick="navOpenModal('avatar','${payload.avatarId}','${esc(payload.avatarName || '')}')">
                     ${avIcon}<div class="fd-group-card-info"><div class="fd-group-card-name">${esc(payload.avatarName || payload.avatarId)}</div>${authorHtml}</div>
                 </div>`;
         }
-        if (payload.openModal) openAvatarDetail(payload.avatarId);
+        if (payload.openModal) navOpenModal('avatar', payload.avatarId, payload.avatarName || '');
     }
     // on failure: do nothing — placeholder stays empty, nothing visible
 }
@@ -1053,8 +1053,6 @@ function renderFriendDetail(d) {
         worldHtml = `<div style="padding:12px;background:var(--bg-input);border-radius:10px;margin-bottom:14px;font-size:12px;color:var(--tx3);text-align:center;">${t('profiles.meta.private_instance', 'Private Instance')}</div>`;
     } else if (d.location === 'traveling') {
         worldHtml = `<div style="padding:12px;background:var(--bg-input);border-radius:10px;margin-bottom:14px;font-size:12px;color:var(--tx3);text-align:center;">${t('profiles.meta.traveling', 'Traveling...')}</div>`;
-    } else if (d.location === 'offline') {
-        worldHtml = `<div style="padding:12px;background:var(--bg-input);border-radius:10px;margin-bottom:14px;font-size:12px;color:var(--tx3);text-align:center;">${t('status.offline', 'Offline')}</div>`;
     }
 
     const bioHtml = d.bio ? `
@@ -1168,6 +1166,15 @@ function renderFriendDetail(d) {
     if (!repG && allGroups.length > 0) {
         const repFromList = allGroups.find(g => g.isRepresenting);
         if (repFromList) repG = repFromList;
+    }
+
+    // Representing group badge for header status row
+    let repGroupBadgeHtml = '';
+    if (repG && repG.id) {
+        const badgeIcon = repG.iconUrl
+            ? `<img class="fd-rep-group-badge-icon" src="${esc(repG.iconUrl)}" onerror="this.style.display='none'">`
+            : `<span class="msi" style="font-size:13px;flex-shrink:0;">group</span>`;
+        repGroupBadgeHtml = `<div class="fd-rep-group-badge" onclick="navOpenModal('group','${jsq(repG.id)}','${jsq(repG.name || '')}')">${badgeIcon}<span class="fd-rep-group-badge-name">${esc(repG.name || '')}</span></div>`;
     }
 
     // VRChat badges (API badges like VRC+ Supporter, etc.)
@@ -1284,16 +1291,18 @@ function renderFriendDetail(d) {
         <div id="fdMutualsFriends">${mutualsFriendsHtml}</div>
         <div id="fdMutualsGroups" style="display:none;">${mutualsGroupsHtml}</div>`;
 
-    // Mini-timeline — filled async via timelineForUser response
+    // Timeline + User Activity — pill switcher, filled async
     const miniTlHtml = `<div class="myp-section">
-        <div class="myp-section-header">
-            <span class="myp-section-title">${t('nav.timeline', 'Timeline')}</span>
+        <div class="fd-content-pills" style="margin-bottom:10px;">
+            <button class="fd-tab fd-mini-tl-pill active" onclick="switchFdMiniTlPill('timeline',this)">${t('nav.timeline', 'Timeline')}</button>
+            <button class="fd-tab fd-mini-tl-pill" onclick="switchFdMiniTlPill('activity',this)">${t('profiles.user_activity.title', 'Last Activity')}</button>
         </div>
         <div id="fdMiniTl" style="max-height:160px;overflow-y:auto;"></div>
+        <div id="fdUserActivity" style="max-height:160px;overflow-y:auto;display:none;"></div>
     </div>`;
 
     // Info tab content
-    const infoContent = `${worldHtml}${vrcBadgesHtml}${repGroupInfoHtml}${avatarRowHtml}${bioHtml}${bioLinksHtml}${langsHtml}${metaHtml ? '<div style="margin-bottom:14px;">' + metaHtml + '</div>' : ''}${vrcNoteHtml}${miniTlHtml}`;
+    const infoContent = `${worldHtml}${vrcBadgesHtml}${avatarRowHtml}${bioHtml}${bioLinksHtml}${langsHtml}${metaHtml ? '<div style="margin-bottom:14px;">' + metaHtml + '</div>' : ''}${vrcNoteHtml}${miniTlHtml}`;
 
     // Banner
     const bannerSrc = d.profilePicOverride || d.currentAvatarImageUrl || d.image || '';
@@ -1364,7 +1373,7 @@ function renderFriendDetail(d) {
         </div>`;
 
 
-    c.innerHTML = `${bannerHtml}<div class="fd-content${bannerSrc ? ' fd-has-banner' : ''}"><div class="fd-header">${imgTag}<div><div class="fd-name" style="display:flex;align-items:center;gap:6px;">${esc(d.displayName)}${vrcPlusBadge}</div>${pronounsHtml}<div class="fd-status" id="fd-live-status"><span class="${fdDotClass} ${fdStatusDotCls}" style="width:8px;height:8px;"></span>${fdIsOffline ? t('status.offline', 'Offline') : statusLabel(d.status)}${(!fdIsOffline && fdIsWeb) ? ' ' + t('profiles.friends.web_suffix', '(Web)') : ''}${(!fdIsOffline && d.statusDescription) ? ' - ' + esc(d.statusDescription) : ''}</div></div></div>${badgesHtml}${actionsHtml}${tabsHtml}<div id="fdTabInfo">${infoContent}</div><div id="fdTabGroups" style="display:none;">${groupsContent}</div><div id="fdTabMutuals" style="display:none;">${mutualsContent}</div><div id="fdTabContent" style="display:none;">${contentHtml}</div><div id="fdTabFavs" style="display:none;" data-user-id="${esc(userId)}"></div><div style="margin-top:10px;text-align:right;"><button class="vrcn-button-round" onclick="closeFriendDetail()">${t('common.close', 'Close')}</button></div></div>`;
+    c.innerHTML = `${bannerHtml}<div class="fd-content${bannerSrc ? ' fd-has-banner' : ''}"><div class="fd-header">${imgTag}<div><div class="fd-name" style="display:flex;align-items:center;gap:6px;">${esc(d.displayName)}${vrcPlusBadge}</div>${pronounsHtml}<div class="fd-status-row"><div class="fd-status" id="fd-live-status"><span class="${fdDotClass} ${fdStatusDotCls}" style="width:8px;height:8px;"></span>${fdIsOffline ? t('status.offline', 'Offline') : statusLabel(d.status)}${(!fdIsOffline && fdIsWeb) ? ' ' + t('profiles.friends.web_suffix', '(Web)') : ''}${(!fdIsOffline && d.statusDescription) ? ' - ' + esc(d.statusDescription) : ''}</div>${repGroupBadgeHtml}</div></div></div>${badgesHtml}${actionsHtml}${tabsHtml}<div id="fdTabInfo">${infoContent}</div><div id="fdTabGroups" style="display:none;">${groupsContent}</div><div id="fdTabMutuals" style="display:none;">${mutualsContent}</div><div id="fdTabContent" style="display:none;">${contentHtml}</div><div id="fdTabFavs" style="display:none;" data-user-id="${esc(userId)}"></div><div style="margin-top:10px;text-align:right;"><button class="vrcn-button-round" onclick="closeFriendDetail()">${t('common.close', 'Close')}</button></div></div>`;
     // Insert persistent banner img (stays alive across profile opens, never re-fetched)
     if (bannerSrc) {
         const bannerSlot = document.getElementById('fd-banner-slot');
@@ -1397,6 +1406,9 @@ function renderFriendDetail(d) {
 
     // Request mini-timeline events for this user
     if (userId) { _fdTimelineEvents = []; sendToCS({ action: 'getTimelineForUser', userId }); }
+
+    // Request friend activity (friend_events) for this user
+    if (userId) sendToCS({ action: 'getFriendActivityForUser', userId });
 
     // Live ticker - only when friend is confirmed in same instance (never for own profile)
     if (_fdLiveTimer) { clearInterval(_fdLiveTimer); _fdLiveTimer = null; }
@@ -1437,6 +1449,45 @@ function renderFdTimeline(userId, events) {
             ${detail ? `<span style="font-size:11px;color:var(--tx2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;">${detail}</span>` : ''}
         </div>`;
     }).join('');
+}
+
+function renderFdUserActivity(userId, events) {
+    if (!currentFriendDetail || currentFriendDetail.id !== userId) return;
+    const el = document.getElementById('fdUserActivity');
+    if (!el) return;
+
+    if (!events || !events.length) {
+        el.innerHTML = `<div style="padding:4px 0;font-size:12px;color:var(--tx3);">${t('profiles.user_activity.empty', 'No activity recorded yet')}</div>`;
+        return;
+    }
+
+    _fdUserActivityEvents = events;
+
+    const FT_COLOR = { friend_gps:'var(--accent)', friend_status:'var(--cyan)', friend_statusdesc:'var(--cyan)', friend_online:'var(--ok)', friend_offline:'var(--tx3)', friend_bio:'#AB47BC', friend_added:'var(--ok)', friend_removed:'var(--err)' };
+
+    el.innerHTML = events.map(ev => {
+        const meta   = typeof ftTypeMeta === 'function' ? ftTypeMeta(ev.type) : { icon: 'circle', label: ev.type };
+        const color  = FT_COLOR[ev.type] || 'var(--tx3)';
+        const d      = new Date(ev.timestamp);
+        const dt     = `${fmtShortDate(d)} | ${fmtTime(d)}`;
+        const ei     = jsq(ev.id);
+        const detail = typeof _ftListDetail === 'function' ? (_ftListDetail(ev) || '') : '';
+        return `<div style="display:flex;align-items:center;gap:8px;padding:5px 2px;border-bottom:1px solid var(--brd);cursor:pointer;" onclick="openFdActivityDetail('${ei}')">
+            <span style="font-size:11px;color:var(--tx3);white-space:nowrap;">${esc(dt)}</span>
+            <span class="msi" style="font-size:14px;color:${color};flex-shrink:0;">${meta.icon}</span>
+            <span style="font-size:12px;">${esc(meta.label)}</span>
+            ${detail ? `<span style="font-size:11px;color:var(--tx2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;">${detail}</span>` : ''}
+        </div>`;
+    }).join('');
+}
+
+function switchFdMiniTlPill(pill, btn) {
+    const tl = document.getElementById('fdMiniTl');
+    const ua = document.getElementById('fdUserActivity');
+    if (tl) tl.style.display = pill === 'timeline'  ? '' : 'none';
+    if (ua) ua.style.display = pill === 'activity' ? '' : 'none';
+    document.querySelectorAll('.fd-mini-tl-pill').forEach(p => p.classList.remove('active'));
+    if (btn) btn.classList.add('active');
 }
 
 function friendAction(action, location, userId) {

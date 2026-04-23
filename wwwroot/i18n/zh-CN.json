@@ -653,6 +653,8 @@
   "profiles.notes.placeholder": "写一条关于此用户的备注...",
   "profiles.notes.vrc_note": "VRC 备注",
   "profiles.notes.no_note": "暂无备注",
+  "profiles.user_activity.title": "最近活动",
+  "profiles.user_activity.empty": "暂无记录的活动",
   "profiles.notes.saved": "已保存",
   "profiles.notes.failed": "失败",
   "profiles.mutuals.no_results": "无结果",

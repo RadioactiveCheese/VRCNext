@@ -653,6 +653,8 @@
   "profiles.notes.placeholder": "Write a note about this user...",
   "profiles.notes.vrc_note": "VRC Note",
   "profiles.notes.no_note": "No notes added yet",
+  "profiles.user_activity.title": "Last Activity",
+  "profiles.user_activity.empty": "No activity recorded yet",
   "profiles.notes.saved": "Saved",
   "profiles.notes.failed": "Failed",
   "profiles.mutuals.no_results": "No results",

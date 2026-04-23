@@ -751,7 +751,8 @@ case 'popularWorlds':
             case 'friendTimelineData':          renderFriendTimeline(payload); break;
             case 'friendTimelineEvent':         handleFriendTimelineEvent(payload); break;
             case 'friendTimelineSearchResults': handleFtlSearchResults(payload); break;
-            case 'timelineForUser': renderFdTimeline(payload.userId, payload.events); break;
+            case 'timelineForUser':        renderFdTimeline(payload.userId, payload.events); break;
+            case 'friendActivityForUser':  renderFdUserActivity(payload.userId, payload.events); break;
             case 'invFiles':
                 if (!payload.error) {
                     // Cache by actual tag (not activeInvTab) to prevent cross-contamination

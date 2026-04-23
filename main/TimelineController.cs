@@ -1102,4 +1102,18 @@ public class TimelineController
             _core.SendToJS("timelineForUser", new { userId, events = payload });
         });
     }
+
+    // getFriendActivityForUser — user activity (friend_events) in profile modal
+
+    internal void HandleGetFriendActivityForUser(JObject msg)
+    {
+        var userId = msg["userId"]?.ToString() ?? "";
+        if (string.IsNullOrEmpty(userId)) return;
+        _ = Task.Run(() =>
+        {
+            var events  = _core.Timeline.GetFriendEventsForUser(userId, 10);
+            var payload = events.Select(e => _friends.BuildFriendTimelinePayload(e)).ToList();
+            _core.SendToJS("friendActivityForUser", new { userId, events = payload });
+        });
+    }
 }

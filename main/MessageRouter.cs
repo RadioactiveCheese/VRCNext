@@ -1547,6 +1547,10 @@ public partial class AppShell
                     await _timelineCtrl.HandleMessage(action, msg);
                     break;
 
+                case "getFriendActivityForUser":
+                    _timelineCtrl.HandleGetFriendActivityForUser(msg);
+                    break;
+
                 // Inventory
 
                 case "invGetFiles":

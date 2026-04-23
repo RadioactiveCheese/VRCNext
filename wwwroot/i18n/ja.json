@@ -653,6 +653,8 @@
   "profiles.notes.placeholder": "このユーザーについてメモを書く...",
   "profiles.notes.vrc_note": "VRCメモ",
   "profiles.notes.no_note": "まだメモがありません",
+  "profiles.user_activity.title": "最近のアクティビティ",
+  "profiles.user_activity.empty": "まだ記録されたアクティビティはありません",
   "profiles.notes.saved": "保存済み",
   "profiles.notes.failed": "失敗",
   "profiles.mutuals.no_results": "結果なし",

@@ -669,7 +669,7 @@
 
         const favEntry = (typeof favAvatarsData !== 'undefined') && favAvatarsData.find(a => a.id === id);
         const items = [
-            { icon: 'info', label: cm('avatar.show', 'Show Avatar'), action: () => openAvatarDetail(id) },
+            { icon: 'info', label: cm('avatar.show', 'Show Avatar'), action: () => navOpenModal('avatar', id, '') },
             { icon: 'share', label: cm('avatar.share', 'Share Avatar'), action: () => copyWithToast('https://vrchat.com/home/avatar/' + id, 'avatar.share_copied', 'Avatar link copied to clipboard') },
             { icon: 'checkroom', label: cm('avatar.use', 'Use Avatar'), action: () => sendToCS({ action: 'vrcSelectAvatar', avatarId: id }) },
             'sep',

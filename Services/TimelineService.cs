@@ -1015,6 +1015,40 @@ public class TimelineService : IDisposable
         return (result, hasMore);
     }
 
+    public List<FriendTimelineEvent> GetFriendEventsForUser(string friendId, int limit = 10)
+    {
+        var result = new List<FriendTimelineEvent>();
+        try
+        {
+            using var cmd = _db.CreateCommand();
+            cmd.CommandText = @"SELECT id,type,timestamp,friend_id,friend_name,friend_image,
+                world_id,world_name,world_thumb,location,old_value,new_value
+                FROM friend_events WHERE friend_id=$fid
+                ORDER BY timestamp DESC LIMIT $limit";
+            cmd.Parameters.AddWithValue("$fid",   friendId);
+            cmd.Parameters.AddWithValue("$limit", limit);
+            using var r = cmd.ExecuteReader();
+            while (r.Read())
+                result.Add(new FriendTimelineEvent
+                {
+                    Id          = r.GetString(0),
+                    Type        = r.GetString(1),
+                    Timestamp   = r.GetString(2),
+                    FriendId    = r.GetString(3),
+                    FriendName  = r.GetString(4),
+                    FriendImage = r.GetString(5),
+                    WorldId     = r.GetString(6),
+                    WorldName   = r.GetString(7),
+                    WorldThumb  = r.GetString(8),
+                    Location    = r.GetString(9),
+                    OldValue    = r.GetString(10),
+                    NewValue    = r.GetString(11),
+                });
+        }
+        catch { }
+        return result;
+    }
+
     public List<FriendTimelineEvent> GetFriendEventsByDate(DateTime localDate, string? type = null)
     {
         var utcStart = localDate.ToUniversalTime().ToString("o");

@@ -842,11 +842,18 @@ function renderRoseAvatarCard(a) {
 let _avDetailData = null;
 let _avEditTags   = [];
 
+const _avatarDetailCache = {};
+
 function openAvatarDetail(avatarId) {
     if (typeof navSetCurrent === 'function') navSetCurrent('avatar', avatarId);
-    const c = document.getElementById('avatarDetailContent');
-    if (c) c.innerHTML = sk('detail');
     document.getElementById('modalAvatarDetail').style.display = 'flex';
+    const cached = _avatarDetailCache[avatarId];
+    if (cached) {
+        renderAvatarDetail(cached);
+    } else {
+        const c = document.getElementById('avatarDetailContent');
+        if (c) c.innerHTML = sk('detail');
+    }
     sendToCS({ action: 'vrcGetAvatarDetail', avatarId });
 }
 
@@ -927,6 +934,7 @@ function avRemoveTag(idx) {
 
 
 function renderAvatarDetail(a) {
+    if (a.id) _avatarDetailCache[a.id] = a;
     _avDetailData = a;
     if (typeof navUpdateLabel === 'function') navUpdateLabel(a.name || '');
     const c = document.getElementById('avatarDetailContent');

@@ -1094,7 +1094,7 @@ public class FriendsController
         bool isFriend;
         lock (_friendStore) isFriend = _friendStore.ContainsKey(userId);
 
-        var diskCached = (_core.Settings.FfcEnabled && isFriend) ? _core.Cache.LoadRaw(CacheHandler.KeyUserProfile(userId)) : null;
+        var diskCached = _core.Settings.FfcEnabled ? _core.Cache.LoadRaw(CacheHandler.KeyUserProfile(userId)) : null;
         if (diskCached is JObject diskProfile)
         {
             JObject? live;
@@ -1149,7 +1149,7 @@ public class FriendsController
                 _core.SendToJS("vrcFriendDetailError", new { error = "Could not load user profile" });
                 return;
             }
-            if (_core.Settings.FfcEnabled && isFriend) _core.Cache.Save(CacheHandler.KeyUserProfile(userId), payload);
+            if (_core.Settings.FfcEnabled) _core.Cache.Save(CacheHandler.KeyUserProfile(userId), payload);
             _core.SendToJS("vrcFriendDetail", payload);
         }
         catch (Exception ex)

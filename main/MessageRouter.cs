@@ -668,6 +668,37 @@ public partial class AppShell
                     var wdId = msg["worldId"]?.ToString() ?? "";
                     if (!string.IsNullOrEmpty(wdId))
                     {
+                        // Serve from DB cache immediately if available
+                        var wdCached = _timeEngine.GetWorldDetail(wdId);
+                        if (wdCached != null)
+                        {
+                            Invoke(() => SendToJS("vrcWorldDetail", new
+                            {
+                                id                  = wdId,
+                                name                = wdCached.WorldName,
+                                description         = wdCached.Description,
+                                imageUrl            = wdCached.ImageUrl,
+                                thumbnailImageUrl   = wdCached.WorldThumb,
+                                authorName          = wdCached.AuthorName,
+                                authorId            = wdCached.AuthorId,
+                                occupants           = 0,
+                                publicOccupants     = 0,
+                                privateOccupants    = 0,
+                                capacity            = wdCached.Capacity,
+                                recommendedCapacity = wdCached.RecommendedCapacity,
+                                favorites           = wdCached.Favorites,
+                                visits              = wdCached.Visits,
+                                createdAt           = wdCached.Published,
+                                updatedAt           = wdCached.Updated,
+                                pcSize              = wdCached.PcSize,
+                                androidSize         = wdCached.AndroidSize,
+                                tags                = wdCached.Tags,
+                                instances           = new List<object>(),
+                                worldTimeSeconds    = wdCached.TotalSeconds,
+                                worldVisitCount     = wdCached.VisitCount,
+                            }));
+                        }
+
                         _ = Task.Run(async () =>
                         {
                             static string StripNonce(string l) =>
@@ -817,6 +848,24 @@ public partial class AppShell
                                     return dt.ToUniversalTime().ToString("yyyy-MM-dd");
                                 return "";
                             }
+                            _timeEngine.SaveWorldDetail(
+                                worldId:             world["id"]?.ToString() ?? "",
+                                name:                world["name"]?.ToString() ?? "",
+                                thumb:               world["thumbnailImageUrl"]?.ToString() ?? "",
+                                description:         world["description"]?.ToString() ?? "",
+                                imageUrl:            world["imageUrl"]?.ToString() ?? "",
+                                authorName:          world["authorName"]?.ToString() ?? "",
+                                authorId:            world["authorId"]?.ToString() ?? "",
+                                published:           ToIso(world["created_at"]),
+                                updated:             ToIso(world["updated_at"]),
+                                capacity:            world["capacity"]?.Value<int>() ?? 0,
+                                recommendedCapacity: world["recommendedCapacity"]?.Value<int>() ?? 0,
+                                tags:                tags,
+                                favorites:           world["favorites"]?.Value<int>() ?? 0,
+                                visits:              world["visits"]?.Value<int>() ?? 0,
+                                pcSize:              pcSize,
+                                androidSize:         androidSize
+                            );
                             Invoke(() => SendToJS("vrcWorldDetail", new
                             {
                                 id = world["id"]?.ToString() ?? "",
@@ -879,6 +928,17 @@ public partial class AppShell
                     var avdId = msg["avatarId"]?.ToString() ?? "";
                     if (!string.IsNullOrEmpty(avdId))
                     {
+                        var avdCached = _timeEngine.GetAvatarDetail(avdId);
+                        if (avdCached != null)
+                            Invoke(() => SendToJS("vrcAvatarDetail", new {
+                                id = avdId, name = avdCached.Name, authorName = avdCached.AuthorName,
+                                authorId = avdCached.AuthorId, thumbnailImageUrl = avdCached.ThumbnailImageUrl,
+                                imageUrl = avdCached.ImageUrl, releaseStatus = avdCached.ReleaseStatus,
+                                version = avdCached.Version, created_at = avdCached.CreatedAt,
+                                updated_at = avdCached.UpdatedAt, description = avdCached.Description,
+                                tags = avdCached.Tags, hasPC = avdCached.HasPC, hasQuest = avdCached.HasQuest,
+                                hasImpostor = avdCached.HasImpostor, pcPerf = avdCached.PcPerf, questPerf = avdCached.QuestPerf,
+                            }));
                         _ = Task.Run(async () =>
                         {
                             var avatar = await _vrcApi.GetAvatarAsync(avdId);
@@ -887,7 +947,6 @@ public partial class AppShell
                                 Invoke(() => SendToJS("vrcAvatarDetailError", new { error = "Could not load avatar" }));
                                 return;
                             }
-                            // Parse unityPackages for platform + performance rating
                             var packages = avatar["unityPackages"] as JArray ?? new JArray();
                             var realPkgs = packages.Where(p => p["variant"]?.ToString() != "impostor").ToList();
                             var hasPC    = realPkgs.Any(p => p["platform"]?.ToString() == "standalonewindows");
@@ -895,10 +954,25 @@ public partial class AppShell
                             var hasImpostor = packages.Any(p => p["variant"]?.ToString() == "impostor");
                             var pcPerf    = realPkgs.FirstOrDefault(p => p["platform"]?.ToString() == "standalonewindows")?["performanceRating"]?.ToString() ?? "";
                             var questPerf = realPkgs.FirstOrDefault(p => p["platform"]?.ToString() == "android")?["performanceRating"]?.ToString() ?? "";
-                            // Fallback: newer performance object
                             var perf = avatar["performance"] as JObject;
                             if (string.IsNullOrEmpty(pcPerf))    pcPerf    = perf?["standalonewindows"]?.ToString() ?? "";
                             if (string.IsNullOrEmpty(questPerf)) questPerf = perf?["android"]?.ToString() ?? "";
+                            // Save immediately so future opens are instant from DB
+                            var avtSaveId = avatar["id"]?.ToString() ?? avdId;
+                            _timeEngine.SaveAvatarDetail(
+                                avtSaveId,
+                                avatar["name"]?.ToString() ?? "",
+                                avatar["authorName"]?.ToString() ?? "",
+                                avatar["authorId"]?.ToString() ?? "",
+                                avatar["thumbnailImageUrl"]?.ToString() ?? "",
+                                avatar["imageUrl"]?.ToString() ?? "",
+                                avatar["releaseStatus"]?.ToString() ?? "",
+                                avatar["version"]?.Value<int>() ?? 0,
+                                avatar["created_at"]?.ToString() ?? "",
+                                avatar["updated_at"]?.ToString() ?? "",
+                                avatar["description"]?.ToString() ?? "",
+                                avatar["tags"]?.ToObject<List<string>>() ?? new(),
+                                hasPC, hasQuest, hasImpostor, pcPerf, questPerf);
                             Invoke(() => SendToJS("vrcAvatarDetail", new
                             {
                                 id               = avatar["id"]?.ToString()                  ?? "",
@@ -1344,8 +1418,38 @@ public partial class AppShell
                     var calEvtId = msg["calendarId"]?.ToString();
                     if (!string.IsNullOrEmpty(calGrpId) && !string.IsNullOrEmpty(calEvtId))
                     {
+                        var calCached = _timeEngine.GetEventDetail(calEvtId);
+                        if (calCached != null)
+                            Invoke(() => SendToJS("vrcCalendarEvent", new JObject {
+                                ["id"]          = calEvtId,
+                                ["groupId"]     = calCached.GroupId,
+                                ["ownerId"]     = calCached.OwnerId,
+                                ["title"]       = calCached.Title,
+                                ["description"] = calCached.Description,
+                                ["startsAt"]    = calCached.StartsAt,
+                                ["endsAt"]      = calCached.EndsAt,
+                                ["imageUrl"]    = calCached.ImageUrl,
+                                ["accessType"]  = calCached.AccessType,
+                                ["isFollowing"] = calCached.IsFollowing,
+                                ["tags"]        = new JArray(calCached.Tags),
+                            }));
                         _ = Task.Run(async () => {
                             var ev = await _vrcApi.GetCalendarEventAsync(calGrpId, calEvtId);
+                            if (ev != null)
+                            {
+                                _timeEngine.SaveEventDetail(
+                                    ev["id"]?.ToString() ?? calEvtId,
+                                    ev["groupId"]?.ToString() ?? calGrpId,
+                                    ev["title"]?.ToString() ?? "",
+                                    ev["description"]?.ToString() ?? "",
+                                    ev["startsAt"]?.ToString() ?? "",
+                                    ev["endsAt"]?.ToString() ?? "",
+                                    ev["imageUrl"]?.ToString() ?? "",
+                                    ev["accessType"]?.ToString() ?? "",
+                                    ev["tags"]?.ToObject<List<string>>() ?? new(),
+                                    ev["ownerId"]?.ToString() ?? "",
+                                    ev["isFollowing"]?.Value<bool>() ?? false);
+                            }
                             Invoke(() => SendToJS("vrcCalendarEvent", ev ?? new JObject()));
                         });
                     }
@@ -1393,16 +1497,38 @@ public partial class AppShell
                     var guId = msg["userId"]?.ToString();
                     if (!string.IsNullOrEmpty(guId))
                     {
+                        var guCached = _timeEngine.GetUserDetail(guId);
+                        if (guCached != null)
+                            Invoke(() => SendToJS("vrcUserDetail", new {
+                                id = guId, displayName = guCached.DisplayName, image = guCached.Image,
+                                status = guCached.Status, statusDescription = guCached.StatusDescription,
+                                bio = guCached.Bio, location = guCached.Location, isFriend = guCached.IsFriend,
+                                currentAvatarImageUrl = guCached.CurrentAvatarImg,
+                            }));
                         _ = Task.Run(async () => {
                             var u = await _vrcApi.GetUserAsync(guId);
-                            if (u != null) Invoke(() => SendToJS("vrcUserDetail", new {
-                                id = u["id"]?.ToString() ?? "", displayName = u["displayName"]?.ToString() ?? "",
-                                image = VRChatApiService.GetUserImage(u), status = u["status"]?.ToString() ?? "offline",
-                                statusDescription = u["statusDescription"]?.ToString() ?? "",
-                                bio = u["bio"]?.ToString() ?? "", location = u["location"]?.ToString() ?? "",
-                                isFriend = u["isFriend"]?.Value<bool>() ?? false,
-                                currentAvatarImageUrl = u["currentAvatarImageUrl"]?.ToString() ?? "",
-                            }));
+                            if (u != null)
+                            {
+                                var guImg = VRChatApiService.GetUserImage(u);
+                                _timeEngine.SaveUserDetail(
+                                    u["id"]?.ToString() ?? guId,
+                                    u["displayName"]?.ToString() ?? "",
+                                    guImg,
+                                    u["status"]?.ToString() ?? "offline",
+                                    u["statusDescription"]?.ToString() ?? "",
+                                    u["bio"]?.ToString() ?? "",
+                                    u["location"]?.ToString() ?? "",
+                                    u["isFriend"]?.Value<bool>() ?? false,
+                                    u["currentAvatarImageUrl"]?.ToString() ?? "");
+                                Invoke(() => SendToJS("vrcUserDetail", new {
+                                    id = u["id"]?.ToString() ?? "", displayName = u["displayName"]?.ToString() ?? "",
+                                    image = guImg, status = u["status"]?.ToString() ?? "offline",
+                                    statusDescription = u["statusDescription"]?.ToString() ?? "",
+                                    bio = u["bio"]?.ToString() ?? "", location = u["location"]?.ToString() ?? "",
+                                    isFriend = u["isFriend"]?.Value<bool>() ?? false,
+                                    currentAvatarImageUrl = u["currentAvatarImageUrl"]?.ToString() ?? "",
+                                }));
+                            }
                         });
                     }
                     break;

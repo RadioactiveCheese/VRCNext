@@ -1,5 +1,19 @@
 /* === Search (Worlds, Groups, People) === */
 /* === World Tab: Favorites / Search filter === */
+const _worldBannerImgs = {};
+function _getWorldBannerImg(worldId, src) {
+    if (!worldId || !src) return null;
+    if (!_worldBannerImgs[worldId]) {
+        const img = new Image();
+        img.src = src;
+        img.onerror = () => { if (img.parentElement) img.parentElement.style.display = 'none'; };
+        _worldBannerImgs[worldId] = { img, src };
+    } else if (_worldBannerImgs[worldId].src !== src) {
+        _worldBannerImgs[worldId].img.src = src;
+        _worldBannerImgs[worldId].src = src;
+    }
+    return _worldBannerImgs[worldId].img;
+}
 let _favRefreshTimer = null;
 let _wdLiveTimer = null;
 let _favWorldsLoaded = false;
@@ -547,7 +561,7 @@ function renderWorldSearchDetail(w) {
         <button class="fd-tab" onclick="switchWdTab('insights',this)">${t('worlds.tabs.insights', 'Insights')}</button>
     </div>` : '';
 
-    el.innerHTML = `${thumb ? `<div class="fd-banner"><img src="${thumb}" onerror="this.parentElement.style.display='none'"><div class="fd-banner-fade"></div><button class="btn-notif" style="position:absolute;top:8px;right:8px;z-index:3;" title="${esc(t('common.share','Share'))}" onclick="navigator.clipboard.writeText('https://vrchat.com/home/world/${esc(wid)}').then(()=>showToast(true,t('common.link_copied','Link copied!')))"><span class="msi" style="font-size:20px;">share</span></button></div>` : ''}
+    el.innerHTML = `${thumb ? `<div class="fd-banner" id="wd-banner-slot"><div class="fd-banner-fade"></div><button class="btn-notif" style="position:absolute;top:8px;right:8px;z-index:3;" title="${esc(t('common.share','Share'))}" onclick="navigator.clipboard.writeText('https://vrchat.com/home/world/${esc(wid)}').then(()=>showToast(true,t('common.link_copied','Link copied!')))"><span class="msi" style="font-size:20px;">share</span></button></div>` : ''}
         <div class="fd-content${thumb ? ' fd-has-banner' : ''}" style="padding:20px;">
         <h2 style="margin:0 0 4px;color:var(--tx0);font-size:18px;">${esc(w.name)}</h2>
         <div style="font-size:12px;color:var(--tx3);margin-bottom:12px;">${t('worlds.meta.by', 'by')} ${w.authorId ? `<span onclick="navOpenModal('friend','${esc(w.authorId)}','${esc(w.authorName || '')}')" style="display:inline-flex;align-items:center;padding:1px 8px;border-radius:20px;background:var(--bg-hover);font-size:11px;font-weight:600;color:var(--tx1);cursor:pointer;line-height:1.8;">${esc(w.authorName)}</span>` : esc(w.authorName)}</div>
@@ -584,6 +598,7 @@ function renderWorldSearchDetail(w) {
         <div style="margin-top:14px;text-align:right;"><button class="vrcn-button-round" onclick="closeWorldSearchDetail()">${t('common.close', 'Close')}</button></div>
         </div>`;
 
+    if (thumb) { const s = document.getElementById('wd-banner-slot'); const bi = _getWorldBannerImg(wid, thumb); if (s && bi) s.insertBefore(bi, s.firstChild); }
     // Live timer – only when currently in this world
     if (_wdLiveTimer) { clearInterval(_wdLiveTimer); _wdLiveTimer = null; }
     if (currentInstanceData?.worldId === wid) {
@@ -1039,9 +1054,7 @@ function openWorldDetail(worldId) {
         : null;
 
     // Build header with banner fade (matching profiles/groups)
-    const bannerHtml = thumb
-        ? `<div class="fd-banner"><img src="${thumb}" onerror="this.parentElement.style.display='none'"><div class="fd-banner-fade"></div></div>`
-        : '';
+    const bannerHtml = thumb ? `<div class="fd-banner" id="wi-banner-slot"><div class="fd-banner-fade"></div></div>` : '';
 
     // Separate friends in MY instance from friends in other instances
     const myInstNum = myInst ? (myInst.location?.match(/:(\d+)/)?.[1] || '') : '';
@@ -1160,6 +1173,7 @@ function openWorldDetail(worldId) {
             return `<span class="vrcn-badge ${instClass}">${instLabel}</span>${singleRegionBadge}${_ob}${singleInstCopy}`;
         })()}</div>
         ${friendsHtml}${actionsHtml}</div>`;
+    if (thumb) { const s = document.getElementById('wi-banner-slot'); const bi = _getWorldBannerImg(worldId, thumb); if (s && bi) s.insertBefore(bi, s.firstChild); }
     m.style.display = 'flex';
 }
 

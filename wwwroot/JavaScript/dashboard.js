@@ -170,13 +170,14 @@ function renderDashWorlds() {
         const extra = w.friends.length > 5 ? `<span class="cc-extra">+${w.friends.length - 5}</span>` : '';
         const thumbStyle = w.thumb ? `background-image:url('${cssUrl(w.thumb)}')` : '';
         const wid = (w.worldId || '').replace(/'/g, "\\'");
+        const safeLoc = (w.location || '').replace(/'/g, "\\'");
         const displayName = w.name || w.worldId;
         const instCount = w.instances ? w.instances.size : 1;
         const countLabel = instCount > 1
             ? getDashFriendCountLabel(w.friends.length, 'dashboard.worlds.count_world')
             : getDashFriendCountLabel(w.friends.length, 'dashboard.worlds.count_here');
         const { cls: dwInstCls, label: dwInstLabel } = getInstanceBadge(w.instanceType);
-        return `<div class="vrcn-content-card" onclick="openWorldDetail('${wid}')">
+        return `<div class="vrcn-content-card" onclick="openFriendLocationDetail('${wid}','${safeLoc}')">
             <div class="cc-bg" style="${thumbStyle}"></div>
             <div class="cc-scrim"></div>
             <div class="cc-badges-top"><span class="vrcn-badge ${dwInstCls}">${dwInstLabel}</span></div>
@@ -233,6 +234,21 @@ function browseDashBg() {
 
 /* === Dashboard — Friends Location (Small) shelf === */
 
+function openFriendLocationDetail(worldId, location) {
+    const cached = (worldId && typeof dashWorldCache !== 'undefined') ? (dashWorldCache[worldId] || {}) : {};
+    const { instanceType, ownerId } = (typeof parseFriendLocation === 'function') ? parseFriendLocation(location) : { instanceType: 'public', ownerId: '' };
+    openInstanceDetailFromData({
+        worldId,
+        location,
+        worldName:  cached.name || worldId || '',
+        worldThumb: cached.thumbnailImageUrl || cached.imageUrl || '',
+        instanceType,
+        ownerId:    ownerId || '',
+        ownerName:  '',
+        ownerGroup: '',
+    });
+}
+
 function renderDashFriendsLocationSmall() {
     const el = document.getElementById('dashFriendLocSmallShelf');
     if (!el) return;
@@ -254,13 +270,14 @@ function renderDashFriendsLocationSmall() {
         const thumb    = cached?.thumbnailImageUrl || cached?.imageUrl || '';
         const wname    = cached?.name || t('dashboard.friends.location_world', 'In World');
         const wid      = (worldId || '').replace(/'/g, "\\'");
+        const safeLoc  = (f.location || '').replace(/'/g, "\\'");
         const img      = f.image || '';
         const imgTag   = img
             ? `<img class="dash-feed-avatar" src="${img}" onerror="this.style.display='none'">`
             : `<div class="dash-feed-avatar" style="display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:rgba(255,255,255,.6)">${esc((f.displayName||'?')[0])}</div>`;
         const dotClass = f.presence === 'web' ? 'vrc-status-ring' : 'vrc-status-dot';
         const fid      = (f.id || '').replace(/'/g, "\\'");
-        return `<div class="dash-floc-card" onclick="openWorldDetail('${wid}')">
+        return `<div class="dash-floc-card" onclick="openFriendLocationDetail('${wid}','${safeLoc}')">
             <div class="dash-floc-bg"${thumb ? ` style="background-image:url('${cssUrl(thumb)}')"` : ''}></div>
             <div class="dash-floc-scrim"></div>
             ${imgTag}
@@ -351,6 +368,7 @@ function openInstanceDetailFromData(inst) {
     const m = document.getElementById('modalMyInstance');
     const c = document.getElementById('myInstanceContent');
     if (!m || !c) return;
+    m.style.display = 'flex';
 
     const thumb    = inst.worldThumb || '';
     const worldId  = inst.worldId || inst.location?.split(':')[0] || '';
@@ -411,7 +429,6 @@ function openInstanceDetailFromData(inst) {
             <button class="vrcn-button-round" style="margin-left:auto;" onclick="closeMyInstanceDetail()">${t('common.close', 'Close')}</button>
         </div>
     </div>`;
-    m.style.display = 'flex';
 }
 
 function openMyInstanceDetail(worldId, location) {

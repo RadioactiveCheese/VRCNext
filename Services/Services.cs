@@ -793,6 +793,530 @@ public class UnifiedTimeEngine : IDisposable
     }
 
     // ══════════════════════════════════════════════════════════════════
+    //  WORLD DETAIL CACHE
+    // ══════════════════════════════════════════════════════════════════
+
+    public class WorldDetailCache
+    {
+        public string WorldName             { get; set; } = "";
+        public string WorldThumb            { get; set; } = "";
+        public string Description           { get; set; } = "";
+        public string ImageUrl              { get; set; } = "";
+        public string AuthorName            { get; set; } = "";
+        public string AuthorId              { get; set; } = "";
+        public string Published             { get; set; } = "";
+        public string Updated               { get; set; } = "";
+        public int    Capacity              { get; set; }
+        public int    RecommendedCapacity   { get; set; }
+        public List<string> Tags            { get; set; } = new();
+        public int    Favorites             { get; set; }
+        public int    Visits                { get; set; }
+        public long   PcSize               { get; set; }
+        public long   AndroidSize           { get; set; }
+        public long   TotalSeconds          { get; set; }
+        public int    VisitCount            { get; set; }
+        public string LastVisited           { get; set; } = "";
+    }
+
+    public WorldDetailCache? GetWorldDetail(string worldId)
+    {
+        if (string.IsNullOrEmpty(worldId)) return null;
+        lock (_lock)
+        {
+            try
+            {
+                using var cmd = _db.CreateCommand();
+                cmd.CommandText = @"SELECT world_name,world_thumb,world_description,world_image_url,
+                    world_author_name,world_author_id,world_published,world_updated,
+                    world_capacity,world_recommended_capacity,world_tags,
+                    world_favorites,world_visits,world_pc_size,world_android_size,
+                    total_seconds,visit_count,last_visited,detail_cached_at
+                    FROM world_tracking WHERE world_id=$wid";
+                cmd.Parameters.AddWithValue("$wid", worldId);
+                using var r = cmd.ExecuteReader();
+                if (!r.Read() || string.IsNullOrEmpty(r.GetString(18))) return null;
+                return new WorldDetailCache
+                {
+                    WorldName           = r.GetString(0),
+                    WorldThumb          = r.GetString(1),
+                    Description         = r.GetString(2),
+                    ImageUrl            = r.GetString(3),
+                    AuthorName          = r.GetString(4),
+                    AuthorId            = r.GetString(5),
+                    Published           = r.GetString(6),
+                    Updated             = r.GetString(7),
+                    Capacity            = r.GetInt32(8),
+                    RecommendedCapacity = r.GetInt32(9),
+                    Tags                = JsonConvert.DeserializeObject<List<string>>(r.GetString(10)) ?? new(),
+                    Favorites           = r.GetInt32(11),
+                    Visits              = r.GetInt32(12),
+                    PcSize             = r.GetInt64(13),
+                    AndroidSize         = r.GetInt64(14),
+                    TotalSeconds        = r.GetInt64(15),
+                    VisitCount          = r.GetInt32(16),
+                    LastVisited         = r.GetString(17),
+                };
+            }
+            catch { return null; }
+        }
+    }
+
+    public void SaveWorldDetail(string worldId, string name, string thumb, string description,
+        string imageUrl, string authorName, string authorId, string published, string updated,
+        int capacity, int recommendedCapacity, List<string> tags,
+        int favorites, int visits, long pcSize, long androidSize)
+    {
+        if (string.IsNullOrEmpty(worldId)) return;
+        var tagsJson = JsonConvert.SerializeObject(tags);
+        var now      = DateTime.UtcNow.ToString("o");
+        lock (_lock)
+        {
+            try
+            {
+                using var cmd = _db.CreateCommand();
+                cmd.CommandText = @"INSERT INTO world_tracking(world_id,world_name,world_thumb,world_description,world_image_url,
+                    world_author_name,world_author_id,world_published,world_updated,world_capacity,
+                    world_recommended_capacity,world_tags,world_favorites,world_visits,world_pc_size,world_android_size,detail_cached_at)
+                    VALUES($wid,$wn,$wt,$desc,$img,$an,$ai,$pub,$upd,$cap,$rcap,$tags,$fav,$vis,$pcs,$ands,$cat)
+                    ON CONFLICT(world_id) DO UPDATE SET
+                        world_name=excluded.world_name, world_thumb=excluded.world_thumb,
+                        world_description=excluded.world_description, world_image_url=excluded.world_image_url,
+                        world_author_name=excluded.world_author_name, world_author_id=excluded.world_author_id,
+                        world_published=excluded.world_published, world_updated=excluded.world_updated,
+                        world_capacity=excluded.world_capacity, world_recommended_capacity=excluded.world_recommended_capacity,
+                        world_tags=excluded.world_tags, world_favorites=excluded.world_favorites,
+                        world_visits=excluded.world_visits, world_pc_size=excluded.world_pc_size,
+                        world_android_size=excluded.world_android_size, detail_cached_at=excluded.detail_cached_at";
+                cmd.Parameters.AddWithValue("$wid",  worldId);
+                cmd.Parameters.AddWithValue("$wn",   name);
+                cmd.Parameters.AddWithValue("$wt",   thumb);
+                cmd.Parameters.AddWithValue("$desc", description);
+                cmd.Parameters.AddWithValue("$img",  imageUrl);
+                cmd.Parameters.AddWithValue("$an",   authorName);
+                cmd.Parameters.AddWithValue("$ai",   authorId);
+                cmd.Parameters.AddWithValue("$pub",  published);
+                cmd.Parameters.AddWithValue("$upd",  updated);
+                cmd.Parameters.AddWithValue("$cap",  capacity);
+                cmd.Parameters.AddWithValue("$rcap", recommendedCapacity);
+                cmd.Parameters.AddWithValue("$tags", tagsJson);
+                cmd.Parameters.AddWithValue("$fav",  favorites);
+                cmd.Parameters.AddWithValue("$vis",  visits);
+                cmd.Parameters.AddWithValue("$pcs",  pcSize);
+                cmd.Parameters.AddWithValue("$ands", androidSize);
+                cmd.Parameters.AddWithValue("$cat",  now);
+                cmd.ExecuteNonQuery();
+            }
+            catch { }
+        }
+    }
+
+    // ══════════════════════════════════════════════════════════════════
+    //  GROUP DETAIL CACHE
+    // ══════════════════════════════════════════════════════════════════
+
+    public class GroupDetailCache
+    {
+        public string Name            { get; set; } = "";
+        public string ShortCode       { get; set; } = "";
+        public string Description     { get; set; } = "";
+        public string IconUrl         { get; set; } = "";
+        public string BannerUrl       { get; set; } = "";
+        public int    MemberCount     { get; set; }
+        public string Privacy         { get; set; } = "";
+        public string JoinState       { get; set; } = "";
+        public string OwnerId         { get; set; } = "";
+        public string OwnerName       { get; set; } = "";
+        public string Rules           { get; set; } = "";
+        public List<string> Languages { get; set; } = new();
+        public List<string> Links     { get; set; } = new();
+    }
+
+    public string GetGroupDetailStatus(string groupId)
+    {
+        if (string.IsNullOrEmpty(groupId)) return "empty_id";
+        lock (_lock)
+        {
+            try
+            {
+                using var cmd = _db.CreateCommand();
+                cmd.CommandText = "SELECT detail_cached_at FROM group_tracking WHERE group_id=$id";
+                cmd.Parameters.AddWithValue("$id", groupId);
+                using var r = cmd.ExecuteReader();
+                if (!r.Read()) return "no_row";
+                var cachedAt = r.IsDBNull(0) ? "" : r.GetString(0);
+                return string.IsNullOrEmpty(cachedAt) ? "empty_cached_at" : $"ok:{cachedAt}";
+            }
+            catch (Exception ex) { return $"ex:{ex.Message}"; }
+        }
+    }
+
+    public GroupDetailCache? GetGroupDetail(string groupId)
+    {
+        if (string.IsNullOrEmpty(groupId)) return null;
+        lock (_lock)
+        {
+            try
+            {
+                using var cmd = _db.CreateCommand();
+                cmd.CommandText = @"SELECT name,short_code,description,icon_url,banner_url,member_count,
+                    privacy,join_state,owner_id,owner_display_name,rules,languages,links,detail_cached_at
+                    FROM group_tracking WHERE group_id=$id";
+                cmd.Parameters.AddWithValue("$id", groupId);
+                using var r = cmd.ExecuteReader();
+                if (!r.Read()) { System.Diagnostics.Debug.WriteLine($"[GRP-CACHE] no row for {groupId}"); return null; }
+                var cachedAt = r.IsDBNull(13) ? "" : r.GetString(13);
+                if (string.IsNullOrEmpty(cachedAt)) { System.Diagnostics.Debug.WriteLine($"[GRP-CACHE] empty detail_cached_at for {groupId}"); return null; }
+                return new GroupDetailCache
+                {
+                    Name        = r.IsDBNull(0)  ? "" : r.GetString(0),
+                    ShortCode   = r.IsDBNull(1)  ? "" : r.GetString(1),
+                    Description = r.IsDBNull(2)  ? "" : r.GetString(2),
+                    IconUrl     = r.IsDBNull(3)  ? "" : r.GetString(3),
+                    BannerUrl   = r.IsDBNull(4)  ? "" : r.GetString(4),
+                    MemberCount = r.IsDBNull(5)  ? 0  : r.GetInt32(5),
+                    Privacy     = r.IsDBNull(6)  ? "" : r.GetString(6),
+                    JoinState   = r.IsDBNull(7)  ? "" : r.GetString(7),
+                    OwnerId     = r.IsDBNull(8)  ? "" : r.GetString(8),
+                    OwnerName   = r.IsDBNull(9)  ? "" : r.GetString(9),
+                    Rules       = r.IsDBNull(10) ? "" : r.GetString(10),
+                    Languages   = r.IsDBNull(11) ? new() : JsonConvert.DeserializeObject<List<string>>(r.GetString(11)) ?? new(),
+                    Links       = r.IsDBNull(12) ? new() : JsonConvert.DeserializeObject<List<string>>(r.GetString(12)) ?? new(),
+                };
+            }
+            catch (Exception ex) { System.Diagnostics.Debug.WriteLine($"[GRP-CACHE] exception: {ex.Message}"); return null; }
+        }
+    }
+
+    public void SaveGroupDetail(string groupId, string name, string shortCode, string description,
+        string iconUrl, string bannerUrl, int memberCount, string privacy, string joinState,
+        string ownerId, string ownerDisplayName, string rules, List<string> languages, List<string> links)
+    {
+        if (string.IsNullOrEmpty(groupId)) return;
+        var now = DateTime.UtcNow.ToString("o");
+        lock (_lock)
+        {
+            try
+            {
+                using var cmd = _db.CreateCommand();
+                cmd.CommandText = @"INSERT INTO group_tracking(group_id,name,short_code,description,icon_url,banner_url,
+                    member_count,privacy,join_state,owner_id,owner_display_name,rules,languages,links,detail_cached_at)
+                    VALUES($id,$n,$sc,$desc,$ic,$bn,$mc,$pr,$js,$oid,$odn,$rul,$lng,$lnk,$cat)
+                    ON CONFLICT(group_id) DO UPDATE SET
+                        name=excluded.name, short_code=excluded.short_code, description=excluded.description,
+                        icon_url=excluded.icon_url, banner_url=excluded.banner_url, member_count=excluded.member_count,
+                        privacy=excluded.privacy, join_state=excluded.join_state, owner_id=excluded.owner_id,
+                        owner_display_name=excluded.owner_display_name, rules=excluded.rules,
+                        languages=excluded.languages, links=excluded.links, detail_cached_at=excluded.detail_cached_at";
+                cmd.Parameters.AddWithValue("$id",  groupId);
+                cmd.Parameters.AddWithValue("$n",   name);
+                cmd.Parameters.AddWithValue("$sc",  shortCode);
+                cmd.Parameters.AddWithValue("$desc", description);
+                cmd.Parameters.AddWithValue("$ic",  iconUrl);
+                cmd.Parameters.AddWithValue("$bn",  bannerUrl);
+                cmd.Parameters.AddWithValue("$mc",  memberCount);
+                cmd.Parameters.AddWithValue("$pr",  privacy);
+                cmd.Parameters.AddWithValue("$js",  joinState);
+                cmd.Parameters.AddWithValue("$oid", ownerId);
+                cmd.Parameters.AddWithValue("$odn", ownerDisplayName);
+                cmd.Parameters.AddWithValue("$rul", rules);
+                cmd.Parameters.AddWithValue("$lng", JsonConvert.SerializeObject(languages));
+                cmd.Parameters.AddWithValue("$lnk", JsonConvert.SerializeObject(links));
+                cmd.Parameters.AddWithValue("$cat", now);
+                cmd.ExecuteNonQuery();
+            }
+            catch (Exception ex) { System.Diagnostics.Debug.WriteLine($"[GRP-SAVE-ERR] {ex.Message}"); _lastGroupSaveError = ex.Message; }
+        }
+    }
+    internal string _lastGroupSaveError = "";
+
+    // ══════════════════════════════════════════════════════════════════
+    //  AVATAR DETAIL CACHE
+    // ══════════════════════════════════════════════════════════════════
+
+    public class AvatarDetailCache
+    {
+        public string Name              { get; set; } = "";
+        public string AuthorName        { get; set; } = "";
+        public string AuthorId          { get; set; } = "";
+        public string ThumbnailImageUrl { get; set; } = "";
+        public string ImageUrl          { get; set; } = "";
+        public string ReleaseStatus     { get; set; } = "";
+        public int    Version           { get; set; }
+        public string CreatedAt         { get; set; } = "";
+        public string UpdatedAt         { get; set; } = "";
+        public string Description       { get; set; } = "";
+        public List<string> Tags        { get; set; } = new();
+        public bool   HasPC             { get; set; }
+        public bool   HasQuest          { get; set; }
+        public bool   HasImpostor       { get; set; }
+        public string PcPerf            { get; set; } = "";
+        public string QuestPerf         { get; set; } = "";
+    }
+
+    public string GetAvatarDetailStatus(string avatarId)
+    {
+        if (string.IsNullOrEmpty(avatarId)) return "empty_id";
+        lock (_lock)
+        {
+            try
+            {
+                using var cmd = _db.CreateCommand();
+                cmd.CommandText = "SELECT detail_cached_at FROM avatar_tracking WHERE avatar_id=$id";
+                cmd.Parameters.AddWithValue("$id", avatarId);
+                using var r = cmd.ExecuteReader();
+                if (!r.Read()) return "no_row";
+                var cachedAt = r.IsDBNull(0) ? "" : r.GetString(0);
+                return string.IsNullOrEmpty(cachedAt) ? "empty_cached_at" : $"ok:{cachedAt}";
+            }
+            catch (Exception ex) { return $"ex:{ex.Message}"; }
+        }
+    }
+
+    public AvatarDetailCache? GetAvatarDetail(string avatarId)
+    {
+        if (string.IsNullOrEmpty(avatarId)) return null;
+        lock (_lock)
+        {
+            try
+            {
+                using var cmd = _db.CreateCommand();
+                cmd.CommandText = @"SELECT name,author_name,author_id,thumbnail_image_url,image_url,
+                    release_status,version,created_at,updated_at,description,tags,
+                    has_pc,has_quest,has_impostor,pc_perf,quest_perf,detail_cached_at
+                    FROM avatar_tracking WHERE avatar_id=$id";
+                cmd.Parameters.AddWithValue("$id", avatarId);
+                using var r = cmd.ExecuteReader();
+                if (!r.Read() || string.IsNullOrEmpty(r.GetString(16))) return null;
+                return new AvatarDetailCache
+                {
+                    Name              = r.GetString(0),  AuthorName        = r.GetString(1),
+                    AuthorId          = r.GetString(2),  ThumbnailImageUrl = r.GetString(3),
+                    ImageUrl          = r.GetString(4),  ReleaseStatus     = r.GetString(5),
+                    Version           = r.GetInt32(6),   CreatedAt         = r.GetString(7),
+                    UpdatedAt         = r.GetString(8),  Description       = r.GetString(9),
+                    Tags              = JsonConvert.DeserializeObject<List<string>>(r.GetString(10)) ?? new(),
+                    HasPC             = r.GetInt32(11) != 0,
+                    HasQuest          = r.GetInt32(12) != 0,
+                    HasImpostor       = r.GetInt32(13) != 0,
+                    PcPerf            = r.GetString(14),
+                    QuestPerf         = r.GetString(15),
+                };
+            }
+            catch { return null; }
+        }
+    }
+
+    public void SaveAvatarDetail(string avatarId, string name, string authorName, string authorId,
+        string thumbnailImageUrl, string imageUrl, string releaseStatus, int version,
+        string createdAt, string updatedAt, string description, List<string> tags,
+        bool hasPC, bool hasQuest, bool hasImpostor, string pcPerf, string questPerf)
+    {
+        if (string.IsNullOrEmpty(avatarId)) return;
+        var now = DateTime.UtcNow.ToString("o");
+        lock (_lock)
+        {
+            try
+            {
+                using var cmd = _db.CreateCommand();
+                cmd.CommandText = @"INSERT INTO avatar_tracking(avatar_id,name,author_name,author_id,thumbnail_image_url,
+                    image_url,release_status,version,created_at,updated_at,description,tags,
+                    has_pc,has_quest,has_impostor,pc_perf,quest_perf,detail_cached_at)
+                    VALUES($id,$n,$an,$ai,$ti,$img,$rs,$ver,$ca,$ua,$desc,$tags,$hpc,$hq,$hi,$pcp,$qp,$cat)
+                    ON CONFLICT(avatar_id) DO UPDATE SET
+                        name=excluded.name, author_name=excluded.author_name, author_id=excluded.author_id,
+                        thumbnail_image_url=excluded.thumbnail_image_url, image_url=excluded.image_url,
+                        release_status=excluded.release_status, version=excluded.version,
+                        created_at=excluded.created_at, updated_at=excluded.updated_at,
+                        description=excluded.description, tags=excluded.tags,
+                        has_pc=excluded.has_pc, has_quest=excluded.has_quest, has_impostor=excluded.has_impostor,
+                        pc_perf=excluded.pc_perf, quest_perf=excluded.quest_perf, detail_cached_at=excluded.detail_cached_at";
+                cmd.Parameters.AddWithValue("$id",   avatarId);
+                cmd.Parameters.AddWithValue("$n",    name);
+                cmd.Parameters.AddWithValue("$an",   authorName);
+                cmd.Parameters.AddWithValue("$ai",   authorId);
+                cmd.Parameters.AddWithValue("$ti",   thumbnailImageUrl);
+                cmd.Parameters.AddWithValue("$img",  imageUrl);
+                cmd.Parameters.AddWithValue("$rs",   releaseStatus);
+                cmd.Parameters.AddWithValue("$ver",  version);
+                cmd.Parameters.AddWithValue("$ca",   createdAt);
+                cmd.Parameters.AddWithValue("$ua",   updatedAt);
+                cmd.Parameters.AddWithValue("$desc", description);
+                cmd.Parameters.AddWithValue("$tags", JsonConvert.SerializeObject(tags));
+                cmd.Parameters.AddWithValue("$hpc",  hasPC ? 1 : 0);
+                cmd.Parameters.AddWithValue("$hq",   hasQuest ? 1 : 0);
+                cmd.Parameters.AddWithValue("$hi",   hasImpostor ? 1 : 0);
+                cmd.Parameters.AddWithValue("$pcp",  pcPerf);
+                cmd.Parameters.AddWithValue("$qp",   questPerf);
+                cmd.Parameters.AddWithValue("$cat",  now);
+                cmd.ExecuteNonQuery();
+            }
+            catch (Exception ex) { System.Diagnostics.Debug.WriteLine($"[AVT-SAVE-ERR] {ex.Message}"); }
+        }
+    }
+
+    // ══════════════════════════════════════════════════════════════════
+    //  USER PROFILE DETAIL CACHE
+    // ══════════════════════════════════════════════════════════════════
+
+    public class UserDetailCache
+    {
+        public string DisplayName       { get; set; } = "";
+        public string Image             { get; set; } = "";
+        public string Status            { get; set; } = "";
+        public string StatusDescription { get; set; } = "";
+        public string Bio               { get; set; } = "";
+        public string Location          { get; set; } = "";
+        public bool   IsFriend          { get; set; }
+        public string CurrentAvatarImg  { get; set; } = "";
+    }
+
+    public UserDetailCache? GetUserDetail(string userId)
+    {
+        if (string.IsNullOrEmpty(userId)) return null;
+        lock (_lock)
+        {
+            try
+            {
+                using var cmd = _db.CreateCommand();
+                cmd.CommandText = @"SELECT display_name,image,profile_status,profile_status_desc,
+                    profile_bio,profile_location,profile_is_friend,profile_avatar_img,profile_cached_at
+                    FROM user_tracking WHERE user_id=$id";
+                cmd.Parameters.AddWithValue("$id", userId);
+                using var r = cmd.ExecuteReader();
+                if (!r.Read() || string.IsNullOrEmpty(r.GetString(8))) return null;
+                return new UserDetailCache
+                {
+                    DisplayName       = r.GetString(0), Image             = r.GetString(1),
+                    Status            = r.GetString(2), StatusDescription = r.GetString(3),
+                    Bio               = r.GetString(4), Location          = r.GetString(5),
+                    IsFriend          = r.GetInt32(6) != 0,
+                    CurrentAvatarImg  = r.GetString(7),
+                };
+            }
+            catch { return null; }
+        }
+    }
+
+    public void SaveUserDetail(string userId, string displayName, string image, string status,
+        string statusDescription, string bio, string location, bool isFriend, string currentAvatarImg)
+    {
+        if (string.IsNullOrEmpty(userId)) return;
+        var now = DateTime.UtcNow.ToString("o");
+        lock (_lock)
+        {
+            try
+            {
+                using var cmd = _db.CreateCommand();
+                cmd.CommandText = @"INSERT INTO user_tracking(user_id,display_name,image,profile_status,profile_status_desc,
+                    profile_bio,profile_location,profile_is_friend,profile_avatar_img,profile_cached_at)
+                    VALUES($id,$dn,$img,$st,$sd,$bio,$loc,$fr,$ai,$cat)
+                    ON CONFLICT(user_id) DO UPDATE SET
+                        display_name=excluded.display_name, image=excluded.image,
+                        profile_status=excluded.profile_status, profile_status_desc=excluded.profile_status_desc,
+                        profile_bio=excluded.profile_bio, profile_location=excluded.profile_location,
+                        profile_is_friend=excluded.profile_is_friend, profile_avatar_img=excluded.profile_avatar_img,
+                        profile_cached_at=excluded.profile_cached_at";
+                cmd.Parameters.AddWithValue("$id",  userId);
+                cmd.Parameters.AddWithValue("$dn",  displayName);
+                cmd.Parameters.AddWithValue("$img", image);
+                cmd.Parameters.AddWithValue("$st",  status);
+                cmd.Parameters.AddWithValue("$sd",  statusDescription);
+                cmd.Parameters.AddWithValue("$bio", bio);
+                cmd.Parameters.AddWithValue("$loc", location);
+                cmd.Parameters.AddWithValue("$fr",  isFriend ? 1 : 0);
+                cmd.Parameters.AddWithValue("$ai",  currentAvatarImg);
+                cmd.Parameters.AddWithValue("$cat", now);
+                cmd.ExecuteNonQuery();
+            }
+            catch { }
+        }
+    }
+
+    // ══════════════════════════════════════════════════════════════════
+    //  EVENT DETAIL CACHE
+    // ══════════════════════════════════════════════════════════════════
+
+    public class EventDetailCache
+    {
+        public string GroupId     { get; set; } = "";
+        public string Title       { get; set; } = "";
+        public string Description { get; set; } = "";
+        public string StartsAt    { get; set; } = "";
+        public string EndsAt      { get; set; } = "";
+        public string ImageUrl    { get; set; } = "";
+        public string AccessType  { get; set; } = "";
+        public List<string> Tags  { get; set; } = new();
+        public string OwnerId     { get; set; } = "";
+        public bool   IsFollowing { get; set; }
+    }
+
+    public EventDetailCache? GetEventDetail(string eventId)
+    {
+        if (string.IsNullOrEmpty(eventId)) return null;
+        lock (_lock)
+        {
+            try
+            {
+                using var cmd = _db.CreateCommand();
+                cmd.CommandText = @"SELECT group_id,title,description,starts_at,ends_at,image_url,
+                    access_type,tags,owner_id,is_following,detail_cached_at
+                    FROM event_tracking WHERE event_id=$id";
+                cmd.Parameters.AddWithValue("$id", eventId);
+                using var r = cmd.ExecuteReader();
+                if (!r.Read() || string.IsNullOrEmpty(r.GetString(10))) return null;
+                return new EventDetailCache
+                {
+                    GroupId     = r.GetString(0), Title       = r.GetString(1),
+                    Description = r.GetString(2), StartsAt    = r.GetString(3),
+                    EndsAt      = r.GetString(4), ImageUrl    = r.GetString(5),
+                    AccessType  = r.GetString(6),
+                    Tags        = JsonConvert.DeserializeObject<List<string>>(r.GetString(7)) ?? new(),
+                    OwnerId     = r.GetString(8),
+                    IsFollowing = r.GetInt32(9) != 0,
+                };
+            }
+            catch { return null; }
+        }
+    }
+
+    public void SaveEventDetail(string eventId, string groupId, string title, string description,
+        string startsAt, string endsAt, string imageUrl, string accessType, List<string> tags,
+        string ownerId, bool isFollowing)
+    {
+        if (string.IsNullOrEmpty(eventId)) return;
+        var now = DateTime.UtcNow.ToString("o");
+        lock (_lock)
+        {
+            try
+            {
+                using var cmd = _db.CreateCommand();
+                cmd.CommandText = @"INSERT INTO event_tracking(event_id,group_id,title,description,starts_at,ends_at,
+                    image_url,access_type,tags,owner_id,is_following,detail_cached_at)
+                    VALUES($id,$gid,$ti,$desc,$sa,$ea,$img,$at,$tags,$oid,$flw,$cat)
+                    ON CONFLICT(event_id) DO UPDATE SET
+                        group_id=excluded.group_id, title=excluded.title, description=excluded.description,
+                        starts_at=excluded.starts_at, ends_at=excluded.ends_at, image_url=excluded.image_url,
+                        access_type=excluded.access_type, tags=excluded.tags, owner_id=excluded.owner_id,
+                        is_following=excluded.is_following, detail_cached_at=excluded.detail_cached_at";
+                cmd.Parameters.AddWithValue("$id",   eventId);
+                cmd.Parameters.AddWithValue("$gid",  groupId);
+                cmd.Parameters.AddWithValue("$ti",   title);
+                cmd.Parameters.AddWithValue("$desc", description);
+                cmd.Parameters.AddWithValue("$sa",   startsAt);
+                cmd.Parameters.AddWithValue("$ea",   endsAt);
+                cmd.Parameters.AddWithValue("$img",  imageUrl);
+                cmd.Parameters.AddWithValue("$at",   accessType);
+                cmd.Parameters.AddWithValue("$tags", JsonConvert.SerializeObject(tags));
+                cmd.Parameters.AddWithValue("$oid",  ownerId);
+                cmd.Parameters.AddWithValue("$flw",  isFollowing ? 1 : 0);
+                cmd.Parameters.AddWithValue("$cat",  now);
+                cmd.ExecuteNonQuery();
+            }
+            catch { }
+        }
+    }
+
+    // ══════════════════════════════════════════════════════════════════
     //  USER INFO & FRIEND TRACKING (non-time-counting operations)
     // ══════════════════════════════════════════════════════════════════
 
@@ -1349,7 +1873,18 @@ public class UnifiedTimeEngine : IDisposable
         idx.CommandText = "CREATE INDEX IF NOT EXISTS idx_ut_lastseen ON user_tracking(last_seen DESC)";
         try { idx.ExecuteNonQuery(); } catch { }
 
-        foreach (var col in new[] { "display_name TEXT NOT NULL DEFAULT ''", "image TEXT NOT NULL DEFAULT ''" })
+        foreach (var col in new[]
+        {
+            "display_name        TEXT NOT NULL DEFAULT ''",
+            "image               TEXT NOT NULL DEFAULT ''",
+            "profile_status      TEXT NOT NULL DEFAULT ''",
+            "profile_status_desc TEXT NOT NULL DEFAULT ''",
+            "profile_bio         TEXT NOT NULL DEFAULT ''",
+            "profile_location    TEXT NOT NULL DEFAULT ''",
+            "profile_is_friend   INTEGER NOT NULL DEFAULT 0",
+            "profile_avatar_img  TEXT NOT NULL DEFAULT ''",
+            "profile_cached_at   TEXT NOT NULL DEFAULT ''",
+        })
         {
             try
             {
@@ -1358,6 +1893,144 @@ public class UnifiedTimeEngine : IDisposable
                 ac.ExecuteNonQuery();
             }
             catch { }
+        }
+
+        // group_tracking
+        try
+        {
+            using var gc = _db.CreateCommand();
+            gc.CommandText = @"CREATE TABLE IF NOT EXISTS group_tracking (
+                group_id           TEXT PRIMARY KEY,
+                name               TEXT NOT NULL DEFAULT '',
+                short_code         TEXT NOT NULL DEFAULT '',
+                description        TEXT NOT NULL DEFAULT '',
+                icon_url           TEXT NOT NULL DEFAULT '',
+                banner_url         TEXT NOT NULL DEFAULT '',
+                member_count       INTEGER NOT NULL DEFAULT 0,
+                privacy            TEXT NOT NULL DEFAULT '',
+                join_state         TEXT NOT NULL DEFAULT '',
+                owner_id           TEXT NOT NULL DEFAULT '',
+                owner_display_name TEXT NOT NULL DEFAULT '',
+                rules              TEXT NOT NULL DEFAULT '',
+                languages          TEXT NOT NULL DEFAULT '',
+                links              TEXT NOT NULL DEFAULT '',
+                detail_cached_at   TEXT NOT NULL DEFAULT ''
+            )";
+            gc.ExecuteNonQuery();
+        }
+        catch { }
+
+        foreach (var col in new[]
+        {
+            "name               TEXT NOT NULL DEFAULT ''",
+            "short_code         TEXT NOT NULL DEFAULT ''",
+            "description        TEXT NOT NULL DEFAULT ''",
+            "icon_url           TEXT NOT NULL DEFAULT ''",
+            "banner_url         TEXT NOT NULL DEFAULT ''",
+            "member_count       INTEGER NOT NULL DEFAULT 0",
+            "privacy            TEXT NOT NULL DEFAULT ''",
+            "join_state         TEXT NOT NULL DEFAULT ''",
+            "owner_id           TEXT NOT NULL DEFAULT ''",
+            "owner_display_name TEXT NOT NULL DEFAULT ''",
+            "rules              TEXT NOT NULL DEFAULT ''",
+            "languages          TEXT NOT NULL DEFAULT ''",
+            "links              TEXT NOT NULL DEFAULT ''",
+            "detail_cached_at   TEXT NOT NULL DEFAULT ''",
+        })
+        {
+            try { using var mc = _db.CreateCommand(); mc.CommandText = $"ALTER TABLE group_tracking ADD COLUMN {col}"; mc.ExecuteNonQuery(); } catch { }
+        }
+
+        // avatar_tracking
+        try
+        {
+            using var ac2 = _db.CreateCommand();
+            ac2.CommandText = @"CREATE TABLE IF NOT EXISTS avatar_tracking (
+                avatar_id           TEXT PRIMARY KEY,
+                name                TEXT NOT NULL DEFAULT '',
+                author_name         TEXT NOT NULL DEFAULT '',
+                author_id           TEXT NOT NULL DEFAULT '',
+                thumbnail_image_url TEXT NOT NULL DEFAULT '',
+                image_url           TEXT NOT NULL DEFAULT '',
+                release_status      TEXT NOT NULL DEFAULT '',
+                version             INTEGER NOT NULL DEFAULT 0,
+                created_at          TEXT NOT NULL DEFAULT '',
+                updated_at          TEXT NOT NULL DEFAULT '',
+                description         TEXT NOT NULL DEFAULT '',
+                tags                TEXT NOT NULL DEFAULT '',
+                has_pc              INTEGER NOT NULL DEFAULT 0,
+                has_quest           INTEGER NOT NULL DEFAULT 0,
+                has_impostor        INTEGER NOT NULL DEFAULT 0,
+                pc_perf             TEXT NOT NULL DEFAULT '',
+                quest_perf          TEXT NOT NULL DEFAULT '',
+                detail_cached_at    TEXT NOT NULL DEFAULT ''
+            )";
+            ac2.ExecuteNonQuery();
+        }
+        catch { }
+
+        foreach (var col in new[]
+        {
+            "name                TEXT NOT NULL DEFAULT ''",
+            "author_name         TEXT NOT NULL DEFAULT ''",
+            "author_id           TEXT NOT NULL DEFAULT ''",
+            "thumbnail_image_url TEXT NOT NULL DEFAULT ''",
+            "image_url           TEXT NOT NULL DEFAULT ''",
+            "release_status      TEXT NOT NULL DEFAULT ''",
+            "version             INTEGER NOT NULL DEFAULT 0",
+            "created_at          TEXT NOT NULL DEFAULT ''",
+            "updated_at          TEXT NOT NULL DEFAULT ''",
+            "description         TEXT NOT NULL DEFAULT ''",
+            "tags                TEXT NOT NULL DEFAULT ''",
+            "has_pc              INTEGER NOT NULL DEFAULT 0",
+            "has_quest           INTEGER NOT NULL DEFAULT 0",
+            "has_impostor        INTEGER NOT NULL DEFAULT 0",
+            "pc_perf             TEXT NOT NULL DEFAULT ''",
+            "quest_perf          TEXT NOT NULL DEFAULT ''",
+            "detail_cached_at    TEXT NOT NULL DEFAULT ''",
+        })
+        {
+            try { using var mc = _db.CreateCommand(); mc.CommandText = $"ALTER TABLE avatar_tracking ADD COLUMN {col}"; mc.ExecuteNonQuery(); } catch { }
+        }
+
+        // event_tracking
+        try
+        {
+            using var ec = _db.CreateCommand();
+            ec.CommandText = @"CREATE TABLE IF NOT EXISTS event_tracking (
+                event_id         TEXT PRIMARY KEY,
+                group_id         TEXT NOT NULL DEFAULT '',
+                title            TEXT NOT NULL DEFAULT '',
+                description      TEXT NOT NULL DEFAULT '',
+                starts_at        TEXT NOT NULL DEFAULT '',
+                ends_at          TEXT NOT NULL DEFAULT '',
+                image_url        TEXT NOT NULL DEFAULT '',
+                access_type      TEXT NOT NULL DEFAULT '',
+                tags             TEXT NOT NULL DEFAULT '',
+                owner_id         TEXT NOT NULL DEFAULT '',
+                is_following     INTEGER NOT NULL DEFAULT 0,
+                detail_cached_at TEXT NOT NULL DEFAULT ''
+            )";
+            ec.ExecuteNonQuery();
+        }
+        catch { }
+
+        foreach (var col in new[]
+        {
+            "group_id         TEXT NOT NULL DEFAULT ''",
+            "title            TEXT NOT NULL DEFAULT ''",
+            "description      TEXT NOT NULL DEFAULT ''",
+            "starts_at        TEXT NOT NULL DEFAULT ''",
+            "ends_at          TEXT NOT NULL DEFAULT ''",
+            "image_url        TEXT NOT NULL DEFAULT ''",
+            "access_type      TEXT NOT NULL DEFAULT ''",
+            "tags             TEXT NOT NULL DEFAULT ''",
+            "owner_id         TEXT NOT NULL DEFAULT ''",
+            "is_following     INTEGER NOT NULL DEFAULT 0",
+            "detail_cached_at TEXT NOT NULL DEFAULT ''",
+        })
+        {
+            try { using var mc = _db.CreateCommand(); mc.CommandText = $"ALTER TABLE event_tracking ADD COLUMN {col}"; mc.ExecuteNonQuery(); } catch { }
         }
 
         using var wcmd = _db.CreateCommand();
@@ -1371,7 +2044,25 @@ public class UnifiedTimeEngine : IDisposable
         )";
         wcmd.ExecuteNonQuery();
 
-        foreach (var col in new[] { "world_name TEXT NOT NULL DEFAULT ''", "world_thumb TEXT NOT NULL DEFAULT ''" })
+        foreach (var col in new[]
+        {
+            "world_name                TEXT    NOT NULL DEFAULT ''",
+            "world_thumb               TEXT    NOT NULL DEFAULT ''",
+            "world_description         TEXT    NOT NULL DEFAULT ''",
+            "world_image_url           TEXT    NOT NULL DEFAULT ''",
+            "world_author_name         TEXT    NOT NULL DEFAULT ''",
+            "world_author_id           TEXT    NOT NULL DEFAULT ''",
+            "world_published           TEXT    NOT NULL DEFAULT ''",
+            "world_updated             TEXT    NOT NULL DEFAULT ''",
+            "world_capacity            INTEGER NOT NULL DEFAULT 0",
+            "world_recommended_capacity INTEGER NOT NULL DEFAULT 0",
+            "world_tags                TEXT    NOT NULL DEFAULT ''",
+            "world_favorites           INTEGER NOT NULL DEFAULT 0",
+            "world_visits              INTEGER NOT NULL DEFAULT 0",
+            "world_pc_size             INTEGER NOT NULL DEFAULT 0",
+            "world_android_size        INTEGER NOT NULL DEFAULT 0",
+            "detail_cached_at          TEXT    NOT NULL DEFAULT ''",
+        })
         {
             try
             {

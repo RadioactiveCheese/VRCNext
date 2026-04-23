@@ -121,11 +121,46 @@ public class GroupsController
                 var ggId = msg["groupId"]?.ToString();
                 if (!string.IsNullOrEmpty(ggId))
                 {
+                    var ggCached = _core.TimeEngine.GetGroupDetail(ggId);
+                    if (ggCached != null)
+                        _core.SendToJS("vrcGroupDetail", new {
+                            id = ggId, name = ggCached.Name, shortCode = ggCached.ShortCode,
+                            description = ggCached.Description, iconUrl = ggCached.IconUrl,
+                            bannerUrl = ggCached.BannerUrl, memberCount = ggCached.MemberCount,
+                            privacy = ggCached.Privacy, joinState = ggCached.JoinState,
+                            ownerId = ggCached.OwnerId, ownerDisplayName = ggCached.OwnerName,
+                            visibility = "", rules = ggCached.Rules,
+                            languages = ggCached.Languages.ToArray(),
+                            links = ggCached.Links.ToArray(),
+                            isJoined = false, canPost = false, canEvent = false, canEdit = false,
+                            canInvite = false, canKick = false, canBan = false,
+                            canManageRoles = false, canAssignRoles = false,
+                            roles = Array.Empty<object>(), posts = Array.Empty<object>(),
+                            groupEvents = Array.Empty<object>(), groupInstances = Array.Empty<object>(),
+                            galleryImages = Array.Empty<object>(), groupMembers = Array.Empty<object>(),
+                        });
                     _ = Task.Run(async () =>
                     {
                         var g = await _core.VrcApi.GetGroupAsync(ggId);
                         if (g != null)
                         {
+                            // Save basic detail to DB immediately so future opens are instant
+                            var saveId = g["id"]?.ToString() ?? "";
+                            _core.TimeEngine.SaveGroupDetail(
+                                saveId,
+                                g["name"]?.ToString() ?? "",
+                                g["shortCode"]?.ToString() ?? "",
+                                g["description"]?.ToString() ?? "",
+                                g["iconUrl"]?.ToString() ?? "",
+                                g["bannerUrl"]?.ToString() ?? "",
+                                g["memberCount"]?.Value<int>() ?? 0,
+                                g["privacy"]?.ToString() ?? "",
+                                g["joinState"]?.ToString() ?? "",
+                                g["ownerId"]?.ToString() ?? "", "",
+                                g["rules"]?.ToString() ?? "",
+                                (g["languages"] as JArray)?.Select(x => x.ToString()).ToList() ?? new(),
+                                (g["links"]     as JArray)?.Select(x => x.ToString()).ToList() ?? new());
+
                             bool isMember = g["myMember"] != null && g["myMember"]!.Type != JTokenType.Null;
                             // Fetch additional data in parallel
                             var postsTask = _core.VrcApi.GetGroupPostsAsync(ggId, publicOnly: !isMember);
@@ -182,6 +217,20 @@ public class GroupsController
                                 ownerDisplayName = ownerUser?["displayName"]?.ToString() ?? "";
                             }
 
+                            _core.TimeEngine.SaveGroupDetail(
+                                g["id"]?.ToString() ?? "",
+                                g["name"]?.ToString() ?? "",
+                                g["shortCode"]?.ToString() ?? "",
+                                g["description"]?.ToString() ?? "",
+                                g["iconUrl"]?.ToString() ?? "",
+                                g["bannerUrl"]?.ToString() ?? "",
+                                g["memberCount"]?.Value<int>() ?? 0,
+                                g["privacy"]?.ToString() ?? "",
+                                g["joinState"]?.ToString() ?? "",
+                                ownerId, ownerDisplayName,
+                                g["rules"]?.ToString() ?? "",
+                                (g["languages"] as JArray)?.Select(x => x.ToString()).ToList() ?? new(),
+                                (g["links"]     as JArray)?.Select(x => x.ToString()).ToList() ?? new());
                             _core.SendToJS("vrcGroupDetail", new {
                                 id = g["id"]?.ToString() ?? "", name = g["name"]?.ToString() ?? "",
                                 shortCode = g["shortCode"]?.ToString() ?? "", description = g["description"]?.ToString() ?? "",

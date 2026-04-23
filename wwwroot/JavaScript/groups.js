@@ -112,11 +112,17 @@ function setGroupVisibility(groupId, visibility) {
     }
 }
 
+const _groupDetailCache = {};
+
 function openGroupDetail(groupId) {
     if (typeof navSetCurrent === 'function') navSetCurrent('group', groupId);
-    const el = document.getElementById('detailModalContent');
-    el.innerHTML = sk('detail');
     document.getElementById('modalDetail').style.display = 'flex';
+    const cached = _groupDetailCache[groupId];
+    if (cached) {
+        renderGroupDetail(cached);
+    } else {
+        document.getElementById('detailModalContent').innerHTML = sk('detail');
+    }
     sendToCS({ action: 'vrcGetGroup', groupId });
 }
 
@@ -126,6 +132,7 @@ function closeGroupDetail(fromNav = false) {
 }
 
 function renderGroupDetail(g) {
+    if (g.id) _groupDetailCache[g.id] = g;
     window._currentGroupDetailFull = g;
     window._currentGroupDetail = { id: g.id, canKick: g.canKick === true, canBan: g.canBan === true, canManageRoles: g.canManageRoles === true, canAssignRoles: g.canAssignRoles === true, languages: g.languages || [], links: g.links || [], joinState: g.joinState || '', roles: g.roles || [] };
     window._gdBannedLoaded = false;

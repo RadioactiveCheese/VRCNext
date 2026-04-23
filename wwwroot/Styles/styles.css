@@ -1587,6 +1587,8 @@ html.text-tools-active * { user-select: text !important; }
     padding: 20px 0;
 }
 #modalFriendDetail { z-index: 10001; }
+.modal-nav-instant .modal-overlay,
+.modal-nav-instant .modal-box { animation: none !important; }
 #modalStatus { z-index: 10002; }
 
 /* Modal navigation breadcrumb — static shell part */

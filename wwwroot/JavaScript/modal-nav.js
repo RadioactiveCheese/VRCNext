@@ -23,6 +23,7 @@ function navOpenModal(type, id, label, id2) {
     _navStack.push({ type, id, label: label || '', id2: id2 || '' });
     _navIdx = _navStack.length - 1;
 
+    if (cur !== null) document.documentElement.classList.add('modal-nav-instant');
     _navDoOpen(type, id, id2);
     _navRender();
 }
@@ -33,6 +34,7 @@ function navGoTo(idx) {
     _navIdx = idx;
     const e = _navStack[_navIdx];
     _navCurrentEntry = { ...e };
+    document.documentElement.classList.add('modal-nav-instant');
     _navDoOpen(e.type, e.id, e.id2);
     _navRender();
 }
@@ -41,6 +43,7 @@ function navClear() {
     _navStack        = [];
     _navIdx          = -1;
     _navCurrentEntry = null;
+    document.documentElement.classList.remove('modal-nav-instant');
     _navRender();
 }
 

@@ -49,6 +49,9 @@ public class AuthController
         _relayCtrl = relayCtrl;
         _groups = groups;
         _discordCtrl = discordCtrl;
+
+        // Allow RelayController to trigger a session resume....
+        _relayCtrl.OnWakeResumeRequested = VrcTryResumeAsync;
     }
 
     // Invoke shim (Photino is thread-safe)
@@ -558,6 +561,15 @@ public class AuthController
                 return;
             }
 
+            if (result.NetworkError)
+            {
+                // Network not ready (post-sleep, no internet) — keep cookies, retry later
+                _core.SendToJS("log", new { msg = $"VRChat: Network unavailable ({result.Error}) — cookies preserved, will retry", color = "warn" });
+                _relayCtrl.ScheduleResumeRetry();
+                return;
+            }
+
+            // auth failure w 401 or 403 or 2FA required.. try to lear invalid cookies
             _core.Settings.VrcAuthCookie = "";
             _core.Settings.VrcTwoFactorCookie = "";
             _core.Settings.Save();

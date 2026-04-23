@@ -25,6 +25,7 @@ public class VRChatApiService
     {
         public bool Success { get; set; }
         public bool Requires2FA { get; set; }
+        public bool NetworkError { get; set; }   // true = network/timeout failure, NOT auth failure — do not clear cookies
         public string TwoFactorType { get; set; } = "";
         public string? Error { get; set; }
         public JObject? User { get; set; }
@@ -87,8 +88,14 @@ public class VRChatApiService
             var body = await resp.Content.ReadAsStringAsync();
             Log($"Resume session response: {(int)resp.StatusCode}");
 
-            if (!resp.IsSuccessStatusCode)
+            // 401/403 = cookies are genuinely invalid
+            if (resp.StatusCode == System.Net.HttpStatusCode.Unauthorized ||
+                resp.StatusCode == System.Net.HttpStatusCode.Forbidden)
                 return new LoginResult { Error = "Session expired" };
+
+            // Any other non-success (5xx, etc.) = treat as transient network issue
+            if (!resp.IsSuccessStatusCode)
+                return new LoginResult { NetworkError = true, Error = $"HTTP {(int)resp.StatusCode}" };
 
             var json = JObject.Parse(body);
 
@@ -100,10 +107,20 @@ public class VRChatApiService
             Log($"Resumed session as: {json["displayName"]}");
             return new LoginResult { Success = true, User = json };
         }
+        catch (HttpRequestException ex)
+        {
+            Log($"Resume session network error: {ex.Message}");
+            return new LoginResult { NetworkError = true, Error = ex.Message };
+        }
+        catch (TaskCanceledException ex)
+        {
+            Log($"Resume session timeout: {ex.Message}");
+            return new LoginResult { NetworkError = true, Error = "Request timed out" };
+        }
         catch (Exception ex)
         {
             Log($"Resume session exception: {ex.Message}");
-            return new LoginResult { Error = ex.Message };
+            return new LoginResult { NetworkError = true, Error = ex.Message };
         }
     }
 

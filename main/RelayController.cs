@@ -20,6 +20,16 @@ public class RelayController : IDisposable
     private Process? _vcProcess;
     private VRChatWebSocketService? _wsService;
 
+    // Sleep/wake detection + resume retry
+    private System.Threading.Timer? _wakeTimer;
+    private DateTime _lastWakeTick = DateTime.UtcNow;
+    private int _resumeRetryCount;
+    private const int WakeThresholdSec = 20;
+    private const int MaxResumeRetries = 5;
+
+    // Callback set by AuthController so RelayController can trigger re-auth without circular dep
+    public Func<Task>? OnWakeResumeRequested { get; set; }
+
     // Public Accessors
     public bool IsRunning => _relayRunning;
     public DateTime RelayStart => _relayStart;
@@ -40,6 +50,57 @@ public class RelayController : IDisposable
         _instance = instance;
         _notifications = notifications;
         _vroCtrl = vroCtrl;
+
+        // Timer fires every 10s; if actual elapsed > WakeThresholdSec the PC just woke from sleep
+        _wakeTimer = new System.Threading.Timer(_ => CheckForWake(), null,
+            TimeSpan.FromSeconds(10), TimeSpan.FromSeconds(10));
+    }
+
+    private void CheckForWake()
+    {
+        var now  = DateTime.UtcNow;
+        var gap  = (now - _lastWakeTick).TotalSeconds;
+        _lastWakeTick = now;
+
+        if (gap < WakeThresholdSec) return;
+
+        _core.SendToJS("log", new { msg = $"[Wake] PC resumed from sleep (~{(int)gap}s gap) — reconnecting...", color = "sec" });
+
+        // Restart WebSocket unconditionally — existing connection is dead
+        if (_core.VrcApi.IsLoggedIn)
+        {
+            StartWebSocket();
+            _ = Task.Run(async () =>
+            {
+                await Task.Delay(3000); // give network a moment
+                if (!_core.VrcApi.IsLoggedIn) return;
+                await _friends.RefreshFriendsAsync(true);
+            });
+        }
+        else if (!string.IsNullOrEmpty(_core.Settings.VrcAuthCookie))
+        {
+            // Not logged in yet (startup resume failed) — retry now that network is up
+            _resumeRetryCount = 0;
+            _ = Task.Delay(3000).ContinueWith(_ => TryResumeWithRetryAsync());
+        }
+    }
+
+    public void ScheduleResumeRetry()
+    {
+        _resumeRetryCount = 0;
+        _ = Task.Delay(8000).ContinueWith(_ => TryResumeWithRetryAsync());
+    }
+
+    private async Task TryResumeWithRetryAsync()
+    {
+        if (_resumeRetryCount >= MaxResumeRetries) return;
+        if (OnWakeResumeRequested == null) return;
+
+        _resumeRetryCount++;
+        _core.SendToJS("log", new { msg = $"[Wake] Resume attempt {_resumeRetryCount}/{MaxResumeRetries}...", color = "sec" });
+
+        try { await OnWakeResumeRequested(); }
+        catch { }
     }
 
     // Message Handler
@@ -535,6 +596,8 @@ public class RelayController : IDisposable
 
     public void Dispose()
     {
+        _wakeTimer?.Dispose();
+        _wakeTimer = null;
         try { _vcProcess?.Kill(entireProcessTree: true); } catch { }
         _wsService?.Dispose();
     }

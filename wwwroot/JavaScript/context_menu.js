@@ -389,13 +389,14 @@
 
         const dashWorld = el.closest('#dashFavWorlds .vrcn-content-card, #dashDiscoveryGrid .vrcn-content-card, #dashFavWorldsShelf .vrcn-content-card, #dashRecentlyVisitedShelf .vrcn-content-card, #dashPopularWorldsShelf .vrcn-content-card, #dashActiveWorldsShelf .vrcn-content-card, #dashFriendLocSmallShelf .dash-floc-card');
         if (dashWorld) {
-            const id = extractId(dashWorld, /openWorld(?:Search)?Detail\('([^']+)'\)/);
+            const id = extractWorldId(dashWorld)
+                || extractId(dashWorld, /openFriendLocationDetail\('([^']+)'/);
             if (id) return buildWorldItems(id);
         }
 
         const worldCard = el.closest('#favWorldsGrid .vrcn-content-card, #worldSearchArea .vrcn-content-card, #worldMineGrid .vrcn-content-card, #fdContentWorlds .vrcn-content-card, #fdTabFavs .vrcn-world-card-small');
         if (worldCard) {
-            const id = extractId(worldCard, /openWorldSearchDetail\('([^']+)'\)/) || worldCard.dataset.wid;
+            const id = extractWorldId(worldCard);
             if (id) return buildWorldItems(id);
         }
 
@@ -407,7 +408,7 @@
 
         const bannedCard = el.closest('#gdTabBanned .vrcn-profile-item');
         if (bannedCard && window._currentGroupDetail?.canBan) {
-            const id = extractId(bannedCard, /openFriendDetail\('([^']+)'\)/);
+            const id = extractFriendId(bannedCard);
             if (id) {
                 return [
                     {
@@ -423,7 +424,7 @@
 
         const memberCard = el.closest('#gdTabMembers .vrcn-profile-item, #gdTabRoles .vrcn-profile-item');
         if (memberCard && window._currentGroupDetail) {
-            const id = extractId(memberCard, /openFriendDetail\('([^']+)'\)/);
+            const id = extractFriendId(memberCard);
             if (id) {
                 const memberRoleIds = (window._gdMemberRoleIds && window._gdMemberRoleIds[id]) || [];
                 return buildGroupMemberItems(id, window._currentGroupDetail, memberRoleIds);
@@ -432,7 +433,7 @@
 
         const friendCard = el.closest('.vrc-friend-card, .vrcn-profile-item, .inst-user-row, .iim-user-tr, .dash-feed-card, .fav-friend-card, .s-card-h');
         if (friendCard) {
-            const id = extractId(friendCard, /openFriendDetail\('([^']+)'\)/);
+            const id = extractFriendId(friendCard);
             if (id) {
                 const items = buildFriendItems(id);
                 const isInstanceRow = friendCard.classList.contains('iim-user-tr') || friendCard.classList.contains('inst-user-row');
@@ -455,6 +456,21 @@
 
     function extractId(el, pattern) {
         return (el.getAttribute('onclick') || '').match(pattern)?.[1] || null;
+    }
+
+    function extractFriendId(el) {
+        const onclick = el.getAttribute('onclick') || '';
+        return onclick.match(/openFriendDetail\('([^']+)'\)/)?.[1]
+            || onclick.match(/navOpenModal\('friend','([^']+)'/)?.[1]
+            || null;
+    }
+
+    function extractWorldId(el) {
+        const onclick = el.getAttribute('onclick') || '';
+        return onclick.match(/openWorld(?:Search)?Detail\('([^']+)'\)/)?.[1]
+            || onclick.match(/navOpenModal\('world[^']*','([^']+)'/)?.[1]
+            || el.dataset.wid
+            || null;
     }
 
     /* Menu item builders */
@@ -776,12 +792,11 @@
     }
 
     function buildFriendItems(id) {
+        const f = (typeof vrcFriendsData !== 'undefined') && vrcFriendsData.find(x => x.id === id);
         const items = [
-            { icon: 'person', label: cm('friend.view_profile', 'View Profile'), action: () => openFriendDetail(id) },
+            { icon: 'person', label: cm('friend.view_profile', 'View Profile'), action: () => navOpenModal('friend', id, f?.displayName || '') },
             { icon: 'share', label: cm('friend.share_profile', 'Share Profile'), action: () => copyWithToast('https://vrchat.com/home/user/' + id, 'friend.share_copied', 'Profile link copied to clipboard') },
         ];
-
-        const f = (typeof vrcFriendsData !== 'undefined') && vrcFriendsData.find(x => x.id === id);
         if (f) {
             const loc = f.location || '';
             const { instanceType } = parseFriendLocation(loc);

@@ -169,7 +169,6 @@ body {
     height: 100vh;
     overflow: hidden;
     user-select: none;
-    border-radius: 18px;
 }
 
 ::placeholder {

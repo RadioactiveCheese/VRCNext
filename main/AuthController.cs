@@ -242,7 +242,12 @@ public class AuthController
                 var exe = Environment.ProcessPath;
                 if (!string.IsNullOrEmpty(exe))
                 {
-                    Process.Start(new ProcessStartInfo { FileName = exe, UseShellExecute = true });
+                    Process.Start(new ProcessStartInfo
+                    {
+                        FileName = exe,
+                        Arguments = $"--waitpid {Environment.ProcessId}",
+                        UseShellExecute = true
+                    });
                     try { _core.Window?.Close(); } catch { Environment.Exit(0); }
                 }
                 break;

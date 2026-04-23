@@ -21,6 +21,13 @@ static class Program
             return;
         }
 
+        int waitPidIdx = Array.IndexOf(args, "--waitpid");
+        if (waitPidIdx >= 0 && waitPidIdx + 1 < args.Length &&
+            int.TryParse(args[waitPidIdx + 1], out int waitPid))
+        {
+            try { System.Diagnostics.Process.GetProcessById(waitPid).WaitForExit(5000); } catch { }
+        }
+
         if (!AcquireMutex("Global\\VRCNext", out var mainMutex, showError: true)) return;
         using (mainMutex)
         {

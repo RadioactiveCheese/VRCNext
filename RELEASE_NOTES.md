@@ -1,6 +1,9 @@
 **2026.17.4**
 
+This update is mostly focused on design consistency. Many modals did not share the same padding and CSS, so those styles have now been unified. It also includes a number of bug fixes following my database and modal system refactor, which had caused the context menu to stop working as intended.
+
 **Changes**
+- Unified left/right padding across all modals — World Detail, World Search, Create Instance, My Instance, Avatar Detail, Permini Picker, and all Timeline detail modals now match the 32px side spacing of the User/Profile modal
 
 **Fixes**
 - Fixed right-click context menu not appearing on Friend Location small cards on the dashboard

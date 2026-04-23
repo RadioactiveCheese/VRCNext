@@ -983,11 +983,11 @@ function renderAvatarDetail(a) {
         <div class="fd-content${thumb ? ' fd-has-banner' : ''}">
 
             <!-- Name -->
-            <div id="avfNameView" style="display:flex;align-items:center;gap:6px;padding:20px 20px 0;">
+            <div id="avfNameView" style="display:flex;align-items:center;gap:6px;padding:20px 0 0;">
                 <h2 style="margin:0;color:var(--tx0);font-size:18px;flex:1;min-width:0;">${esc(a.name || t('avatars.detail.unnamed', 'Unnamed Avatar'))}</h2>
                 ${isOwn ? `<button class="myp-edit-btn" onclick="editAvField('name')" title="${esc(t('avatars.detail.actions.edit_name', 'Edit name'))}"><span class="msi" style="font-size:14px;">edit</span></button>` : ''}
             </div>
-            ${isOwn ? `<div id="avfNameEdit" style="display:none;padding:8px 20px 0;">
+            ${isOwn ? `<div id="avfNameEdit" style="display:none;padding:8px 0 0;">
                 <input id="avNameInput" class="vrcn-edit-field" value="${esc(a.name || '')}" maxlength="64" style="width:100%;">
                 <div class="myp-edit-actions">
                     <button class="vrcn-button" onclick="cancelAvField('name')">${t('common.cancel', 'Cancel')}</button>
@@ -996,7 +996,7 @@ function renderAvatarDetail(a) {
             </div>` : ''}
 
             <!-- Author + badges -->
-            <div style="padding:4px 20px 12px;">
+            <div style="padding:4px 0 12px;">
                 <div style="font-size:12px;color:var(--tx3);margin-bottom:10px;">${t('avatars.detail.by', 'by')} ${authorHtml}</div>
                 <div style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:10px;">
                     ${statusBadge}${pcBadge}${questBadge}${impostorBadge}
@@ -1004,7 +1004,7 @@ function renderAvatarDetail(a) {
                 ${idBadge(a.id)}
             </div>
 
-            <div style="padding:0 20px 20px;">
+            <div style="padding:0 0 20px;">
                 <!-- Description -->
                 <div class="myp-section">
                     <div class="myp-section-header">

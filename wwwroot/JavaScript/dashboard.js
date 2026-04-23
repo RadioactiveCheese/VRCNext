@@ -432,7 +432,7 @@ function _renderInstanceDetailContent(inst) {
     friendsHtml += '</div>';
 
     const loc = (inst.location || '').replace(/'/g, "\\'");
-    c.innerHTML = `${bannerHtml}<div class="fd-content${thumb ? ' fd-has-banner' : ''}" style="padding:16px 24px;">
+    c.innerHTML = `${bannerHtml}<div class="fd-content${thumb ? ' fd-has-banner' : ''}" style="padding:16px 32px;">
         <h2 style="margin:0 0 4px;color:var(--tx0);font-size:18px;">${esc(inst.worldName || worldId || t('dashboard.instances.unknown_world', 'Unknown World'))}</h2>
         <div class="fd-badges-row"><span class="vrcn-badge ${cls}">${typeLabel}</span>${getOwnerBadgeHtml(inst.ownerId || '', inst.ownerName || '', inst.ownerGroup || '', 'closeMyInstanceDetail()')}${copyBadge}</div>
         ${friendsHtml}
@@ -507,7 +507,7 @@ function _renderMyInstanceContent(inst) {
     const mit  = jsq(inst.instanceType || '');
     const loc  = (inst.location || '').replace(/'/g, "\\'");
 
-    c.innerHTML = `${bannerHtml}<div class="fd-content${thumb ? ' fd-has-banner' : ''}" style="padding:16px 24px;">
+    c.innerHTML = `${bannerHtml}<div class="fd-content${thumb ? ' fd-has-banner' : ''}" style="padding:16px 32px;">
         <h2 style="margin:0 0 4px;color:var(--tx0);font-size:18px;">${esc(inst.worldName || inst.worldId || t('dashboard.instances.unknown_world', 'Unknown World'))}</h2>
         <div style="display:flex;justify-content:flex-end;gap:6px;margin-bottom:4px;">
             <button class="vrcn-button-round" title="${esc(t('dashboard.instances.invite_friends', 'Invite Friends'))}" onclick="closeMyInstanceDetail();openInviteModalForLocation('${mloc}','${mwn}','${mwt}','${mit}')"><span class="msi" style="font-size:16px;">person_add</span></button>

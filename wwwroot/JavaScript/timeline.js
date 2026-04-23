@@ -989,7 +989,7 @@ function renderTlDetailJoin(ev, el) {
     const worldClick = ev.worldId
         ? ` style="cursor:pointer;" onclick="document.getElementById('modalDetail').style.display='none';openWorldSearchDetail('${esc(ev.worldId)}')"` : '';
 
-    el.innerHTML = `${banner}<div class="fd-content${banner ? ' fd-has-banner' : ''}" style="padding:20px;">
+    el.innerHTML = `${banner}<div class="fd-content${banner ? ' fd-has-banner' : ''}" style="padding:20px 0;">
         <h2 style="margin:0 0 12px;color:var(--tx0);font-size:16px;">${esc(ev.worldName || ev.worldId || t('timeline.unknown_world', 'Unknown World'))}</h2>
         <div class="fd-meta">
             <div class="fd-meta-row"><span class="fd-meta-label">${esc(t('timeline.detail.date', 'Date'))}</span><span>${esc(dateStr)}</span></div>
@@ -1030,7 +1030,7 @@ function renderTlDetailPhoto(ev, el) {
     const worldClick = ev.worldId
         ? ` style="cursor:pointer;" onclick="document.getElementById('modalDetail').style.display='none';openWorldSearchDetail('${esc(ev.worldId)}')"` : '';
 
-    el.innerHTML = `${banner}<div class="fd-content${banner ? ' fd-has-banner' : ''}" style="padding:20px;">
+    el.innerHTML = `${banner}<div class="fd-content${banner ? ' fd-has-banner' : ''}" style="padding:20px 0;">
         <h2 style="margin:0 0 12px;color:var(--tx0);font-size:16px;">${esc(fileName)}</h2>
         <div class="fd-meta">
             <div class="fd-meta-row"><span class="fd-meta-label">${esc(t('timeline.detail.date', 'Date'))}</span><span>${esc(dateStr)}</span></div>
@@ -1055,7 +1055,7 @@ function renderTlDetailMeet(ev, el) {
         : `<div class="tl-detail-av tl-detail-av-letter">${esc((ev.userName || '?')[0].toUpperCase())}</div>`;
 
     const worldClickMeet = ev.worldId ? ` style="cursor:pointer;" onclick="document.getElementById('modalDetail').style.display='none';openWorldSearchDetail('${esc(ev.worldId)}')"` : '';
-    el.innerHTML = `<div class="fd-content" style="padding:20px;">
+    el.innerHTML = `<div class="fd-content" style="padding:20px 0;">
         <div style="display:flex;gap:16px;align-items:center;margin-bottom:20px;">
             ${av}
             <div>
@@ -1085,7 +1085,7 @@ function renderTlDetailMeetAgain(ev, el) {
         : `<div class="tl-detail-av tl-detail-av-letter">${esc((ev.userName || '?')[0].toUpperCase())}</div>`;
 
     const worldClickAgain = ev.worldId ? ` style="cursor:pointer;" onclick="document.getElementById('modalDetail').style.display='none';openWorldSearchDetail('${esc(ev.worldId)}')"` : '';
-    el.innerHTML = `<div class="fd-content" style="padding:20px;">
+    el.innerHTML = `<div class="fd-content" style="padding:20px 0;">
         <div style="display:flex;gap:16px;align-items:center;margin-bottom:20px;">
             ${av}
             <div>
@@ -1115,7 +1115,7 @@ function renderTlDetailNotif(ev, el) {
         ? `<div class="tl-detail-av" style="background-image:url('${cssUrl(ev.senderImage)}')"></div>`
         : `<div class="tl-detail-av tl-detail-av-letter">${esc((ev.senderName || '?')[0].toUpperCase())}</div>`;
 
-    el.innerHTML = `<div class="fd-content" style="padding:20px;">
+    el.innerHTML = `<div class="fd-content" style="padding:20px 0;">
         <div style="display:flex;gap:16px;align-items:center;margin-bottom:20px;">
             ${av}
             <div>
@@ -1148,7 +1148,7 @@ function renderTlDetailAvatar(ev, el) {
     const openBtn = ev.userId
         ? `<button class="vrcn-button-round vrcn-btn-join" onclick="document.getElementById('modalDetail').style.display='none';openAvatarDetail('${jsq(ev.userId)}')">${esc(t('timeline.actions.view_avatar', 'View Avatar'))}</button>`
         : '';
-    el.innerHTML = `${banner}<div class="fd-content${banner ? ' fd-has-banner' : ''}" style="padding:20px;">
+    el.innerHTML = `${banner}<div class="fd-content${banner ? ' fd-has-banner' : ''}" style="padding:20px 0;">
         <h2 style="margin:0 0 12px;color:var(--tx0);font-size:16px;">${esc(ev.userName || t('timeline.unknown_avatar', 'Unknown Avatar'))}</h2>
         <div class="fd-meta">
             <div class="fd-meta-row"><span class="fd-meta-label">${esc(t('timeline.detail.avatar', 'Avatar'))}</span><span>${esc(ev.userName || t('timeline.unknown', 'Unknown'))}</span></div>
@@ -1174,7 +1174,7 @@ function renderTlDetailUrl(ev, el) {
     const worldClick = ev.worldId
         ? ` style="cursor:pointer;" onclick="document.getElementById('modalDetail').style.display='none';openWorldSearchDetail('${esc(ev.worldId)}')"` : '';
 
-    el.innerHTML = `<div class="fd-content" style="padding:20px;">
+    el.innerHTML = `<div class="fd-content" style="padding:20px 0;">
         <div style="display:flex;gap:16px;align-items:center;margin-bottom:20px;">
             ${favicon}
             <div>
@@ -1702,7 +1702,7 @@ function renderFtGpsDetailModal(ev) {
     </div>`;
 
     const el = document.getElementById('ftGpsDetailContent');
-    el.innerHTML = `${banner}<div class="fd-content${banner ? ' fd-has-banner' : ''}" style="padding:16px;">
+    el.innerHTML = `${banner}<div class="fd-content${banner ? ' fd-has-banner' : ''}" style="padding:16px 0;">
         <h2 style="margin:0 0 4px;color:var(--tx0);font-size:18px;">${esc(worldName)}</h2>
         <div style="margin-bottom:12px;">${idBadge(ev.worldId || '')}</div>
         <div class="fd-tabs" style="margin-bottom:14px;">
@@ -1817,7 +1817,7 @@ function renderFtDetailGps(ev, el) {
     const worldClick = ev.worldId
         ? ` style="cursor:pointer;" onclick="document.getElementById('modalDetail').style.display='none';openWorldDetail('${esc(ev.worldId)}')"` : '';
 
-    el.innerHTML = `${banner}<div class="fd-content${banner ? ' fd-has-banner' : ''}" style="padding:20px;">
+    el.innerHTML = `${banner}<div class="fd-content${banner ? ' fd-has-banner' : ''}" style="padding:20px 0;">
         ${ftDetailAvRow(ev)}
         <div class="fd-meta">
             <div class="fd-meta-row"><span class="fd-meta-label">${esc(t('timeline.detail.date', 'Date'))}</span><span>${esc(dateStr)}</span></div>
@@ -1837,7 +1837,7 @@ function renderFtDetailStatus(ev, el) {
     const oldCls = statusCssClass(ev.oldValue);
     const newCls = statusCssClass(ev.newValue);
 
-    el.innerHTML = `<div class="fd-content" style="padding:20px;">
+    el.innerHTML = `<div class="fd-content" style="padding:20px 0;">
         ${ftDetailAvRow(ev)}
         <div class="fd-meta">
             <div class="fd-meta-row"><span class="fd-meta-label">${esc(t('timeline.detail.date', 'Date'))}</span><span>${esc(dateStr)}</span></div>
@@ -1858,7 +1858,7 @@ function renderFtDetailStatus(ev, el) {
 
 function renderFtDetailOnline(ev, el) {
     const { dateStr, timeStr } = ftDetailDatetime(ev);
-    el.innerHTML = `<div class="fd-content" style="padding:20px;">
+    el.innerHTML = `<div class="fd-content" style="padding:20px 0;">
         ${ftDetailAvRow(ev)}
         <div class="fd-meta">
             <div class="fd-meta-row"><span class="fd-meta-label">${esc(t('timeline.detail.date', 'Date'))}</span><span>${esc(dateStr)}</span></div>
@@ -1873,7 +1873,7 @@ function renderFtDetailOnline(ev, el) {
 
 function renderFtDetailOffline(ev, el) {
     const { dateStr, timeStr } = ftDetailDatetime(ev);
-    el.innerHTML = `<div class="fd-content" style="padding:20px;">
+    el.innerHTML = `<div class="fd-content" style="padding:20px 0;">
         ${ftDetailAvRow(ev)}
         <div class="fd-meta">
             <div class="fd-meta-row"><span class="fd-meta-label">${esc(t('timeline.detail.date', 'Date'))}</span><span>${esc(dateStr)}</span></div>
@@ -1888,7 +1888,7 @@ function renderFtDetailOffline(ev, el) {
 
 function renderFtDetailAdded(ev, el) {
     const { dateStr, timeStr } = ftDetailDatetime(ev);
-    el.innerHTML = `<div class="fd-content" style="padding:20px;">
+    el.innerHTML = `<div class="fd-content" style="padding:20px 0;">
         ${ftDetailAvRow(ev)}
         <div class="fd-meta">
             <div class="fd-meta-row"><span class="fd-meta-label">${esc(t('timeline.detail.date', 'Date'))}</span><span>${esc(dateStr)}</span></div>
@@ -1903,7 +1903,7 @@ function renderFtDetailAdded(ev, el) {
 
 function renderFtDetailRemoved(ev, el) {
     const { dateStr, timeStr } = ftDetailDatetime(ev);
-    el.innerHTML = `<div class="fd-content" style="padding:20px;">
+    el.innerHTML = `<div class="fd-content" style="padding:20px 0;">
         ${ftDetailAvRow(ev)}
         <div class="fd-meta">
             <div class="fd-meta-row"><span class="fd-meta-label">${esc(t('timeline.detail.date', 'Date'))}</span><span>${esc(dateStr)}</span></div>
@@ -1920,7 +1920,7 @@ function renderFtDetailRemoved(ev, el) {
 
 function renderFtDetailStatusDesc(ev, el) {
     const { dateStr, timeStr } = ftDetailDatetime(ev);
-    el.innerHTML = `<div class="fd-content" style="padding:20px;">
+    el.innerHTML = `<div class="fd-content" style="padding:20px 0;">
         ${ftDetailAvRow(ev)}
         <div class="fd-meta">
             <div class="fd-meta-row"><span class="fd-meta-label">${esc(t('timeline.detail.date', 'Date'))}</span><span>${esc(dateStr)}</span></div>
@@ -1938,7 +1938,7 @@ function renderFtDetailStatusDesc(ev, el) {
 
 function renderFtDetailBio(ev, el) {
     const { dateStr, timeStr } = ftDetailDatetime(ev);
-    el.innerHTML = `<div class="fd-content" style="padding:20px;">
+    el.innerHTML = `<div class="fd-content" style="padding:20px 0;">
         ${ftDetailAvRow(ev)}
         <div class="fd-meta">
             <div class="fd-meta-row"><span class="fd-meta-label">${esc(t('timeline.detail.date', 'Date'))}</span><span>${esc(dateStr)}</span></div>

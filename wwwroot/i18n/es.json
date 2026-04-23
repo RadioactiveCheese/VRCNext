@@ -956,6 +956,7 @@
   "dashboard.section.recent_photos": "FOTOS RECIENTES",
   "dashboard.section.your_groups": "TUS GRUPOS",
   "dashboard.section.group_activity": "ACTIVIDAD DE GRUPOS",
+  "dashboard.section.group_activity_small": "ACTIVIDAD DE GRUPOS (PEQUEÑO)",
   "dashboard.section.group_activity_empty": "No hay instancias de grupo activas ahora mismo",
   "dashboard.section.recently_visited": "VISITADOS RECIENTEMENTE",
   "dashboard.section.popular_worlds": "MUNDOS POPULARES",

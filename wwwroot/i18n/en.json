@@ -961,6 +961,7 @@
   "dashboard.section.recent_photos": "RECENT PHOTOS",
   "dashboard.section.your_groups": "YOUR GROUPS",
   "dashboard.section.group_activity": "GROUP ACTIVITY",
+  "dashboard.section.group_activity_small": "GROUP ACTIVITY (SMALL)",
   "dashboard.section.group_activity_empty": "No active group instances right now",
   "dashboard.section.recent_activity": "RECENT ACTIVITY",
   "dashboard.section.recently_visited": "RECENTLY VISITED",

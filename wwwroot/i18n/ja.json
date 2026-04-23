@@ -953,6 +953,7 @@
   "dashboard.section.recent_photos": "最近の写真",
   "dashboard.section.your_groups": "あなたのグループ",
   "dashboard.section.group_activity": "グループアクティビティ",
+  "dashboard.section.group_activity_small": "グループアクティビティ（小）",
   "dashboard.section.group_activity_empty": "現在アクティブなグループインスタンスはありません",
   "dashboard.section.recently_visited": "最近訪問",
   "dashboard.section.popular_worlds": "人気ワールド",

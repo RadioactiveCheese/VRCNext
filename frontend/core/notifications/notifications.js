@@ -304,11 +304,13 @@ function renderCurrentInstance(data) {
         });
     }
 
-    // Enrich with friend images
+    // Enrich with live friend data (image, status, statusDescription) and own user via currentVrcUser
     users = users.map(u => {
-        if (u.image) return u;
+        if (currentVrcUser && u.id && u.id === currentVrcUser.id)
+            return { ...u, image: currentVrcUser.image || u.image, status: currentVrcUser.status || u.status, statusDescription: currentVrcUser.statusDescription ?? u.statusDescription };
         const m = (u.id && _byId[u.id]) || (u.displayName && _byName[(u.displayName || '').toLowerCase()]);
-        return m ? { ...u, image: m.image || '', id: m.id || u.id } : u;
+        if (!m) return u;
+        return { ...u, image: m.image || u.image, id: m.id || u.id, status: m.status || u.status, statusDescription: m.statusDescription ?? u.statusDescription };
     });
 
     // Split: friends vs other players

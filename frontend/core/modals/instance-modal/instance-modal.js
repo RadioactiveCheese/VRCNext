@@ -76,11 +76,13 @@ function openInstanceInfoModal() {
 
     function makeRow(u) {
         const f           = u._friend;
+        const isSelf      = currentVrcUser && u.id && u.id === currentVrcUser.id;
+        const src         = isSelf ? currentVrcUser : f;
         const id          = u.id || '';
         const displayName = u.displayName || '?';
-        const image       = f?.image             || u.image             || '';
-        const status      = f?.status            || u.status            || '';
-        const statusDesc  = f?.statusDescription || u.statusDescription || '';
+        const image       = src?.image           || u.image             || '';
+        const status      = src?.status          || u.status            || '';
+        const statusDesc  = src?.statusDescription ?? u.statusDescription ?? '';
         const tags        = (f?.tags?.length ? f.tags : null) || u.tags || [];
         const platform    = f?.platform          || u.platform          || '';
         const ageVerified = !!(f?.ageVerified || u.ageVerified);

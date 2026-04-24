@@ -104,6 +104,7 @@ window.external.receiveMessage(rawMsg => {
                 break;
             case 'vrcUser':
                 renderVrcProfile(payload);
+                if (currentInstanceData) renderCurrentInstance(currentInstanceData);
                 if (payload.currentAvatar) currentAvatarId = payload.currentAvatar;
                 document.getElementById('vrcLoginPrompt') && (document.getElementById('vrcLoginPrompt').style.display = 'none');
                 document.getElementById('btnVrcLogin').style.display = 'none';
@@ -155,6 +156,7 @@ window.external.receiveMessage(rawMsg => {
                     vrcFriendsData = payload;
                 }
                 requestWorldResolution(); renderDashboard(); requestInstanceInfo();
+                if (currentInstanceData) renderCurrentInstance(currentInstanceData);
                 if (favFriendsData.length > 0) filterFavFriends();
                 break;
             case 'vrcNeeds2FA': show2FAModal(payload.type || 'totp'); break;

@@ -18,7 +18,9 @@ function renderVrcProfile(u) {
     const imgTag = img
         ? `<img class="vrc-avatar" src="${img}" onerror="this.style.display='none'">`
         : `<div class="vrc-avatar" style="display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:var(--tx3)">${esc((u.displayName || '?')[0])}</div>`;
-    a.innerHTML = `<div class="vrc-profile" data-status="${statusDotClass(u.status)}" onclick="openMyProfileModal()">${imgTag}<div class="vrc-profile-info"><div class="vrc-profile-name">${esc(u.displayName)}</div><div class="vrc-profile-status"><span class="vrc-status-dot ${statusDotClass(u.status)}"></span>${getStatusText(u.status, u.statusDescription)}</div></div><span class="msi" style="font-size:16px;color:var(--tx3);flex-shrink:0;">manage_accounts</span></div>`;
+    const ownStatusCls = statusDotClass(u.status);
+    const ownAvatarWrap = `<div class="vrc-profile-avatar-wrap">${imgTag}<span class="vrc-friend-status-badge vrc-status-dot ${ownStatusCls}"></span></div>`;
+    a.innerHTML = `<div class="vrc-profile" data-status="${ownStatusCls}" onclick="openMyProfileModal()">${ownAvatarWrap}<div class="vrc-profile-info"><div class="vrc-profile-name">${esc(u.displayName)}</div><div class="vrc-profile-status">${getStatusText(u.status, u.statusDescription)}</div></div><span class="msi" style="font-size:16px;color:var(--tx3);flex-shrink:0;">manage_accounts</span></div>`;
 }
 
 function renderVrcFriends(friends, counts) {
@@ -65,14 +67,15 @@ function renderVrcFriends(friends, counts) {
         const imgTag = img
             ? `<img class="vrc-friend-avatar" src="${img}" onerror="this.style.display='none'">`
             : `<div class="vrc-friend-avatar" style="display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:var(--tx3)">${esc((f.displayName || '?')[0])}</div>`;
-        const dotClass = presenceType === 'web' ? 'vrc-status-ring' : 'vrc-status-dot';
         const statusCls = presenceType === 'offline' ? 's-offline' : statusDotClass(f.status);
         const rank = getTrustRank(f.tags || []);
         const rankBadge = rank ? `<span class="vrcn-badge" style="background:${rank.color}22;color:${rank.color};">${rank.label}</span>` : '';
         const fid = (f.id || '').replace(/'/g, "\\'");
         const statusText = f.statusDescription || statusLabel(f.status);
         const locationText = getFriendLocationLabel(presenceType, f.location);
-        return `<div class="vrc-friend-card" data-status="${statusCls}" onclick="openFriendDetail('${fid}')">${imgTag}<div class="vrc-friend-info"><div class="vrc-friend-name" style="display:flex;align-items:center;gap:5px;"><span class="${dotClass} ${statusCls}" style="width:6px;height:6px;flex-shrink:0;"></span><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(f.displayName)}</span>${rankBadge}</div><div class="vrc-friend-loc">${esc(statusText)} &middot; ${esc(locationText)}</div></div></div>`;
+        const badgeDotCls = presenceType === 'web' ? 'vrc-status-ring' : 'vrc-status-dot';
+        const avatarWrap = `<div class="vrc-friend-avatar-wrap">${imgTag}<span class="vrc-friend-status-badge ${badgeDotCls} ${statusCls}"></span></div>`;
+        return `<div class="vrc-friend-card" data-status="${statusCls}" onclick="openFriendDetail('${fid}')">${avatarWrap}<div class="vrc-friend-info"><div class="vrc-friend-name"><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(f.displayName)}</span>${rankBadge}</div><div class="vrc-friend-loc">${esc(statusText)} &middot; ${esc(locationText)}</div></div></div>`;
     };
 
     const favIds = new Set(favFriendsData.map(f => f.favoriteId));

@@ -198,6 +198,10 @@ function saveSettings() {
             sendCrashData: document.getElementById('setSendCrashData').checked,
             restartAfterCrash: document.getElementById('setRestartAfterCrash').checked,
             legacyWindow: document.getElementById('setLegacyWindow')?.checked ?? false,
+            gpuAcceleration:    document.getElementById('setPerfGpuAccel')?.checked    ?? false,
+            gpuShaderCache:     document.getElementById('setPerfShaderCache')?.checked  ?? false,
+            v8Heap128:          document.getElementById('setPerfV8Heap')?.checked       ?? false,
+            twoRenderProcesses: document.getElementById('setPerfRenderProc')?.checked   ?? false,
             avtrdbReportDeleted: document.getElementById('setAvtrdbReport').checked,
             avtrdbSubmitAvatars: document.getElementById('setAvtrdbSubmit').checked,
             dashSectionOrder:  (typeof _dashLayout !== 'undefined') ? _dashLayout.order  : [],
@@ -238,7 +242,8 @@ function initAutoSave() {
         'setYtAutoStartVR','setYtAutoStartDesktop',
         'setVfAutoStartVR','setVfAutoStartDesktop',
         'setDpAutoStartVR','setDpAutoStartDesktop',
-        'setImgCacheEnabled','setImgCacheLimit','setImgCacheOptimizeEnabled','setMemoryTrimEnabled','setSendCrashData','setRestartAfterCrash','setLegacyWindow'];
+        'setImgCacheEnabled','setImgCacheLimit','setImgCacheOptimizeEnabled','setMemoryTrimEnabled','setSendCrashData','setRestartAfterCrash','setLegacyWindow',
+        'setPerfGpuAccel','setPerfShaderCache','setPerfV8Heap','setPerfRenderProc'];
     ids.forEach(id => {
         const el = document.getElementById(id);
         if (!el) return;
@@ -478,6 +483,15 @@ function loadSettingsToUI(s) {
     if (legacyHint) legacyHint.style.display = 'none';
     window._legacyWindow = legacyWindow;
 
+    // Performance
+    const _perfSet = (id, val) => { const el = document.getElementById(id); if (el) el.checked = !!val; };
+    _perfSet('setPerfGpuAccel',    s.GpuAcceleration    ?? s.gpuAcceleration    ?? false);
+    _perfSet('setPerfShaderCache', s.GpuShaderCache     ?? s.gpuShaderCache     ?? false);
+    _perfSet('setPerfV8Heap',      s.V8Heap128          ?? s.v8Heap128          ?? false);
+    _perfSet('setPerfRenderProc',  s.TwoRenderProcesses ?? s.twoRenderProcesses ?? false);
+    const perfHint = document.getElementById('perfRestartHint');
+    if (perfHint) perfHint.style.display = 'none';
+
     // Sync custom dropdowns to reflect programmatically set values
     document.querySelectorAll('select').forEach(s => s._vnRefresh && s._vnRefresh());
 
@@ -541,6 +555,12 @@ function handleImgCacheOptimizeProgress(data) {
 function onLegacyWindowChange() {
     autoSave();
     const hint = document.getElementById('legacyRestartHint');
+    if (hint) hint.style.display = '';
+}
+
+function onPerfSettingChange() {
+    autoSave();
+    const hint = document.getElementById('perfRestartHint');
     if (hint) hint.style.display = '';
 }
 

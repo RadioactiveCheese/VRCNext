@@ -47,33 +47,29 @@
     width: 38px;
     height: 38px;
     min-width: 38px;
-    border: 2.5px solid var(--status-offline);
     border-radius: 8px;
     box-sizing: border-box;
     flex-shrink: 0;
 }
-.rsidebar.collapsed .inst-header { cursor: pointer; }
-.rsidebar.collapsed .inst-card[data-inst-type="public"]      .inst-header { border-color: var(--ok); }
-.rsidebar.collapsed .inst-card[data-inst-type="friends"]     .inst-header { border-color: #42A5F5; }
-.rsidebar.collapsed .inst-card[data-inst-type="friendsplus"] .inst-header { border-color: #42A5F5; }
-.rsidebar.collapsed .inst-card[data-inst-type="private"]     .inst-header { border-color: #EF5350; }
-.rsidebar.collapsed .inst-card[data-inst-type="invite"]      .inst-header { border-color: #EF5350; }
-.rsidebar.collapsed .inst-card[data-inst-type="group"]       .inst-header { border-color: #FFA726; }
-.rsidebar.collapsed .inst-card[data-inst-type="hidden"]      .inst-header { border-color: var(--tx2); }
-
-.rsidebar.collapsed .vrc-profile[data-status="s-active"] .vrc-avatar,
-.rsidebar.collapsed .vrc-profile[data-status="s-online"] .vrc-avatar,
-.rsidebar.collapsed .vrc-friend-card[data-status="s-active"] .vrc-friend-avatar,
-.rsidebar.collapsed .vrc-friend-card[data-status="s-online"] .vrc-friend-avatar { border-color: var(--status-online); }
-
-.rsidebar.collapsed .vrc-profile[data-status="s-join"] .vrc-avatar,
-.rsidebar.collapsed .vrc-friend-card[data-status="s-join"] .vrc-friend-avatar { border-color: var(--status-join); }
-
-.rsidebar.collapsed .vrc-profile[data-status="s-ask"] .vrc-avatar,
-.rsidebar.collapsed .vrc-friend-card[data-status="s-ask"] .vrc-friend-avatar { border-color: var(--status-ask); }
-
-.rsidebar.collapsed .vrc-profile[data-status="s-busy"] .vrc-avatar,
-.rsidebar.collapsed .vrc-friend-card[data-status="s-busy"] .vrc-friend-avatar { border-color: var(--status-busy); }
+.rsidebar.collapsed .inst-header {
+    cursor: pointer;
+    position: relative;
+}
+.rsidebar.collapsed .inst-header::after {
+    content: '';
+    position: absolute;
+    bottom: -2px;
+    right: -2px;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--ok);
+    box-shadow: 0 0 0 2px var(--bg-side);
+}
+.rsidebar.collapsed .inst-card[data-inst-type="friends"] .inst-header::after { background: #42A5F5; }
+.rsidebar.collapsed .inst-card[data-inst-type="private"] .inst-header::after { background: #EF5350; }
+.rsidebar.collapsed .inst-card[data-inst-type="group"]   .inst-header::after { background: #FFA726; }
+.rsidebar.collapsed .inst-card[data-inst-type="hidden"]  .inst-header::after { background: var(--tx2); }
 
 .rsidebar.collapsed .vrc-profile,
 .rsidebar.collapsed .vrc-friend-card {
@@ -157,6 +153,23 @@
 
 .vrc-avatar, .vrc-friend-avatar, .fd-avatar { object-fit: cover; background: var(--bg-input); flex-shrink: 0; }
 .vrc-avatar { width: 42px; height: 42px; border-radius: 10px; }
+
+.vrc-friend-avatar-wrap,
+.vrc-profile-avatar-wrap {
+    position: relative;
+    flex-shrink: 0;
+    display: flex;
+}
+
+.vrc-friend-status-badge {
+    position: absolute;
+    bottom: -2px;
+    right: -2px;
+    box-shadow: 0 0 0 2px var(--bg-side);
+}
+.vrc-friend-status-badge.vrc-status-ring {
+    background: var(--bg-side);
+}
 
 .vrc-status-dot {
     width: 8px;

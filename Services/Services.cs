@@ -391,6 +391,12 @@ public class AppSettings
     // Legacy Window Manager (requires restart, disables chromeless + custom chrome)
     public bool LegacyWindow { get; set; } = false;
 
+    // Performance — WebView2/Chromium flags (all require restart)
+    public bool GpuAcceleration     { get; set; } = false;
+    public bool GpuShaderCache      { get; set; } = false;
+    public bool V8Heap128           { get; set; } = false;
+    public bool TwoRenderProcesses  { get; set; } = false;
+
     // Dashboard layout customization
     public List<string> DashSectionOrder  { get; set; } = new();
     public List<string> DashSectionHidden { get; set; } = new();

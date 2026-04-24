@@ -940,6 +940,12 @@ public class AuthController
             // Legacy Window (requires restart)
             _core.Settings.LegacyWindow = data["legacyWindow"]?.Value<bool>() ?? false;
 
+            // Performance flags (require restart)
+            _core.Settings.GpuAcceleration    = data["gpuAcceleration"]?.Value<bool>()    ?? false;
+            _core.Settings.GpuShaderCache     = data["gpuShaderCache"]?.Value<bool>()     ?? false;
+            _core.Settings.V8Heap128          = data["v8Heap128"]?.Value<bool>()          ?? false;
+            _core.Settings.TwoRenderProcesses = data["twoRenderProcesses"]?.Value<bool>() ?? false;
+
             // Dashboard layout
             var dashOrder  = data["dashSectionOrder"]?.ToObject<List<string>>();
             var dashHidden = data["dashSectionHidden"]?.ToObject<List<string>>();

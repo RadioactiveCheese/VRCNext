@@ -652,6 +652,47 @@
                         <div class="set-desc" data-i18n="settings.crash.restart_after_crash_desc">VRCNext will automatically restart after an unexpected crash. Does not apply when the app is closed normally or force-quit via Task Manager.</div>
                     </div>
 
+                    <!-- PERFORMANCE -->
+                    <div class="vrcn-panel-card" data-windows-only>
+                        <div class="vrcn-panel-card-header"><span class="msi">speed</span> <span data-i18n="settings.perf.title">Performance</span></div>
+                        <div class="sf-toggle-row">
+                            <span data-i18n="settings.perf.gpu_accel.label">Enable Hardware Acceleration</span>
+                            <label class="toggle">
+                                <input type="checkbox" id="setPerfGpuAccel" onchange="onPerfSettingChange()">
+                                <div class="toggle-track"><div class="toggle-knob"></div></div>
+                            </label>
+                        </div>
+                        <div class="set-desc" data-i18n="settings.perf.gpu_accel.desc">Enables GPU hardware acceleration for the WebView2 renderer. May improve rendering performance but can cause visual glitches on some systems.</div>
+                        <div class="sf-toggle-row" style="margin-top:14px;">
+                            <span data-i18n="settings.perf.shader_cache.label">Enable GPU Shader Cache</span>
+                            <label class="toggle">
+                                <input type="checkbox" id="setPerfShaderCache" onchange="onPerfSettingChange()">
+                                <div class="toggle-track"><div class="toggle-knob"></div></div>
+                            </label>
+                        </div>
+                        <div class="set-desc" data-i18n="settings.perf.shader_cache.desc">Caches compiled GPU shaders to disk. Reduces GPU startup overhead on subsequent launches.</div>
+                        <div class="sf-toggle-row" style="margin-top:14px;">
+                            <span data-i18n="settings.perf.v8_heap.label">Use 128 MB V8 Heap</span>
+                            <label class="toggle">
+                                <input type="checkbox" id="setPerfV8Heap" onchange="onPerfSettingChange()">
+                                <div class="toggle-track"><div class="toggle-knob"></div></div>
+                            </label>
+                        </div>
+                        <div class="set-desc" data-i18n="settings.perf.v8_heap.desc">Increases the JavaScript engine memory limit from 64 MB to 128 MB. Useful if VRCNext runs sluggishly with large friend lists or many open tabs.</div>
+                        <div class="sf-toggle-row" style="margin-top:14px;">
+                            <span data-i18n="settings.perf.render_proc.label">Use 2 Render Processes</span>
+                            <label class="toggle">
+                                <input type="checkbox" id="setPerfRenderProc" onchange="onPerfSettingChange()">
+                                <div class="toggle-track"><div class="toggle-knob"></div></div>
+                            </label>
+                        </div>
+                        <div class="set-desc" data-i18n="settings.perf.render_proc.desc">Allows WebView2 to use up to 2 renderer processes instead of 1. Can help with stability but uses slightly more memory.</div>
+                        <div id="perfRestartHint" style="display:none;margin-top:10px;">
+                            <span class="set-desc" data-i18n="settings.perf.restart_hint">A restart is required to apply performance changes.</span>
+                            <button class="vrcn-button" style="margin-top:8px;" onclick="sendToCS({action:'restartApp'})"><span class="msi" style="font-size:16px;">refresh</span> <span data-i18n="settings.language.restart_btn">Restart VRCNext</span></button>
+                        </div>
+                    </div>
+
                     <!-- LANGUAGE + SOUNDS -->
                     <div class="vrcn-panel-card-pair">
                         <div class="vrcn-panel-card">

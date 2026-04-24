@@ -1618,11 +1618,28 @@ public class VRChatApiService
         if (!IsLoggedIn || CurrentUserId == null) return new JArray();
         try
         {
-            // Use /users/{userId}/instances/groups/{groupId} — works for members AND non-members
-            // (VRCX pattern: returns groupPublic instances even if not a member)
-            var resp = await _http.GetAsync($"{BASE}/users/{CurrentUserId}/instances/groups/{groupId}");
+            var resp = await _http.GetAsync($"{BASE}/groups/{groupId}/instances");
             var body = await resp.Content.ReadAsStringAsync();
             Log($"GetGroupInstances({groupId}): {(int)resp.StatusCode}, len={body.Length}");
+            if (resp.IsSuccessStatusCode)
+            {
+                var token = JToken.Parse(body);
+                if (token is JObject obj && obj["instances"] is JArray arr) return arr;
+                if (token is JArray directArr) return directArr;
+            }
+        }
+        catch (Exception ex) { Log($"GetGroupInstances exception: {ex.Message}"); }
+        return new JArray();
+    }
+
+    public async Task<JArray> GetAllGroupInstancesAsync()
+    {
+        if (!IsLoggedIn || CurrentUserId == null) return new JArray();
+        try
+        {
+            var resp = await _http.GetAsync($"{BASE}/users/{CurrentUserId}/instances/groups");
+            var body = await resp.Content.ReadAsStringAsync();
+            Log($"GetAllGroupInstances: {(int)resp.StatusCode}, len={body.Length}");
             if (resp.IsSuccessStatusCode)
             {
                 var token = JToken.Parse(body);
@@ -1631,7 +1648,7 @@ public class VRChatApiService
                 if (token is JArray directArr) return directArr;
             }
         }
-        catch (Exception ex) { Log($"GetGroupInstances exception: {ex.Message}"); }
+        catch (Exception ex) { Log($"GetAllGroupInstances exception: {ex.Message}"); }
         return new JArray();
     }
 

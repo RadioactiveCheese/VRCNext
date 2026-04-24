@@ -322,15 +322,7 @@ public partial class AppShell
             .SetLeft(startX)
             .SetTop(startY)
 #if WINDOWS
-            .SetBrowserControlInitParameters(
-                "--disable-gpu " +
-                "--js-flags=--max-old-space-size=64 " +
-                "--renderer-process-limit=1 " +
-                "--disk-cache-size=1 " +
-                "--disable-gpu-shader-disk-cache " +
-                "--disable-background-networking " +
-                "--disable-sync " +
-                "--no-first-run")
+            .SetBrowserControlInitParameters(BuildChromiumFlags(_settings))
 #endif
             .RegisterWebMessageReceivedHandler((_, message) => { _ = OnWebMessage(message); });
         if (File.Exists(iconPath)) windowBuilder.SetIconFile(iconPath);
@@ -341,6 +333,19 @@ public partial class AppShell
         _window.WaitForClose();
         OnClose();
     }
+
+#if WINDOWS
+    private static string BuildChromiumFlags(AppSettings s)
+    {
+        var flags = new System.Text.StringBuilder();
+        if (!s.GpuAcceleration)    flags.Append("--disable-gpu ");
+        if (!s.GpuShaderCache)     flags.Append("--disable-gpu-shader-disk-cache ");
+        flags.Append(s.V8Heap128 ? "--js-flags=--max-old-space-size=128 " : "--js-flags=--max-old-space-size=64 ");
+        flags.Append(s.TwoRenderProcesses ? "--renderer-process-limit=2 " : "--renderer-process-limit=1 ");
+        flags.Append("--disk-cache-size=1 --disable-background-networking --disable-sync --no-first-run");
+        return flags.ToString();
+    }
+#endif
 
 #if !WINDOWS
     private static void EnsureLinuxGstreamer()

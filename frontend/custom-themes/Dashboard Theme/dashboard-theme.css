@@ -12,9 +12,10 @@
     position: fixed;
     left: 0;
     top: 0;
-    height: 100vh;
+    height: 100%;
     z-index: 50;
     background: transparent;
+    overflow: clip;
 }
 
 .sidebar::before {
@@ -55,9 +56,10 @@ body:has(#tab0.active) .sidebar.collapsed::after {
     position: fixed;
     right: 0;
     top: 0;
-    height: 100vh;
+    height: 100%;
     z-index: 50;
     background: transparent;
+    overflow: clip;
 }
 
 .rsidebar::before {

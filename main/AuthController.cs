@@ -122,13 +122,13 @@ public class AuthController
             case "setupDone":
                 _core.Settings.SetupComplete = true;
                 _core.Settings.Save();
-                _core.LoadPage?.Invoke(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "wwwroot", "index.html"));
+                _core.LoadPage?.Invoke(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "frontend", "index.html"));
                 break;
 
             case "resetSetup":
                 _core.Settings.SetupComplete = false;
                 _core.Settings.Save();
-                var setupHtml = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "wwwroot", "setup", "setup.html");
+                var setupHtml = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "frontend", "setup", "setup.html");
                 if (File.Exists(setupHtml)) _core.LoadPage?.Invoke(setupHtml);
                 break;
 
@@ -977,7 +977,7 @@ public class AuthController
         try
         {
             var language = NormalizeLanguage(requestedLanguage);
-            var i18nDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "wwwroot", "i18n");
+            var i18nDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "frontend", "i18n");
             var path = Path.Combine(i18nDir, $"{language}.json");
             var fallbackPath = Path.Combine(i18nDir, "en.json");
             var json = File.Exists(path)

@@ -51,7 +51,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Content Include="wwwroot\**" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="frontend\**" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
   <ItemGroup>

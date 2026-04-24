@@ -255,11 +255,11 @@ public partial class AppShell
         _core.ImgCache = _imgCache;
         _core.GetVirtualMediaUrl = _photos.GetVirtualMediaUrl;
 
-        var wwwroot   = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "wwwroot");
+        var frontend  = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "frontend");
         var startPage = _settings.SetupComplete
-            ? Path.Combine(wwwroot, "index.html")
-            : Path.Combine(wwwroot, "setup", "setup.html");
-        if (!File.Exists(startPage)) startPage = Path.Combine(wwwroot, "index.html");
+            ? Path.Combine(frontend, "index.html")
+            : Path.Combine(frontend, "setup", "setup.html");
+        if (!File.Exists(startPage)) startPage = Path.Combine(frontend, "index.html");
 
         int uptimeTick = 0;
         _uptimeTimer2 = new System.Threading.Timer(_ =>
@@ -303,7 +303,7 @@ public partial class AppShell
         SetIfUnset("GALLIUM_DRIVER",                    "llvmpipe");
 #endif
 
-        var iconPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "wwwroot", "logo.png");
+        var iconPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "frontend", "logo.png");
         var windowBuilder = new PhotinoWindow()
             .SetTitle("VRCNext")
             .SetUseOsDefaultSize(false)
@@ -730,7 +730,7 @@ public partial class AppShell
             }
             else if (path.StartsWith("/cursor/"))
             {
-                var cursorDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "wwwroot", "cursor");
+                var cursorDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "frontend", "cursor");
                 var file = Path.Combine(cursorDir, Uri.UnescapeDataString(path["/cursor/".Length..]));
                 await ServeFileAsync(ctx, file);
             }

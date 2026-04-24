@@ -5,3 +5,4 @@
 - Friend profile: current world name and thumbnail no longer pop in after opening, resolved immediately from the already-known world cache
 - Instance sidebar and instance info modal: player statuses (own and friends) now update immediately when statuses change, without waiting for the next instance info roundtrip
 - Friend profile: banner image is now cached (7-day TTL) and served from local cache on subsequent opens, including after app restart — previously /api/1/file/ URLs were never cached
+- World modal: world images (imageUrl + thumbnailImageUrl) are now cached (60-day TTL) and served from local cache immediately on subsequent opens

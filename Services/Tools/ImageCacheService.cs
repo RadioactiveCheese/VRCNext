@@ -38,9 +38,13 @@ public class ImageCacheService
 
     public string Get(string? url) => GetWithTtl(url, TTL);
 
-    private static readonly TimeSpan TTL_BANNER = TimeSpan.FromDays(7);
+    private static readonly TimeSpan TTL_BANNER       = TimeSpan.FromDays(7);
+    private static readonly TimeSpan TTL_WORLD_BANNER  = TimeSpan.FromDays(60);
 
-    public string GetBanner(string? url)
+    public string GetBanner(string? url)      => GetBannerWithTtl(url, TTL_BANNER);
+    public string GetWorldBanner(string? url) => GetBannerWithTtl(url, TTL_WORLD_BANNER);
+
+    private string GetBannerWithTtl(string? url, TimeSpan ttl)
     {
         if (string.IsNullOrWhiteSpace(url)) return "";
         if (!Enabled) return url;
@@ -51,7 +55,7 @@ public class ImageCacheService
             {
                 var fileName = url.Substring(slash + 1);
                 var filePath = Path.Combine(_dir, fileName);
-                if (File.Exists(filePath) && DateTime.UtcNow - File.GetLastWriteTimeUtc(filePath) < TTL_BANNER)
+                if (File.Exists(filePath) && DateTime.UtcNow - File.GetLastWriteTimeUtc(filePath) < ttl)
                     return $"http://localhost:{Port}/imgcache/{fileName}";
             }
             return "";
@@ -62,9 +66,9 @@ public class ImageCacheService
         var pngName  = baseHash + ".png";
         var jpgPath  = Path.Combine(_dir, jpgName);
         var pngPath  = Path.Combine(_dir, pngName);
-        if (File.Exists(pngPath) && DateTime.UtcNow - File.GetLastWriteTimeUtc(pngPath) < TTL_BANNER)
+        if (File.Exists(pngPath) && DateTime.UtcNow - File.GetLastWriteTimeUtc(pngPath) < ttl)
             { _reverseMap[pngName] = url; return $"http://localhost:{Port}/imgcache/{pngName}"; }
-        if (File.Exists(jpgPath) && DateTime.UtcNow - File.GetLastWriteTimeUtc(jpgPath) < TTL_BANNER)
+        if (File.Exists(jpgPath) && DateTime.UtcNow - File.GetLastWriteTimeUtc(jpgPath) < ttl)
             { _reverseMap[jpgName] = url; return $"http://localhost:{Port}/imgcache/{jpgName}"; }
         TryDelete(jpgPath); TryDelete(pngPath);
         _reverseMap[jpgName] = url; _reverseMap[pngName] = url;

@@ -778,6 +778,7 @@
                             <button class="fd-tab active" onclick="switchDesignTab('background',this)" data-i18n="settings.design.tabs.background">Background</button>
                             <button class="fd-tab" onclick="switchDesignTab('colors',this)" data-i18n="settings.design.tabs.colors">Colors</button>
                             <button class="fd-tab" onclick="switchDesignTab('other',this)" data-i18n="settings.design.tabs.other">Other</button>
+                            <button class="fd-tab" onclick="switchDesignTab('themes',this)" data-i18n="settings.design.tabs.themes">Themes</button>
                         </div>
 
                         <div id="designTabBackground">
@@ -823,6 +824,11 @@
                         <div id="designTabOther" style="display:none;">
                             <div class="sf-toggle-row" style="margin-top:14px;"><span data-i18n="settings.design.clock_enabled">Enable Clock</span><label class="toggle"><input type="checkbox" id="setClockEnabled" checked onchange="applyClockSettings();autoSave()"><div class="toggle-track"><div class="toggle-knob"></div></div></label></div>
                             <div class="sf-toggle-row" style="margin-top:8px;"><span data-i18n="settings.design.clock_ampm">Use AM/PM</span><label class="toggle"><input type="checkbox" id="setClockAmPm" onchange="applyClockSettings();autoSave()"><div class="toggle-track"><div class="toggle-knob"></div></div></label></div>
+                        </div>
+
+                        <div id="designTabThemes" style="display:none;">
+                            <div class="set-desc" style="margin-top:12px;" data-i18n="settings.design.themes.desc">Drop theme folders into the <code>custom-themes</code> folder next to VRCNext. Each folder can contain any number of CSS files.</div>
+                            <div id="customThemesList" style="margin-top:10px;display:flex;flex-direction:column;gap:6px;"></div>
                         </div>
                     </div>
 

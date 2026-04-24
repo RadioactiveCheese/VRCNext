@@ -279,6 +279,7 @@ public partial class AppShell
                     break;
 
                 case "getCursorFiles":
+                case "getCustomThemes":
                     _windowCtrl.HandleMessage(action, msg);
                     break;
 

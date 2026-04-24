@@ -1,4 +1,12 @@
-**2026.18.1**
+**2026.18.2**
+
+**New Features**
+
+* Added a Custom Themes system. Theme folders placed in `%AppData%\Roaming\VRCNext\custom-themes\` appear in Settings under Design > Themes and can be toggled on or off individually.
+* Each theme folder can contain CSS files, JS files, and an optional `info.json` with author and version, which are displayed in the Themes tab.
+* The Dashboard Theme is now included as a built-in custom theme and is off by default. It turns the sidebars into glass overlay panels that fade in as you scroll down on the dashboard.
+* Added a Themes pill tab to the Design settings panel alongside Background, Colors, and Other.
+* Theme state is saved and restored across restarts.
 
 **Improvements**
 

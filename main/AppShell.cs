@@ -14,6 +14,7 @@ public partial class AppShell
     private PhotinoWindow _window = null!;
     private string _imgCacheDir = "";
     private string _thumbCacheDir = "";
+    private string _customThemesDir = "";
     private int _httpPort;
     private System.Net.HttpListener? _httpListener;
     private System.Threading.Timer? _uptimeTimer2;
@@ -233,6 +234,12 @@ public partial class AppShell
             Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
             "VRCNext", "Logs");
         Directory.CreateDirectory(_activityLogDir);
+        _customThemesDir = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+            "VRCNext", "custom-themes");
+        Directory.CreateDirectory(_customThemesDir);
+        _core.CustomThemesDir = _customThemesDir;
+        SeedBuiltInThemes();
         var logFileName = $"vrcn-log-{DateTime.Now:yyyy-MM-dd_HH-mm-ss}.txt";
         _activityLogPath = Path.Combine(_activityLogDir, logFileName);
         try { _activityLogWriter = new StreamWriter(_activityLogPath, append: false, System.Text.Encoding.UTF8) { AutoFlush = true }; } catch { }
@@ -734,10 +741,49 @@ public partial class AppShell
                 var file = Path.Combine(cursorDir, Uri.UnescapeDataString(path["/cursor/".Length..]));
                 await ServeFileAsync(ctx, file);
             }
+            else if (path.StartsWith("/customthemes/"))
+            {
+                var rel  = Uri.UnescapeDataString(path["/customthemes/".Length..]);
+                var file = Path.Combine(_customThemesDir, rel.Replace('/', Path.DirectorySeparatorChar));
+                await ServeThemeFileAsync(ctx, file);
+            }
             else ctx.Response.StatusCode = 404;
         }
         catch { ctx.Response.StatusCode = 500; }
         finally { try { ctx.Response.Close(); } catch { } }
+    }
+
+    private static async Task ServeThemeFileAsync(System.Net.HttpListenerContext ctx, string file)
+    {
+        if (!File.Exists(file)) { ctx.Response.StatusCode = 404; return; }
+        ctx.Response.ContentType = Path.GetExtension(file).ToLower() == ".js"
+            ? "text/javascript; charset=utf-8"
+            : "text/css; charset=utf-8";
+        ctx.Response.StatusCode = 200;
+        var bytes = await File.ReadAllBytesAsync(file);
+        ctx.Response.ContentLength64 = bytes.Length;
+        await ctx.Response.OutputStream.WriteAsync(bytes);
+    }
+
+    public string GetCustomThemesDir() => _customThemesDir;
+
+    private void SeedBuiltInThemes()
+    {
+        var builtInSrc = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "frontend", "custom-themes");
+        if (!Directory.Exists(builtInSrc)) return;
+        foreach (var srcDir in Directory.GetDirectories(builtInSrc))
+        {
+            var themeName = Path.GetFileName(srcDir);
+            var destDir   = Path.Combine(_customThemesDir, themeName);
+            Directory.CreateDirectory(destDir);
+            foreach (var srcFile in Directory.GetFiles(srcDir, "*")
+                .Where(f => { var ext = Path.GetExtension(f).ToLower(); return ext == ".css" || ext == ".js" || ext == ".json" || ext == ".md"; }))
+            {
+                var destFile = Path.Combine(destDir, Path.GetFileName(srcFile));
+                if (!File.Exists(destFile))
+                    File.Copy(srcFile, destFile);
+            }
+        }
     }
 
     private static async Task ServeFileAsync(System.Net.HttpListenerContext ctx, string file)

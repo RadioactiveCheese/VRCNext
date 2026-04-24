@@ -817,6 +817,8 @@ public class AuthController
             _core.Settings.AutoColorAccuracy = data["autoColorAccuracy"]?.Value<int>() ?? 50;
             _core.Settings.PlayBtnTheme = data["playBtnTheme"]?.ToString() ?? "";
             _core.Settings.CursorTheme = data["cursorTheme"]?.ToString() ?? "";
+            var activeCustomThemes = data["activeCustomThemes"]?.ToObject<List<string>>();
+            if (activeCustomThemes != null) _core.Settings.ActiveCustomThemes = activeCustomThemes;
             _core.Settings.GuiZoom = Math.Clamp(data["guiZoom"]?.Value<int>() ?? 100, 50, 200);
 
             var dashBg = data["dashBgPath"]?.ToString();

@@ -78,6 +78,8 @@ let currentPlayBtnTheme = '';
 let currentCursorTheme = '';
 let _localHttpPort = 0;
 let _cursorFiles = [];
+let _customThemes = [];
+let _activeCustomThemes = new Set();
 let sidebarCollapsed = localStorage.getItem('vrcnext_sidebar') === '1';
 let rsidebarCollapsed = localStorage.getItem('vrcnext_rsidebar') === '1';
 // Apply saved sidebar state immediately on load
@@ -919,6 +921,76 @@ function applyCursorTheme(key) {
     }
     renderCursorThemeChips();
     autoSave();
+}
+
+function renderCustomThemesList() {
+    const el = document.getElementById('customThemesList');
+    if (!el) return;
+    if (!_customThemes.length) {
+        el.innerHTML = `<div style="font-size:12px;color:var(--tx3);padding:8px 0;" data-i18n="settings.design.themes.empty">No themes found. Drop a folder with CSS files into the custom-themes folder.</div>`;
+        return;
+    }
+    el.innerHTML = _customThemes.map(th => {
+        const on = _activeCustomThemes.has(th.id);
+        const meta = [th.author ? `by ${esc(th.author)}` : '', th.version ? `v${esc(th.version)}` : ''].filter(Boolean).join(' · ');
+        return `<div class="sf-toggle-row" style="background:var(--bg-input);border-radius:8px;padding:10px 14px;">
+            <div>
+                <div style="font-size:13px;font-weight:600;color:var(--tx1);">${esc(th.name)}</div>
+                ${meta ? `<div style="font-size:10px;color:var(--tx3);margin-top:2px;">${meta}</div>` : ''}
+            </div>
+            <label class="toggle"><input type="checkbox" ${on ? 'checked' : ''} onchange="toggleCustomTheme('${esc(th.id)}',this.checked)"><div class="toggle-track"><div class="toggle-knob"></div></div></label>
+        </div>`;
+    }).join('');
+}
+
+function _ctHref(themeName, file) {
+    return `http://localhost:${_localHttpPort}/customthemes/${encodeURIComponent(themeName)}/${encodeURIComponent(file)}`;
+}
+
+function _ctInjectTheme(th) {
+    (th.cssFiles || []).forEach(f => {
+        const id = 'ct_' + th.id + '_' + f.replace(/[^a-z0-9]/gi, '_');
+        if (document.getElementById(id)) return;
+        const link = document.createElement('link');
+        link.rel = 'stylesheet'; link.id = id;
+        link.href = _ctHref(th.name, f);
+        document.head.appendChild(link);
+    });
+    (th.jsFiles || []).forEach(f => {
+        const id = 'ct_js_' + th.id + '_' + f.replace(/[^a-z0-9]/gi, '_');
+        if (document.getElementById(id)) return;
+        const script = document.createElement('script');
+        script.id = id;
+        script.src = _ctHref(th.name, f);
+        document.head.appendChild(script);
+    });
+}
+
+function _ctRemoveTheme(th) {
+    document.documentElement.dispatchEvent(new CustomEvent('vrcnext:theme:unload:' + th.id));
+    (th.cssFiles || []).forEach(f => document.getElementById('ct_' + th.id + '_' + f.replace(/[^a-z0-9]/gi, '_'))?.remove());
+    (th.jsFiles  || []).forEach(f => document.getElementById('ct_js_' + th.id + '_' + f.replace(/[^a-z0-9]/gi, '_'))?.remove());
+}
+
+function toggleCustomTheme(id, enabled) {
+    const theme = _customThemes.find(t => t.id === id);
+    if (enabled) {
+        _activeCustomThemes.add(id);
+        if (theme) _ctInjectTheme(theme);
+    } else {
+        _activeCustomThemes.delete(id);
+        if (theme) _ctRemoveTheme(theme);
+    }
+    autoSave();
+}
+
+function applyCustomThemesFromSettings(activeIds) {
+    _activeCustomThemes = new Set(activeIds || []);
+    _customThemes.forEach(th => {
+        if (_activeCustomThemes.has(th.id)) _ctInjectTheme(th);
+        else _ctRemoveTheme(th);
+    });
+    renderCustomThemesList();
 }
 
 function tryLoadLogo() {

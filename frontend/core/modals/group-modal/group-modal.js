@@ -26,7 +26,7 @@ function openGroupDetail(groupId) {
     if (cached) {
         renderGroupDetail(cached);
     } else {
-        document.getElementById('detailModalContent').innerHTML = sk('detail');
+        document.getElementById('detailModalContent').innerHTML = sk('content-modal');
     }
     sendToCS({ action: 'vrcGetGroup', groupId });
 }

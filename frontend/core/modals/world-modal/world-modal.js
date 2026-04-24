@@ -21,7 +21,7 @@ function openWorldSearchDetail(id) {
     if (typeof navSetCurrent === 'function') navSetCurrent('worldSearch', id);
     _wdCurrentId = id;
     const el = document.getElementById('detailModalContent');
-    el.innerHTML = sk('detail');
+    el.innerHTML = sk('content-modal');
     document.getElementById('modalDetail').style.display = 'flex';
     sendToCS({ action: 'vrcGetWorldDetail', worldId: id });
 }

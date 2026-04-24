@@ -1102,23 +1102,34 @@ public class FriendsController
             diskProfile["status"] = live?["status"]?.ToString() ?? "offline";
             diskProfile["statusDescription"] = live?["statusDescription"]?.ToString() ?? "";
             diskProfile["location"] = live?["location"]?.ToString() ?? "";
-            diskProfile["worldName"] = "";
-            diskProfile["worldThumb"] = "";
-            diskProfile["instanceType"] = "";
             diskProfile["userCount"] = 0;
             diskProfile["worldCapacity"] = 0;
-            diskProfile["canJoin"] = false;
-            diskProfile["canRequestInvite"] = false;
             diskProfile["inSameInstance"] = false;
             diskProfile["travelingToLocation"] = "";
             var _liveStatus = live?["status"]?.ToString() ?? "offline";
             var _liveLoc = live?["location"]?.ToString() ?? "";
+            var (_, _, _liveInstType) = VRChatApiService.ParseLocation(_liveLoc);
+            var _liveWid = _liveLoc.Contains(':') ? _liveLoc.Split(':')[0] : "";
+            (string name, string thumb) _liveWorld = ("", "");
+            if (_liveWid.StartsWith("wrld_"))
+                lock (_core.VrWorldCache) _core.VrWorldCache.TryGetValue(_liveWid, out _liveWorld);
+            diskProfile["worldName"] = _liveWorld.name;
+            diskProfile["worldThumb"] = string.IsNullOrEmpty(_liveWorld.thumb) ? "" : _core.ImgCache?.GetWorld(_liveWorld.thumb) ?? _liveWorld.thumb;
+            bool _liveIsInWorld = !string.IsNullOrEmpty(_liveLoc) && _liveLoc != "offline" && _liveLoc != "private" && _liveLoc != "traveling";
+            diskProfile["instanceType"] = _liveInstType;
+            diskProfile["canJoin"] = _liveIsInWorld && _liveInstType is "public" or "friends" or "friends+" or "hidden" or "group-public" or "group-plus" or "group-members" or "group";
+            diskProfile["canRequestInvite"] = _liveInstType is "private" or "invite_plus";
             bool _liveInGame = !string.IsNullOrEmpty(_liveLoc) && _liveLoc != "offline";
             diskProfile["state"] = (_liveStatus != "offline" && !_liveInGame) ? "active" : "";
             if (string.IsNullOrEmpty(diskProfile["currentAvatarId"]?.ToString()))
                 diskProfile["currentAvatarId"] = live?["currentAvatar"]?.ToString() ?? "";
             if (string.IsNullOrEmpty(diskProfile["avatarFileId"]?.ToString()) && live != null)
                 diskProfile["avatarFileId"] = ExtractAvatarFileId(live);
+            if (_core.ImgCache != null)
+            {
+                diskProfile["profilePicOverride"]    = _core.ImgCache.GetBanner(diskProfile["profilePicOverride"]?.ToString());
+                diskProfile["currentAvatarImageUrl"] = _core.ImgCache.GetBanner(diskProfile["currentAvatarImageUrl"]?.ToString());
+            }
             _core.SendToJS("vrcFriendDetail", diskProfile);
 
             bool startRefresh;
@@ -1395,10 +1406,10 @@ public class FriendsController
             location, worldName, worldThumb, instanceType, userCount, worldCapacity,
             isFriend = user["isFriend"]?.Value<bool>() ?? !string.IsNullOrEmpty(user["friendKey"]?.ToString()),
             canJoin = isInWorld && canJoin, canRequestInvite, canInvite = true,
-            currentAvatarImageUrl = _core.ImgCache?.Get(user["currentAvatarImageUrl"]?.ToString() ?? "") ?? user["currentAvatarImageUrl"]?.ToString() ?? "",
+            currentAvatarImageUrl = _core.ImgCache?.GetBanner(user["currentAvatarImageUrl"]?.ToString() ?? "") ?? user["currentAvatarImageUrl"]?.ToString() ?? "",
             currentAvatarId = user["currentAvatar"]?.ToString() ?? "",
             avatarFileId = ExtractAvatarFileId(user),
-            profilePicOverride = _core.ImgCache?.Get(user["profilePicOverride"]?.ToString() ?? "") ?? user["profilePicOverride"]?.ToString() ?? "",
+            profilePicOverride = _core.ImgCache?.GetBanner(user["profilePicOverride"]?.ToString() ?? "") ?? user["profilePicOverride"]?.ToString() ?? "",
             tags = user["tags"]?.ToObject<List<string>>() ?? new(),
             note = user["note"]?.ToString() ?? "",
             friendKey = user["friendKey"]?.ToString() ?? "",

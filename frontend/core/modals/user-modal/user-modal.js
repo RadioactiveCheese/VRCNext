@@ -29,7 +29,7 @@ function openFriendDetail(userId) {
     if (typeof navSetCurrent === 'function') navSetCurrent('friend', userId);
     const m = document.getElementById('modalFriendDetail');
     const c = document.getElementById('friendDetailContent');
-    c.innerHTML = sk('profile');
+    c.innerHTML = sk('content-modal');
     m.style.display = 'flex';
     sendToCS({ action: 'vrcGetFriendDetail', userId: userId });
 }
@@ -64,6 +64,51 @@ function handleAvatarByFileId(payload) {
                 </div>`;
         }
         if (payload.openModal) navOpenModal('avatar', payload.avatarId, payload.avatarName || '');
+    }
+}
+
+function filterFdGroups() {
+    const q = document.getElementById('fdGroupsSearch')?.value.trim().toLowerCase() || '';
+    const repSlot = document.getElementById('fdGroupsRepSlot');
+    const grid = document.getElementById('fdGroupsGrid');
+    if (!grid) return;
+    const all = window._fdAllGroups || [];
+    const repG = window._fdRepGroup || null;
+    const filtered = q ? all.filter(g => (g.name || '').toLowerCase().includes(q)) : all;
+    const otherGroups = repG ? filtered.filter(g => g.id !== repG.id) : filtered;
+    if (repSlot) repSlot.style.display = (q && repG && !(repG.name || '').toLowerCase().includes(q)) ? 'none' : '';
+    if (otherGroups.length > 0) {
+        grid.innerHTML = otherGroups.map(g => {
+            const gIcon = g.iconUrl ? `<img class="fd-group-icon" src="${g.iconUrl}" onerror="this.style.display='none'">` : `<div class="fd-group-icon fd-group-icon-empty"><span class="msi" style="font-size:18px;">group</span></div>`;
+            return `<div class="fd-group-card" onclick="navOpenModal('group','${jsq(g.id)}','${jsq(g.name || '')}')">
+                ${gIcon}<div class="fd-group-card-info"><div class="fd-group-card-name">${esc(g.name)}</div><div class="fd-group-card-meta">${g.memberCount ? esc(getGroupMemberText(g.memberCount, false)) : ''}</div></div>
+            </div>`;
+        }).join('');
+    } else {
+        grid.innerHTML = `<div style="padding:12px;grid-column:1/-1;text-align:center;font-size:12px;color:var(--tx3);">${t('profiles.groups.no_results', 'No results')}</div>`;
+    }
+}
+
+function filterFdMutualsGroups() {
+    const q = document.getElementById('fdMutualsGroupsSearch')?.value.trim().toLowerCase() || '';
+    const grid = document.getElementById('fdMutualsGroupsGrid');
+    if (!grid) return;
+    const all = window._fdAllMutualGroups || [];
+    const filtered = q ? all.filter(g => (g.name || '').toLowerCase().includes(q)) : all;
+    if (filtered.length > 0) {
+        grid.innerHTML = filtered.map(g => {
+            const icon = g.iconUrl
+                ? `<img class="fd-group-icon" src="${esc(g.iconUrl)}" onerror="this.style.display='none'">`
+                : `<div class="fd-group-icon fd-group-icon-empty"><span class="msi" style="font-size:18px;">group</span></div>`;
+            return `<div class="fd-group-card" style="margin-bottom:0;" onclick="navOpenModal('group','${jsq(g.id)}','${esc(g.name || '')}')">
+                ${icon}<div class="fd-group-card-info">
+                    <div class="fd-group-card-name">${esc(g.name)}</div>
+                    <div class="fd-group-card-meta">${esc(g.shortCode || '')}${g.discriminator ? '.' + esc(g.discriminator) : ''} &middot; ${esc(getGroupMemberText(g.memberCount))}</div>
+                </div>
+            </div>`;
+        }).join('');
+    } else {
+        grid.innerHTML = `<div style="padding:12px;grid-column:1/-1;text-align:center;font-size:12px;color:var(--tx3);">${t('profiles.mutuals.groups_no_results', 'No results')}</div>`;
     }
 }
 
@@ -395,20 +440,26 @@ function renderFriendDetail(d) {
         </div>`;
     }
 
-    let groupsContent = '';
-    if (repG && repG.id) {
-        const repIcon = repG.iconUrl ? `<img class="fd-group-icon" src="${repG.iconUrl}" onerror="this.style.display='none'">` : `<div class="fd-group-icon fd-group-icon-empty"><span class="msi" style="font-size:18px;">group</span></div>`;
-        groupsContent += `<div class="fd-group-rep-label">${t('profiles.badges.representing', 'Representing')}</div>
-        <div class="fd-group-card fd-group-rep" onclick="navOpenModal('group','${jsq(repG.id)}','${jsq(repG.name || '')}')">
-            ${repIcon}<div class="fd-group-card-info"><div class="fd-group-card-name">${esc(repG.name)}</div><div class="fd-group-card-meta">${esc(repG.shortCode || '')}${repG.discriminator ? '.' + esc(repG.discriminator) : ''}${repG.memberCount ? ' &middot; ' + esc(getGroupMemberText(repG.memberCount, false)) : ''}</div></div>
-        </div>`;
-    }
+    window._fdRepGroup = (repG && repG.id) ? repG : null;
+    window._fdAllGroups = allGroups;
 
+    let groupsContent = '';
     if (allGroups.length > 0) {
+        groupsContent += `<div class="search-bar-row" style="margin-bottom:6px;">
+            <span class="msi search-ico">search</span>
+            <input id="fdGroupsSearch" type="text" class="vrcn-input" placeholder="${esc(t('profiles.groups.search_placeholder', 'Search groups by name...'))}" style="background:var(--bg-input);" oninput="filterFdGroups()">
+        </div>`;
+        if (repG && repG.id) {
+            const repIcon = repG.iconUrl ? `<img class="fd-group-icon" src="${repG.iconUrl}" onerror="this.style.display='none'">` : `<div class="fd-group-icon fd-group-icon-empty"><span class="msi" style="font-size:18px;">group</span></div>`;
+            groupsContent += `<div id="fdGroupsRepSlot"><div class="fd-group-rep-label">${t('profiles.badges.representing', 'Representing')}</div>
+            <div class="fd-group-card fd-group-rep" onclick="navOpenModal('group','${jsq(repG.id)}','${jsq(repG.name || '')}')">
+                ${repIcon}<div class="fd-group-card-info"><div class="fd-group-card-name">${esc(repG.name)}</div><div class="fd-group-card-meta">${esc(repG.shortCode || '')}${repG.discriminator ? '.' + esc(repG.discriminator) : ''}${repG.memberCount ? ' &middot; ' + esc(getGroupMemberText(repG.memberCount, false)) : ''}</div></div>
+            </div></div>`;
+        }
         const otherGroups = repG ? allGroups.filter(g => g.id !== repG.id) : allGroups;
         if (otherGroups.length > 0) {
             groupsContent += `<div class="fd-group-rep-label" style="margin-top:${repG && repG.id ? '14' : '0'}px;">${t('profiles.badges.groups', 'Groups')}</div>`;
-            groupsContent += `<div style="display:grid;grid-template-columns:1fr 1fr;column-gap:6px;">`;
+            groupsContent += `<div id="fdGroupsGrid" style="display:grid;grid-template-columns:1fr 1fr;column-gap:6px;">`;
             otherGroups.forEach(g => {
                 const gIcon = g.iconUrl ? `<img class="fd-group-icon" src="${g.iconUrl}" onerror="this.style.display='none'">` : `<div class="fd-group-icon fd-group-icon-empty"><span class="msi" style="font-size:18px;">group</span></div>`;
                 groupsContent += `<div class="fd-group-card" onclick="navOpenModal('group','${jsq(g.id)}','${jsq(g.name || '')}')">
@@ -416,6 +467,8 @@ function renderFriendDetail(d) {
                 </div>`;
             });
             groupsContent += `</div>`;
+        } else {
+            groupsContent += `<div id="fdGroupsGrid"></div>`;
         }
     }
 
@@ -425,6 +478,7 @@ function renderFriendDetail(d) {
     const allMutualGroups = d.mutualGroups || [];
     const mutualTotal = allMutuals.length + allMutualGroups.length;
     window._fdAllMutuals = allMutuals;
+    window._fdAllMutualGroups = allMutualGroups;
 
     let mutualsFriendsHtml = '';
     if (d.mutualsOptedOut) {
@@ -459,7 +513,11 @@ function renderFriendDetail(d) {
             ${t('profiles.mutuals.no_groups', 'No mutual groups found.')}
         </div>`;
     } else {
-        mutualsGroupsHtml = '<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">';
+        mutualsGroupsHtml = `<div class="search-bar-row" style="margin-bottom:6px;">
+            <span class="msi search-ico">search</span>
+            <input id="fdMutualsGroupsSearch" type="text" class="vrcn-input" placeholder="${esc(t('profiles.mutuals.groups_search_placeholder', 'Search groups by name...'))}" style="background:var(--bg-input);" oninput="filterFdMutualsGroups()">
+        </div>`;
+        mutualsGroupsHtml += '<div id="fdMutualsGroupsGrid" style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">';
         allMutualGroups.forEach(g => {
             const icon = g.iconUrl
                 ? `<img class="fd-group-icon" src="${esc(g.iconUrl)}" onerror="this.style.display='none'">`

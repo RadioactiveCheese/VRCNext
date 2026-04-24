@@ -246,7 +246,7 @@ function refreshTimeline() {
     const activeSearch = (document.getElementById('tlSearchInput')?.value ?? '').trim();
     const c = document.getElementById('tlContainer');
     if (c && !(_tlSearchMode && activeSearch)) {
-        c.innerHTML = '<div class="tl-loading"><div class="tl-sk-line"></div><div class="tl-sk-line tl-sk-short"></div><div class="tl-sk-line"></div><div class="tl-sk-line tl-sk-short"></div><div class="tl-sk-line"></div></div>';
+        c.innerHTML = sk(tlViewMode === 'list' ? 'timeline-list' : 'timeline');
     }
     const typeParam = tlFilter === 'all' ? '' : tlFilter;
     if (tlDateFilter) sendToCS({ action: 'getTimelineByDate', date: tlDateFilter, type: typeParam });
@@ -323,7 +323,7 @@ function setTlFilter(f) {
     const activeSearch = (document.getElementById('tlSearchInput')?.value ?? '').trim();
     if (activeSearch) { filterTimeline(); return; }
     const c = document.getElementById('tlContainer');
-    if (c) c.innerHTML = '<div class="tl-loading"><div class="tl-sk-line"></div><div class="tl-sk-line tl-sk-short"></div><div class="tl-sk-line"></div><div class="tl-sk-line tl-sk-short"></div><div class="tl-sk-line"></div></div>';
+    if (c) c.innerHTML = sk(tlViewMode === 'list' ? 'timeline-list' : 'timeline');
     const typeParam = f === 'all' ? '' : f;
     if (tlDateFilter) sendToCS({ action: 'getTimelineByDate', date: tlDateFilter, type: typeParam });
     else              sendToCS({ action: 'getTimeline', type: typeParam });
@@ -347,7 +347,7 @@ function filterTimeline() {
         tlListPage      = 0;
         tlRenderedCount = 100;
         const c = document.getElementById('tlContainer');
-        if (c) c.innerHTML = '<div class="tl-loading"><div class="tl-sk-line"></div><div class="tl-sk-line tl-sk-short"></div><div class="tl-sk-line"></div></div>';
+        if (c) c.innerHTML = sk(tlViewMode === 'list' ? 'timeline-list' : 'timeline');
         _setTlPaginator('');
         clearTimeout(_tlSearchTimer);
         _tlSearchTimer = setTimeout(() => {
@@ -682,7 +682,7 @@ function applyTlDateFilter(dateStr) {
         _ftlSearchMode = false; _ftlSearchQuery = ''; _ftlSearchDate = '';
         if (activeSearch) { filterFriendTimeline(); return; }
         const c = document.getElementById('tlContainer');
-        if (c) c.innerHTML = '<div class="tl-loading"><div class="tl-sk-line"></div><div class="tl-sk-line tl-sk-short"></div><div class="tl-sk-line"></div><div class="tl-sk-line tl-sk-short"></div><div class="tl-sk-line"></div></div>';
+        if (c) c.innerHTML = sk(tlViewMode === 'list' ? 'timeline-list' : 'timeline');
         sendToCS({ action: 'getFriendTimelineByDate', date: dateStr, type: ftFilter === 'all' ? '' : ftFilter });
     } else {
         timelineEvents  = [];
@@ -695,7 +695,7 @@ function applyTlDateFilter(dateStr) {
         _tlSearchMode = false; _tlSearchQuery = ''; _tlSearchDate = '';
         if (activeSearch) { filterTimeline(); return; }
         const c = document.getElementById('tlContainer');
-        if (c) c.innerHTML = '<div class="tl-loading"><div class="tl-sk-line"></div><div class="tl-sk-line tl-sk-short"></div><div class="tl-sk-line"></div><div class="tl-sk-line tl-sk-short"></div><div class="tl-sk-line"></div></div>';
+        if (c) c.innerHTML = sk(tlViewMode === 'list' ? 'timeline-list' : 'timeline');
         sendToCS({ action: 'getTimelineByDate', date: dateStr, type: tlFilter === 'all' ? '' : tlFilter });
     }
 }
@@ -977,7 +977,7 @@ function refreshFriendTimeline() {
     const activeSearch = (document.getElementById('tlSearchInput')?.value ?? '').trim();
     const c = document.getElementById('tlContainer');
     if (c && !(_ftlSearchMode && activeSearch)) {
-        c.innerHTML = '<div class="tl-loading"><div class="tl-sk-line"></div><div class="tl-sk-line tl-sk-short"></div><div class="tl-sk-line"></div><div class="tl-sk-line tl-sk-short"></div><div class="tl-sk-line"></div></div>';
+        c.innerHTML = sk(tlViewMode === 'list' ? 'timeline-list' : 'timeline');
     }
     if (tlDateFilter) sendToCS({ action: 'getFriendTimelineByDate', date: tlDateFilter, type: ftFilter === 'all' ? '' : ftFilter });
     else              sendToCS({ action: 'getFriendTimeline', type: ftFilter === 'all' ? '' : ftFilter });
@@ -1049,7 +1049,7 @@ function setFtFilter(f) {
     const activeSearch = (document.getElementById('tlSearchInput')?.value ?? '').trim();
     if (activeSearch) { filterFriendTimeline(); return; }
     const c = document.getElementById('tlContainer');
-    if (c) c.innerHTML = '<div class="tl-loading"><div class="tl-sk-line"></div><div class="tl-sk-line tl-sk-short"></div><div class="tl-sk-line"></div><div class="tl-sk-line tl-sk-short"></div><div class="tl-sk-line"></div></div>';
+    if (c) c.innerHTML = sk(tlViewMode === 'list' ? 'timeline-list' : 'timeline');
     if (tlDateFilter) sendToCS({ action: 'getFriendTimelineByDate', date: tlDateFilter, type: f === 'all' ? '' : f });
     else              sendToCS({ action: 'getFriendTimeline', type: f === 'all' ? '' : f });
 }
@@ -1068,7 +1068,7 @@ function filterFriendTimeline() {
         _ftlSearchQuery = '';
         _ftlSearchDate  = '';
         ftlListPage = 0; ftlRenderedCount = 100;
-        c.innerHTML = '<div class="tl-loading"><div class="tl-sk-line"></div><div class="tl-sk-line tl-sk-short"></div><div class="tl-sk-line"></div></div>';
+        c.innerHTML = sk(tlViewMode === 'list' ? 'timeline-list' : 'timeline');
         _setTlPaginator('');
         clearTimeout(_ftlSearchTimer);
         _ftlSearchTimer = setTimeout(() => {

@@ -1104,15 +1104,17 @@ public class FriendsController
             diskProfile["location"] = live?["location"]?.ToString() ?? "";
             diskProfile["worldName"] = "";
             diskProfile["worldThumb"] = "";
-            diskProfile["instanceType"] = "";
             diskProfile["userCount"] = 0;
             diskProfile["worldCapacity"] = 0;
-            diskProfile["canJoin"] = false;
-            diskProfile["canRequestInvite"] = false;
             diskProfile["inSameInstance"] = false;
             diskProfile["travelingToLocation"] = "";
             var _liveStatus = live?["status"]?.ToString() ?? "offline";
             var _liveLoc = live?["location"]?.ToString() ?? "";
+            var (_, _, _liveInstType) = VRChatApiService.ParseLocation(_liveLoc);
+            bool _liveIsInWorld = !string.IsNullOrEmpty(_liveLoc) && _liveLoc != "offline" && _liveLoc != "private" && _liveLoc != "traveling";
+            diskProfile["instanceType"] = _liveInstType;
+            diskProfile["canJoin"] = _liveIsInWorld && _liveInstType is "public" or "friends" or "friends+" or "hidden" or "group-public" or "group-plus" or "group-members" or "group";
+            diskProfile["canRequestInvite"] = _liveInstType is "private" or "invite_plus";
             bool _liveInGame = !string.IsNullOrEmpty(_liveLoc) && _liveLoc != "offline";
             diskProfile["state"] = (_liveStatus != "offline" && !_liveInGame) ? "active" : "";
             if (string.IsNullOrEmpty(diskProfile["currentAvatarId"]?.ToString()))

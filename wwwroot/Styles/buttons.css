@@ -1,0 +1,100 @@
+.win-btn {
+    background: rgba(65,80,110,.1);
+    border: none;
+    color: var(--tx3);
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    cursor: pointer;
+    transition: background .15s, color .15s;
+}
+
+.win-btn .msi { font-size: 15px; }
+.win-btn:hover { background: rgba(255,255,255,.1); color: var(--tx0); }
+.win-close:hover { background: rgba(232,17,35,.18) !important; color: #e81123 !important; }
+
+.vrcn-button, .vrcn-button-round {
+    border: none;
+    font-weight: 600;
+    cursor: pointer;
+    font-family: inherit;
+    transition: all .15s;
+    display: inline-flex;
+    align-items: center;
+}
+
+.vrcn-button {
+    height: 32px;
+    padding: 0 14px;
+    border-radius: 7px;
+    background: var(--bg-btn);
+    color: var(--tx2);
+    font-size: 12px;
+    box-sizing: border-box;
+    gap: 4px;
+}
+.vrcn-button:hover { background: var(--bg-btn-h); color: var(--tx1); }
+.vrcn-button:disabled { opacity: .4; cursor: not-allowed; }
+.vrcn-button.active { background: var(--accent); color: #fff; }
+
+.vrcn-button-round {
+    padding: 6px 14px;
+    border-radius: 20px;
+    background: var(--bg-hover);
+    color: var(--tx1);
+    font-size: 11px;
+    gap: 5px;
+}
+.vrcn-button-round:hover { background: var(--brd); }
+.vrcn-button-round:disabled { opacity: .4; cursor: not-allowed; }
+.vrcn-button-round.active { background: var(--accent); color: #fff; }
+.vrcn-button-round .msi { font-size: 14px !important; line-height: 1; }
+
+.vrcn-btn-primary { background: var(--accent) !important; color: #fff !important; }
+.vrcn-btn-primary:hover { background: var(--accent-lt) !important; }
+.vrcn-btn-join { background: #1DB954 !important; color: #fff !important; }
+
+body.play-btn-accent .btn-play {
+    background: var(--accent) !important;
+}
+body.play-btn-accent .btn-play:hover {
+    background: var(--accent-lt) !important;
+}
+body.play-btn-accent .sidebar.collapsed .btn-play::after {
+    border-color: var(--accent);
+}
+body.play-btn-accent .vrcn-btn-join {
+    background: var(--accent) !important;
+}
+body.play-btn-accent .vrcn-btn-join:hover {
+    background: var(--accent-lt) !important;
+}
+
+.vrcn-btn-danger { background: rgba(255,75,85,.15) !important; color: var(--err) !important; }
+.vrcn-btn-danger:hover { background: var(--err) !important; color: #fff !important; }
+
+.sub-tab-btn {
+    opacity: .5;
+    transition: opacity .15s;
+}
+
+.sub-tab-btn.active {
+    opacity: 1;
+    background: var(--accent);
+    color: #fff;
+}
+
+.load-more-btn {
+    cursor: pointer;
+}
+
+.search-bar-row .sub-tab-btn {
+    height: 32px;
+    min-height: 32px;
+    max-height: 32px;
+    box-sizing: border-box;
+    border-radius: 7px;
+    font-size: 12px;
+    display: inline-flex;
+    align-items: center;
+}

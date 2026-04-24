@@ -50,3 +50,53 @@
     color: var(--ok);
     background: rgba(45, 212, 140, 0.06);
 }
+
+.sf-layout {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+.sf-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 10px;
+    font-size: 12px;
+    color: var(--tx1);
+}
+.sf-row label {
+    font-size: 11px;
+    color: var(--tx3);
+    min-width: 100px;
+    flex-shrink: 0;
+}
+.sf-row input[type="range"] {
+    flex: 1;
+    accent-color: var(--accent);
+    min-width: 0;
+}
+
+.sf-section-label {
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--tx3);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin: 12px 0 6px;
+}
+
+.sf-toggle-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 5px 0;
+    font-size: 12px;
+    color: var(--tx1);
+}
+.sf-toggle-row + .sf-toggle-row {
+    border-top: 1px solid var(--brd);
+}
+.sf-toggle-row.disabled {
+    opacity: 0.4;
+    pointer-events: none;
+}

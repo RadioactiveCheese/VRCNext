@@ -309,30 +309,6 @@ function sk(type, n = 1) {
     const fn = t[type]; return fn ? Array.from({length: n}, fn).join('') : '';
 }
 
-function toggleRsidebar() {
-    rsidebarCollapsed = !rsidebarCollapsed;
-    localStorage.setItem('vrcnext_rsidebar', rsidebarCollapsed ? '1' : '0');
-    const rs = document.getElementById('rsidebar');
-    document.getElementById('rsIcon').textContent = rsidebarCollapsed ? 'chevron_left' : 'chevron_right';
-    rs.classList.toggle('collapsed', rsidebarCollapsed);
-    if (typeof renderVrcFriends === 'function' && vrcFriendsData?.length) renderVrcFriends(vrcFriendsData);
-}
-
-function toggleSidebar() {
-    sidebarCollapsed = !sidebarCollapsed;
-    localStorage.setItem('vrcnext_sidebar', sidebarCollapsed ? '1' : '0');
-    const sidebar = document.getElementById('sidebarEl');
-    document.getElementById('sbIcon').textContent = sidebarCollapsed ? 'chevron_right' : 'chevron_left';
-    if (sidebarCollapsed) {
-        sidebar.classList.add('collapsing');
-        setTimeout(() => {
-            sidebar.classList.remove('collapsing');
-            sidebar.classList.add('collapsed');
-        }, 230);
-    } else {
-        sidebar.classList.remove('collapsed');
-    }
-}
 
 const THEMES = {
     midnight: { label: 'Midnight', dot: '#3884FF', c: { 'bg-base': '#080C15', 'bg-side': '#0B101C', 'bg-card': '#0F1628', 'bg-hover': '#141E37', 'bg-input': '#0D1225', 'accent': '#3884FF', 'accent-lt': '#64A0FF', 'cyan': '#00D2EB', 'ok': '#2DD48C', 'warn': '#FFBA37', 'err': '#FF4B55', 'tx0': '#F0F5FF', 'tx1': '#DCE4F5', 'tx2': '#788CAF', 'tx3': '#41506E', 'brd': '#1C2841', 'brd-lt': '#263755' } },

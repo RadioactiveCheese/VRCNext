@@ -39,6 +39,8 @@
     <link rel="stylesheet" href="core/messenger/messenger.css">
     <link rel="stylesheet" href="core/items/items.css">
     <link rel="stylesheet" href="core/notifications/notifications.css">
+    <link rel="stylesheet" href="core/sidebars/navigation/navigation.css">
+    <link rel="stylesheet" href="core/sidebars/friends/friends.css">
 </head>
 <body>
     <div class="sidebar" id="sidebarEl">
@@ -2023,19 +2025,21 @@
     <!-- Notification Cards (bottom-right, incoming VRChat notifications) -->
     <div id="notifCardArea"></div>
 
-    <script src="JavaScript/toast.js"></script>
+    <script src="core/notifications/toast.js"></script>
     <script src="core/notifications/notification-toast.js"></script>
     <script src="core/items/profile-item.js"></script>
     <script src="core/items/profile-item-small.js"></script>
     <script src="core/items/instance-item.js"></script>
-    <script src="JavaScript/core.js"></script>
-    <script src="JavaScript/i18n.js"></script>
+    <script src="core/logic/core.js"></script>
+    <script src="core/sidebars/navigation/navigation.js"></script>
+    <script src="core/i18n/i18n.js"></script>
     <script src="modules/tools/media-relay/media-relay.js"></script>
     <script src="modules/settings/settings.js"></script>
     <script src="modules/media-library/library.js"></script>
     <script src="modules/dashboard/dashboard.js"></script>
     <script src="core/modals/my-instance-modal/my-instance-modal.js"></script>
     <script src="modules/people/people.js"></script>
+    <script src="core/sidebars/friends/friends.js"></script>
     <script src="core/modals/auth-modal/auth-modal.js"></script>
     <script src="core/modals/my-profile-modal/my-profile-modal.js"></script>
     <script src="core/modals/friend-invite-modal/friend-invite-modal.js"></script>
@@ -2052,7 +2056,7 @@
     <script src="core/modals/avatar-modal/avatar-modal.js"></script>
     <script src="core/notifications/notifications.js"></script>
     <script src="core/modals/instance-modal/instance-modal.js"></script>
-    <script src="JavaScript/update.js"></script>
+    <script src="core/logic/update.js"></script>
     <script src="core/modals/invite-modal/invite-modal.js"></script>
     <script src="modules/tools/chatbox/chatbox.js"></script>
     <script src="modules/tools/space-flight/space-flight.js"></script>
@@ -2061,7 +2065,7 @@
     <script src="core/modals/timeline-modal/timeline-modal.js"></script>
     <script src="modules/inventory/inventory_upload.js"></script>
     <script src="modules/inventory/inventory.js"></script>
-    <script src="JavaScript/messages.js"></script>
+    <script src="core/logic/messages.js"></script>
     <script src="core/messenger/messenger.js"></script>
     <script src="core/context-menu/context-menu.js"></script>
     <script src="modules/tools/mutual-network/mutual-network.js"></script>
@@ -2074,7 +2078,7 @@
     <script src="modules/tools/permini/permini.js"></script>
     <script src="modules/tools/kikitan-xd/kikitan-xd.js"></script>
     <script src="modules/tools/event-snipe/event-snipe.js"></script>
-    <script src="JavaScript/init.js"></script>
+    <script src="core/logic/init.js"></script>
 
     <!-- Dashboard layout editor modal -->
     <div id="dashLayoutModal" class="modal-overlay" style="display:none;align-items:center;justify-content:center;" onclick="if(event.target===this)closeDashLayoutEditor()">

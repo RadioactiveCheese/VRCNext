@@ -1125,6 +1125,11 @@ public class FriendsController
                 diskProfile["currentAvatarId"] = live?["currentAvatar"]?.ToString() ?? "";
             if (string.IsNullOrEmpty(diskProfile["avatarFileId"]?.ToString()) && live != null)
                 diskProfile["avatarFileId"] = ExtractAvatarFileId(live);
+            if (_core.ImgCache != null)
+            {
+                diskProfile["profilePicOverride"]    = _core.ImgCache.GetBanner(diskProfile["profilePicOverride"]?.ToString());
+                diskProfile["currentAvatarImageUrl"] = _core.ImgCache.GetBanner(diskProfile["currentAvatarImageUrl"]?.ToString());
+            }
             _core.SendToJS("vrcFriendDetail", diskProfile);
 
             bool startRefresh;
@@ -1401,10 +1406,10 @@ public class FriendsController
             location, worldName, worldThumb, instanceType, userCount, worldCapacity,
             isFriend = user["isFriend"]?.Value<bool>() ?? !string.IsNullOrEmpty(user["friendKey"]?.ToString()),
             canJoin = isInWorld && canJoin, canRequestInvite, canInvite = true,
-            currentAvatarImageUrl = _core.ImgCache?.Get(user["currentAvatarImageUrl"]?.ToString() ?? "") ?? user["currentAvatarImageUrl"]?.ToString() ?? "",
+            currentAvatarImageUrl = _core.ImgCache?.GetBanner(user["currentAvatarImageUrl"]?.ToString() ?? "") ?? user["currentAvatarImageUrl"]?.ToString() ?? "",
             currentAvatarId = user["currentAvatar"]?.ToString() ?? "",
             avatarFileId = ExtractAvatarFileId(user),
-            profilePicOverride = _core.ImgCache?.Get(user["profilePicOverride"]?.ToString() ?? "") ?? user["profilePicOverride"]?.ToString() ?? "",
+            profilePicOverride = _core.ImgCache?.GetBanner(user["profilePicOverride"]?.ToString() ?? "") ?? user["profilePicOverride"]?.ToString() ?? "",
             tags = user["tags"]?.ToObject<List<string>>() ?? new(),
             note = user["note"]?.ToString() ?? "",
             friendKey = user["friendKey"]?.ToString() ?? "",

@@ -38,6 +38,41 @@ public class ImageCacheService
 
     public string Get(string? url) => GetWithTtl(url, TTL);
 
+    private static readonly TimeSpan TTL_BANNER = TimeSpan.FromDays(7);
+
+    public string GetBanner(string? url)
+    {
+        if (string.IsNullOrWhiteSpace(url)) return "";
+        if (!Enabled) return url;
+        if (url.Contains("/imgcache/"))
+        {
+            var slash = url.LastIndexOf('/');
+            if (slash >= 0)
+            {
+                var fileName = url.Substring(slash + 1);
+                var filePath = Path.Combine(_dir, fileName);
+                if (File.Exists(filePath) && DateTime.UtcNow - File.GetLastWriteTimeUtc(filePath) < TTL_BANNER)
+                    return $"http://localhost:{Port}/imgcache/{fileName}";
+            }
+            return "";
+        }
+        if (!url.StartsWith("http") || url.Contains("/variant/")) return url;
+        var baseHash = GetFileHash(url);
+        var jpgName  = baseHash + ".jpg";
+        var pngName  = baseHash + ".png";
+        var jpgPath  = Path.Combine(_dir, jpgName);
+        var pngPath  = Path.Combine(_dir, pngName);
+        if (File.Exists(pngPath) && DateTime.UtcNow - File.GetLastWriteTimeUtc(pngPath) < TTL_BANNER)
+            { _reverseMap[pngName] = url; return $"http://localhost:{Port}/imgcache/{pngName}"; }
+        if (File.Exists(jpgPath) && DateTime.UtcNow - File.GetLastWriteTimeUtc(jpgPath) < TTL_BANNER)
+            { _reverseMap[jpgName] = url; return $"http://localhost:{Port}/imgcache/{jpgName}"; }
+        TryDelete(jpgPath); TryDelete(pngPath);
+        _reverseMap[jpgName] = url; _reverseMap[pngName] = url;
+        lock (_permanentFail) if (_permanentFail.Contains(url)) return url;
+        _ = DownloadAsync(url, jpgPath);
+        return url;
+    }
+
     /// <summary>Awaits download if not cached yet, then returns localhost URL.</summary>
     public async Task<string> GetAsync(string? url) => await GetWithTtlAsync(url, TTL);
     public async Task<string> GetWorldAsync(string? url) => await GetWithTtlAsync(url, TTL_LONG);

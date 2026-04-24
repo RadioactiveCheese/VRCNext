@@ -1,0 +1,84 @@
+/* === Settings Module === */
+
+.settings-inner {
+    width: 100%;
+}
+
+.set-desc {
+    font-size: 11px;
+    color: var(--tx3);
+    line-height: 1.6;
+    margin-bottom: 14px;
+}
+
+.folder-list {
+    background: var(--bg-input);
+    border-radius: 6px;
+    padding: 8px;
+    margin-bottom: 8px;
+    min-height: 60px;
+    max-height: 100px;
+    overflow-y: auto;
+}
+
+.folder-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 4px 8px;
+    font-size: 12px;
+    color: var(--tx2);
+    border-radius: 4px;
+}
+
+.folder-item:hover {
+    background: var(--bg-hover);
+}
+
+.folder-remove { color: var(--tx3); padding: 0 4px; }
+
+.folder-remove:hover {
+    color: var(--err);
+}
+
+.folder-empty {
+    color: var(--tx3);
+    font-size: 12px;
+    padding: 8px;
+}
+
+.folder-btns {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 12px;
+}
+
+.exe-list {
+    background: var(--bg-input);
+    border-radius: 6px;
+    padding: 8px;
+    margin-bottom: 8px;
+    min-height: 40px;
+    max-height: 100px;
+    overflow-y: auto;
+}
+
+.exe-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 4px 8px;
+    font-size: 11px;
+    color: var(--tx2);
+    border-radius: 4px;
+}
+
+.exe-item:hover {
+    background: var(--bg-hover);
+}
+
+.exe-remove { color: var(--tx3); padding: 0 4px; }
+
+.exe-remove:hover {
+    color: var(--err);
+}

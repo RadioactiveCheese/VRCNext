@@ -8,10 +8,31 @@
     <link href="https://fonts.googleapis.com/css2?family=Azeret+Mono:wght@400;500;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="Styles/styles.css">
     <link rel="stylesheet" href="Styles/retro-style.css">
+    <link rel="stylesheet" href="modules/dashboard/dashboard.css">
+    <link rel="stylesheet" href="modules/worlds/worlds.css">
+    <link rel="stylesheet" href="modules/groups/groups.css">
+    <link rel="stylesheet" href="modules/people/people.css">
+    <link rel="stylesheet" href="modules/calendar/calendar.css">
+    <link rel="stylesheet" href="modules/avatars/avatars.css">
+    <link rel="stylesheet" href="modules/inventory/inventory.css">
+    <link rel="stylesheet" href="modules/timeline/timeline.css">
+    <link rel="stylesheet" href="modules/media-library/media-library.css">
+    <link rel="stylesheet" href="modules/tools/chatbox/chatbox.css">
+    <link rel="stylesheet" href="modules/tools/media-relay/media-relay.css">
+    <link rel="stylesheet" href="modules/tools/space-flight/space-flight.css">
+    <link rel="stylesheet" href="modules/tools/osc-tool/osc-tool.css">
+    <link rel="stylesheet" href="modules/tools/activity-log/activity-log.css">
+    <link rel="stylesheet" href="modules/tools/mutual-network/mutual-network.css">
+    <link rel="stylesheet" href="modules/tools/time-spent/time-spent.css">
+    <link rel="stylesheet" href="modules/tools/voice-fight/voice-fight.css">
+    <link rel="stylesheet" href="modules/tools/discord-presence/discord-presence.css">
+    <link rel="stylesheet" href="modules/tools/vr-overlay/vr-overlay.css">
+    <link rel="stylesheet" href="modules/tools/permini/permini.css">
+    <link rel="stylesheet" href="modules/settings/settings.css">
 </head>
 <body>
     <div class="sidebar" id="sidebarEl">
-        <div class="logo"><div class="logo-icon" id="logoIcon">V</div><div class="logo-txt"><div class="logo-text-row"><div class="logo-text">VRCNext</div></div><div class="logo-sub">v2026.17.3</div></div><button class="sb-toggle" onclick="toggleSidebar()" title="Toggle sidebar" data-i18n-title="common.toggle_sidebar"><span class="msi" id="sbIcon">chevron_left</span></button></div>
+        <div class="logo"><div class="logo-icon" id="logoIcon">V</div><div class="logo-txt"><div class="logo-text-row"><div class="logo-text">VRCNext</div></div><div class="logo-sub">v2026.18.0</div></div><button class="sb-toggle" onclick="toggleSidebar()" title="Toggle sidebar" data-i18n-title="common.toggle_sidebar"><span class="msi" id="sbIcon">chevron_left</span></button></div>
         <div class="nav vrcn-scrollbar">
             <button class="nav-btn active" onclick="showTab(0)" data-nav="dashboard"><span class="ni msi">dashboard</span><span class="nl" data-i18n="nav.dashboard">Dashboard</span></button>
             <button class="nav-btn" onclick="showTab(1)"><span class="ni msi">travel_explore</span><span class="nl" data-i18n="nav.worlds">Worlds</span></button>
@@ -1999,38 +2020,38 @@
     <script src="JavaScript/Instance_Item.js"></script>
     <script src="JavaScript/core.js"></script>
     <script src="JavaScript/i18n.js"></script>
-    <script src="JavaScript/settings.js"></script>
-    <script src="JavaScript/library.js"></script>
-    <script src="JavaScript/dashboard.js"></script>
-    <script src="JavaScript/profiles.js"></script>
+    <script src="modules/tools/media-relay/media-relay.js"></script>
+    <script src="modules/settings/settings.js"></script>
+    <script src="modules/media-library/library.js"></script>
+    <script src="modules/dashboard/dashboard.js"></script>
+    <script src="modules/people/people.js"></script>
     <script src="JavaScript/modal-nav.js"></script>
-    <script src="JavaScript/worlds.js"></script>
-    <script src="JavaScript/world_insights.js"></script>
-    <script src="JavaScript/groups.js"></script>
+    <script src="modules/worlds/worlds.js"></script>
+    <script src="modules/groups/groups.js"></script>
     <script src="JavaScript/search.js"></script>
-    <script src="JavaScript/avatars.js"></script>
+    <script src="modules/avatars/avatars.js"></script>
     <script src="JavaScript/notifications.js"></script>
     <script src="JavaScript/update.js"></script>
     <script src="JavaScript/invite.js"></script>
-    <script src="JavaScript/chatbox.js"></script>
-    <script src="JavaScript/steamvr.js"></script>
-    <script src="JavaScript/osc.js"></script>
-    <script src="JavaScript/timeline.js"></script>
-    <script src="JavaScript/inventory_upload.js"></script>
-    <script src="JavaScript/inventory.js"></script>
+    <script src="modules/tools/chatbox/chatbox.js"></script>
+    <script src="modules/tools/space-flight/space-flight.js"></script>
+    <script src="modules/tools/osc-tool/osc-tool.js"></script>
+    <script src="modules/timeline/timeline.js"></script>
+    <script src="modules/inventory/inventory_upload.js"></script>
+    <script src="modules/inventory/inventory.js"></script>
     <script src="JavaScript/messages.js"></script>
     <script src="JavaScript/messenger.js"></script>
     <script src="JavaScript/context_menu.js"></script>
-    <script src="JavaScript/network.js"></script>
-    <script src="JavaScript/timespent.js"></script>
+    <script src="modules/tools/mutual-network/mutual-network.js"></script>
+    <script src="modules/tools/time-spent/time-spent.js"></script>
     <script src="JavaScript/Event_Item.js"></script>
-    <script src="JavaScript/calendar.js"></script>
-    <script src="JavaScript/voicefight.js"></script>
-    <script src="JavaScript/discord.js"></script>
-    <script src="JavaScript/vroverlay.js"></script>
-    <script src="JavaScript/permini.js"></script>
-    <script src="JavaScript/kikitanXD.js"></script>
-    <script src="JavaScript/snipe.js"></script>
+    <script src="modules/calendar/calendar.js"></script>
+    <script src="modules/tools/voice-fight/voice-fight.js"></script>
+    <script src="modules/tools/discord-presence/discord-presence.js"></script>
+    <script src="modules/tools/vr-overlay/vr-overlay.js"></script>
+    <script src="modules/tools/permini/permini.js"></script>
+    <script src="modules/tools/kikitan-xd/kikitan-xd.js"></script>
+    <script src="modules/tools/event-snipe/event-snipe.js"></script>
     <script src="JavaScript/init.js"></script>
 
     <!-- Dashboard layout editor modal -->

@@ -1,0 +1,44 @@
+/* === Activity Log Module === */
+
+.log-area {
+    margin-top: 10px;
+    background: var(--bg-card);
+    border-radius: 10px;
+    padding: 10px 0;
+    overflow-y: auto;
+}
+
+.li-f {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    padding: 4px 14px;
+    font-family: 'Consolas', 'Courier New', monospace;
+    font-size: 11px;
+    transition: background .08s;
+}
+
+.li-f:hover { background: rgba(255,255,255,.02); }
+
+.li-f .li-ts {
+    color: var(--tx3);
+    flex-shrink: 0;
+    min-width: 65px;
+    font-variant-numeric: tabular-nums;
+}
+
+.li-f .li-level {
+    flex-shrink: 0;
+    min-width: 40px;
+    font-weight: 700;
+    text-transform: uppercase;
+    font-size: 10px;
+}
+
+.li-f .li-level.info { color: #6897BB; }
+.li-f .li-level.ok   { color: #6DBF82; }
+.li-f .li-level.warn { color: #CE9178; }
+.li-f .li-level.err  { color: #E06C75; }
+.li-f .li-level.vrc  { color: #9876AA; }
+
+.li-f .li-msg { color: var(--tx2); word-break: break-all; }

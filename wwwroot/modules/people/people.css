@@ -1,0 +1,133 @@
+/* === People Module === */
+
+/* Modal breadcrumb navigation */
+.myp-breadcrumb-bar {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 3;
+    display: none;
+    flex-direction: row;
+    align-items: center;
+    gap: 4px;
+    background: linear-gradient(to bottom, rgba(0,0,0,0.55) 0%, transparent 100%);
+    border-top-left-radius: 14px;
+    border-top-right-radius: 14px;
+    box-sizing: border-box;
+    pointer-events: none;
+    padding: 6px 32px;
+}
+.myp-breadcrumb-bar > * { pointer-events: auto; }
+.myp-breadcrumbs {
+    display: flex; align-items: center; gap: 4px;
+    flex: 1; min-width: 0; overflow: hidden;
+}
+.myp-crumb {
+    font-size: 13px; font-weight: 600;
+    color: rgba(255,255,255,0.65);
+    background: none; border: none; padding: 3px 2px;
+    font-family: inherit; cursor: pointer;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    max-width: 130px; flex-shrink: 1;
+    transition: color .15s;
+}
+.myp-crumb:hover { color: #fff; }
+.myp-crumb.current { color: #fff; cursor: default; font-weight: 700; flex-shrink: 0; }
+.myp-crumb-sep { color: rgba(255,255,255,0.35); font-size: 12px; user-select: none; flex-shrink: 0; }
+
+/* Sidebar profile card */
+.vrc-profile {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px;
+    background: var(--bg-card);
+    border-radius: 10px;
+    margin-bottom: 10px;
+    cursor: pointer;
+    transition: all .15s;
+}
+
+.vrc-profile:hover {
+    background: var(--bg-hover);
+}
+
+.vrc-profile-status {
+    font-size: 10px;
+    color: var(--tx3);
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    margin-top: 2px;
+}
+
+/* Same-location instance cards */
+.sloc-inst-card {
+    position: relative;
+    border-radius: 10px;
+    overflow: hidden;
+    margin-bottom: 4px;
+}
+.sloc-inst-bg {
+    position: absolute;
+    inset: 0;
+    background-size: cover;
+    background-position: center;
+    filter: brightness(0.15);
+    z-index: 0;
+}
+.sloc-inst-content {
+    position: relative;
+    z-index: 1;
+}
+.sloc-inst-label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--tx2);
+    padding: 8px 8px 10px;
+    letter-spacing: .04em;
+    overflow: hidden;
+}
+.sloc-inst-label > span.sloc-inst-count {
+    flex-shrink: 0;
+}
+.sloc-inst-label > .vrcn-badge {
+    margin-left: auto;
+    flex-shrink: 0;
+}
+.sloc-inst-count {
+    color: var(--tx3);
+    font-weight: 400;
+}
+.sloc-inst-card .vrc-friend-card:hover {
+    background: rgba(255,255,255,.08);
+}
+
+/* Sidebar login box */
+.vrc-login-box {
+    padding: 16px;
+    text-align: center;
+}
+
+.vrc-login-box input[type="text"],
+.vrc-login-box input[type="password"] {
+    width: 100%;
+    background: var(--bg-input);
+    border: none;
+    border-radius: 6px;
+    padding: 8px 10px;
+    color: var(--tx1);
+    font-size: 12px;
+    font-family: inherit;
+    outline: none;
+    margin-bottom: 8px;
+}
+
+.vrc-login-box .vrcn-button {
+    width: 100%;
+    justify-content: center;
+}

@@ -1,4 +1,4 @@
-/* === Multi-Invite Modal === */
+/* === Invite Modal === */
 let _inviteSelected = new Set();
 let _inviteSending = false;
 let _inviteOverride = null; // { location, worldName, worldThumb, instanceType } for non-current invites

@@ -1,0 +1,125 @@
+/* === Core Modal Base Shell === */
+
+.modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,.65);
+    z-index: 10000;
+    animation: fadeIn .12s ease forwards;
+    backdrop-filter: blur(4px);
+    will-change: opacity;
+    overflow-y: auto;
+    padding: 20px 0;
+}
+
+#modalFriendDetail { z-index: 10001; }
+
+.modal-nav-instant .modal-overlay,
+.modal-nav-instant .modal-box { animation: none !important; }
+
+#modalStatus { z-index: 10002; }
+#modalInvite  { z-index: 10002; }
+
+.modal-box-body {
+    padding: 28px 32px 22px;
+}
+
+.modal-box {
+    background: var(--bg-card);
+    border-radius: 14px;
+    padding: 28px 32px 22px;
+    width: 418px;
+    max-width: 90%;
+    max-height: calc(100% - 40px);
+    overflow-y: auto;
+    overflow-x: hidden;
+    box-shadow: 0 20px 60px rgba(0,0,0,.5);
+    animation: modalPop .18s ease forwards;
+    will-change: transform, opacity;
+}
+
+.modal-box.wide {
+    width: 638px;
+}
+
+.modal-icon {
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
+    font-size: 18px;
+    margin-bottom: 16px;
+}
+
+.modal-icon.danger {
+    background: rgba(255,75,85,.1);
+    color: var(--err);
+}
+
+.modal-title {
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--tx0);
+    margin-bottom: 6px;
+}
+
+.modal-msg {
+    font-size: 13px;
+    color: var(--tx2);
+    line-height: 1.5;
+    margin-bottom: 20px;
+    word-break: break-all;
+}
+
+.modal-fname {
+    color: var(--tx1);
+    font-size: 12px;
+    background: var(--bg-input);
+    padding: 4px 8px;
+    border-radius: 4px;
+    display: inline-block;
+    margin-top: 4px;
+    max-width: 100%;
+}
+
+.modal-btns {
+    display: flex;
+    gap: 10px;
+    justify-content: flex-end;
+}
+
+/* === Modal Breadcrumb Navigation (shared across all modal nav bars) === */
+
+.myp-breadcrumb-bar {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 3;
+    display: none;
+    flex-direction: row;
+    align-items: center;
+    gap: 4px;
+    background: linear-gradient(to bottom, rgba(0,0,0,0.55) 0%, transparent 100%);
+    border-top-left-radius: 14px;
+    border-top-right-radius: 14px;
+    box-sizing: border-box;
+    pointer-events: none;
+    padding: 6px 32px;
+}
+.myp-breadcrumb-bar > * { pointer-events: auto; }
+.myp-breadcrumbs {
+    display: flex; align-items: center; gap: 4px;
+    flex: 1; min-width: 0; overflow: hidden;
+}
+.myp-crumb {
+    font-size: 13px; font-weight: 600;
+    color: rgba(255,255,255,0.65);
+    background: none; border: none; padding: 3px 2px;
+    font-family: inherit; cursor: pointer;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    max-width: 130px; flex-shrink: 1;
+    transition: color .15s;
+}
+.myp-crumb:hover { color: #fff; }
+.myp-crumb.current { color: #fff; cursor: default; font-weight: 700; flex-shrink: 0; }
+.myp-crumb-sep { color: rgba(255,255,255,0.35); font-size: 12px; user-select: none; flex-shrink: 0; }

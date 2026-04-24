@@ -297,7 +297,7 @@ public class WindowController
                 break;
             case "getCursorFiles":
             {
-                var cursorDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "wwwroot", "cursor");
+                var cursorDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "frontend", "cursor");
                 var cursorFiles = Directory.Exists(cursorDir)
                     ? Directory.GetFiles(cursorDir, "*", SearchOption.TopDirectoryOnly)
                         .Where(f => { var ext = Path.GetExtension(f).ToLower(); return ext == ".cur" || ext == ".png"; })

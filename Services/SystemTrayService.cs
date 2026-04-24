@@ -229,9 +229,9 @@ public class SystemTrayService : IDisposable
     {
         try
         {
-            var path = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "wwwroot", "i18n", $"{_language}.json");
+            var path = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "frontend", "i18n", $"{_language}.json");
             if (!File.Exists(path))
-                path = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "wwwroot", "i18n", "en.json");
+                path = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "frontend", "i18n", "en.json");
             var json = File.ReadAllText(path);
             var obj = JObject.Parse(json);
             _strings = obj.Properties().ToDictionary(p => p.Name, p => p.Value.ToString());

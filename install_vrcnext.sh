@@ -49,9 +49,9 @@ sudo mkdir -p "$INSTALL_DIR"
 sudo cp "$BINARY_PATH" "$INSTALL_DIR/$BINARY_NAME"
 sudo chmod +x "$INSTALL_DIR/$BINARY_NAME"
 
-# Copy wwwroot (required — app will not start without it)
-if [ -d "$SCRIPT_DIR/wwwroot" ]; then
-    sudo cp -r "$SCRIPT_DIR/wwwroot" "$INSTALL_DIR/"
+# Copy frontend (required — app will not start without it)
+if [ -d "$SCRIPT_DIR/frontend" ]; then
+    sudo cp -r "$SCRIPT_DIR/frontend" "$INSTALL_DIR/"
 fi
 
 # Copy voice folder (Voice Fight samples)
@@ -60,8 +60,8 @@ if [ -d "$SCRIPT_DIR/voice" ]; then
 fi
 
 # Copy icon if present
-if [ -f "$SCRIPT_DIR/wwwroot/logo.png" ]; then
-    sudo cp "$SCRIPT_DIR/wwwroot/logo.png" "$INSTALL_DIR/icon.png"
+if [ -f "$SCRIPT_DIR/frontend/logo.png" ]; then
+    sudo cp "$SCRIPT_DIR/frontend/logo.png" "$INSTALL_DIR/icon.png"
     ICON_PATH="$INSTALL_DIR/icon.png"
 else
     ICON_PATH="application-x-executable"

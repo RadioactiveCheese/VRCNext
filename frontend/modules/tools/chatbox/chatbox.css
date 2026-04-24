@@ -1,0 +1,156 @@
+/* === Custom Chatbox Module === */
+
+.cb-layout {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    align-items: start;
+}
+
+@media (max-width: 900px) {
+    .cb-layout { grid-template-columns: 1fr; }
+}
+
+.cb-preview-panel, .cb-config-panel {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.cb-preview-box {
+    background: linear-gradient(135deg, rgba(0,0,0,.7), rgba(0,0,0,.5));
+    border: none;
+    border-radius: 10px;
+    padding: 20px;
+    min-height: 70px;
+}
+
+.cb-preview-text {
+    font-size: 13px;
+    color: #fff;
+    text-align: center;
+    line-height: 1.6;
+    word-break: break-word;
+    white-space: pre-wrap;
+}
+
+.cb-char-count {
+    font-size: 10px;
+    color: var(--tx3);
+    margin-top: 6px;
+    text-align: right;
+}
+
+.cb-media-idle {
+    font-size: 12px;
+    color: var(--tx3);
+    text-align: center;
+    padding: 4px 0;
+}
+
+.cb-media-now-playing {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.cb-progress-bar {
+    height: 3px;
+    background: var(--bg-hover);
+    border-radius: 2px;
+    margin-top: 8px;
+    overflow: hidden;
+}
+
+.cb-progress-fill {
+    height: 100%;
+    background: var(--accent);
+    border-radius: 2px;
+    transition: width 1s linear;
+}
+
+.cb-media-time {
+    font-size: 10px;
+    color: var(--tx3);
+    margin-top: 3px;
+    text-align: right;
+}
+
+.cb-toggle-icon {
+    font-size: 15px;
+    color: var(--tx3);
+    width: 20px;
+    text-align: center;
+}
+
+.cb-form-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 8px;
+}
+
+.cb-form-row label {
+    font-size: 11px;
+    color: var(--tx3);
+    min-width: 70px;
+    flex-shrink: 0;
+}
+
+.cb-select {
+    flex: 1;
+    background: var(--bg-input);
+    border: none;
+    border-radius: 6px;
+    padding: 6px 10px;
+    color: var(--tx1);
+    font-size: 12px;
+    font-family: inherit;
+    outline: none;
+    cursor: pointer;
+}
+
+.cb-add-line {
+    display: flex;
+    gap: 6px;
+    margin-top: 8px;
+}
+
+.cb-add-btn {
+    background: var(--accent);
+    border: none;
+    border-radius: 6px;
+    color: #fff;
+    padding: 0 12px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    transition: opacity .15s;
+}
+
+.cb-add-btn:hover { opacity: .85; }
+
+.cb-line-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 10px;
+    background: var(--bg-input);
+    border-radius: 6px;
+    margin-bottom: 4px;
+}
+
+.cb-line-text {
+    font-size: 12px;
+    color: var(--tx1);
+    flex: 1;
+    min-width: 0;
+}
+
+.cb-line-del { color: var(--tx3); padding: 2px; flex-shrink: 0; }
+
+.cb-line-del:hover {
+    color: var(--err);
+    background: rgba(255,75,85,.1);
+}

@@ -1,0 +1,111 @@
+.topbar {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 54px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 28px;
+    gap: 8px;
+    cursor: default;
+    background: transparent;
+    z-index: 20;
+    overflow: hidden;
+}
+
+.topbar-title {
+    font-size: 17px;
+    font-weight: 700;
+    color: var(--tx0);
+    min-width: 0;
+    flex-shrink: 1;
+}
+
+.win-controls {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    margin-left: 4px;
+}
+
+.mini-badge-label[data-short] {
+    transition: font-size .15s ease;
+}
+.topbar.compact .mini-badge-label[data-short] {
+    font-size: 0;
+}
+.topbar.compact .mini-badge-label[data-short]::after {
+    content: attr(data-short);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: .3px;
+}
+
+.mini-badge {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    padding: 3px 10px;
+    border-radius: 14px;
+    border: 1px solid transparent;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: .3px;
+    transition: all .2s;
+    user-select: none;
+}
+
+.mini-badge.offline {
+    background: rgba(65,80,110,.1);
+    border-color: color-mix(in srgb, var(--tx2) 35%, transparent);
+}
+
+.mini-badge.offline .mini-badge-icon {
+    font-size: 13px;
+    color: var(--tx2);
+}
+
+.mini-badge.offline .mini-badge-label {
+    color: var(--tx2);
+}
+
+.mini-badge.online {
+    background: rgba(45,212,140,.12);
+    border-color: color-mix(in srgb, var(--ok) 40%, transparent);
+}
+
+.mini-badge.online .mini-badge-icon {
+    font-size: 13px;
+    color: var(--ok);
+    animation: none;
+}
+
+.mini-badge.online .mini-badge-label {
+    color: var(--ok);
+}
+
+.mini-badge.vrcplus {
+    background: rgba(255,215,0,.08);
+    border-color: rgba(255,215,0,.55);
+}
+
+.mini-badge.vrcplus .mini-badge-icon {
+    font-size: 13px;
+    color: #FFD700;
+}
+
+.mini-badge.vrcplus .mini-badge-label {
+    color: #FFD700;
+}
+
+.mini-badge.vcredits {
+    background: rgba(167,139,250,.1);
+    border-color: rgba(167,139,250,.5);
+}
+
+.mini-badge.vcredits .mini-badge-label {
+    color: #A78BFA;
+    font-variant-numeric: tabular-nums;
+}

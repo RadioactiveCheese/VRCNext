@@ -1,0 +1,97 @@
+/* === People Module === */
+
+/* Sidebar profile card */
+.vrc-profile {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px;
+    background: var(--bg-card);
+    border-radius: 10px;
+    margin-bottom: 10px;
+    cursor: pointer;
+    transition: all .15s;
+}
+
+.vrc-profile:hover {
+    background: var(--bg-hover);
+}
+
+.vrc-profile-status {
+    font-size: 10px;
+    color: var(--tx3);
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    margin-top: 2px;
+}
+
+/* Same-location instance cards */
+.sloc-inst-card {
+    position: relative;
+    border-radius: 10px;
+    overflow: hidden;
+    margin-bottom: 4px;
+}
+.sloc-inst-bg {
+    position: absolute;
+    inset: 0;
+    background-size: cover;
+    background-position: center;
+    filter: brightness(0.15);
+    z-index: 0;
+}
+.sloc-inst-content {
+    position: relative;
+    z-index: 1;
+}
+.sloc-inst-label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--tx2);
+    padding: 8px 8px 10px;
+    letter-spacing: .04em;
+    overflow: hidden;
+}
+.sloc-inst-label > span.sloc-inst-count {
+    flex-shrink: 0;
+}
+.sloc-inst-label > .vrcn-badge {
+    margin-left: auto;
+    flex-shrink: 0;
+}
+.sloc-inst-count {
+    color: var(--tx3);
+    font-weight: 400;
+}
+.sloc-inst-card .vrc-friend-card:hover {
+    background: rgba(255,255,255,.08);
+}
+
+/* Sidebar login box */
+.vrc-login-box {
+    padding: 16px;
+    text-align: center;
+}
+
+.vrc-login-box input[type="text"],
+.vrc-login-box input[type="password"] {
+    width: 100%;
+    background: var(--bg-input);
+    border: none;
+    border-radius: 6px;
+    padding: 8px 10px;
+    color: var(--tx1);
+    font-size: 12px;
+    font-family: inherit;
+    outline: none;
+    margin-bottom: 8px;
+}
+
+.vrc-login-box .vrcn-button {
+    width: 100%;
+    justify-content: center;
+}

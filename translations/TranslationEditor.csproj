@@ -28,7 +28,7 @@
 
   <!-- Always pull the latest en.json from the main project at build time -->
   <ItemGroup>
-    <EmbeddedResource Include="..\wwwroot\i18n\en.json">
+    <EmbeddedResource Include="..\frontend\i18n\en.json">
       <Link>wwwroot\en.json</Link>
     </EmbeddedResource>
   </ItemGroup>

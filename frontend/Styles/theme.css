@@ -1,0 +1,69 @@
+.theme-grid {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-bottom: 14px;
+}
+
+.theme-chip {
+    padding: 6px 14px;
+    border-radius: 8px;
+    border: none;
+    background: var(--bg-btn);
+    color: var(--tx2);
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    font-family: inherit;
+    transition: all .15s;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.theme-chip:hover {
+    background: var(--bg-btn-h);
+    color: var(--tx1);
+}
+
+.theme-chip.active {
+    background: color-mix(in srgb, var(--accent) 12%, transparent);
+    color: var(--accent-lt);
+}
+
+.theme-flag {
+    width: 18px;
+    height: 18px;
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    line-height: 1;
+    border-radius: 4px;
+    background: color-mix(in srgb, var(--bg-card) 70%, transparent);
+}
+
+.theme-chip-del {
+    visibility: hidden;
+    margin-left: 2px;
+    font-size: 13px;
+    line-height: 1;
+    color: var(--tx3);
+    padding: 0 2px;
+}
+.theme-chip-custom:hover .theme-chip-del {
+    visibility: visible;
+}
+.theme-chip-del:hover { color: var(--err); }
+
+.theme-chip-name-input {
+    background: transparent;
+    border: none;
+    outline: none;
+    color: inherit;
+    font: inherit;
+    width: 60px;
+    min-width: 30px;
+    max-width: 90px;
+}

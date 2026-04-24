@@ -6,6 +6,7 @@ window.external.receiveMessage(rawMsg => {
             case 'loadSettings': loadSettingsToUI(payload); break;
             case 'dateTimeFormat': applyDateTimeFormat(payload); break;
             case 'cursorFiles': _localHttpPort = payload.port || _localHttpPort; renderCursorThemeChips(payload.files); applyCursorTheme(currentCursorTheme); break;
+            case 'customThemes': _localHttpPort = payload.port || _localHttpPort; _customThemes = payload.themes || []; applyCustomThemesFromSettings([..._activeCustomThemes]); break;
             case 'vrcLaunched': {
                 // Fired when the user launches VRChat from VRCNext (VR or Desktop)
                 const vr = !!payload.vr;

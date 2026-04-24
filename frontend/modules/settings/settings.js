@@ -109,6 +109,7 @@ function saveSettings() {
             autoColorAccuracy: autoColorAccuracy,
             playBtnTheme: currentPlayBtnTheme,
             cursorTheme: currentCursorTheme,
+            activeCustomThemes: [..._activeCustomThemes],
             guiZoom: Math.round(_guiZoom * 100),
             dashBgPath: dashBgPath,
             dashOpacity: parseInt(document.getElementById('setDashOpacity').value) || 40,
@@ -338,6 +339,8 @@ function loadSettingsToUI(s) {
     _localHttpPort = s.LocalHttpPort || s.localHttpPort || 0;
     currentCursorTheme = s.CursorTheme || s.cursorTheme || '';
     sendToCS({ action: 'getCursorFiles' });
+    _activeCustomThemes = new Set(s.ActiveCustomThemes || s.activeCustomThemes || []);
+    sendToCS({ action: 'getCustomThemes' });
 
     // Restore chatbox settings
     document.getElementById('cbShowTime').checked = s.CbShowTime ?? s.cbShowTime ?? true;
@@ -744,6 +747,7 @@ function switchDesignTab(tab, btn) {
     document.getElementById('designTabBackground').style.display = tab === 'background' ? '' : 'none';
     document.getElementById('designTabColors').style.display    = tab === 'colors'     ? '' : 'none';
     document.getElementById('designTabOther').style.display     = tab === 'other'      ? '' : 'none';
+    document.getElementById('designTabThemes').style.display    = tab === 'themes'     ? '' : 'none';
     btn.closest('.fd-tabs').querySelectorAll('.fd-tab').forEach(t => t.classList.remove('active'));
     btn.classList.add('active');
 }

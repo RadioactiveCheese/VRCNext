@@ -308,6 +308,37 @@ public class WindowController
                 _core.SendToJS("cursorFiles", new { files = cursorFiles, port = _core.HttpPort });
                 break;
             }
+            case "getCustomThemes":
+            {
+                var customDir = _core.CustomThemesDir;
+                var themes = new List<object>();
+                if (Directory.Exists(customDir))
+                {
+                    foreach (var dir in Directory.GetDirectories(customDir).OrderBy(d => d))
+                    {
+                        var name = Path.GetFileName(dir);
+                        var allFiles = Directory.GetFiles(dir, "*", SearchOption.TopDirectoryOnly);
+                        var cssFiles = allFiles.Where(f => Path.GetExtension(f).Equals(".css", StringComparison.OrdinalIgnoreCase))
+                            .Select(Path.GetFileName).OrderBy(f => f).ToList();
+                        var jsFiles  = allFiles.Where(f => Path.GetExtension(f).Equals(".js",  StringComparison.OrdinalIgnoreCase))
+                            .Select(Path.GetFileName).OrderBy(f => f).ToList();
+                        if (cssFiles.Count == 0 && jsFiles.Count == 0) continue;
+                        string? author = null, version = null;
+                        var infoPath = Path.Combine(dir, "info.json");
+                        if (File.Exists(infoPath))
+                        {
+                            try {
+                                var info = Newtonsoft.Json.Linq.JObject.Parse(File.ReadAllText(infoPath));
+                                author  = info["author"]?.ToString();
+                                version = info["version"]?.ToString();
+                            } catch { }
+                        }
+                        themes.Add(new { id = name, name, cssFiles, jsFiles, author, version });
+                    }
+                }
+                _core.SendToJS("customThemes", new { themes, port = _core.HttpPort });
+                break;
+            }
         }
     }
 }

@@ -33,6 +33,7 @@ public class CoreLibrary
     public Dictionary<string, (bool allowActive, bool allowAskMe, bool allowDnD)> PerminiList { get; } = new();
     public DateTime DiscordJoinedAt { get; set; } = DateTime.MinValue;
     public int HttpPort { get; set; }
+    public string CustomThemesDir { get; set; } = "";
 
     public MemoryTrimService MemTrim { get; }
     public UpdateService UpdateService { get; }

@@ -1102,8 +1102,6 @@ public class FriendsController
             diskProfile["status"] = live?["status"]?.ToString() ?? "offline";
             diskProfile["statusDescription"] = live?["statusDescription"]?.ToString() ?? "";
             diskProfile["location"] = live?["location"]?.ToString() ?? "";
-            diskProfile["worldName"] = "";
-            diskProfile["worldThumb"] = "";
             diskProfile["userCount"] = 0;
             diskProfile["worldCapacity"] = 0;
             diskProfile["inSameInstance"] = false;
@@ -1111,6 +1109,12 @@ public class FriendsController
             var _liveStatus = live?["status"]?.ToString() ?? "offline";
             var _liveLoc = live?["location"]?.ToString() ?? "";
             var (_, _, _liveInstType) = VRChatApiService.ParseLocation(_liveLoc);
+            var _liveWid = _liveLoc.Contains(':') ? _liveLoc.Split(':')[0] : "";
+            (string name, string thumb) _liveWorld = ("", "");
+            if (_liveWid.StartsWith("wrld_"))
+                lock (_core.VrWorldCache) _core.VrWorldCache.TryGetValue(_liveWid, out _liveWorld);
+            diskProfile["worldName"] = _liveWorld.name;
+            diskProfile["worldThumb"] = string.IsNullOrEmpty(_liveWorld.thumb) ? "" : _core.ImgCache?.GetWorld(_liveWorld.thumb) ?? _liveWorld.thumb;
             bool _liveIsInWorld = !string.IsNullOrEmpty(_liveLoc) && _liveLoc != "offline" && _liveLoc != "private" && _liveLoc != "traveling";
             diskProfile["instanceType"] = _liveInstType;
             diskProfile["canJoin"] = _liveIsInWorld && _liveInstType is "public" or "friends" or "friends+" or "hidden" or "group-public" or "group-plus" or "group-members" or "group";

@@ -59,7 +59,7 @@ function handleAvatarByFileId(payload) {
             const authorHtml = payload.avatarAuthor
                 ? `<div class="fd-group-card-meta">${esc(payload.avatarAuthor)}</div>` : '';
             section.innerHTML = `<div class="fd-group-rep-label">${t('profiles.badges.current_avatar', 'Current Avatar')}</div>
-                <div class="fd-group-card fd-group-rep" onclick="navOpenModal('avatar','${payload.avatarId}','${esc(payload.avatarName || '')}')">
+                <div class="fd-group-card fd-group-rep" onclick="navOpenModal('avatar','${jsq(payload.avatarId)}','${jsq(payload.avatarName || '')}')">
                     ${avIcon}<div class="fd-group-card-info"><div class="fd-group-card-name">${esc(payload.avatarName || payload.avatarId)}</div>${authorHtml}</div>
                 </div>`;
         }

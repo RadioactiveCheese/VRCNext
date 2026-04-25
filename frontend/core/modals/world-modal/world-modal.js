@@ -510,7 +510,7 @@ function openWorldDetail(worldId) {
 
     let actionsHtml = '<div class="fd-actions">';
     if (canJoin) actionsHtml += `<button class="vrcn-button-round vrcn-btn-join" onclick="worldJoinAction('${loc}')">${t('dashboard.instances.join_world', 'Join World')}</button>`;
-    actionsHtml += `<button class="vrcn-button-round" onclick="navOpenModal('worldSearch','${wid}','${esc(w.name || '')}')">${t('dashboard.instances.open_world', 'Open World')}</button>`;
+    actionsHtml += `<button class="vrcn-button-round" onclick="navOpenModal('worldSearch','${wid}','${esc(cached?.name || '')}')">${t('dashboard.instances.open_world', 'Open World')}</button>`;
     actionsHtml += `<button class="vrcn-button-round" style="margin-left:auto;" onclick="closeWorldDetail()">${t('common.close', 'Close')}</button>`;
     actionsHtml += '</div>';
 

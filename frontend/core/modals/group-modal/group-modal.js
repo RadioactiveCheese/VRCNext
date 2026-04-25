@@ -242,12 +242,12 @@ function renderGroupDetail(g) {
             const dateStr = startD && !isNaN(startD) ? fmtLongDate(startD) : '';
             const imgHtml = e.imageUrl ? `<img src="${e.imageUrl}" style="width:100%;max-height:120px;object-fit:cover;border-radius:6px;margin-bottom:8px;" onerror="this.style.display='none'">` : '';
             const badge = e.accessType ? `<span style="font-size:9px;padding:1px 6px;border-radius:4px;background:color-mix(in srgb,var(--accent) 12%,transparent);color:var(--accent-lt);border:1px solid color-mix(in srgb,var(--accent) 35%,transparent);margin-left:6px;">${esc(e.accessType)}</span>` : '';
-            const gid = esc(e.ownerId || g.id || '');
-            const cid = esc(e.id || '');
+            const gid = jsq(e.ownerId || g.id || '');
+            const cid = jsq(e.id || '');
             const delEvtBtn = (canEvent && e.id)
-                ? `<button class="gd-post-del" onclick="event.stopPropagation();deleteGroupEvent('${esc(g.id)}','${cid}',this)" title="${esc(t('groups.events.delete_title', 'Delete event'))}"><span class="msi">delete</span></button>`
+                ? `<button class="gd-post-del" onclick="event.stopPropagation();deleteGroupEvent('${jsq(g.id)}','${cid}',this)" title="${esc(t('groups.events.delete_title', 'Delete event'))}"><span class="msi">delete</span></button>`
                 : '';
-            eventsTab += `<div class="fd-group-card" data-event-id="${cid}" style="display:block;cursor:pointer;padding:12px;" onclick="navOpenModal('event','${gid}','${esc(e.title || '')}','${cid}')">
+            eventsTab += `<div class="fd-group-card" data-event-id="${cid}" style="display:block;cursor:pointer;padding:12px;" onclick="navOpenModal('event','${gid}','${jsq(e.title || '')}','${cid}')">
                 ${imgHtml}
                 <div style="display:flex;align-items:center;justify-content:space-between;gap:6px;">
                     <div style="font-size:13px;font-weight:600;color:var(--tx0);">${esc(e.title || 'Untitled Event')}${badge}</div>

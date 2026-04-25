@@ -180,6 +180,7 @@ window.external.receiveMessage(rawMsg => {
                 }
                 break;
             case 'vrcFriendDetail': renderFriendDetail(payload); break;
+            case 'vrcFriendPreview': if (typeof handleFriendPreview === 'function') handleFriendPreview(payload); break;
             case 'vrcAvatarByFileId': handleAvatarByFileId(payload); break;
             case 'vrcAvatarInfo': handleAvatarByFileId(payload); break;
             case 'vrcInstanceAvatarFound': handleInstanceAvatarFound(payload); break;

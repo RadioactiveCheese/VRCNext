@@ -454,11 +454,15 @@ public partial class AppShell
                         Process.Start(new ProcessStartInfo(_activityLogDir) { UseShellExecute = true });
                     break;
 
-                // Get friend detail
+                // Get friend detail / preview
                 case "vrcGetFriendDetail":
                     var friendId = msg["userId"]?.ToString();
                     if (!string.IsNullOrEmpty(friendId))
                         await _friends.GetFriendDetailAsync(friendId);
+                    break;
+
+                case "vrcGetFriendPreview":
+                    await _friends.HandleMessage(action, msg);
                     break;
 
                 case "vrcLookupAvatarByFileId":

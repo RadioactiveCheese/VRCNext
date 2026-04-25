@@ -211,7 +211,13 @@
         sidebar.addEventListener('mouseover', function (e) {
             if (!isSidebarCollapsed()) return;
             const card = e.target.closest('.vrc-friend-card');
-            if (!card) return;
+            if (!card) {
+                if (_fpCurrentUid) {
+                    clearTimeout(_fpHideTimer);
+                    _fpHideTimer = setTimeout(hidePreview, 150);
+                }
+                return;
+            }
             const uid = card.dataset.uid;
             if (!uid || _fpCurrentUid === uid) return;
             clearTimeout(_fpHideTimer);

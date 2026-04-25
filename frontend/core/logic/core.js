@@ -121,7 +121,7 @@ document.addEventListener('keydown', e => {
     if (e.ctrlKey && e.key === '0') { e.preventDefault(); applyGuiZoom(1); try { autoSave(); } catch {} }
 });
 
-let dashBgPath = '', dashBgDataUri = '', dashOpacity = 40;
+let dashBgPath = '', dashBgDataUri = '';
 let dashWorldCache = {};
 let dashGroupCache = {};
 let vrcFriendsLoaded = false;

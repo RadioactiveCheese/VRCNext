@@ -112,7 +112,6 @@ function saveSettings() {
             activeCustomThemes: [..._activeCustomThemes],
             guiZoom: Math.round(_guiZoom * 100),
             dashBgPath: dashBgPath,
-            dashOpacity: parseInt(document.getElementById('setDashOpacity').value) || 40,
             randomDashBg: document.getElementById('setRandomBg').checked,
             clockEnabled: document.getElementById('setClockEnabled').checked,
             clockAmPm: document.getElementById('setClockAmPm').checked,
@@ -234,7 +233,7 @@ function autoSave() {
 function initAutoSave() {
     const ids = ['setBotName','setBotAvatar','setVrcPath','setStartWithWindows','setMinimizeToTray','setTrayNotifications',
         'setNotifySoundEnabled','setMessageSoundEnabled','setMediaRelaySoundEnabled','setSteamOverlaySoundEnabled',
-        'setDashOpacity','setRandomBg','setClockEnabled','setClockAmPm',
+        'setRandomBg','setClockEnabled','setClockAmPm',
         'setVrcUser','setVrcPass',
         'setAutoStartVR','setAutoStartDesktop',
         'setCbAutoStartVR','setCbAutoStartDesktop',
@@ -307,9 +306,7 @@ function loadSettingsToUI(s) {
 
     dashBgPath = s.DashBgPath || s.dashBgPath || '';
     if (typeof loadDashLayout === 'function') loadDashLayout({ order: s.DashSectionOrder || s.dashSectionOrder, hidden: s.DashSectionHidden || s.dashSectionHidden });
-    dashOpacity = s.DashOpacity || s.dashOpacity || 40;
-    document.getElementById('setDashOpacity').value = dashOpacity;
-    document.getElementById('dashOpacityVal').textContent = dashOpacity + '%';
+
     const randomBg = s.RandomDashBg || s.randomDashBg || false;
     document.getElementById('setRandomBg').checked = randomBg;
     document.getElementById('setClockEnabled').checked = s.ClockEnabled ?? s.clockEnabled ?? true;

@@ -100,7 +100,7 @@ function filterFdMutualsGroups() {
             const icon = g.iconUrl
                 ? `<img class="fd-group-icon" src="${esc(g.iconUrl)}" onerror="this.style.display='none'">`
                 : `<div class="fd-group-icon fd-group-icon-empty"><span class="msi" style="font-size:18px;">group</span></div>`;
-            return `<div class="fd-group-card" style="margin-bottom:0;" onclick="navOpenModal('group','${jsq(g.id)}','${esc(g.name || '')}')">
+            return `<div class="fd-group-card" style="margin-bottom:0;" onclick="navOpenModal('group','${jsq(g.id)}','${jsq(g.name || '')}')">
                 ${icon}<div class="fd-group-card-info">
                     <div class="fd-group-card-name">${esc(g.name)}</div>
                     <div class="fd-group-card-meta">${esc(g.shortCode || '')}${g.discriminator ? '.' + esc(g.discriminator) : ''} &middot; ${esc(getGroupMemberText(g.memberCount))}</div>
@@ -522,7 +522,7 @@ function renderFriendDetail(d) {
             const icon = g.iconUrl
                 ? `<img class="fd-group-icon" src="${esc(g.iconUrl)}" onerror="this.style.display='none'">`
                 : `<div class="fd-group-icon fd-group-icon-empty"><span class="msi" style="font-size:18px;">group</span></div>`;
-            mutualsGroupsHtml += `<div class="fd-group-card" style="margin-bottom:0;" onclick="navOpenModal('group','${jsq(g.id)}','${esc(g.name || '')}')">
+            mutualsGroupsHtml += `<div class="fd-group-card" style="margin-bottom:0;" onclick="navOpenModal('group','${jsq(g.id)}','${jsq(g.name || '')}')">
                 ${icon}<div class="fd-group-card-info">
                     <div class="fd-group-card-name">${esc(g.name)}</div>
                     <div class="fd-group-card-meta">${esc(g.shortCode || '')}${g.discriminator ? '.' + esc(g.discriminator) : ''} &middot; ${esc(getGroupMemberText(g.memberCount))}</div>
@@ -585,7 +585,7 @@ function renderFriendDetail(d) {
             const wid = jsq(w.id);
             const tags = (w.tags || []).filter(t => t.startsWith('author_tag_')).map(t => t.replace('author_tag_','')).slice(0,3);
             const tagsHtml = tags.length ? `<div class="cc-tags">${tags.map(t => `<span class="vrcn-badge">${esc(t)}</span>`).join('')}</div>` : '';
-            worldsGridHtml += `<div class="vrcn-content-card" onclick="navOpenModal('worldSearch','${wid}','${esc(w.name || '')}')">
+            worldsGridHtml += `<div class="vrcn-content-card" onclick="navOpenModal('worldSearch','${wid}','${jsq(w.name || '')}')">
                 <div class="cc-bg" style="background-image:url('${cssUrl(thumb)}')"></div>
                 <div class="cc-scrim"></div>
                 <div class="cc-content">

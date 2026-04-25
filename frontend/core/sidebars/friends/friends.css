@@ -111,20 +111,9 @@
     display: none;
 }
 
-.rsidebar:not(.collapsed) .vrc-section-label.nav-group-btn {
-    font-size: 10px;
-    font-weight: 700;
-    color: var(--tx3);
-    letter-spacing: 1px;
-    padding: 8px 8px 4px;
-    margin: 4px 0 0;
-    width: auto;
-    background: none !important;
-    cursor: default;
-    border-radius: 0;
-    gap: 6px;
-}
-.rsidebar:not(.collapsed) .vrc-section-label .ni { display: none; }
+.vrc-section-label .ni { display: none; }
+.rsidebar.collapsed .vrc-section-label .ni { display: block; }
+
 
 .friend-section-items {
     overflow: hidden;

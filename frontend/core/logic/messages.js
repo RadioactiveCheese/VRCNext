@@ -711,7 +711,7 @@ case 'popularWorlds':
                 break;
             case 'dashBgSelected':
                 dashBgPath = payload.path || '';
-                dashBgDataUri = payload.dataUri || '';
+                dashBgDataUri = payload.url || '';
                 if (dashBgPath) document.getElementById('dashBgName').textContent = dashBgPath.split(/[\\\\/]/).pop();
                 renderDashboard();
                 autoSave();

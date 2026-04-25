@@ -291,19 +291,8 @@ public class AuthController
                     {
                         try
                         {
-                            var bytes = File.ReadAllBytes(r.Path);
-                            var ext2 = Path.GetExtension(r.Path).ToLower();
-                            var mime = ext2 switch
-                            {
-                                ".png" => "image/png",
-                                ".jpg" or ".jpeg" => "image/jpeg",
-                                ".gif" => "image/gif",
-                                ".bmp" => "image/bmp",
-                                ".webp" => "image/webp",
-                                _ => "image/png"
-                            };
-                            var dataUri = $"data:{mime};base64,{Convert.ToBase64String(bytes)}";
-                            _core.SendToJS("dashBgSelected", new { path = r.Path, dataUri });
+                            var url = $"http://localhost:{_core.HttpPort}/dashbg?file={Uri.EscapeDataString(r.Path)}";
+                            _core.SendToJS("dashBgSelected", new { path = r.Path, url });
                         }
                         catch (Exception ex)
                         {
@@ -321,19 +310,8 @@ public class AuthController
                         var bgPath = msg["path"]?.ToString();
                         if (!string.IsNullOrEmpty(bgPath) && File.Exists(bgPath))
                         {
-                            var bytes = File.ReadAllBytes(bgPath);
-                            var ext3 = Path.GetExtension(bgPath).ToLower();
-                            var mime = ext3 switch
-                            {
-                                ".png" => "image/png",
-                                ".jpg" or ".jpeg" => "image/jpeg",
-                                ".gif" => "image/gif",
-                                ".bmp" => "image/bmp",
-                                ".webp" => "image/webp",
-                                _ => "image/png"
-                            };
-                            var dataUri = $"data:{mime};base64,{Convert.ToBase64String(bytes)}";
-                            Invoke(() => _core.SendToJS("dashBgSelected", new { path = bgPath, dataUri }));
+                            var url = $"http://localhost:{_core.HttpPort}/dashbg?file={Uri.EscapeDataString(bgPath)}";
+                            Invoke(() => _core.SendToJS("dashBgSelected", new { path = bgPath, url }));
                         }
                     }
                     catch (Exception ex)
@@ -372,21 +350,10 @@ public class AuthController
 
                         var rng = new Random();
                         var picked = allImages[rng.Next(allImages.Count)];
-                        var bytes = File.ReadAllBytes(picked);
-                        var imgExt = Path.GetExtension(picked).ToLower();
-                        var mime = imgExt switch
-                        {
-                            ".png" => "image/png",
-                            ".jpg" or ".jpeg" => "image/jpeg",
-                            ".gif" => "image/gif",
-                            ".bmp" => "image/bmp",
-                            ".webp" => "image/webp",
-                            _ => "image/png"
-                        };
-                        var dataUri = $"data:{mime};base64,{Convert.ToBase64String(bytes)}";
+                        var url = $"http://localhost:{_core.HttpPort}/dashbg?file={Uri.EscapeDataString(picked)}";
                         Invoke(() =>
                         {
-                            _core.SendToJS("dashBgSelected", new { path = picked, dataUri });
+                            _core.SendToJS("dashBgSelected", new { path = picked, url });
                             _core.SendToJS("log", new { msg = $"Random background: {Path.GetFileName(picked)}", color = "ok" });
                         });
                     }

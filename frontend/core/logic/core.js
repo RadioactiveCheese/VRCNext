@@ -1121,10 +1121,10 @@ function showTab(i) {
         contentEl.classList.toggle('tab16-active', i === 16);
     }
     // Clear active from all nav-btns (including sub-items and group headers)
-    document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('#sidebarEl .nav-btn').forEach(b => b.classList.remove('active'));
     document.querySelectorAll('.nav-group').forEach(g => g.classList.remove('has-active'));
     // Find and activate the correct button by matching tab index
-    const allBtns = document.querySelectorAll('.nav-btn[onclick]');
+    const allBtns = document.querySelectorAll('#sidebarEl .nav-btn[onclick]');
     allBtns.forEach(b => {
         const match = b.getAttribute('onclick')?.match(/showTab\((\d+)\)/);
         if (match && parseInt(match[1]) === i) {

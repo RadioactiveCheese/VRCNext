@@ -89,7 +89,9 @@ function renderVrcFriends(friends, counts) {
     const appendSection = (key, count, list, presenceResolver) => {
         if (!list.length) return;
         const chev = friendSectionCollapsed[key] ? 'expand_more' : 'expand_less';
-        h += `<div class="nav-group-btn vrc-section-label vrc-offline-toggle" onclick="toggleFriendSection('${key}')" style="cursor:pointer;"><span class="ni msi">${_sectionIcons[key] || 'group'}</span><span class="nl">${getFriendSectionLabel(key, count)}</span><span class="nav-group-arrow msi nl" id="${key}Chevron">${chev}</span></div>`;
+        const _active = !friendSectionCollapsed[key] ? ' active' : '';
+        const _navCls = rsidebarCollapsed ? 'nav-btn nav-group-btn ' : '';
+        h += `<div class="${_navCls}vrc-section-label vrc-offline-toggle${_active}" id="${key}SectionLabel" onclick="toggleFriendSection('${key}')" style="cursor:pointer;"><span class="ni msi">${_sectionIcons[key] || 'group'}</span><span class="nl">${getFriendSectionLabel(key, count)}</span><span class="nav-group-arrow msi nl" id="${key}Chevron">${chev}</span></div>`;
         h += `<div id="${key}FriendsSection" class="friend-section-items${friendSectionCollapsed[key] ? ' collapsed' : ''}">`;
         list.forEach(f => {
             const resolvedPresence = typeof presenceResolver === 'function' ? presenceResolver(f) : presenceResolver;
@@ -110,7 +112,8 @@ function renderVrcFriends(friends, counts) {
         if (_sharedInst.length) {
             const _slTotal = _sharedInst.reduce((s, [, l]) => s + l.length, 0);
             const _slChev = friendSectionCollapsed.samelocation ? 'expand_more' : 'expand_less';
-            h += `<div class="nav-group-btn vrc-section-label vrc-offline-toggle" onclick="toggleFriendSection('samelocation')" style="cursor:pointer;"><span class="ni msi">location_on</span><span class="nl">${tf('profiles.friends.sections.same_location', { count: _slTotal }, 'IN INSTANCE - {count}')}</span><span class="nav-group-arrow msi nl" id="samelocationChevron">${_slChev}</span></div>`;
+            const _slNavCls = rsidebarCollapsed ? 'nav-btn nav-group-btn ' : '';
+            h += `<div class="${_slNavCls}vrc-section-label vrc-offline-toggle" onclick="toggleFriendSection('samelocation')" style="cursor:pointer;"><span class="ni msi">location_on</span><span class="nl">${tf('profiles.friends.sections.same_location', { count: _slTotal }, 'IN INSTANCE - {count}')}</span><span class="nav-group-arrow msi nl" id="samelocationChevron">${_slChev}</span></div>`;
             h += `<div id="samelocationFriendsSection" class="friend-section-items${friendSectionCollapsed.samelocation ? ' collapsed' : ''}">`;
             _sharedInst.forEach(([locBase, list]) => {
                 const _wid = locBase.split(':')[0];
@@ -153,6 +156,8 @@ function toggleFriendSection(key) {
     const chev = chevId && document.getElementById(chevId);
     if (sec) sec.classList.toggle('collapsed', !!friendSectionCollapsed[key]);
     if (chev) chev.textContent = friendSectionCollapsed[key] ? 'expand_more' : 'expand_less';
+    const label = document.getElementById(`${key}SectionLabel`);
+    if (label) label.classList.toggle('active', !friendSectionCollapsed[key]);
 }
 
 function filterFriendsList() {

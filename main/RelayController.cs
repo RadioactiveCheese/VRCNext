@@ -81,14 +81,14 @@ public class RelayController : IDisposable
         {
             // Not logged in yet (startup resume failed) — retry now that network is up
             _resumeRetryCount = 0;
-            _ = Task.Delay(3000).ContinueWith(_ => TryResumeWithRetryAsync());
+            _ = Task.Run(async () => { await Task.Delay(3000); await TryResumeWithRetryAsync(); });
         }
     }
 
     public void ScheduleResumeRetry()
     {
         _resumeRetryCount = 0;
-        _ = Task.Delay(8000).ContinueWith(_ => TryResumeWithRetryAsync());
+        _ = Task.Run(async () => { await Task.Delay(8000); await TryResumeWithRetryAsync(); });
     }
 
     private async Task TryResumeWithRetryAsync()
@@ -505,11 +505,17 @@ public class RelayController : IDisposable
 
     // Static process checks
 
-    public static bool IsVrcRunning() =>
-        Process.GetProcessesByName("VRChat").Any(p => { try { return !p.HasExited; } catch { return false; } });
+    public static bool IsVrcRunning()
+    {
+        try { return Process.GetProcessesByName("VRChat").Any(p => { try { return !p.HasExited; } catch { return false; } }); }
+        catch { return false; }
+    }
 
-    public static bool IsSteamVrRunning() =>
-        Process.GetProcessesByName("vrserver").Any(p => { try { return !p.HasExited; } catch { return false; } });
+    public static bool IsSteamVrRunning()
+    {
+        try { return Process.GetProcessesByName("vrserver").Any(p => { try { return !p.HasExited; } catch { return false; } }); }
+        catch { return false; }
+    }
 
     // WebSocket lifecycle
 

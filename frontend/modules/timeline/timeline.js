@@ -238,7 +238,7 @@ function refreshTimeline() {
     timelineEvents  = [];
     tlOffset        = 0;
     tlHasMore       = false;
-    tlLoading       = false;
+    tlLoading       = true;
     tlRenderedCount = 100;
     tlListPage      = 0;
     tlTotal         = 0;
@@ -318,7 +318,7 @@ function setTlFilter(f) {
     timelineEvents = [];
     tlOffset   = 0;
     tlHasMore  = false;
-    tlLoading  = false;
+    tlLoading  = true;
     _tlSearchMode = false; _tlSearchQuery = ''; _tlSearchDate = '';
     const activeSearch = (document.getElementById('tlSearchInput')?.value ?? '').trim();
     if (activeSearch) { filterTimeline(); return; }
@@ -580,13 +580,9 @@ function _closeDpOutside(e) {
     const picker = document.getElementById('tlDatePicker');
     const btn    = document.getElementById('tlDateBtn');
     if (!picker) return;
-    if (!picker.contains(e.target) && e.target !== btn && !btn.contains(e.target)) {
-        picker.style.display = 'none';
-        document.removeEventListener('click', _closeDpOutside);
-    } else {
-        // Re-attach for next click
-        setTimeout(() => document.addEventListener('click', _closeDpOutside), 0);
-    }
+    if (btn && (picker.contains(e.target) || e.target === btn || btn.contains(e.target))) return;
+    picker.style.display = 'none';
+    document.removeEventListener('click', _closeDpOutside);
 }
 
 function renderDatePickerCalendar() {
@@ -677,7 +673,7 @@ function applyTlDateFilter(dateStr) {
     const activeSearch = (document.getElementById('tlSearchInput')?.value ?? '').trim();
     if (tlMode === 'friends') {
         friendTimelineEvents = [];
-        ftlOffset = 0; ftlHasMore = false; ftlLoading = false;
+        ftlOffset = 0; ftlHasMore = false; ftlLoading = true;
         ftlListPage = 0; ftlRenderedCount = 100; ftlTotal = 0;
         _ftlSearchMode = false; _ftlSearchQuery = ''; _ftlSearchDate = '';
         if (activeSearch) { filterFriendTimeline(); return; }
@@ -688,7 +684,7 @@ function applyTlDateFilter(dateStr) {
         timelineEvents  = [];
         tlOffset        = 0;
         tlHasMore       = false;
-        tlLoading       = false;
+        tlLoading       = true;
         tlRenderedCount = 100;
         tlListPage      = 0;
         tlTotal         = 0;
@@ -970,7 +966,7 @@ function refreshFriendTimeline() {
     friendTimelineEvents = [];
     ftlOffset        = 0;
     ftlHasMore       = false;
-    ftlLoading       = false;
+    ftlLoading       = true;
     ftlRenderedCount = 100;
     ftlListPage      = 0;
     ftlTotal         = 0;
@@ -1041,7 +1037,7 @@ function setFtFilter(f) {
     friendTimelineEvents = [];
     ftlOffset        = 0;
     ftlHasMore       = false;
-    ftlLoading       = false;
+    ftlLoading       = true;
     ftlRenderedCount = 100;
     ftlListPage      = 0;
     ftlTotal         = 0;

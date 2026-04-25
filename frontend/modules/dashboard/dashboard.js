@@ -371,7 +371,7 @@ let _popularInFlight = false;
 let _activeInFlight  = false;
 
 // Refresh every 10 minutes — only when Dashboard tab is active and at least one consumer is visible
-setInterval(() => {
+const _discRefreshInterval = setInterval(() => {
     const tab0 = document.getElementById('tab0');
     if (!tab0 || !tab0.classList.contains('active')) return;
     const popHidden = _dashLayout.hidden.includes('discovery') && _dashLayout.hidden.includes('popular_worlds');

@@ -817,6 +817,7 @@ public partial class AppShell
             _       => "application/octet-stream"
         };
         ctx.Response.StatusCode = 200;
+        ctx.Response.Headers.Add("Access-Control-Allow-Origin", "*");
         // Stream directly — NEVER load full file into RAM (videos can be multiple gigabytes)
         ctx.Response.ContentLength64 = new FileInfo(file).Length;
         using var fs = File.OpenRead(file);

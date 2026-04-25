@@ -509,6 +509,12 @@ public class AuthController
 
     public async Task VrcTryResumeAsync()
     {
+        try { await VrcTryResumeInternalAsync(); }
+        catch (Exception ex) { _core.SendToJS("log", new { msg = $"VRChat: Resume error — {ex.Message}", color = "warn" }); }
+    }
+
+    private async Task VrcTryResumeInternalAsync()
+    {
         SetupVrcDebugLog();
 
         if (!string.IsNullOrEmpty(_core.Settings.VrcAuthCookie))

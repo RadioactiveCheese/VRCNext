@@ -938,16 +938,11 @@ function _gevDpOutside(e) {
     const picker = document.getElementById('gevDatePicker');
     if (!picker) return;
     // Detached target = calendar grid was re-rendered (day click) — not an outside click
-    if (!e.target.isConnected) {
-        setTimeout(() => document.addEventListener('click', _gevDpOutside), 0);
-        return;
-    }
+    if (!e.target.isConnected) return;
     const trigEl = document.getElementById(_gevDpTarget === 'start' ? 'gevStartDisplay' : 'gevEndDisplay');
     if (!picker.contains(e.target) && (!trigEl || !trigEl.contains(e.target))) {
         picker.style.display = 'none';
         document.removeEventListener('click', _gevDpOutside);
-    } else {
-        setTimeout(() => document.addEventListener('click', _gevDpOutside), 0);
     }
 }
 

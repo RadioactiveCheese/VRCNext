@@ -815,6 +815,7 @@ function applyAutoColor() {
     if (!url) return;
 
     const img = new Image();
+    img.crossOrigin = 'anonymous';
     img.onload = () => {
         try {
             const SIZE = 80;

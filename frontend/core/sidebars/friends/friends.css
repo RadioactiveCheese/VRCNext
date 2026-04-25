@@ -94,25 +94,47 @@
 .rsidebar.collapsed .vrc-friend-search {
     display: flex !important;
     justify-content: center;
-    padding: 2px 0;
-    margin-bottom: 2px;
+    padding: 0;
+    margin-bottom: 0;
 }
 .rsidebar.collapsed #vrcFriendSearchInput { display: none; }
-.rsidebar.collapsed .vrc-section-label {
-    display: flex;
+.rsidebar.collapsed .nav-group-btn,
+.rsidebar.collapsed .nav-btn {
     justify-content: center;
-    align-items: center;
-    gap: 3px;
-    padding: 3px 4px;
-    margin-top: 0;
-    letter-spacing: 0;
+    padding: 10px;
+    margin: 2px 5px;
+    width: calc(100% - 10px);
 }
-.rsidebar.collapsed .vrc-section-text { display: none; }
-.vrc-section-short { display: none; }
-.rsidebar.collapsed .vrc-section-short {
-    display: inline-block;
-    width: 28px;
-    text-align: center;
+.rsidebar.collapsed .nav-group-btn .nl,
+.rsidebar.collapsed .nav-btn .nl,
+.rsidebar.collapsed .nav-group-arrow {
+    display: none;
+}
+
+.rsidebar:not(.collapsed) .vrc-section-label.nav-group-btn {
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--tx3);
+    letter-spacing: 1px;
+    padding: 8px 8px 4px;
+    margin: 4px 0 0;
+    width: auto;
+    background: none !important;
+    cursor: default;
+    border-radius: 0;
+    gap: 6px;
+}
+.rsidebar:not(.collapsed) .vrc-section-label .ni { display: none; }
+
+.friend-section-items {
+    overflow: hidden;
+    max-height: 2000px;
+    transition: max-height .25s ease, opacity .2s;
+    opacity: 1;
+}
+.friend-section-items.collapsed {
+    max-height: 0;
+    opacity: 0;
 }
 
 .win-dots {
@@ -239,22 +261,21 @@
     position: relative;
 }
 
-.rsidebar:not(.collapsed) .vrc-fs-icon {
+.rsidebar:not(.collapsed) .vrc-fs-icon-btn {
     position: absolute;
-    left: 10px;
-    font-size: 14px;
-    color: var(--tx3);
+    left: 0;
+    top: 0;
+    bottom: 0;
+    background: none;
+    border: none;
+    padding: 0 0 0 10px;
+    display: flex;
+    align-items: center;
     pointer-events: none;
 }
-
-.rsidebar.collapsed .vrc-fs-icon {
-    position: static;
-    font-size: 20px;
+.rsidebar:not(.collapsed) .vrc-fs-icon {
+    font-size: 14px;
     color: var(--tx3);
-    padding: 8px;
-    border-radius: 8px;
-    cursor: pointer;
-    transition: color .15s, background .15s;
 }
 
 .rsidebar.collapsed .vrc-fs-icon:hover {

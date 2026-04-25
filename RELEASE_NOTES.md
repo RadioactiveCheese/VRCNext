@@ -1,5 +1,9 @@
 **2026.18.7**
 
+**Changes**
+- Redesigned the Friends Sidebar to have icons whe ncollapsed instead of having short names such as "GME" or "OFF"
+- Added Animations to the Friendssidebar when opening/collapsing
+
 **New**
 - Friend Preview Popup: hovering over a friend in the collapsed sidebar shows a quick preview with banner, avatar, status, trust rank, badges, current instance (clickable to join), bio, and language tags
 

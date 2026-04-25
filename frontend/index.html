@@ -829,11 +829,7 @@
                                 <button class="vrcn-button" onclick="browseDashBg()"><span class="msi" style="font-size:16px;">image</span> <span data-i18n="common.choose_image">Choose Image</span></button>
                                 <span id="dashBgName" style="font-size:11px;color:var(--tx3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;"></span>
                             </div>
-                            <div class="sf-row" style="margin-bottom:6px;">
-                                <label style="font-size:12px;color:var(--tx2);" data-i18n="settings.design.overlay_opacity">Overlay Opacity</label>
-                                <input type="range" id="setDashOpacity" min="0" max="100" value="40" style="flex:1;accent-color:var(--accent);" oninput="document.getElementById('dashOpacityVal').textContent=this.value+'%';autoSave()">
-                                <span id="dashOpacityVal" style="font-size:12px;color:var(--tx2);margin-left:8px;min-width:35px;text-align:right;">40%</span>
-                            </div>
+
                             <div class="sf-toggle-row"><span data-i18n="settings.design.random_background">Random background from watch folders on launch</span><label class="toggle"><input type="checkbox" id="setRandomBg" onchange="autoSave()"><div class="toggle-track"><div class="toggle-knob"></div></div></label></div>
                         </div>
 

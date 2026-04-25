@@ -3,6 +3,9 @@
 **New**
 - Friend Preview Popup: hovering over a friend in the collapsed sidebar shows a quick preview with banner, avatar, status, trust rank, badges, current instance (clickable to join), bio, and language tags
 
+**Removed**
+- Background Overlay Opacity slider in Settings > Design (was broken and had no visible effect)
+
 **Fixed**
 - Clicking a world name in an invite notification now correctly opens the world modal
 - Clicking "Current Avatar" on a profile no longer fails when the avatar name contains an apostrophe

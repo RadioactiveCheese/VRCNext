@@ -180,6 +180,7 @@ window.external.receiveMessage(rawMsg => {
                 }
                 break;
             case 'vrcFriendDetail': renderFriendDetail(payload); break;
+            case 'vrcFriendPreview': if (typeof handleFriendPreview === 'function') handleFriendPreview(payload); break;
             case 'vrcAvatarByFileId': handleAvatarByFileId(payload); break;
             case 'vrcAvatarInfo': handleAvatarByFileId(payload); break;
             case 'vrcInstanceAvatarFound': handleInstanceAvatarFound(payload); break;
@@ -710,7 +711,7 @@ case 'popularWorlds':
                 break;
             case 'dashBgSelected':
                 dashBgPath = payload.path || '';
-                dashBgDataUri = payload.dataUri || '';
+                dashBgDataUri = payload.url || '';
                 if (dashBgPath) document.getElementById('dashBgName').textContent = dashBgPath.split(/[\\\\/]/).pop();
                 renderDashboard();
                 autoSave();

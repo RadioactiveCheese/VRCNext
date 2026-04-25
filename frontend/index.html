@@ -53,10 +53,11 @@
     <link rel="stylesheet" href="core/notifications/notifications.css">
     <link rel="stylesheet" href="core/sidebars/navigation/navigation.css">
     <link rel="stylesheet" href="core/sidebars/friends/friends.css">
+    <link rel="stylesheet" href="core/previews/friend-preview.css">
 </head>
 <body>
     <div class="sidebar" id="sidebarEl">
-        <div class="logo"><div class="logo-icon" id="logoIcon">V</div><div class="logo-txt"><div class="logo-text-row"><div class="logo-text">VRCNext</div></div><div class="logo-sub">v2026.18.0</div></div><button class="sb-toggle" onclick="toggleSidebar()" title="Toggle sidebar" data-i18n-title="common.toggle_sidebar"><span class="msi" id="sbIcon">chevron_left</span></button></div>
+        <div class="logo"><div class="logo-icon" id="logoIcon">V</div><div class="logo-txt"><div class="logo-text-row"><div class="logo-text">VRCNext</div></div><div class="logo-sub">v2026.18.6</div></div><button class="sb-toggle" onclick="toggleSidebar()" title="Toggle sidebar" data-i18n-title="common.toggle_sidebar"><span class="msi" id="sbIcon">chevron_left</span></button></div>
         <div class="nav vrcn-scrollbar">
             <button class="nav-btn active" onclick="showTab(0)" data-nav="dashboard"><span class="ni msi">dashboard</span><span class="nl" data-i18n="nav.dashboard">Dashboard</span></button>
             <button class="nav-btn" onclick="showTab(1)"><span class="ni msi">travel_explore</span><span class="nl" data-i18n="nav.worlds">Worlds</span></button>
@@ -828,11 +829,7 @@
                                 <button class="vrcn-button" onclick="browseDashBg()"><span class="msi" style="font-size:16px;">image</span> <span data-i18n="common.choose_image">Choose Image</span></button>
                                 <span id="dashBgName" style="font-size:11px;color:var(--tx3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;"></span>
                             </div>
-                            <div class="sf-row" style="margin-bottom:6px;">
-                                <label style="font-size:12px;color:var(--tx2);" data-i18n="settings.design.overlay_opacity">Overlay Opacity</label>
-                                <input type="range" id="setDashOpacity" min="0" max="100" value="40" style="flex:1;accent-color:var(--accent);" oninput="document.getElementById('dashOpacityVal').textContent=this.value+'%';autoSave()">
-                                <span id="dashOpacityVal" style="font-size:12px;color:var(--tx2);margin-left:8px;min-width:35px;text-align:right;">40%</span>
-                            </div>
+
                             <div class="sf-toggle-row"><span data-i18n="settings.design.random_background">Random background from watch folders on launch</span><label class="toggle"><input type="checkbox" id="setRandomBg" onchange="autoSave()"><div class="toggle-track"><div class="toggle-knob"></div></div></label></div>
                         </div>
 
@@ -1905,7 +1902,7 @@
             <div id="vrcProfileArea"></div>
             <div id="vrcInstanceArea"></div>
             <div id="vrcFriendSearch" class="vrc-friend-search" style="display:none;">
-                <span class="msi vrc-fs-icon" onclick="if(rsidebarCollapsed)toggleRsidebar()">search</span>
+                <button class="nav-btn vrc-fs-icon-btn" onclick="if(rsidebarCollapsed)toggleRsidebar()"><span class="msi vrc-fs-icon">search</span></button>
                 <input type="text" id="vrcFriendSearchInput" class="vrcn-input" placeholder="Search friends..." data-i18n-placeholder="profiles.friends.search_placeholder" oninput="filterFriendsList()">
             </div>
             <div id="vrcFriendsList">
@@ -2104,6 +2101,7 @@
     <script src="core/modals/friend-invite-modal/friend-invite-modal.js"></script>
     <script src="core/modals/image-picker-modal/image-picker-modal.js"></script>
     <script src="core/modals/user-modal/user-modal.js"></script>
+    <script src="core/previews/friend-preview.js"></script>
     <script src="core/modals/modal-nav.js"></script>
     <script src="core/modals/world-modal/world-modal.js"></script>
     <script src="core/modals/create-instance-modal/create-instance-modal.js"></script>

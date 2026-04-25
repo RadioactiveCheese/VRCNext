@@ -1,0 +1,104 @@
+/* === Friend Preview Popup === */
+
+.fp-preview {
+    position: fixed;
+    width: 248px;
+    background: var(--bg-card);
+    border: 1px solid var(--brd);
+    border-radius: 12px;
+    overflow: hidden;
+    z-index: 9998;
+    box-shadow: 0 8px 32px rgba(0,0,0,.55);
+    opacity: 0;
+    pointer-events: none;
+    transform: translateX(8px);
+    transition: opacity .15s, transform .15s;
+}
+
+.fp-preview.visible {
+    opacity: 1;
+    pointer-events: auto;
+    transform: translateX(0);
+}
+
+/* Override fd-banner modal margins/size for preview */
+.fp-preview .fd-banner {
+    margin: 0;
+    height: 82px;
+    border-radius: 0;
+}
+
+/* Background layer inside banner */
+.fp-banner-bg {
+    position: absolute;
+    inset: 0;
+    background-size: cover;
+    background-position: center top;
+    filter: brightness(0.55);
+}
+
+/* Avatar pulled out of banner overflow, positioned on popup */
+.fp-preview .fd-avatar {
+    position: absolute;
+    top: 54px;
+    left: 12px;
+    width: 44px;
+    height: 44px;
+    border-radius: 10px;
+    border: 2px solid var(--bg-card);
+    z-index: 2;
+    flex-shrink: unset;
+}
+
+.fp-body {
+    padding: 16px 12px 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.fp-name-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+}
+
+/* Override fd-name size for preview */
+.fp-preview .fd-name {
+    font-size: 13px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 158px;
+}
+
+.fp-status-row {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 11px;
+    color: var(--tx2);
+    overflow: hidden;
+}
+
+.fp-status-row > span:last-child {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* Remove bottom margin on badge/lang rows and group card in preview */
+.fp-preview .fd-badges-row,
+.fp-preview .fd-lang-tags,
+.fp-preview .fd-group-card {
+    margin-bottom: 0;
+}
+
+/* Bio in preview: no scroll, no max-height, slightly smaller */
+.fp-preview .fd-bio {
+    margin-bottom: 0;
+    max-height: none;
+    overflow-y: visible;
+    font-size: 11px;
+}

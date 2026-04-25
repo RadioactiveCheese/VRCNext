@@ -1,21 +1,26 @@
-**2026.18.6**
+**2026.18.7**
 
-**Friends Sidebar Redesign**
-Status indicators now appear as a badge overlaid on the avatar image (Messenger-style) instead of a colored border.
-- Online/offline/busy/ask/join me friends show a filled dot at the bottom-right of their avatar
-- Web presence friends show a hollow ring instead of a filled dot
-- Your own profile at the top uses the same badge — the old colored frame around your avatar is removed
-- Collapsed sidebar: instance cards no longer have a colored border; a small dot in the instance type color (green = Public, blue = Friends+, red = Invite, orange = Group) is shown instead
+**Changes**
 
-**Performance Settings**
-Added a new Performance card in Settings with four toggleable options (all off by default). A restart button appears automatically when any setting is changed.
-- **Enable Hardware Acceleration** — turns on GPU rendering in WebView2
-- **Enable GPU Shader Cache** — caches compiled shaders to disk for faster startup
-- **Use 128 MB V8 Heap** — raises the JavaScript memory limit from 64 MB to 128 MB
-- **Use 2 Render Processes** — allows WebView2 to use up to two renderer processes
+* Redesigned the Friends sidebar. Collapsed sections now use icons instead of short labels like “GME” or “OFF”
+* Added smooth animations when opening and collapsing the Friends sidebar
+* Added high-contrast text across all designs for improved readability
+
+**New**
+
+* Added a Friend Preview popup. Hovering over a friend in the collapsed sidebar now shows a quick preview with banner, avatar, status, trust rank, badges, current instance, bio, and language tags
+* The current instance in the Friend Preview popup is clickable and can be used to join directly
+
+**Removed**
+
+* Removed the Background Overlay Opacity slider from Settings > Design because it was broken and had no visible effect
 
 **Fixes**
-- Fixed Group Activity dashboard widgets showing no results
-- Fixed Group Activity widgets showing 0 players per instance
-- Group Activity now fetches all instances in 2 API calls instead of N+1 calls per group
-- Fixed Dashboard Theme sidebars clipping content at the bottom when UI zoom is changed via Ctrl+Scroll
+
+* Clicking a world name in an invite notification now correctly opens the world modal
+* Clicking “Current Avatar” on a profile no longer fails when the avatar name contains an apostrophe
+* Group modal: clicking an event no longer fails when the event title contains an apostrophe
+* Event modal: clicking the organizer group link no longer fails when the group name contains an apostrophe
+* World modal: clicking the world author link no longer fails when the author name contains an apostrophe
+* User modal: clicking a group or world card no longer fails when the group or world name contains an apostrophe
+* Dashboard background images are no longer sent as base64 data URIs over the message bridge — they are now served via the local HTTP listener, eliminating large message spam in the debug console

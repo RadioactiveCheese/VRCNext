@@ -75,7 +75,7 @@ function renderVrcFriends(friends, counts) {
         const locationText = getFriendLocationLabel(presenceType, f.location);
         const badgeDotCls = presenceType === 'web' ? 'vrc-status-ring' : 'vrc-status-dot';
         const avatarWrap = `<div class="vrc-friend-avatar-wrap">${imgTag}<span class="vrc-friend-status-badge ${badgeDotCls} ${statusCls}"></span></div>`;
-        return `<div class="vrc-friend-card" data-status="${statusCls}" onclick="openFriendDetail('${fid}')">${avatarWrap}<div class="vrc-friend-info"><div class="vrc-friend-name"><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(f.displayName)}</span>${rankBadge}</div><div class="vrc-friend-loc">${esc(statusText)} &middot; ${esc(locationText)}</div></div></div>`;
+        return `<div class="vrc-friend-card" data-uid="${fid}" data-status="${statusCls}" onclick="openFriendDetail('${fid}')">${avatarWrap}<div class="vrc-friend-info"><div class="vrc-friend-name"><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(f.displayName)}</span>${rankBadge}</div><div class="vrc-friend-loc">${esc(statusText)} &middot; ${esc(locationText)}</div></div></div>`;
     };
 
     const favIds = new Set(favFriendsData.map(f => f.favoriteId));
@@ -84,12 +84,15 @@ function renderVrcFriends(friends, counts) {
         return (order[a.presence] ?? 2) - (order[b.presence] ?? 2);
     }) : [];
 
+    const _sectionIcons = { favorites: 'favorite', ingame: 'sports_esports', web: 'language', offline: 'wifi_off' };
     let h = '';
     const appendSection = (key, count, list, presenceResolver) => {
         if (!list.length) return;
         const chev = friendSectionCollapsed[key] ? 'expand_more' : 'expand_less';
-        h += `<div class="vrc-section-label vrc-offline-toggle" onclick="toggleFriendSection('${key}')" style="cursor:pointer;"><span class="vrc-section-text">${getFriendSectionLabel(key, count)}</span><span class="vrc-section-short">${getFriendSectionShortLabel(key)}</span><span class="msi" style="font-size:14px;" id="${key}Chevron">${chev}</span></div>`;
-        h += `<div id="${key}FriendsSection" style="display:${friendSectionCollapsed[key] ? 'none' : ''};">`;
+        const _active = !friendSectionCollapsed[key] ? ' active' : '';
+        const _navCls = rsidebarCollapsed ? 'nav-btn nav-group-btn ' : '';
+        h += `<div class="${_navCls}vrc-section-label vrc-offline-toggle${_active}" id="${key}SectionLabel" onclick="toggleFriendSection('${key}')" style="cursor:pointer;"><span class="ni msi">${_sectionIcons[key] || 'group'}</span><span class="nl">${getFriendSectionLabel(key, count)}</span><span class="nav-group-arrow msi nl" id="${key}Chevron">${chev}</span></div>`;
+        h += `<div id="${key}FriendsSection" class="friend-section-items${friendSectionCollapsed[key] ? ' collapsed' : ''}">`;
         list.forEach(f => {
             const resolvedPresence = typeof presenceResolver === 'function' ? presenceResolver(f) : presenceResolver;
             h += renderCard(f, resolvedPresence);
@@ -109,8 +112,9 @@ function renderVrcFriends(friends, counts) {
         if (_sharedInst.length) {
             const _slTotal = _sharedInst.reduce((s, [, l]) => s + l.length, 0);
             const _slChev = friendSectionCollapsed.samelocation ? 'expand_more' : 'expand_less';
-            h += `<div class="vrc-section-label vrc-offline-toggle" onclick="toggleFriendSection('samelocation')" style="cursor:pointer;"><span class="vrc-section-text">${tf('profiles.friends.sections.same_location', { count: _slTotal }, 'IN INSTANCE - {count}')}</span><span class="vrc-section-short">${t('profiles.friends.sections_short.same_location', 'HERE')}</span><span class="msi" style="font-size:14px;" id="samelocationChevron">${_slChev}</span></div>`;
-            h += `<div id="samelocationFriendsSection" style="display:${friendSectionCollapsed.samelocation ? 'none' : ''};">`;
+            const _slNavCls = rsidebarCollapsed ? 'nav-btn nav-group-btn ' : '';
+            h += `<div class="${_slNavCls}vrc-section-label vrc-offline-toggle" onclick="toggleFriendSection('samelocation')" style="cursor:pointer;"><span class="ni msi">location_on</span><span class="nl">${tf('profiles.friends.sections.same_location', { count: _slTotal }, 'IN INSTANCE - {count}')}</span><span class="nav-group-arrow msi nl" id="samelocationChevron">${_slChev}</span></div>`;
+            h += `<div id="samelocationFriendsSection" class="friend-section-items${friendSectionCollapsed.samelocation ? ' collapsed' : ''}">`;
             _sharedInst.forEach(([locBase, list]) => {
                 const _wid = locBase.split(':')[0];
                 const _iid = locBase.split(':')[1] || '';
@@ -150,8 +154,10 @@ function toggleFriendSection(key) {
     const [secId, chevId] = ids[key] || [];
     const sec = secId && document.getElementById(secId);
     const chev = chevId && document.getElementById(chevId);
-    if (sec) sec.style.display = friendSectionCollapsed[key] ? 'none' : '';
+    if (sec) sec.classList.toggle('collapsed', !!friendSectionCollapsed[key]);
     if (chev) chev.textContent = friendSectionCollapsed[key] ? 'expand_more' : 'expand_less';
+    const label = document.getElementById(`${key}SectionLabel`);
+    if (label) label.classList.toggle('active', !friendSectionCollapsed[key]);
 }
 
 function filterFriendsList() {
@@ -176,23 +182,23 @@ function filterFriendsList() {
         cards.forEach(c => c.style.display = '');
         sections.forEach(s => s.style.display = '');
         Object.entries(sectionMap).forEach(([key, el]) => {
-            if (el) el.style.display = friendSectionCollapsed[key] ? 'none' : '';
+            if (el) el.classList.toggle('collapsed', !!friendSectionCollapsed[key]);
         });
-        if (favSec)    favSec.style.display    = friendSectionCollapsed.favorites    ? 'none' : '';
-        if (favLabel)  favLabel.style.display   = '';
-        if (slocSec)   slocSec.style.display    = friendSectionCollapsed.samelocation ? 'none' : '';
-        if (slocLabel) slocLabel.style.display  = '';
+        if (favSec)    favSec.classList.toggle('collapsed', !!friendSectionCollapsed.favorites);
+        if (favLabel)  favLabel.style.display  = '';
+        if (slocSec)   slocSec.classList.toggle('collapsed', !!friendSectionCollapsed.samelocation);
+        if (slocLabel) slocLabel.style.display = '';
         return;
     }
 
     // Hide favorites + samelocation while searching (prevents duplicates)
-    if (favSec)    favSec.style.display    = 'none';
+    if (favSec)    favSec.classList.add('collapsed');
     if (favLabel)  favLabel.style.display  = 'none';
-    if (slocSec)   slocSec.style.display   = 'none';
+    if (slocSec)   slocSec.classList.add('collapsed');
     if (slocLabel) slocLabel.style.display = 'none';
 
     // Force-expand all other sections so collapsed cards are still searchable
-    Object.values(sectionMap).forEach(el => { if (el) el.style.display = ''; });
+    Object.values(sectionMap).forEach(el => { if (el) el.classList.remove('collapsed'); });
 
     cards.forEach(c => {
         const name = (c.querySelector('.vrc-friend-name')?.textContent || '').toLowerCase();

@@ -752,6 +752,19 @@ public partial class AppShell
                 var file = Path.Combine(_customThemesDir, rel.Replace('/', Path.DirectorySeparatorChar));
                 await ServeThemeFileAsync(ctx, file);
             }
+            else if (path == "/dashbg")
+            {
+                var query = ctx.Request.Url?.Query ?? "";
+                var fileParam = query.TrimStart('?').Split('&')
+                    .Select(p => p.Split('=', 2))
+                    .Where(p => p.Length == 2 && p[0] == "file")
+                    .Select(p => Uri.UnescapeDataString(p[1]))
+                    .FirstOrDefault();
+                if (!string.IsNullOrEmpty(fileParam) && File.Exists(fileParam))
+                    await ServeFileAsync(ctx, fileParam);
+                else
+                    ctx.Response.StatusCode = 404;
+            }
             else ctx.Response.StatusCode = 404;
         }
         catch { ctx.Response.StatusCode = 500; }

@@ -126,6 +126,47 @@ public class FriendsController
                     await GetFriendDetailAsync(fdId);
                 break;
 
+            case "vrcGetFriendPreview":
+            {
+                var prevId = msg["userId"]?.ToString();
+                if (!string.IsNullOrEmpty(prevId))
+                {
+                    var bio = "";
+                    var profilePicOverride = "";
+
+                    // FFC disk cache — read directly, has full profile with bio
+                    var ffcPath = Path.Combine(
+                        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+                        "VRCNext", "profiles", prevId + ".json");
+                    if (File.Exists(ffcPath))
+                    {
+                        try
+                        {
+                            var disk = JObject.Parse(File.ReadAllText(ffcPath));
+                            bio = disk["bio"]?.ToString() ?? "";
+                            profilePicOverride = disk["profilePicOverride"]?.ToString() ?? "";
+                        }
+                        catch { }
+                    }
+
+                    // Live API fallback if no FFC file yet
+                    if (string.IsNullOrEmpty(bio))
+                    {
+                        _core.SendToJS("vrcFriendPreview", new { id = prevId, bio, profilePicOverride });
+                        var user = await _core.VrcApi.GetUserAsync(prevId);
+                        if (user != null)
+                        {
+                            bio = user["bio"]?.ToString() ?? "";
+                            var pic = user["profilePicOverride"]?.ToString() ?? "";
+                            if (!string.IsNullOrEmpty(pic)) profilePicOverride = pic;
+                        }
+                    }
+
+                    _core.SendToJS("vrcFriendPreview", new { id = prevId, bio, profilePicOverride });
+                }
+                break;
+            }
+
             case "vrcLookupAvatarByFileId":
             {
                 var fileId = msg["fileId"]?.ToString() ?? "";
@@ -665,7 +706,7 @@ public class FriendsController
     // Set of actions this controller handles
     private static readonly HashSet<string> _handledActions = new()
     {
-        "vrcRefreshFriends", "vrcUpdateStatus", "vrcGetFriendDetail", "vrcJoinFriend",
+        "vrcRefreshFriends", "vrcUpdateStatus", "vrcGetFriendDetail", "vrcGetFriendPreview", "vrcJoinFriend",
         "vrcInviteFriend", "vrcInviteFriendWithPhoto", "vrcGetInviteMessages",
         "vrcUpdateInviteMessage", "vrcRequestInvite", "vrcUpdateNote", "vrcBatchInvite",
         "vrcGetFavoriteFriends", "vrcAddFavoriteFriend", "vrcRemoveFavoriteFriend",

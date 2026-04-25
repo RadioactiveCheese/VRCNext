@@ -61,7 +61,7 @@ function renderEventDetail(ev) {
 
     const groupHtml = groupName
         ? `<div class="fd-section-label" style="margin-top:12px;">${t('calendar.detail.organizer', 'Organizer')}</div>
-           <div style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:6px 0;" onclick="navOpenModal('group','${groupOpenId}','${esc(groupName || '')}')">
+           <div style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:6px 0;" onclick="navOpenModal('group','${groupOpenId}','${jsq(groupName || '')}')">
                ${groupIconUrl ? `<img src="${groupIconUrl}" style="width:28px;height:28px;border-radius:6px;object-fit:cover;">` : ''}
                <span style="font-size:13px;color:var(--tx1);">${esc(groupName)}</span>
                <span class="msi" style="font-size:14px;color:var(--tx3);">chevron_right</span>
@@ -90,7 +90,7 @@ function renderEventDetail(ev) {
             ${ev.description ? `<div class="fd-section-label" style="margin-top:12px;">${t('calendar.detail.about', 'About')}</div><div class="fd-bio">${esc(ev.description)}</div>` : ''}
             <div style="display:flex;justify-content:flex-start;align-items:center;gap:8px;margin-top:16px;">
                 <button class="vrcn-button-round vrcn-btn-join" id="${followBtnId}" onclick="toggleFollowEvent('${groupId}','${calendarId}',${isFollowing},this)"><span class="msi">${isFollowing ? 'notifications_off' : 'notifications_active'}</span><span class="ev-follow-lbl">${followLabel}</span></button>
-                ${gid ? `<button class="vrcn-button-round" onclick="navOpenModal('group','${groupOpenId}','${esc(groupName || '')}')"><span class="msi">group</span><span>${t('calendar.detail.open_group', 'Open Group')}</span></button>` : ''}
+                ${gid ? `<button class="vrcn-button-round" onclick="navOpenModal('group','${groupOpenId}','${jsq(groupName || '')}')"><span class="msi">group</span><span>${t('calendar.detail.open_group', 'Open Group')}</span></button>` : ''}
                 <button class="vrcn-button-round" onclick="closeEventDetail()" style="margin-left:auto;">${t('common.close', 'Close')}</button>
             </div>
         </div>`;

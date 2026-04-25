@@ -48,10 +48,7 @@ function renderDashboard() {
         bgEl.style.backgroundImage = `url('fallback_bg.png')`;
     }
     const fadeEl = document.querySelector('.dash-hero-fade');
-    if (fadeEl) {
-        const op = dashOpacity / 100;
-        fadeEl.style.background = `linear-gradient(to bottom, rgba(0,0,0,${op * 0.4}) 0%, var(--bg-base) 100%)`;
-    }
+    if (fadeEl) fadeEl.style.background = `linear-gradient(to bottom, rgba(0,0,0,0.20) 0%, var(--bg-base) 100%)`;
     if (currentSpecialTheme === 'auto') applyAutoColor();
 
     renderDashWorlds();

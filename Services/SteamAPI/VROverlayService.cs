@@ -144,7 +144,7 @@ namespace VRCNext.Services
         //  Tool states
         private bool _toolDiscord  = false;
         private bool _toolVoice    = false;
-        private bool _toolYtFix    = false;
+        private bool _toolKikitan  = false;
         private bool _toolSpaceFlt = false;
         private bool _toolRelay    = false;
         private bool _toolChatbox  = false;
@@ -289,11 +289,11 @@ namespace VRCNext.Services
             OnWaterDismissed?.Invoke();
         }
 
-        public void SetToolStates(bool discord, bool voiceFight, bool ytFix, bool spaceFlight, bool relay, bool chatbox)
+        public void SetToolStates(bool discord, bool voiceFight, bool kikitan, bool spaceFlight, bool relay, bool chatbox)
         {
             _toolDiscord  = discord;
             _toolVoice    = voiceFight;
-            _toolYtFix    = ytFix;
+            _toolKikitan  = kikitan;
             _toolSpaceFlt = spaceFlight;
             _toolRelay    = relay;
             _toolChatbox  = chatbox;
@@ -3124,12 +3124,12 @@ namespace VRCNext.Services
 
             // Layout: 2 cols × 3 rows
             // Icons: Material Symbols Rounded codepoints — 1:1 same as sidebar
-            // sensors=\uE51E  mic=\uE31D  smart_display=\uF06A  rocket_launch=\uEB9B  cell_tower=\uEBBA  chat=\uE0C9
+            // sensors=\uE51E  mic=\uE31D  translate=  rocket_launch=\uEB9B  cell_tower=\uEBBA  chat=\uE0C9
             var tools = new (string Icon, string Label, bool Active)[]
             {
                 ("\uE51E", "Discord Presence", _toolDiscord),
                 ("\uE31D", "Voice Fight",      _toolVoice),
-                ("\uF06A", "YouTube Fix",      _toolYtFix),
+                ("\uE927", "Kikitan XD",      _toolKikitan),
                 ("\uEB9B", "Space Flight",     _toolSpaceFlt),
                 ("\uEBBA", "Media Relay",      _toolRelay),
                 ("\uE0C9", "Custom Chatbox",   _toolChatbox),

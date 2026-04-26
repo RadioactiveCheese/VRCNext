@@ -12,7 +12,7 @@
     cursor: default;
     background: transparent;
     z-index: 20;
-    overflow: hidden;
+    overflow: visible;
 }
 
 .topbar-title {
@@ -21,6 +21,9 @@
     color: var(--tx0);
     min-width: 0;
     flex-shrink: 1;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
 }
 
 .win-controls {
@@ -30,24 +33,12 @@
     margin-left: 4px;
 }
 
-.mini-badge-label[data-short] {
-    transition: font-size .15s ease;
-}
-.topbar.compact .mini-badge-label[data-short] {
-    font-size: 0;
-}
-.topbar.compact .mini-badge-label[data-short]::after {
-    content: attr(data-short);
-    font-size: 11px;
-    font-weight: 600;
-    letter-spacing: .3px;
-}
 
 .mini-badge {
     display: flex;
     align-items: center;
     gap: 5px;
-    padding: 3px 10px;
+    padding: 3px 8px;
     border-radius: 14px;
     border: 1px solid transparent;
     font-size: 11px;
@@ -56,6 +47,11 @@
     transition: all .2s;
     user-select: none;
 }
+
+.mini-badge .mini-badge-icon {
+    line-height: normal;
+}
+
 
 .mini-badge.offline {
     background: rgba(65,80,110,.1);

@@ -1363,10 +1363,14 @@ public partial class AppShell
 
                 // Kikitan XD
                 case "kxdGetDevices":
-                case "kxdStart":
-                case "kxdStop":
                 case "kxdSaveSettings":
                     _kxdCtrl.HandleMessage(action, msg);
+                    break;
+
+                case "kxdStart":
+                case "kxdStop":
+                    _kxdCtrl.HandleMessage(action, msg);
+                    _vroCtrl.UpdateToolStates();
                     break;
 
                 // Event Snipe

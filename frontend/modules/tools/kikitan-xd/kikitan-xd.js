@@ -3,6 +3,7 @@
 let kxdRunning = false;
 let _kxdDevicesPayload = null;
 let kxdNoiseGatePct = 10;
+let _kxdPendingConnect = false;
 
 const KXD_SOURCE_LANGS = [
     { code: 'auto', name: 'Auto Detect' },
@@ -81,6 +82,8 @@ function handleKxdState(p) {
     kxdRunning = !!p.running;
     kxdSyncStateUi();
     if (!kxdRunning) updateKxdMeter(0);
+    const bdKxd = document.getElementById('badgeKxd');
+    if (bdKxd) bdKxd.className = kxdRunning ? 'mini-badge online' : 'mini-badge offline';
 }
 
 function kxdConnect() {
@@ -89,15 +92,21 @@ function kxdConnect() {
         return;
     }
 
+    if (!_kxdDevicesPayload) {
+        _kxdPendingConnect = true;
+        sendToCS({ action: 'kxdGetDevices' });
+        return;
+    }
+
     const devSel = document.getElementById('kxdDeviceSelect');
-    const deviceIndex = devSel ? (parseInt(devSel.value, 10) || 0) : 0;
-    const apiKey = (document.getElementById('kxdApiKey')?.value || '').trim();
+    const deviceIndex = devSel ? (parseInt(devSel.value, 10) || 0) : (_kxdDevicesPayload.savedIndex ?? 0);
+    const apiKey = (document.getElementById('kxdApiKey')?.value || _kxdDevicesPayload.apiKey || '').trim();
     const srcSel = document.getElementById('kxdSourceLang');
     const tgtSel = document.getElementById('kxdTargetLang');
-    const sourceLang = srcSel ? srcSel.value : 'auto';
-    const targetLang = tgtSel ? tgtSel.value : 'en';
-    const translateEnabled = !!(document.getElementById('kxdTranslateToggle')?.checked);
-    const oscEnabled = !!(document.getElementById('kxdOscToggle')?.checked);
+    const sourceLang = srcSel?.value || _kxdDevicesPayload.sourceLang || 'auto';
+    const targetLang = tgtSel?.value || _kxdDevicesPayload.targetLang || 'en';
+    const translateEnabled = document.getElementById('kxdTranslateToggle')?.checked ?? !!_kxdDevicesPayload.translateEnabled;
+    const oscEnabled = document.getElementById('kxdOscToggle')?.checked ?? !!_kxdDevicesPayload.oscEnabled;
 
     if (!apiKey) {
         alert('Please enter your Groq API key.');
@@ -109,6 +118,11 @@ function kxdConnect() {
 
 function populateKxdDevices(p) {
     _kxdDevicesPayload = p;
+    if (_kxdPendingConnect) {
+        _kxdPendingConnect = false;
+        kxdConnect();
+        return;
+    }
 
     const sel = document.getElementById('kxdDeviceSelect');
     if (sel) {

@@ -1697,6 +1697,8 @@
   "kikitan.translation.title": "Uebersetzung",
   "kikitan.devices.no_microphone": "Kein Mikrofon gefunden",
   "kikitan.noise_gate": "Noise Gate",
+  "kikitan.api_key.hint": "Kikitan XD benötigt einen kostenlosen Groq API-Schlüssel für Spracherkennung und Live-Übersetzung. Registriere dich mit Google, GitHub, SSO oder E-Mail auf console.groq.com/keys, erstelle einen API-Schlüssel und füge ihn oben ein.",
+  "kikitan.api_key.open_dashboard": "Groq-Schlüssel-Dashboard öffnen",
 
   "nav.event_snipe": "Event Snipe",
   "page.event_snipe": "Event Snipe",

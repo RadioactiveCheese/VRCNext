@@ -93,6 +93,29 @@ public class KikitanXDController : IDisposable
         }
     }
 
+    public void Toggle()
+    {
+        if (IsRunning)
+        {
+            _service?.Stop();
+            _core.SendToJS("kxdState", new { running = false });
+            _core.SendToJS("kxdMeter", new { level = 0f });
+        }
+        else
+        {
+            _service?.Dispose();
+            _service = new KikitanXDService();
+            _service.OnLog += s => Invoke(() => _core.SendToJS("log", new { msg = s, color = "sec" }));
+            _service.OnRecognized += (text, isPartial) =>
+                Invoke(() => _core.SendToJS("kxdRecognized", new { text, isPartial }));
+            _service.OnTranslated += text =>
+                Invoke(() => _core.SendToJS("kxdTranslated", new { text }));
+            _service.Start(_settings.InputDeviceIndex, _settings.ApiKey, _settings.SourceLang,
+                _settings.TargetLang, _settings.TranslateEnabled, _settings.OscEnabled, _settings.NoiseGatePercent);
+            _core.SendToJS("kxdState", new { running = true });
+        }
+    }
+
     public void Dispose()
     {
         _service?.Dispose();

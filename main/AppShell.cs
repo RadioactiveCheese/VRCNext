@@ -179,7 +179,7 @@ public partial class AppShell
         _vroCtrl.GetToolStates = () => (
             _discordCtrl.IsConnected,
             _vfCtrl.IsRunning,
-            _relayCtrl.IsVcRunning,
+            _kxdCtrl.IsRunning,
             _sfCtrl.IsConnected,
             _relayCtrl.IsRunning,
             _chatboxCtrl.IsEnabled);
@@ -640,8 +640,8 @@ public partial class AppShell
                 _vfCtrl.Toggle();
                 break;
 
-            case 2: // YouTube Fix
-                _relayCtrl.ToggleVc();
+            case 2: // Kikitan XD
+                _kxdCtrl.Toggle();
                 break;
 
             case 3: // Space Flight

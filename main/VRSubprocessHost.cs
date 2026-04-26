@@ -272,8 +272,8 @@ public sealed class VRSubprocessHost : IDisposable
     public void UpdateMediaInfo(string title, string artist, double position, double duration, bool playing)
         => Send("vro_update_media", new { title, artist, position, duration, playing });
 
-    public void SetToolStates(bool discord, bool voice, bool ytFix, bool space, bool relay, bool chatbox)
-        => Send("vro_tool_states", new { discord, voice, ytFix, space, relay, chatbox });
+    public void SetToolStates(bool discord, bool voice, bool kikitan, bool space, bool relay, bool chatbox)
+        => Send("vro_tool_states", new { discord, voice, kikitan, space, relay, chatbox });
 
     public void SfConnect(float multiplier, bool lockX, bool lockY, bool lockZ,
         bool leftHand, bool rightHand, bool useGrip)

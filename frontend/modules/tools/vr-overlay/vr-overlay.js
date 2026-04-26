@@ -50,6 +50,7 @@ function handleVroState(d) {
     const txt   = document.getElementById('vroStatusText');
     const btn   = document.getElementById('vroConnBtn');
     const badge = document.getElementById('badgeVro');
+    const badgeTop = document.getElementById('badgeVroTop');
 
     if (d.connected) {
         dot?.classList.replace('offline', 'online');
@@ -57,6 +58,7 @@ function handleVroState(d) {
         if (txt) txt.style.color = 'var(--ok)';
         if (btn) btn.innerHTML = `<span class="msi" style="font-size:16px;">link_off</span> ${t('common.disconnect', 'Disconnect')}`;
         badge?.classList.replace('offline', 'online');
+        if (badgeTop) badgeTop.className = 'mini-badge online';
         if (currentSpecialTheme === 'auto') applyAutoColor();
         else {
             const t = (typeof THEMES !== 'undefined' && THEMES[currentTheme])
@@ -69,6 +71,7 @@ function handleVroState(d) {
         if (txt) txt.style.color = d.error ? 'var(--err)' : 'var(--tx3)';
         if (btn) btn.innerHTML = `<span class="msi" style="font-size:16px;">link</span> ${t('common.connect', 'Connect')}`;
         badge?.classList.replace('online', 'offline');
+        if (badgeTop) badgeTop.className = 'mini-badge offline';
     }
 
     const controlCard = document.getElementById('vroControlCard');

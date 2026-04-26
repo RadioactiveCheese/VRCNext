@@ -185,7 +185,7 @@ static class VRSubprocess
 
             case "vro_tool_states":
                 vro.SetToolStates(
-                    B(cmd, "discord"), B(cmd, "voice"), B(cmd, "ytFix"),
+                    B(cmd, "discord"), B(cmd, "voice"), B(cmd, "kikitan"),
                     B(cmd, "space"),   B(cmd, "relay"), B(cmd, "chatbox"));
                 break;
 

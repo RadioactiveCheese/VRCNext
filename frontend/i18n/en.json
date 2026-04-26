@@ -1716,6 +1716,8 @@
   "kikitan.translation.title": "Translation",
   "kikitan.devices.no_microphone": "No microphone found",
   "kikitan.noise_gate": "Noise Gate",
+  "kikitan.api_key.hint": "Kikitan XD requires a free Groq API key for Speech-To-Text and live translation. Sign up with Google, GitHub, SSO or email at console.groq.com/keys, create a new API key, and paste it above.",
+  "kikitan.api_key.open_dashboard": "Open Groq Key Dashboard",
 
   "nav.event_snipe": "Event Snipe",
   "page.event_snipe": "Event Snipe",

@@ -1694,6 +1694,8 @@
   "kikitan.translation.title": "翻訳",
   "kikitan.devices.no_microphone": "マイクが見つかりません",
   "kikitan.noise_gate": "ノイズゲート",
+  "kikitan.api_key.hint": "Kikitan XDの音声認識とライブ翻訳には、無料のGroq APIキーが必要です。console.groq.com/keysでGoogle、GitHub、SSOまたはメールで登録し、APIキーを作成して上に貼り付けてください。",
+  "kikitan.api_key.open_dashboard": "Groqキー管理を開く",
 
   "nav.event_snipe": "イベントスナイプ",
   "page.event_snipe": "イベントスナイプ",

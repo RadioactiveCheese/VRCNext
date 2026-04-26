@@ -1695,6 +1695,8 @@
   "kikitan.translation.title": "翻译",
   "kikitan.devices.no_microphone": "未找到麦克风",
   "kikitan.noise_gate": "噪声门",
+  "kikitan.api_key.hint": "Kikitan XD需要免费的Groq API密钥用于语音识别和实时翻译。请在console.groq.com/keys使用Google、GitHub、SSO或邮箱注册，创建API密钥并粘贴到上方。",
+  "kikitan.api_key.open_dashboard": "打开 Groq 密钥控制台",
 
   "nav.event_snipe": "活动狙击",
   "page.event_snipe": "活动狙击",

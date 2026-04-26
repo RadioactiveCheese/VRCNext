@@ -844,6 +844,7 @@ case 'popularWorlds':
     }
 });
 sendToCS({ action: 'ready' });
+sendToCS({ action: 'kxdGetDevices' });
 
 // Crash Report Modal
 

@@ -1306,6 +1306,8 @@ function vcInstall() {
 function handleVcState(d) {
     _vcLastState = d;
     if (typeof updateDashQuickControls === 'function') updateDashQuickControls();
+    const bdYt = document.getElementById('badgeYt');
+    if (bdYt) bdYt.className = d.running ? 'mini-badge online' : 'mini-badge offline';
     const running    = !!d.running;
     const installed  = !!d.installed;
     const dot        = document.getElementById('vcDot');

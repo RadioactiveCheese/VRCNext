@@ -7,6 +7,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Azeret+Mono:wght@400;500;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="Styles/styles.css">
+    <link rel="stylesheet" href="Styles/core.css">
     <link rel="stylesheet" href="Styles/animations.css">
     <link rel="stylesheet" href="Styles/topbar.css">
     <link rel="stylesheet" href="Styles/scrollbars.css">
@@ -99,10 +100,14 @@
             <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;">
                 <div class="mini-badge vrcplus" id="badgeVrcPlus" style="display:none;"><span class="mini-badge-label">VRC+</span></div>
                 <div class="mini-badge vcredits" id="badgeVrcCredits" style="display:none;"><span class="mini-badge-label" id="badgeVrcCreditsLabel">V 0</span></div>
-                <div class="mini-badge offline" id="badgeRelay"><span class="msi mini-badge-icon">cell_tower</span><span class="mini-badge-label" data-short="RL" data-i18n="relay.badge">Relay</span></div>
-                <div class="mini-badge offline" id="badgeChatbox"><span class="msi mini-badge-icon">chat</span><span class="mini-badge-label" data-short="CB" data-i18n="topbar.chatbox">Chatbox</span></div>
-                <div class="mini-badge offline" id="badgeSpace"><span class="msi mini-badge-icon">rocket_launch</span><span class="mini-badge-label" data-short="SP" data-i18n="steamvr.badge">Space</span></div>
-                <div class="mini-badge offline" id="badgeVoice"><span class="msi mini-badge-icon">mic</span><span class="mini-badge-label" data-short="VO" data-i18n="topbar.voice">Voice</span></div>
+                <div class="mini-badge offline" id="badgeRelay" data-tooltip="Media Relay" onclick="toggleRelay()"><span class="msi mini-badge-icon">cell_tower</span></div>
+                <div class="mini-badge offline" id="badgeChatbox" data-tooltip="Custom Chatbox" onclick="toggleChatbox()"><span class="msi mini-badge-icon">chat</span></div>
+                <div class="mini-badge offline" id="badgeSpace" data-tooltip="Space Flight" onclick="sfConnect()"><span class="msi mini-badge-icon">rocket_launch</span></div>
+                <div class="mini-badge offline" id="badgeVoice" data-tooltip="Voice Fight" onclick="if(!vfRunning)vfOnTabOpen();vfConnect()"><span class="msi mini-badge-icon">mic</span></div>
+                <div class="mini-badge offline" id="badgeDp" data-tooltip="Discord Presence" onclick="dpToggle()"><span class="msi mini-badge-icon">sensors</span></div>
+                <div class="mini-badge offline" id="badgeYt" data-tooltip="YouTube Fix" onclick="toggleVc()"><span class="msi mini-badge-icon">smart_display</span></div>
+                <div class="mini-badge offline" id="badgeKxd" data-tooltip="Kikitan XD" onclick="kxdConnect()"><span class="msi mini-badge-icon">translate</span></div>
+                <div class="mini-badge offline" id="badgeVroTop" data-tooltip="VR Overlay" onclick="vroConnect()"><span class="msi mini-badge-icon">watch</span></div>
                 <button class="btn-notif" onclick="sendToCS({action:'openUrl',url:'https://discord.gg/dHsrWJzNS9'})" title="Join Discord"><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" style="flex-shrink:0;"><path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028 14.09 14.09 0 0 0 1.226-1.994.076.076 0 0 0-.041-.106 13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.892.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.946 2.418-2.157 2.418z"/></svg></button>
                 <button class="btn-notif" id="btnUpdate" onclick="toggleUpdatePanel()" title="Update available" data-i18n-title="update.available" style="display:none;"><span class="msi" style="font-size:20px;">system_update_alt</span><span class="notif-count" id="updateBadge">1</span></button>
                 <button class="btn-notif" id="btnChat" onclick="toggleChatPanel()" title="Messages" data-i18n-title="common.messages"><span class="msi" style="font-size:20px;">forum</span><span class="notif-count" id="chatBadge" style="display:none;">0</span></button>
@@ -1738,6 +1743,9 @@
                     <div class="vrcn-panel-card">
                         <div class="vrcn-panel-card-header"><span class="msi">key</span> <span data-i18n="kikitan.api_key">Groq API Key</span></div>
                         <input id="kxdApiKey" type="password" class="vrcn-edit-field" style="width:100%;box-sizing:border-box;" placeholder="gsk_..." onblur="kxdSaveSettings()">
+                        <div style="font-size:11px;color:var(--tx3);margin-top:8px;line-height:1.5;" data-i18n="kikitan.api_key.hint">Kikitan XD requires a free Groq API key for Speech-To-Text and live translation. Sign up with Google, GitHub, SSO or email at console.groq.com/keys, create a new API key, and paste it above.</div>
+                        <a onclick="sendToCS({action:'openUrl',url:'https://console.groq.com/keys'})" style="display:inline-flex;align-items:center;gap:4px;font-size:11px;color:var(--accent);cursor:pointer;margin-top:6px;text-decoration:none;" data-i18n="kikitan.api_key.open_dashboard">Open Groq Key Dashboard</a>
+                        <div style="font-size:11px;color:var(--tx3);margin-top:10px;padding-top:10px;border-top:1px solid var(--bg-line, rgba(255,255,255,.06));line-height:1.5;">Kikitan XD is based on <a onclick="sendToCS({action:'openUrl',url:'https://github.com/YusufOzmen01/kikitan-translator'})" style="color:var(--accent);cursor:pointer;">Kikitan by YusufOzmen01</a> (MIT License) <a onclick="sendToCS({action:'openUrl',url:'https://github.com/YusufOzmen01/kikitan-translator'})" style="color:var(--accent);cursor:pointer;">github.com/YusufOzmen01/kikitan-translator</a></div>
                     </div>
                     <!-- Mic + Volume -->
                     <div class="vrcn-panel-card">
@@ -2081,6 +2089,7 @@
     <!-- Notification Cards (bottom-right, incoming VRChat notifications) -->
     <div id="notifCardArea"></div>
 
+    <script src="core/hover/hover.js"></script>
     <script src="core/notifications/toast.js"></script>
     <script src="core/notifications/notification-toast.js"></script>
     <script src="core/items/profile-item.js"></script>

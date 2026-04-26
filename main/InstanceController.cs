@@ -421,7 +421,7 @@ public class InstanceController
                             return (WorldId: kv.Key, WorldName: name, WorldThumb: thumb,
                                     Seconds: wSec, Visits: visits);
                         })
-                        .Where(w => !string.IsNullOrEmpty(w.WorldName))
+                        .Where(w => !string.IsNullOrEmpty(w.WorldName) && w.Seconds > 0)
                         .OrderByDescending(w => w.Seconds)
                         .ToList();
 
@@ -489,6 +489,7 @@ public class InstanceController
                     // Backfill world thumbs on the current page (re-fetch any world not yet resolved this session)
                     var missingWorldIds = worldPage
                         .Where(w => !string.IsNullOrEmpty(w.WorldId)
+                            && string.IsNullOrEmpty(w.WorldThumb)
                             && !_core.WorldThumbCache.ContainsKey(w.WorldId))
                         .Select(w => w.WorldId).Distinct().Take(20).ToList();
 

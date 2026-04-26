@@ -24,6 +24,10 @@
 * Added VR Overlay to the Topbar
 * Moved System tray below Performance settings and added tips
 
+**Time Spent**
+* Fixed world images and names being re-fetched from the VRChat API every time the Time Spent tab is opened. They are now only fetched once and persisted — subsequent opens use the cached data.
+* Fixed worlds with 0 seconds appearing in the Time Spent world list.
+
 **Fixed**
 
 * Auto Color now keeps working after selecting a dashboard background

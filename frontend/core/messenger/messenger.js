@@ -118,9 +118,9 @@ function handleSharedContentInfo(payload) {
         const n = name || '', im = image || '';
         _msgrContentCache[contentId] = { name: n, image: im };
         if (contentType === 'avtr' && typeof avatarInfoCache !== 'undefined')
-            avatarInfoCache[contentId] = { id: contentId, name: n, thumbnailImageUrl: im };
+            avatarInfoCache[contentId] = { id: contentId, name: n };
         else if (contentType === 'wrld' && typeof worldInfoCache !== 'undefined')
-            worldInfoCache[contentId] = { id: contentId, name: n, thumbnailImageUrl: im };
+            worldInfoCache[contentId] = { id: contentId, name: n };
         msgrApplyContentCard(contentId, n, im);
     }
 }

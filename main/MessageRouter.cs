@@ -43,7 +43,7 @@ public partial class AppShell
 
         foreach (var (id, name, rawImageUrl) in entries)
         {
-            var image = _imgCache != null ? await _imgCache.GetAsync(rawImageUrl) : rawImageUrl;
+            var image = rawImageUrl;
             if (!string.IsNullOrEmpty(name) || !string.IsNullOrEmpty(image))
                 Invoke(() => SendToJS("vrcSharedContentInfo", new { contentId = id, name, image }));
         }
@@ -386,8 +386,8 @@ public partial class AppShell
                     var upPronouns = msg["pronouns"] != null ? msg["pronouns"]!.ToString() : (string?)null;
                     var upBioLinks = msg["bioLinks"]?.ToObject<List<string>>();
                     var upTags = msg["tags"]?.ToObject<List<string>>();
-                    var upUserIcon = msg["userIcon"]           != null ? _imgCache?.GetOriginalUrl(msg["userIcon"]!.ToString())           ?? msg["userIcon"]!.ToString()           : (string?)null;
-                    var upBanner   = msg["profilePicOverride"] != null ? _imgCache?.GetOriginalUrl(msg["profilePicOverride"]!.ToString()) ?? msg["profilePicOverride"]!.ToString() : (string?)null;
+                    var upUserIcon = msg["userIcon"]           != null ? msg["userIcon"]!.ToString()           : (string?)null;
+                    var upBanner   = msg["profilePicOverride"] != null ? msg["profilePicOverride"]!.ToString() : (string?)null;
                     _ = Task.Run(async () =>
                     {
                         var updUser = await _vrcApi.UpdateProfileAsync(upBio, upPronouns, upBioLinks, upTags, upUserIcon, upBanner);
@@ -682,8 +682,8 @@ public partial class AppShell
                                 id                  = wdId,
                                 name                = wdCached.WorldName,
                                 description         = wdCached.Description,
-                                imageUrl            = _imgCache?.GetWorldBanner(wdCached.ImageUrl) ?? wdCached.ImageUrl,
-                                thumbnailImageUrl   = _imgCache?.GetWorldBanner(wdCached.WorldThumb) ?? wdCached.WorldThumb,
+                                imageUrl            = wdCached.ImageUrl,
+                                thumbnailImageUrl   = wdCached.WorldThumb,
                                 authorName          = wdCached.AuthorName,
                                 authorId            = wdCached.AuthorId,
                                 occupants           = 0,
@@ -876,8 +876,8 @@ public partial class AppShell
                                 id = world["id"]?.ToString() ?? "",
                                 name = world["name"]?.ToString() ?? "",
                                 description = world["description"]?.ToString() ?? "",
-                                imageUrl = _imgCache?.GetWorldBanner(world["imageUrl"]?.ToString()) ?? world["imageUrl"]?.ToString() ?? "",
-                                thumbnailImageUrl = _imgCache?.GetWorldBanner(world["thumbnailImageUrl"]?.ToString()) ?? world["thumbnailImageUrl"]?.ToString() ?? "",
+                                imageUrl = world["imageUrl"]?.ToString() ?? "",
+                                thumbnailImageUrl = world["thumbnailImageUrl"]?.ToString() ?? "",
                                 authorName = world["authorName"]?.ToString() ?? "",
                                 authorId = world["authorId"]?.ToString() ?? "",
                                 occupants = world["occupants"]?.Value<int>() ?? 0,
@@ -1075,12 +1075,6 @@ public partial class AppShell
                             if (!string.IsNullOrEmpty(name) || !string.IsNullOrEmpty(rawImage))
                                 Invoke(() => SendToJS("vrcSharedContentInfo", new { contentId = scId, contentType = scType, name, image = rawImage }));
                             // Await download, then send update with localhost URL
-                            if (!string.IsNullOrEmpty(rawImage) && _imgCache != null)
-                            {
-                                var localImage = await _imgCache.GetAsync(rawImage);
-                                if (!string.IsNullOrEmpty(localImage) && localImage != rawImage)
-                                    Invoke(() => SendToJS("vrcSharedContentInfo", new { contentId = scId, contentType = scType, name, image = localImage }));
-                            }
                         });
                     }
                     break;

@@ -489,8 +489,7 @@ public class InstanceController
                     // Backfill world thumbs on the current page (re-fetch any world not yet resolved this session)
                     var missingWorldIds = worldPage
                         .Where(w => !string.IsNullOrEmpty(w.WorldId)
-                            && string.IsNullOrEmpty(w.WorldThumb)
-                            && !_core.WorldThumbCache.ContainsKey(w.WorldId))
+                            && string.IsNullOrEmpty(w.WorldThumb))
                         .Select(w => w.WorldId).Distinct().Take(20).ToList();
 
                     bool anyResolved = false;
@@ -503,7 +502,6 @@ public class InstanceController
                             {
                                 var wName  = wj["name"]?.ToString() ?? "";
                                 var wThumb = wj["imageUrl"]?.ToString() ?? wj["thumbnailImageUrl"]?.ToString() ?? "";
-                                _core.WorldThumbCache[wid] = wThumb;
                                 _core.TimeEngine.UpdateWorldInfo(wid, wName, wThumb);
                                 var idx = worldPage.FindIndex(x => x.WorldId == wid);
                                 if (idx >= 0)
@@ -515,9 +513,8 @@ public class InstanceController
                                     anyResolved = true;
                                 }
                             }
-                            else _core.WorldThumbCache[wid] = "";
-                        }
-                        catch { _core.WorldThumbCache[wid] = ""; }
+                            }
+                        catch { }
                     }
 
                     // Backfill missing person images on the current page
@@ -534,10 +531,8 @@ public class InstanceController
                             try
                             {
                                 string resolved = "";
-                                if (_core.PlayerImageCache.TryGetValue(uid, out var ci) && !string.IsNullOrEmpty(ci))
-                                    resolved = ci;
-                                else if (_friends.TryGetNameImage(uid, out var fi) && !string.IsNullOrEmpty(fi.image))
-                                { resolved = fi.image; _core.PlayerImageCache[uid] = fi.image; }
+                                if (_friends.TryGetNameImage(uid, out var fi) && !string.IsNullOrEmpty(fi.image))
+                                    resolved = fi.image;
                                 else
                                 {
                                     var profile = await _core.VrcApi.GetUserAsync(uid);
@@ -545,11 +540,7 @@ public class InstanceController
                                     {
                                         var img = VRChatApiService.GetUserImage(profile);
                                         if (!string.IsNullOrEmpty(img))
-                                        {
                                             resolved = img;
-                                            _core.PlayerImageCache[uid] = img;
-                                            _core.Timeline.SetUserImage(uid, img);
-                                        }
                                     }
                                     await Task.Delay(250);
                                 }
@@ -570,20 +561,6 @@ public class InstanceController
 
                     if (anyResolved)
                     {
-                        // Pre-download world thumbs so JS gets localhost URLs, not auth-gated VRC URLs
-                        if (_core.ImgCache != null)
-                        {
-                            for (int i = 0; i < worldPage.Count; i++)
-                            {
-                                var w = worldPage[i];
-                                if (!string.IsNullOrEmpty(w.WorldThumb) && w.WorldThumb.StartsWith("http") && !w.WorldThumb.Contains("localhost"))
-                                {
-                                    var localUrl = await _core.ImgCache.GetWorldAsync(w.WorldThumb);
-                                    if (!string.IsNullOrEmpty(localUrl) && localUrl.Contains("localhost"))
-                                        worldPage[i] = (w.WorldId, w.WorldName, localUrl, w.Seconds, w.Visits);
-                                }
-                            }
-                        }
                         SendPage();
                     }
                 });
@@ -714,11 +691,6 @@ public class InstanceController
                             if (profile != null)
                             {
                                 var img = VRChatApiService.GetUserImage(profile);
-                                if (!string.IsNullOrEmpty(img))
-                                {
-                                    _core.PlayerImageCache[p.UserId] = img;
-                                    _core.Timeline.SetUserImage(p.UserId, img); // persist across restarts
-                                }
                                 _core.PlayerAgeVerifiedCache[p.UserId] = profile["ageVerified"]?.Value<bool>() ?? false;
                                 _core.PlayerProfileCache[p.UserId] = profile;
                                 lock (userProfiles)
@@ -758,10 +730,6 @@ public class InstanceController
                         else if (_friends.TryGetNameImage(p.UserId, out var fi) && !string.IsNullOrEmpty(fi.image))
                         {
                             img = fi.image;
-                        }
-                        else if (_core.PlayerImageCache.TryGetValue(p.UserId, out var ci) && !string.IsNullOrEmpty(ci))
-                        {
-                            img = ci;
                         }
                     }
                     users.Add(new {
@@ -825,8 +793,6 @@ public class InstanceController
             string img = "";
             if (_friends.TryGetNameImage(p.UserId ?? "", out var fi) && !string.IsNullOrEmpty(fi.image))
                 img = fi.image;
-            else if (_core.PlayerImageCache.TryGetValue(p.UserId ?? "", out var ci) && !string.IsNullOrEmpty(ci))
-                img = ci;
 
             var av = !string.IsNullOrEmpty(p.UserId) && _core.PlayerAgeVerifiedCache.TryGetValue(p.UserId, out var cached) && cached;
 
@@ -1082,8 +1048,6 @@ public class InstanceController
                         if (profile == null) return;
                         var fetchedImg = VRChatApiService.GetUserImage(profile);
                         if (string.IsNullOrEmpty(fetchedImg)) return;
-                        _core.PlayerImageCache[userId]   = fetchedImg;
-                        _core.Timeline.SetUserImage(userId, fetchedImg); // persist across restarts
                         _core.PlayerProfileCache[userId]   = profile;
                         _core.PlayerAgeVerifiedCache[userId] = profile["ageVerified"]?.Value<bool>() ?? false;
                         if (_cumulativeInstancePlayers.TryGetValue(userId, out var ex2) && string.IsNullOrEmpty(ex2.image))
@@ -1153,8 +1117,6 @@ public class InstanceController
                             if (profile == null) return;
                             var fetchedImg = VRChatApiService.GetUserImage(profile);
                             if (string.IsNullOrEmpty(fetchedImg)) return;
-                            _core.PlayerImageCache[userId]   = fetchedImg;
-                            _core.Timeline.SetUserImage(userId, fetchedImg); // persist across restarts
                             _core.PlayerProfileCache[userId]   = profile;
                             _core.PlayerAgeVerifiedCache[userId] = profile["ageVerified"]?.Value<bool>() ?? false;
                             if (_cumulativeInstancePlayers.TryGetValue(userId, out var ex3) && string.IsNullOrEmpty(ex3.image))
@@ -1184,11 +1146,6 @@ public class InstanceController
                     var profile = await _core.VrcApi.GetUserAsync(userId);
                     if (profile == null) return;
                     var img = VRChatApiService.GetUserImage(profile);
-                    if (!string.IsNullOrEmpty(img))
-                    {
-                        _core.PlayerImageCache[userId] = img;
-                        _core.Timeline.SetUserImage(userId, img); // persist across restarts
-                    }
                     _core.PlayerAgeVerifiedCache[userId] = profile["ageVerified"]?.Value<bool>() ?? false;
                     _core.PlayerProfileCache[userId] = profile;
 
@@ -1253,8 +1210,7 @@ public class InstanceController
 
     public object BuildTimelinePayload(TimelineService.TimelineEvent ev)
     {
-        var wThumb = !string.IsNullOrEmpty(ev.WorldThumb) ? ev.WorldThumb
-            : (!string.IsNullOrEmpty(ev.WorldId) && _core.WorldThumbCache.TryGetValue(ev.WorldId, out var wt) && !string.IsNullOrEmpty(wt) ? wt : "");
+        var wThumb = ev.WorldThumb ?? "";
         return new
         {
         id          = ev.Id,
@@ -1262,21 +1218,21 @@ public class InstanceController
         timestamp   = ev.Timestamp,
         worldId     = ev.WorldId,
         worldName   = ev.WorldName,
-        worldThumb  = _core.ResolveAndCache(wThumb, longTtl: true),
+        worldThumb  = wThumb,
         location    = ev.Location,
-        players     = ev.Players.Select(p => new { userId = p.UserId, displayName = p.DisplayName, image = _core.ResolveAndCache(_friends.ResolvePlayerImage(p.UserId, p.Image)) }).ToList(),
+        players     = ev.Players.Select(p => new { userId = p.UserId, displayName = p.DisplayName, image = _friends.ResolvePlayerImage(p.UserId, p.Image) }).ToList(),
         photoPath   = ev.PhotoPath,
         photoUrl    = !string.IsNullOrEmpty(ev.PhotoPath) ? (_core.GetVirtualMediaUrl?.Invoke(ev.PhotoPath) ?? "") : _core.FixLocalUrl(ev.PhotoUrl),
         userId      = ev.UserId,
         userName    = ev.UserName,
-        userImage   = _core.ResolveAndCache(_friends.ResolvePlayerImage(ev.UserId, ev.UserImage)),
+        userImage   = _friends.ResolvePlayerImage(ev.UserId, ev.UserImage),
         meetCount   = ev.Type == "meet_again" ? _core.Timeline.GetMeetAgainCount(ev.UserId) : 0,
         notifId     = ev.NotifId,
         notifType   = ev.NotifType,
         notifTitle  = ev.NotifTitle,
         senderName  = ev.SenderName,
         senderId    = ev.SenderId,
-        senderImage = _core.ResolveAndCache(_friends.ResolvePlayerImage(ev.SenderId, ev.SenderImage)),
+        senderImage = _friends.ResolvePlayerImage(ev.SenderId, ev.SenderImage),
         message     = ev.Message,
         };
     }

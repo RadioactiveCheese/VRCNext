@@ -56,21 +56,12 @@ public class FriendsController
 
     public List<string> GetTrackedUserIds() => _friendNameImg.Keys.ToList();
 
-    // Prefers live caches over DB-stored images
     public string ResolvePlayerImage(string? userId, string? storedImage)
     {
         if (!string.IsNullOrEmpty(userId))
         {
             if (_friendNameImg.TryGetValue(userId, out var fi) && !string.IsNullOrEmpty(fi.image))
                 return fi.image;
-            if (_core.PlayerImageCache.TryGetValue(userId, out var ci) && !string.IsNullOrEmpty(ci))
-                return ci;
-            var dbImg = _core.Timeline.GetCachedUserImage(userId);
-            if (!string.IsNullOrEmpty(dbImg))
-            {
-                _core.PlayerImageCache[userId] = dbImg;
-                return dbImg;
-            }
         }
         return storedImage ?? "";
     }
@@ -845,7 +836,6 @@ public class FriendsController
                     _friendLastBio[uid] = (f["bio"]?.ToString() ?? "").Trim();
                     var img0 = VRChatApiService.GetUserImage(f);
                     _friendNameImg[uid] = (f["displayName"]?.ToString() ?? "", img0);
-                    if (!string.IsNullOrEmpty(img0)) _core.Timeline.SetUserImage(uid, img0);
                 }
                 foreach (var f in offline)
                 {
@@ -857,7 +847,6 @@ public class FriendsController
                     _friendLastBio[uid] = (f["bio"]?.ToString() ?? "").Trim();
                     var img0 = VRChatApiService.GetUserImage(f);
                     _friendNameImg[uid] = (f["displayName"]?.ToString() ?? "", img0);
-                    if (!string.IsNullOrEmpty(img0)) _core.Timeline.SetUserImage(uid, img0);
                 }
                 _friendStateSeeded = true;
             }
@@ -871,7 +860,6 @@ public class FriendsController
                     if (img.Length > 0)
                     {
                         _friendNameImg[uid] = (f["displayName"]?.ToString() ?? _friendNameImg.GetValueOrDefault(uid).name ?? "", img);
-                        _core.Timeline.SetUserImage(uid, img);
                     }
                 }
             }
@@ -919,7 +907,7 @@ public class FriendsController
                             {
                                 var jo = JObject.FromObject(wobj);
                                 var wname = jo["name"]?.ToString() ?? "";
-                                var wthumb = _core.ImgCache?.GetWorld(jo["thumbnailImageUrl"]?.ToString()) ?? jo["thumbnailImageUrl"]?.ToString() ?? "";
+                                var wthumb = jo["thumbnailImageUrl"]?.ToString() ?? "";
                                 lock (_core.VrWorldCache) _core.VrWorldCache[wid] = (wname, wthumb);
                             }
                             PushVroLocations();
@@ -1071,10 +1059,10 @@ public class FriendsController
                 return (
                     worldId: wid, instanceId: iid,
                     worldName: world.name,
-                    worldImageUrl: _core.ImgCache?.GetWorld(world.thumb) ?? world.thumb,
+                    worldImageUrl: world.thumb,
                     friendId: f["id"]?.ToString() ?? "",
                     friendName: f["displayName"]?.ToString() ?? "",
-                    friendImageUrl: _core.ImgCache?.Get(rawFriendImg) ?? rawFriendImg,
+                    friendImageUrl: rawFriendImg,
                     location: loc
                 );
             })
@@ -1111,7 +1099,7 @@ public class FriendsController
                 return (
                     friendId: f["id"]?.ToString() ?? "",
                     friendName: f["displayName"]?.ToString() ?? "",
-                    friendImageUrl: _core.ImgCache?.Get(rawImg) ?? rawImg,
+                    friendImageUrl: rawImg,
                     status: f["status"]?.ToString() ?? "",
                     statusDescription: f["statusDescription"]?.ToString() ?? "",
                     location: loc,
@@ -1155,7 +1143,7 @@ public class FriendsController
             if (_liveWid.StartsWith("wrld_"))
                 lock (_core.VrWorldCache) _core.VrWorldCache.TryGetValue(_liveWid, out _liveWorld);
             diskProfile["worldName"] = _liveWorld.name;
-            diskProfile["worldThumb"] = string.IsNullOrEmpty(_liveWorld.thumb) ? "" : _core.ImgCache?.GetWorld(_liveWorld.thumb) ?? _liveWorld.thumb;
+            diskProfile["worldThumb"] = _liveWorld.thumb;
             bool _liveIsInWorld = !string.IsNullOrEmpty(_liveLoc) && _liveLoc != "offline" && _liveLoc != "private" && _liveLoc != "traveling";
             diskProfile["instanceType"] = _liveInstType;
             diskProfile["canJoin"] = _liveIsInWorld && _liveInstType is "public" or "friends" or "friends+" or "hidden" or "group-public" or "group-plus" or "group-members" or "group";
@@ -1166,11 +1154,6 @@ public class FriendsController
                 diskProfile["currentAvatarId"] = live?["currentAvatar"]?.ToString() ?? "";
             if (string.IsNullOrEmpty(diskProfile["avatarFileId"]?.ToString()) && live != null)
                 diskProfile["avatarFileId"] = ExtractAvatarFileId(live);
-            if (_core.ImgCache != null)
-            {
-                diskProfile["profilePicOverride"]    = _core.ImgCache.GetBanner(diskProfile["profilePicOverride"]?.ToString());
-                diskProfile["currentAvatarImageUrl"] = _core.ImgCache.GetBanner(diskProfile["currentAvatarImageUrl"]?.ToString());
-            }
             _core.SendToJS("vrcFriendDetail", diskProfile);
 
             bool startRefresh;
@@ -1249,7 +1232,6 @@ public class FriendsController
             else if (user == null) return null;
         }
         var _freshImg = VRChatApiService.GetUserImage(user);
-        if (!string.IsNullOrEmpty(_freshImg)) _core.Timeline.SetUserImage(userId, _freshImg);
 
         if (storeSnapshot != null)
         {
@@ -1315,7 +1297,7 @@ public class FriendsController
 
         var instWorld = inst?["world"] as JObject;
         string worldName = instWorld?["name"]?.ToString() ?? "";
-        string worldThumb = _core.ImgCache?.GetWorld(instWorld?["thumbnailImageUrl"]?.ToString()) ?? instWorld?["thumbnailImageUrl"]?.ToString() ?? "";
+        string worldThumb = instWorld?["thumbnailImageUrl"]?.ToString() ?? "";
         int worldCapacity = instWorld?["capacity"]?.Value<int>() ?? inst?["capacity"]?.Value<int>() ?? 0;
         int userCount = inst?["n_users"]?.Value<int>() ?? inst?["userCount"]?.Value<int>() ?? 0;
         string userNote = user["note"]?.ToString() ?? "";
@@ -1447,10 +1429,10 @@ public class FriendsController
             location, worldName, worldThumb, instanceType, userCount, worldCapacity,
             isFriend = user["isFriend"]?.Value<bool>() ?? !string.IsNullOrEmpty(user["friendKey"]?.ToString()),
             canJoin = isInWorld && canJoin, canRequestInvite, canInvite = true,
-            currentAvatarImageUrl = _core.ImgCache?.GetBanner(user["currentAvatarImageUrl"]?.ToString() ?? "") ?? user["currentAvatarImageUrl"]?.ToString() ?? "",
+            currentAvatarImageUrl = user["currentAvatarImageUrl"]?.ToString() ?? "",
             currentAvatarId = user["currentAvatar"]?.ToString() ?? "",
             avatarFileId = ExtractAvatarFileId(user),
-            profilePicOverride = _core.ImgCache?.GetBanner(user["profilePicOverride"]?.ToString() ?? "") ?? user["profilePicOverride"]?.ToString() ?? "",
+            profilePicOverride = user["profilePicOverride"]?.ToString() ?? "",
             tags = user["tags"]?.ToObject<List<string>>() ?? new(),
             note = user["note"]?.ToString() ?? "",
             friendKey = user["friendKey"]?.ToString() ?? "",
@@ -1557,7 +1539,7 @@ public class FriendsController
                 var world = await _core.VrcApi.GetWorldAsync(worldId);
                 if (world == null) return;
                 var wname = world["name"]?.ToString() ?? "";
-                var wthumb = _core.ImgCache?.GetWorld(world["thumbnailImageUrl"]?.ToString()) ?? world["thumbnailImageUrl"]?.ToString() ?? "";
+                var wthumb = world["thumbnailImageUrl"]?.ToString() ?? "";
                 _core.Timeline.UpdateFriendEventWorld(evId, wname, wthumb);
                 var updated = _core.Timeline.GetFriendEvents().FirstOrDefault(x => x.Id == evId);
                 if (updated != null)
@@ -1799,15 +1781,14 @@ public class FriendsController
 
     public object BuildFriendTimelinePayload(TimelineService.FriendTimelineEvent ev)
     {
-        var wThumb = !string.IsNullOrEmpty(ev.WorldThumb) ? ev.WorldThumb
-            : (!string.IsNullOrEmpty(ev.WorldId) && _core.WorldThumbCache.TryGetValue(ev.WorldId, out var wt) && !string.IsNullOrEmpty(wt) ? wt : "");
+        var wThumb = ev.WorldThumb ?? "";
         return new
         {
             id = ev.Id, type = ev.Type, timestamp = ev.Timestamp,
             friendId = ev.FriendId, friendName = ev.FriendName,
-            friendImage = _core.ResolveAndCache(ResolvePlayerImage(ev.FriendId, ev.FriendImage)),
+            friendImage = ResolvePlayerImage(ev.FriendId, ev.FriendImage),
             worldId = ev.WorldId, worldName = ev.WorldName,
-            worldThumb = _core.ResolveAndCache(wThumb, longTtl: true),
+            worldThumb = wThumb,
             location = ev.Location, oldValue = ev.OldValue, newValue = ev.NewValue,
         };
     }

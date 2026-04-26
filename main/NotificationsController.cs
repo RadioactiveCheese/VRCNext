@@ -744,10 +744,6 @@ public class NotificationsController
                         capturedEvText = $"→ {worldName}";
                 }
 
-                // --- Route image through local cache proxy (starts background download) ---
-                if (!string.IsNullOrEmpty(capturedImg))
-                    capturedImg = _core.ImgCache?.Get(capturedImg) ?? capturedImg;
-
                 // --- Add to wrist overlay + enqueue toast with all data ready ---
                 _core.VrOverlay?.AddNotification(capturedEvType, capturedName, capturedEvText, time,
                     capturedImg, senderId, "", capturedNotifId, capturedData);

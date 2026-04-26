@@ -112,7 +112,6 @@ namespace VRCNext.Services
 
         //  Profile image cache (notification avatars)
         private readonly Dictionary<string, Bitmap?> _notifImgCache = new();
-        private ImageCacheService? _imgCache;
         private HttpClient? _authHttpClient;
 
         //  Join button cooldowns (friendId → click time) 
@@ -559,8 +558,6 @@ namespace VRCNext.Services
 
         public VROverlayService(Action<string> log) => _log = log;
 
-        public void SetImageCache(ImageCacheService? cache) => _imgCache = cache;
-
         /// <summary>Authenticated VRChat HTTP client for direct image downloads in the overlay.</summary>
         public void SetAuthHttpClient(HttpClient? client) => _authHttpClient = client;
 
@@ -978,24 +975,14 @@ namespace VRCNext.Services
             {
                 byte[]? bytes = null;
 
-                // Case 1: URL already resolved to localhost → read from disk cache directly
-                if (_imgCache != null && url.Contains($"localhost:{_imgCache.Port}"))
-                {
-                    bytes = await _imgCache.GetBytesAsync(url);
-                }
-                // Case 2: Original VRChat URL → download with authenticated HTTP client
-                else if (_authHttpClient != null)
+                // Download with authenticated HTTP client
+                if (_authHttpClient != null)
                 {
                     using var resp = await _authHttpClient.GetAsync(url, HttpCompletionOption.ResponseHeadersRead);
                     if (resp.IsSuccessStatusCode)
                         bytes = await resp.Content.ReadAsByteArrayAsync();
                     else
                         _log($"[VRO-IMG] {(int)resp.StatusCode} for {url[..Math.Min(80, url.Length)]}");
-                }
-                // Case 3: No auth client — fall back to ImageCacheService download pipeline
-                else if (_imgCache != null)
-                {
-                    bytes = await _imgCache.GetBytesAsync(url);
                 }
 
                 if (bytes == null || bytes.Length == 0) return null;

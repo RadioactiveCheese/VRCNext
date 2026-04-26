@@ -58,7 +58,6 @@ public class TimelineService : IDisposable
     private readonly List<FriendTimelineEvent> _friendEvents = new();
     private readonly HashSet<string>           _knownUserIds = new();
     private readonly HashSet<string>           _loggedNotifs = new();
-    private readonly Dictionary<string, string> _userImgCache = new();
     private readonly object                    _lock         = new();
     private bool                               _knownUsersSeeded;
     private bool                               _disposed;
@@ -151,7 +150,6 @@ public class TimelineService : IDisposable
         cmd.ExecuteNonQuery();
         // Column migration — SQLite ADD COLUMN is idempotent with catch
         try { using var mc = _db.CreateCommand(); mc.CommandText = "ALTER TABLE events ADD COLUMN notif_title TEXT NOT NULL DEFAULT ''"; mc.ExecuteNonQuery(); } catch { }
-        try { using var mc = _db.CreateCommand(); mc.CommandText = "CREATE TABLE IF NOT EXISTS user_image_cache (user_id TEXT PRIMARY KEY, image TEXT NOT NULL DEFAULT '', updated_at TEXT NOT NULL DEFAULT '')"; mc.ExecuteNonQuery(); } catch { }
         // World Insights stats table
         try
         {
@@ -293,19 +291,6 @@ public class TimelineService : IDisposable
 
         using (var cmd = _db.CreateCommand())
         {
-            cmd.CommandText = "SELECT user_id, image FROM user_image_cache WHERE image != ''";
-            using var r = cmd.ExecuteReader();
-            while (r.Read())
-            {
-                var uid = r.GetString(0);
-                var img = r.GetString(1);
-                if (!string.IsNullOrEmpty(uid) && !string.IsNullOrEmpty(img))
-                    _userImgCache[uid] = img;
-            }
-        }
-
-        using (var cmd = _db.CreateCommand())
-        {
             cmd.CommandText = @"SELECT id,type,timestamp,friend_id,friend_name,friend_image,
                 world_id,world_name,world_thumb,location,old_value,new_value
                 FROM friend_events ORDER BY timestamp ASC";
@@ -392,72 +377,6 @@ public class TimelineService : IDisposable
     {
         lock (_lock)
             return _events.OrderByDescending(e => e.Timestamp).ToList();
-    }
-
-    public void SetUserImage(string userId, string image)
-    {
-        if (string.IsNullOrEmpty(userId) || string.IsNullOrEmpty(image)) return;
-        lock (_lock) _userImgCache[userId] = image;
-        try
-        {
-            using var cmd = _db.CreateCommand();
-            cmd.CommandText = @"INSERT OR REPLACE INTO user_image_cache (user_id, image, updated_at)
-                                 VALUES ($uid, $img, $ts)";
-            cmd.Parameters.AddWithValue("$uid", userId);
-            cmd.Parameters.AddWithValue("$img", image);
-            cmd.Parameters.AddWithValue("$ts",  DateTime.UtcNow.ToString("o"));
-            cmd.ExecuteNonQuery();
-        }
-        catch { }
-    }
-
-    public string GetCachedUserImage(string userId)
-    {
-        if (string.IsNullOrEmpty(userId)) return "";
-        lock (_lock) return _userImgCache.TryGetValue(userId, out var img) ? img : "";
-    }
-
-    public List<(string UserId, string DisplayName)> GetUsersWithMissingImages()
-    {
-        var result = new Dictionary<string, string>(); // userId → displayName
-        try
-        {
-            using var cmd = _db.CreateCommand();
-            cmd.CommandText = @"
-                SELECT DISTINCT ep.user_id, ep.display_name
-                FROM event_players ep
-                LEFT JOIN user_image_cache uic ON uic.user_id = ep.user_id
-                WHERE ep.user_id LIKE 'usr_%'
-                  AND (uic.user_id IS NULL OR uic.image = '' OR uic.image IS NULL)";
-            using var r = cmd.ExecuteReader();
-            while (r.Read())
-            {
-                var uid = r.GetString(0);
-                if (!result.ContainsKey(uid)) result[uid] = r.IsDBNull(1) ? "" : r.GetString(1);
-            }
-
-            using var cmd2 = _db.CreateCommand();
-            cmd2.CommandText = @"
-                SELECT DISTINCT e.user_id, e.user_name
-                FROM events e
-                LEFT JOIN user_image_cache uic ON uic.user_id = e.user_id
-                WHERE e.user_id LIKE 'usr_%'
-                  AND (uic.user_id IS NULL OR uic.image = '' OR uic.image IS NULL)";
-            using var r2 = cmd2.ExecuteReader();
-            while (r2.Read())
-            {
-                var uid = r2.GetString(0);
-                if (!result.ContainsKey(uid)) result[uid] = r2.IsDBNull(1) ? "" : r2.GetString(1);
-            }
-        }
-        catch { }
-        lock (_lock)
-        {
-            return result
-                .Where(kv => !_userImgCache.ContainsKey(kv.Key))
-                .Select(kv => (kv.Key, kv.Value))
-                .ToList();
-        }
     }
 
     public long GetMeetAgainCount(string userId)

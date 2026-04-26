@@ -9,7 +9,6 @@ public class CoreLibrary
     public VRChatApiService VrcApi { get; }
     public VRChatLogWatcher LogWatcher { get; }
     public TimelineService Timeline { get; }
-    public ImageCacheService? ImgCache { get; set; }
     public AppSettings Settings { get; }
     public CacheHandler Cache { get; }
     public UnifiedTimeEngine TimeEngine { get; }
@@ -19,10 +18,8 @@ public class CoreLibrary
     public Action<string, object?> SendToJS { get; }
     public Action<string>? AvtrdbSubmit { get; set; }
 
-    public ConcurrentDictionary<string, string> PlayerImageCache { get; } = new();
     public ConcurrentDictionary<string, bool> PlayerAgeVerifiedCache { get; } = new();
     public ConcurrentDictionary<string, Newtonsoft.Json.Linq.JObject> PlayerProfileCache { get; } = new();
-    public ConcurrentDictionary<string, string> WorldThumbCache { get; } = new();
 
     public Dictionary<string, (string name, string thumb)> VrWorldCache { get; } = new();
 
@@ -88,13 +85,5 @@ public class CoreLibrary
         if (string.IsNullOrEmpty(url) || !url.StartsWith("http://localhost:")) return url;
         var slash = url.IndexOf('/', "http://localhost:".Length);
         return slash < 0 ? url : $"http://localhost:{HttpPort}{url[slash..]}";
-    }
-
-    public string ResolveAndCache(string url, bool longTtl = false)
-    {
-        if (string.IsNullOrEmpty(url)) return url;
-        if (url.StartsWith("http://localhost:")) return FixLocalUrl(url);
-        if (ImgCache == null) return url;
-        return longTtl ? ImgCache.GetWorld(url) : ImgCache.Get(url);
     }
 }

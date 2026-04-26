@@ -12,7 +12,6 @@ public partial class AppShell
     // Fields
 
     private PhotinoWindow _window = null!;
-    private string _imgCacheDir = "";
     private string _thumbCacheDir = "";
     private string _customThemesDir = "";
     private int _httpPort;
@@ -48,11 +47,7 @@ public partial class AppShell
     private RelayController _relayCtrl = null!;
     private SnipeController _snipeCtrl = null!;
     private WindowController _windowCtrl = null!;
-    private ImageCacheService? _imgCache;
     private readonly CacheHandler _cache = new();
-    private static readonly System.Text.RegularExpressions.Regex _vrcImgUrlRegex = new(
-        @"""(https://(?:api\.vrchat\.cloud|assets\.vrchat\.com|files\.vrchat\.cloud)[^""]+)""",
-        System.Text.RegularExpressions.RegexOptions.Compiled);
     private readonly UnifiedTimeEngine _timeEngine;
     private readonly PhotoPlayersStore _photoPlayersStore;
     private readonly TimelineService _timeline;
@@ -205,8 +200,6 @@ public partial class AppShell
         };
         _trayService.ImageDownloader = async url =>
         {
-            if (_imgCache != null && url.Contains($"localhost:{_httpPort}"))
-                return await _imgCache.GetBytesAsync(url) ?? [];
             return await _vrcApi.GetHttpClient().GetByteArrayAsync(url);
         };
         _trayService.Initialize();
@@ -223,10 +216,6 @@ public partial class AppShell
         StartHttpListener();
         _core.HttpPort = _httpPort;
 
-        _imgCacheDir = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-            "VRCNext", "ImageCache");
-        Directory.CreateDirectory(_imgCacheDir);
         _thumbCacheDir = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
             "VRCNext", "ThumbCache");
@@ -253,14 +242,6 @@ public partial class AppShell
         }
         catch { }
 
-        _imgCache = new ImageCacheService(_imgCacheDir, _vrcApi.GetHttpClient())
-        {
-            Enabled         = _settings.ImgCacheEnabled,
-            OptimizeEnabled = _settings.ImgCacheOptimizeEnabled,
-            LimitBytes      = (long)_settings.ImgCacheLimitGb * 1024 * 1024 * 1024,
-            Port            = _httpPort,
-        };
-        _core.ImgCache = _imgCache;
         _core.GetVirtualMediaUrl = _photos.GetVirtualMediaUrl;
 
         var frontend  = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "frontend");
@@ -349,7 +330,7 @@ public partial class AppShell
         if (!s.GpuShaderCache)     flags.Append("--disable-gpu-shader-disk-cache ");
         flags.Append(s.V8Heap128 ? "--js-flags=--max-old-space-size=128 " : "--js-flags=--max-old-space-size=64 ");
         flags.Append(s.TwoRenderProcesses ? "--renderer-process-limit=2 " : "--renderer-process-limit=1 ");
-        flags.Append("--disk-cache-size=1 --disable-background-networking --disable-sync --no-first-run");
+        flags.Append("--disable-background-networking --disable-sync --no-first-run");
         return flags.ToString();
     }
 #endif
@@ -574,8 +555,6 @@ public partial class AppShell
             catch { }
         }
         var msg = JsonConvert.SerializeObject(new { type, payload });
-        if (_imgCache != null)
-            msg = _vrcImgUrlRegex.Replace(msg, m => $"\"{_imgCache.Get(m.Groups[1].Value)}\"");
         try { _window.Invoke(() => _window.SendWebMessage(msg)); } catch { }
 
 #if WINDOWS
@@ -613,17 +592,14 @@ public partial class AppShell
 
                 var time = DateTimeHelper.FormatTime(DateTime.Now);
 
-                // Pass image URL as-is — VROverlayService resolves via ImageCacheService internally
-                var cachedImg = _imgCache?.Get(friendImage) ?? friendImage;
-
                 // Main overlay (wrist alerts tab) — every event, no filtering
-                _core.VrOverlay.AddNotification(evType, name, evText, time, cachedImg, friendId, location);
+                _core.VrOverlay.AddNotification(evType, name, evText, time, friendImage, friendId, location);
 
                 // HMD toast — every event, cooldown inside EnqueueToast handles rapid-fire dedup
                 try
                 {
                     bool isFav = !string.IsNullOrEmpty(friendId) && _friends.IsFavorited(friendId);
-                    _core.VrOverlay.EnqueueToast(evType, name, evText, time, cachedImg, isFav);
+                    _core.VrOverlay.EnqueueToast(evType, name, evText, time, friendImage, isFav);
                 }
                 catch { }
             }
@@ -724,9 +700,7 @@ public partial class AppShell
         var isThumb = ctx.Request.Url?.Query?.Contains("thumb=1") == true;
         try
         {
-            if (path.StartsWith("/imgcache/"))
-                await ServeFileAsync(ctx, Path.Combine(_imgCacheDir, Uri.UnescapeDataString(path["/imgcache/".Length..])));
-            else if (path.StartsWith("/vrcphotos/"))
+            if (path.StartsWith("/vrcphotos/"))
             {
                 if (!string.IsNullOrEmpty(_photos.VrcPhotoDir))
                 {

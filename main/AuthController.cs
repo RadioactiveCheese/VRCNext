@@ -136,44 +136,6 @@ public class AuthController
                 _core.MemTrim.TrimNow();
                 break;
 
-            case "clearImgCache":
-                _ = Task.Run(() =>
-                {
-                    _core.ImgCache?.ClearAll();
-                    Invoke(() => _core.SendToJS("log", new { msg = "\ud83d\uddd1 Image cache cleared.", color = "sec" }));
-                    var bytesAfterClear = _core.ImgCache?.GetCacheSizeBytes() ?? 0;
-                    Invoke(() => _core.SendToJS("imgCacheSize", new { bytes = bytesAfterClear }));
-                });
-                break;
-
-            case "optimizeImgCache":
-                _ = Task.Run(async () =>
-                {
-                    if (_core.ImgCache == null) return;
-                    Invoke(() => _core.SendToJS("log", new { msg = "\ud83d\uddc4 Optimizing image cache\u2026", color = "sec" }));
-                    Invoke(() => _core.SendToJS("imgCacheOptimizeProgress", new { done = 0, total = -1 }));
-                    await _core.ImgCache.OptimizeAllAsync((done, total) =>
-                        Invoke(() => _core.SendToJS("imgCacheOptimizeProgress", new { done, total })));
-                    // Clear in-memory image cache so stale .png URLs get rebuilt as .jpg on next access
-                    _core.PlayerImageCache.Clear();
-                    var bytes = _core.ImgCache.GetCacheSizeBytes();
-                    Invoke(() =>
-                    {
-                        _core.SendToJS("log", new { msg = "\u2705 Image cache optimization complete.", color = "sec" });
-                        _core.SendToJS("imgCacheSize", new { bytes });
-                        _core.SendToJS("imgCacheOptimizeProgress", new { done = -1, total = 0 });
-                    });
-                });
-                break;
-
-            case "getImgCacheSize":
-                _ = Task.Run(() =>
-                {
-                    var bytes = _core.ImgCache?.GetCacheSizeBytes() ?? 0;
-                    Invoke(() => _core.SendToJS("imgCacheSize", new { bytes }));
-                });
-                break;
-
             case "clearFfcCache":
                 _ = Task.Run(() =>
                 {
@@ -705,8 +667,8 @@ public class AuthController
             pronouns = user["pronouns"]?.ToString() ?? "",
             bioLinks = user["bioLinks"]?.ToObject<List<string>>() ?? new List<string>(),
             tags = user["tags"]?.ToObject<List<string>>() ?? new List<string>(),
-            profilePicOverride    = _core.ImgCache?.Get(user["profilePicOverride"]?.ToString() ?? "") ?? user["profilePicOverride"]?.ToString() ?? "",
-            currentAvatarImageUrl = _core.ImgCache?.Get(user["currentAvatarImageUrl"]?.ToString() ?? "") ?? user["currentAvatarImageUrl"]?.ToString() ?? "",
+            profilePicOverride    = user["profilePicOverride"]?.ToString() ?? "",
+            currentAvatarImageUrl = user["currentAvatarImageUrl"]?.ToString() ?? "",
         });
 
 #if WINDOWS
@@ -878,19 +840,6 @@ public class AuthController
             _core.Settings.DpHideJoinBtnOnline = data["dpHideJoinBtnOnline"]?.Value<bool>() ?? false;
             _core.Settings.DpHideJoinBtnAskMe  = data["dpHideJoinBtnAskMe"]?.Value<bool>()  ?? true;
             _core.Settings.DpHideJoinBtnBusy   = data["dpHideJoinBtnBusy"]?.Value<bool>()   ?? true;
-
-            // Image cache settings
-            _core.Settings.ImgCacheEnabled         = data["imgCacheEnabled"]?.Value<bool>()         ?? true;
-            _core.Settings.ImgCacheLimitGb         = Math.Clamp(data["imgCacheLimitGb"]?.Value<int>() ?? 5, 5, 30);
-            _core.Settings.ImgCacheOptimizeEnabled = data["imgCacheOptimizeEnabled"]?.Value<bool>() ?? true;
-            if (_core.ImgCache != null)
-            {
-                _core.ImgCache.Enabled         = _core.Settings.ImgCacheEnabled;
-                _core.ImgCache.OptimizeEnabled  = _core.Settings.ImgCacheOptimizeEnabled;
-                _core.ImgCache.LimitBytes       = (long)_core.Settings.ImgCacheLimitGb * 1024 * 1024 * 1024;
-                if (_core.Settings.ImgCacheEnabled && _core.ImgCache.LimitBytes > 0)
-                    _ = Task.Run(() => _core.ImgCache.TrimIfNeeded(_core.ImgCache.LimitBytes));
-            }
 
             // Fast Fetch Cache
             _core.Settings.FfcEnabled = data["ffcEnabled"]?.Value<bool>() ?? true;
@@ -1347,7 +1296,6 @@ public class AuthController
         if (!_core.Cache.IsFresh(CacheHandler.KeyFavWorlds, StartupCacheTtl)) _ = Task.Run(FetchAndCacheFavWorldsAsync);
         if (!_core.Cache.IsFresh(CacheHandler.KeyFavAvatars, StartupCacheTtl)) _ = Task.Run(FetchAndCacheFavAvatarsAsync);
         if (_core.PrefetchSharedContent != null) _ = Task.Run(_core.PrefetchSharedContent);
-        _ = Task.Run(BackfillMissingPlayerImagesAsync);
         _ = Task.Run(CollectWorldStatsIfMissingAsync);
         if (_core.Settings.AutoUpdate) _ = Task.Run(AutoUpdateAsync);
         await Task.CompletedTask;
@@ -1391,40 +1339,6 @@ public class AuthController
             }
         }
         catch { }
-    }
-
-    private async Task BackfillMissingPlayerImagesAsync()
-    {
-        if (!_core.VrcApi.IsLoggedIn) return;
-        var missing = _core.Timeline.GetUsersWithMissingImages();
-        if (missing.Count == 0) return;
-
-        Invoke(() => _core.SendToJS("log", new { msg = $"[IMG] Backfilling images for {missing.Count} players\u2026", color = "sec" }));
-
-        var sem = new SemaphoreSlim(3);
-        var tasks = missing.Select(async m =>
-        {
-            await sem.WaitAsync();
-            try
-            {
-                if (!_core.VrcApi.IsLoggedIn) return;
-                var profile = await _core.VrcApi.GetUserAsync(m.UserId);
-                if (profile == null) return;
-                var img = VRChatApiService.GetUserImage(profile);
-                if (string.IsNullOrEmpty(img)) return;
-
-                _core.PlayerImageCache[m.UserId] = img;
-                _core.PlayerProfileCache[m.UserId] = profile;
-                _core.PlayerAgeVerifiedCache[m.UserId] = profile["ageVerified"]?.Value<bool>() ?? false;
-                _core.Timeline.SetUserImage(m.UserId, img);
-                await Task.Delay(300);
-            }
-            catch { }
-            finally { sem.Release(); }
-        });
-        await Task.WhenAll(tasks);
-
-        Invoke(() => _core.SendToJS("log", new { msg = "[IMG] Backfill complete", color = "ok" }));
     }
 
     public async Task ForceFfcAllAsync()

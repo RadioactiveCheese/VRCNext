@@ -23,8 +23,6 @@ static class VRSubprocess
         try { init = JObject.Parse(initLine); }
         catch { return; }
 
-        var cacheDir   = init["cacheDir"]?.Value<string>()   ?? "";
-        var httpPort   = init["httpPort"]?.Value<int>()       ?? 0;
         var authCookie = init["authCookie"]?.Value<string>();
         var tfaCookie  = init["tfaCookie"]?.Value<string>();
 
@@ -39,16 +37,9 @@ static class VRSubprocess
         var http = new HttpClient(httpHandler);
         http.DefaultRequestHeaders.TryAddWithoutValidation("User-Agent", AppInfo.UserAgent);
 
-        ImageCacheService? imgCache = null;
-        if (!string.IsNullOrEmpty(cacheDir))
-        {
-            imgCache = new ImageCacheService(cacheDir, http) { Port = httpPort };
-        }
-
         void Log(string s) => SendLine(new JObject { ["t"] = "log", ["text"] = s });
 
         var vro = new VROverlayService(Log);
-        if (imgCache != null) vro.SetImageCache(imgCache);
         vro.SetAuthHttpClient(http);
 
         var sf = new SteamVRService(Log);

@@ -1,5 +1,9 @@
 **2026.18.8**
 
+**Backoff Handling**
+
+* Added automatic handling for 429 (too many requests). Requests are temporarily rate limited and retried after increasing delays of 30 seconds, 1 minute, 5 minutes, or 15 minutes. -- before a wild tupper spawns!
+
 **New**
 * Added Tooltips in all languages
 * Added an app information and disclaimer section for VRCNext, including usage notes, VRChat trademark notice, and responsible-use information.

@@ -2,6 +2,7 @@ using System.Net;
 using System.Text;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
+using VRCNext.Services.Helpers;
 
 namespace VRCNext.Services;
 
@@ -55,7 +56,7 @@ public class VRChatApiService
             CookieContainer = _cookies,
             UseCookies = true,
         };
-        _http = new HttpClient(new LoggingHandler(inner, Log));
+        _http = new HttpClient(new BackoffHandler(new LoggingHandler(inner, Log), Log));
         _http.DefaultRequestHeaders.TryAddWithoutValidation("User-Agent", UA);
     }
 

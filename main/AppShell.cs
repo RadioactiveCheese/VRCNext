@@ -312,6 +312,11 @@ public partial class AppShell
 #endif
 
         var iconPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "frontend", "logo.png");
+        var webView2DataDir = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+            "VRCNext", "WebView2");
+        Directory.CreateDirectory(webView2DataDir);
+
         var windowBuilder = new PhotinoWindow()
             .SetTitle("VRCNext")
             .SetUseOsDefaultSize(false)
@@ -322,6 +327,7 @@ public partial class AppShell
             .SetUseOsDefaultLocation(false)
             .SetLeft(startX)
             .SetTop(startY)
+            .SetTemporaryFilesPath(webView2DataDir)
 #if WINDOWS
             .SetBrowserControlInitParameters(BuildChromiumFlags(_settings))
 #endif

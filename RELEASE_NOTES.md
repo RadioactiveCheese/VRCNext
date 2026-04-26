@@ -4,6 +4,9 @@
 * Added Tooltips in all languages
 * Added an app information and disclaimer section for VRCNext, including usage notes, VRChat trademark notice, and responsible-use information.
 
+**Settings**
+* Refactored the whole settings design to be more simple
+
 **VR Overlay**
 * Replaced the "Youtube Fix" button within the VR Overlay to "Kikitan XD" as i didn't saw a high usage for it in the overlay compared to Kikitan XD.
 

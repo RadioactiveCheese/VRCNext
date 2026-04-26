@@ -19,6 +19,7 @@
 * Added YouTube Fix to the Topbar
 * Added Kikitan XD to the Topbar
 * Added VR Overlay to the Topbar
+* Moved System tray below Performance settings and added tips
 
 **Fixed**
 

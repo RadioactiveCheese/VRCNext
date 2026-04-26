@@ -944,8 +944,9 @@ function renderCustomThemesList() {
     }).join('');
 }
 
-function _ctHref(themeName, file) {
-    return `http://localhost:${_localHttpPort}/customthemes/${encodeURIComponent(themeName)}/${encodeURIComponent(file)}`;
+function _ctHref(th, file) {
+    const route = th.builtIn ? 'builtinthemes' : 'customthemes';
+    return `http://localhost:${_localHttpPort}/${route}/${encodeURIComponent(th.name)}/${encodeURIComponent(file)}`;
 }
 
 function _ctInjectTheme(th) {
@@ -954,7 +955,7 @@ function _ctInjectTheme(th) {
         if (document.getElementById(id)) return;
         const link = document.createElement('link');
         link.rel = 'stylesheet'; link.id = id;
-        link.href = _ctHref(th.name, f);
+        link.href = _ctHref(th, f);
         document.head.appendChild(link);
     });
     (th.jsFiles || []).forEach(f => {
@@ -962,7 +963,7 @@ function _ctInjectTheme(th) {
         if (document.getElementById(id)) return;
         const script = document.createElement('script');
         script.id = id;
-        script.src = _ctHref(th.name, f);
+        script.src = _ctHref(th, f);
         document.head.appendChild(script);
     });
 }

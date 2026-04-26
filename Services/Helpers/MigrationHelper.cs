@@ -51,6 +51,22 @@ public static class MigrationHelper
         settings.Save();
     }
 
+    public static void MigrateBuiltInDashboardTheme(AppSettings settings)
+    {
+        var dir = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+            "VRCNext", "custom-themes", "Dashboard Theme");
+        try { if (Directory.Exists(dir)) Directory.Delete(dir, recursive: true); } catch { }
+
+        bool changed = settings.ActiveCustomThemes.Remove("Dashboard Theme");
+        if (!settings.ActiveCustomThemes.Contains("VRCNext v2 Preview"))
+        {
+            settings.ActiveCustomThemes.Insert(0, "VRCNext v2 Preview");
+            changed = true;
+        }
+        if (changed) settings.Save();
+    }
+
     public static void MigrateCachesToSubdir()
     {
         var root  = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "VRCNext");

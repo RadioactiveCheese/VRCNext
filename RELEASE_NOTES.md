@@ -1,5 +1,10 @@
 **2026.18.8**
 
+**VRCNext v2 Preview**
+VRCNext v2 Preview is an ongoing design refactor that updates the app’s appearance to feel more modern and easier to navigate.
+
+These preview changes can be disabled in **Settings > Design > Theme > VRCNext v2 Preview**.
+
 **Backoff Handling**
 
 * Added automatic handling for 429 (too many requests). Requests are temporarily rate limited and retried after increasing delays of 30 seconds, 1 minute, 5 minutes, or 15 minutes. -- before a wild tupper spawns!

@@ -210,7 +210,7 @@ public class AppSettings
     public int AutoColorAccuracy { get; set; } = 50;
     public string PlayBtnTheme { get; set; } = "";
     public string CursorTheme { get; set; } = "";
-    public List<string> ActiveCustomThemes { get; set; } = new();
+    public List<string> ActiveCustomThemes { get; set; } = ["VRCNext v2 Preview"];
     public int GuiZoom { get; set; } = 100;
     public string DashBgPath { get; set; } = "";
     public int DashOpacity { get; set; } = 40;

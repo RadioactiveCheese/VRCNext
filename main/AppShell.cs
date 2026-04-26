@@ -131,8 +131,9 @@ public partial class AppShell
     public AppShell(string[] args)
     {
         _settings = AppSettings.Load();
-        MigrationHelper.MigrateFavorites(_settings);    // silently moves Favorites → favorited_images.json
-        MigrationHelper.MigrateCachesToSubdir();         // moves 5 cache JSONs from root → Caches/
+        MigrationHelper.MigrateFavorites(_settings);           // silently moves Favorites → favorited_images.json
+        MigrationHelper.MigrateCachesToSubdir();               // moves 5 cache JSONs from root → Caches/
+        MigrationHelper.MigrateBuiltInDashboardTheme(_settings); // removes AppData copy; now hardcoded in index.html
         if (_settings.MemoryTrimEnabled) _memTrim.SetEnabled(true);
         _timeEngine = UnifiedTimeEngine.Load(
             () => _core?.IsVrcRunning?.Invoke() ?? false,
@@ -746,6 +747,12 @@ public partial class AppShell
                 var file = Path.Combine(cursorDir, Uri.UnescapeDataString(path["/cursor/".Length..]));
                 await ServeFileAsync(ctx, file);
             }
+            else if (path.StartsWith("/builtinthemes/"))
+            {
+                var rel  = Uri.UnescapeDataString(path["/builtinthemes/".Length..]);
+                var file = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "frontend", "custom-themes", rel.Replace('/', Path.DirectorySeparatorChar));
+                await ServeThemeFileAsync(ctx, file);
+            }
             else if (path.StartsWith("/customthemes/"))
             {
                 var rel  = Uri.UnescapeDataString(path["/customthemes/".Length..]);
@@ -792,6 +799,7 @@ public partial class AppShell
         foreach (var srcDir in Directory.GetDirectories(builtInSrc))
         {
             var themeName = Path.GetFileName(srcDir);
+            if (themeName == "VRCNext v2 Preview") continue; // hardcoded — served from install dir, not AppData
             var destDir   = Path.Combine(_customThemesDir, themeName);
             Directory.CreateDirectory(destDir);
             foreach (var srcFile in Directory.GetFiles(srcDir, "*")

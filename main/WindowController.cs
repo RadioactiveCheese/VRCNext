@@ -310,32 +310,52 @@ public class WindowController
             }
             case "getCustomThemes":
             {
-                var customDir = _core.CustomThemesDir;
                 var themes = new List<object>();
+
+                static (List<string?> css, List<string?> js, string? author, string? version) ScanThemeDir(string dir)
+                {
+                    var all = Directory.GetFiles(dir, "*", SearchOption.TopDirectoryOnly);
+                    var css = all.Where(f => Path.GetExtension(f).Equals(".css", StringComparison.OrdinalIgnoreCase))
+                                 .Select(Path.GetFileName).OrderBy(f => f).ToList();
+                    var js  = all.Where(f => Path.GetExtension(f).Equals(".js",  StringComparison.OrdinalIgnoreCase))
+                                 .Select(Path.GetFileName).OrderBy(f => f).ToList();
+                    string? author = null, version = null;
+                    var infoPath = Path.Combine(dir, "info.json");
+                    if (File.Exists(infoPath))
+                        try {
+                            var info = Newtonsoft.Json.Linq.JObject.Parse(File.ReadAllText(infoPath));
+                            author  = info["author"]?.ToString();
+                            version = info["version"]?.ToString();
+                        } catch { }
+                    return (css, js, author, version);
+                }
+
+                // Built-in themes — served from install dir, always up-to-date
+                var builtInSrc = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "frontend", "custom-themes");
+                if (Directory.Exists(builtInSrc))
+                {
+                    foreach (var dir in Directory.GetDirectories(builtInSrc).OrderBy(d => d))
+                    {
+                        var name = Path.GetFileName(dir);
+                        var (css, js, author, version) = ScanThemeDir(dir);
+                        if (css.Count == 0 && js.Count == 0) continue;
+                        themes.Add(new { id = name, name, cssFiles = css, jsFiles = js, author, version, builtIn = true });
+                    }
+                }
+
+                // User custom themes — served from AppData
+                var customDir = _core.CustomThemesDir;
                 if (Directory.Exists(customDir))
                 {
                     foreach (var dir in Directory.GetDirectories(customDir).OrderBy(d => d))
                     {
                         var name = Path.GetFileName(dir);
-                        var allFiles = Directory.GetFiles(dir, "*", SearchOption.TopDirectoryOnly);
-                        var cssFiles = allFiles.Where(f => Path.GetExtension(f).Equals(".css", StringComparison.OrdinalIgnoreCase))
-                            .Select(Path.GetFileName).OrderBy(f => f).ToList();
-                        var jsFiles  = allFiles.Where(f => Path.GetExtension(f).Equals(".js",  StringComparison.OrdinalIgnoreCase))
-                            .Select(Path.GetFileName).OrderBy(f => f).ToList();
-                        if (cssFiles.Count == 0 && jsFiles.Count == 0) continue;
-                        string? author = null, version = null;
-                        var infoPath = Path.Combine(dir, "info.json");
-                        if (File.Exists(infoPath))
-                        {
-                            try {
-                                var info = Newtonsoft.Json.Linq.JObject.Parse(File.ReadAllText(infoPath));
-                                author  = info["author"]?.ToString();
-                                version = info["version"]?.ToString();
-                            } catch { }
-                        }
-                        themes.Add(new { id = name, name, cssFiles, jsFiles, author, version });
+                        var (css, js, author, version) = ScanThemeDir(dir);
+                        if (css.Count == 0 && js.Count == 0) continue;
+                        themes.Add(new { id = name, name, cssFiles = css, jsFiles = js, author, version, builtIn = false });
                     }
                 }
+
                 _core.SendToJS("customThemes", new { themes, port = _core.HttpPort });
                 break;
             }

@@ -873,7 +873,7 @@ public class InstanceController
             {
                 UserId      = kv.Key,
                 DisplayName = kv.Value.displayName,
-                Image       = _friends.ResolvePlayerImage(kv.Key, kv.Value.image)
+                Image       = ResolveWithDiskFallback(kv.Key, kv.Value.image)
             }).ToList();
             var prevId = _pendingInstanceEventId;
             _core.Timeline.UpdateEvent(prevId, ev => ev.Players = finalPlayers);
@@ -950,7 +950,7 @@ public class InstanceController
                         {
                             UserId      = kv.Key,
                             DisplayName = kv.Value.displayName,
-                            Image       = _friends.ResolvePlayerImage(kv.Key, kv.Value.image)
+                            Image       = ResolveWithDiskFallback(kv.Key, kv.Value.image)
                         }).ToList();
 
                         // Resolve world name: DB cache first, API fallback
@@ -1017,7 +1017,7 @@ public class InstanceController
                 {
                     UserId      = kv.Key,
                     DisplayName = kv.Value.displayName,
-                    Image       = _friends.ResolvePlayerImage(kv.Key, kv.Value.image)
+                    Image       = ResolveWithDiskFallback(kv.Key, kv.Value.image)
                 }).ToList();
                 _core.Timeline.UpdateEvent(evId, ev => ev.Players = snap);
                 var updated = _core.Timeline.GetEvents().FirstOrDefault(e => e.Id == evId);
@@ -1198,7 +1198,7 @@ public class InstanceController
                             {
                                 UserId      = kv.Key,
                                 DisplayName = kv.Value.displayName,
-                                Image       = _friends.ResolvePlayerImage(kv.Key, kv.Value.image)
+                                Image       = ResolveWithDiskFallback(kv.Key, kv.Value.image)
                             }).ToList();
                             _core.Timeline.UpdateEvent(evId, ev => ev.Players = snap);
                         }
@@ -1283,7 +1283,7 @@ public class InstanceController
         notifTitle  = ev.NotifTitle,
         senderName  = ev.SenderName,
         senderId    = ev.SenderId,
-        senderImage = _friends.ResolvePlayerImage(ev.SenderId, ev.SenderImage),
+        senderImage = ResolveWithDiskFallback(ev.SenderId, ev.SenderImage),
         message     = ev.Message,
         };
     }

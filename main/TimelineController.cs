@@ -413,7 +413,7 @@ public class TimelineController
                 {
                     friendId    = e.FriendId,
                     friendName  = e.FriendName,
-                    friendImage = ImageCacheHelper.GetUserUrl(e.FriendId, _friends.ResolvePlayerImage(e.FriendId, e.FriendImage)),
+                    friendImage = _friends.ResolveWithDiskFallback(e.FriendId, e.FriendImage),
                 }).ToList();
                 _core.SendToJS("ftAlsoWasHere", new { excludeId, friends = payload });
             }

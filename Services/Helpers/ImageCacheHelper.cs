@@ -17,6 +17,59 @@ public static class ImageCacheHelper
     public static Action<string>? Log { get; set; }
     private static readonly ConcurrentDictionary<string, Task<string?>> _downloads = new();
 
+    // permafail persists across sessions, 30-day TTL
+    private static readonly string _permafailPath = Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+        "VRCNext", "Caches", "Permafail", "permafail.json");
+    private static readonly Dictionary<string, DateTime> _permafail = [];
+    private static readonly Lock _permafailLock = new();
+    private static readonly TimeSpan PermafailTtl = TimeSpan.FromDays(30);
+
+    private static void LoadPermafail()
+    {
+        if (string.IsNullOrEmpty(_permafailPath) || !File.Exists(_permafailPath)) return;
+        try
+        {
+            var json = File.ReadAllText(_permafailPath);
+            var obj  = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, string>>(json);
+            if (obj == null) return;
+            var cutoff = DateTime.UtcNow - PermafailTtl;
+            lock (_permafailLock)
+                foreach (var kv in obj)
+                    if (DateTime.TryParse(kv.Value, out var dt) && dt > cutoff)
+                        _permafail[kv.Key] = dt;
+        }
+        catch { }
+    }
+
+    private static void SavePermafail()
+    {
+        if (string.IsNullOrEmpty(_permafailPath)) return;
+        try
+        {
+            Dictionary<string, string> copy;
+            lock (_permafailLock) copy = _permafail.ToDictionary(k => k.Key, k => k.Value.ToString("o"));
+            File.WriteAllText(_permafailPath, System.Text.Json.JsonSerializer.Serialize(copy));
+        }
+        catch { }
+    }
+
+    private static bool IsPermafailed(string url)
+    {
+        lock (_permafailLock)
+        {
+            if (!_permafail.TryGetValue(url, out var dt)) return false;
+            if (DateTime.UtcNow - dt > PermafailTtl) { _permafail.Remove(url); return false; }
+            return true;
+        }
+    }
+
+    private static void AddPermafail(string url)
+    {
+        lock (_permafailLock) _permafail[url] = DateTime.UtcNow;
+        _ = Task.Run(SavePermafail);
+    }
+
     private static readonly string[] _imageExtensions = [".jpg", ".png", ".webp", ".gif"];
 
     public static void Initialize(HttpClient http)
@@ -25,6 +78,9 @@ public static class ImageCacheHelper
             Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
             "VRCNext", "Caches", "ImageCache");
         _http = http;
+
+        Directory.CreateDirectory(Path.GetDirectoryName(_permafailPath)!);
+        LoadPermafail();
 
         Directory.CreateDirectory(Path.Combine(_baseDir, "Worlds"));
         Directory.CreateDirectory(Path.Combine(_baseDir, "Groups"));
@@ -178,6 +234,8 @@ public static class ImageCacheHelper
         imageUrl = StripLocalhostUrl(imageUrl); // Never try to download from localhost
         if (string.IsNullOrWhiteSpace(entityId) || string.IsNullOrWhiteSpace(imageUrl) || _http == null)
             return Task.FromResult<string?>(null);
+        if (IsPermafailed(NormalizeTo512(imageUrl)))
+            return Task.FromResult<string?>(null);
 
         if (!forceRefresh)
         {
@@ -211,7 +269,9 @@ public static class ImageCacheHelper
             using var resp = await _http!.GetAsync(fetchUrl, HttpCompletionOption.ResponseHeadersRead);
             if (!resp.IsSuccessStatusCode)
             {
-                Log?.Invoke($"[IMG] FAIL {subdir}/{entityId} → {(int)resp.StatusCode}");
+                var code = (int)resp.StatusCode;
+                Log?.Invoke($"[IMG] FAIL {subdir}/{entityId} → {code}");
+                if (code == 403 || code == 404) AddPermafail(fetchUrl);
                 return null;
             }
 

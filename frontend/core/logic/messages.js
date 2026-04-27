@@ -40,6 +40,7 @@ window.external.receiveMessage(rawMsg => {
             case 'imgCacheSize':             updateImgCacheSizeBar(payload.bytes); break;
             case 'imgCacheOptimizeProgress': handleImgCacheOptimizeProgress(payload); break;
             case 'log': addLog(payload.msg, payload.color); break;
+            case 'devConsoleResponse': if (typeof handleDevConsoleResponse === 'function') handleDevConsoleResponse(payload); break;
             case 'toast': showToast(payload.ok, payload.msg); break;
             case 'showCrashModal': showCrashModal(payload); break;
             case 'wsStatus': {

@@ -585,6 +585,8 @@
                 <div class="log-header" style="margin-top:0;display:flex;align-items:center;gap:5px;flex-shrink:0;">
                     <div class="search-bar-row" style="margin-bottom:0;flex:1;min-width:120px;max-width:200px;"><span class="msi search-ico">search</span><input id="logSearchInput" type="text" class="vrcn-input" placeholder="Search..." data-i18n-placeholder="logs.search.placeholder" oninput="onLogSearch(this.value)"></div>
                     <button id="logShowFullBtn" class="vrcn-button" onclick="toggleLogShowFull()">Show Full</button>
+                    <button id="logTabBtn" class="vrcn-button vrcn-button-active" onclick="switchLogView('log')">LOG</button>
+                    <button id="consoleTabBtn" class="vrcn-button" onclick="switchLogView('console')">CONSOLE</button>
                     <div style="flex:1;"></div>
                     <div class="mini-badge" id="httpBadge200" style="display:none;background:rgba(59,165,93,.12);border-color:rgba(59,165,93,.4);"><span class="mini-badge-label" style="color:#3ba55d;font-variant-numeric:tabular-nums;">200: 0</span></div>
                     <div class="mini-badge" id="httpBadge429" style="display:none;background:rgba(240,165,0,.12);border-color:rgba(240,165,0,.4);"><span class="mini-badge-label" style="color:#f0a500;font-variant-numeric:tabular-nums;">429: 0</span></div>
@@ -597,6 +599,13 @@
                     </div>
                 </div>
                 <div class="log-area" id="logArea" style="flex:1;min-height:0;"></div>
+                <div id="consolePanel" style="display:none;flex:1;min-height:0;flex-direction:column;gap:8px;padding-top:4px;">
+                    <div class="log-area" id="consoleOutput" style="flex:1;min-height:0;font-family:monospace;font-size:12px;"></div>
+                    <div style="display:flex;gap:6px;flex-shrink:0;">
+                        <button class="vrcn-button" onclick="consoleCopyAll()" style="flex-shrink:0;"><span class="msi" style="font-size:16px;">content_copy</span> Copy All</button>
+                        <input id="consoleInput" type="text" class="vrcn-input" placeholder="Enter command... (/help)" style="flex:1;" onkeydown="if(event.key==='Enter')consoleRun(this.value)">
+                    </div>
+                </div>
                 <div style="display:flex;gap:6px;margin-top:8px;flex-shrink:0;">
                     <button class="vrcn-button" onclick="copyLog()" style="flex:1;justify-content:center;" title="Copy to Clipboard" data-i18n-title="activity.actions.copy_title"><span class="msi" style="font-size:16px;">content_copy</span> <span data-i18n="common.copy">Copy</span></button>
                     <button class="vrcn-button" onclick="sendToCS({action:'openLogFile'})" style="flex:1;justify-content:center;" title="Open current log file" data-i18n-title="activity.actions.open_log_title"><span class="msi" style="font-size:16px;">description</span> <span data-i18n="activity.actions.open_log">Open Log</span></button>

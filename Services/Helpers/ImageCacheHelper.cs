@@ -10,6 +10,9 @@ public static class ImageCacheHelper
     private static HttpClient? _http;
 
     public static int Port { get; set; } = 49152;
+
+    /// <summary>Set at startup to route download logs to the activity log.</summary>
+    public static Action<string>? Log { get; set; }
     private static readonly ConcurrentDictionary<string, Task<string?>> _downloads = new();
 
     private static readonly string[] _imageExtensions = [".jpg", ".png", ".webp", ".gif"];
@@ -186,17 +189,24 @@ public static class ImageCacheHelper
         var tmpPath  = Path.Combine(dir, entityId + ".tmp");
         var fetchUrl = NormalizeTo512(imageUrl);
 
+        Log?.Invoke($"[IMG] GET {subdir}/{entityId} → {fetchUrl}");
+
         try
         {
             using var resp = await _http!.GetAsync(fetchUrl, HttpCompletionOption.ResponseHeadersRead);
-            if (!resp.IsSuccessStatusCode) return null;
+            if (!resp.IsSuccessStatusCode)
+            {
+                Log?.Invoke($"[IMG] FAIL {subdir}/{entityId} → {(int)resp.StatusCode}");
+                return null;
+            }
 
             using (var stream = await resp.Content.ReadAsStreamAsync())
             using (var fs    = File.Create(tmpPath))
                 await stream.CopyToAsync(fs);
         }
-        catch
+        catch (Exception ex)
         {
+            Log?.Invoke($"[IMG] ERR {subdir}/{entityId} → {ex.Message}");
             TryDelete(tmpPath);
             return null;
         }
@@ -204,6 +214,7 @@ public static class ImageCacheHelper
         var ext = DetectExtension(tmpPath);
         if (ext == null)
         {
+            Log?.Invoke($"[IMG] SKIP {subdir}/{entityId} → not an image");
             TryDelete(tmpPath);
             return null;
         }
@@ -223,6 +234,7 @@ public static class ImageCacheHelper
             return null;
         }
 
+        Log?.Invoke($"[IMG] OK {subdir}/{entityId}{ext}");
         return finalPath;
     }
 // Helpers
@@ -261,7 +273,7 @@ public static class ImageCacheHelper
     }
 
     // Converts VRC Url to CDN 512 Endpoints
-    private static string NormalizeTo512(string url)
+    public static string NormalizeTo512(string url)
     {
         // /api/1/file/file_xxx/{version}/file try and getting /api/1/image/file_xxx/{version}/512
         const string filePrefix = "/api/1/file/";

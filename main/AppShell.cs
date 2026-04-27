@@ -218,6 +218,7 @@ public partial class AppShell
 
         VRCNext.Services.Helpers.ImageCacheHelper.Initialize(_vrcApi.GetHttpClient());
         VRCNext.Services.Helpers.ImageCacheHelper.Port = _httpPort;
+        VRCNext.Services.Helpers.ImageCacheHelper.Log  = msg => _core.SendToJS("log", new { msg, color = "sec" });
 
         _thumbCacheDir = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),

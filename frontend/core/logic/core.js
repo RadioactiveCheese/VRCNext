@@ -1369,6 +1369,79 @@ function rerenderVcTranslations() {
 
 document.documentElement.addEventListener('languagechange', rerenderVcTranslations);
 
+// ── Dev Console ──────────────────────────────────────────────────────────────
+
+let _consoleView = 'log';
+
+function switchLogView(view) {
+    _consoleView = view;
+    const logArea     = document.getElementById('logArea');
+    const consolePanel = document.getElementById('consolePanel');
+    const logBtn      = document.getElementById('logTabBtn');
+    const conBtn      = document.getElementById('consoleTabBtn');
+    const showFull    = document.getElementById('logShowFullBtn');
+    const searchBar   = document.querySelector('#tab8 .search-bar-row');
+    if (view === 'log') {
+        if (logArea)      logArea.style.display      = '';
+        if (consolePanel) consolePanel.style.display  = 'none';
+        if (logBtn)       logBtn.classList.add('vrcn-button-active');
+        if (conBtn)       conBtn.classList.remove('vrcn-button-active');
+        if (showFull)     showFull.style.display      = '';
+        if (searchBar)    searchBar.style.display     = '';
+    } else {
+        if (logArea)      logArea.style.display      = 'none';
+        if (consolePanel) { consolePanel.style.display = 'flex'; }
+        if (logBtn)       logBtn.classList.remove('vrcn-button-active');
+        if (conBtn)       conBtn.classList.add('vrcn-button-active');
+        if (showFull)     showFull.style.display      = 'none';
+        if (searchBar)    searchBar.style.display     = 'none';
+        const inp = document.getElementById('consoleInput');
+        if (inp) inp.focus();
+    }
+}
+
+function consolePrint(text, color) {
+    const out = document.getElementById('consoleOutput');
+    if (!out) return;
+    const line = document.createElement('div');
+    line.style.cssText = `padding:2px 0;color:${color || 'var(--text-normal)'};white-space:pre-wrap;`;
+    line.textContent = text;
+    out.appendChild(line);
+    out.scrollTop = out.scrollHeight;
+}
+
+function consoleCopyAll() {
+    const out = document.getElementById('consoleOutput');
+    if (!out) return;
+    navigator.clipboard.writeText(out.innerText).catch(() => {});
+}
+
+function consoleRun(raw) {
+    const inp = document.getElementById('consoleInput');
+    if (inp) inp.value = '';
+    const cmd = (raw || '').trim().toLowerCase();
+    if (!cmd) return;
+    consolePrint('> ' + raw, 'var(--text-muted)');
+
+    if (cmd === '/help') {
+        consolePrint('/wipe webview cache  — Deletes the WebView2 browser cache (images, HTTP cache)', '#7289da');
+        consolePrint('/help                — Shows this help', '#7289da');
+        return;
+    }
+    if (cmd === '/wipe webview cache') {
+        consolePrint('Wiping WebView2 cache...', '#faa61a');
+        sendToCS({ action: 'devWipeWebViewCache' });
+        return;
+    }
+    consolePrint('Unknown command. Type /help for available commands.', '#ed4245');
+}
+
+// C# response handler for console commands
+function handleDevConsoleResponse(payload) {
+    const color = payload.ok ? '#3ba55d' : '#ed4245';
+    consolePrint(payload.msg || (payload.ok ? 'Done.' : 'Failed.'), color);
+}
+
 function clearLog() {
     _logSearch = ''; _logShowFull = false;
     const si = document.getElementById('logSearchInput'); if (si) si.value = '';

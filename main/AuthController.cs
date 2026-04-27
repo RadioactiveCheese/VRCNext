@@ -1274,17 +1274,34 @@ public class AuthController
 
         if (!_core.Settings.FfcEnabled) return;
 
-        var avatars = _core.Cache.LoadRaw(CacheHandler.KeyAvatars);
-        if (avatars != null) _core.SendToJS("vrcAvatars", avatars);
+        // Re-process image URLs before sending — FFC stores raw CDN URLs that bypass ImageCache
+        if (_core.Cache.LoadRaw(CacheHandler.KeyAvatars) is JObject avatarsObj)
+        {
+            foreach (var a in avatarsObj["avatars"] as JArray ?? new JArray())
+                if (a is JObject ao) ao["imageUrl"] = ImageCacheHelper.GetAvatarUrl(ao["id"]?.ToString(), ao["imageUrl"]?.ToString());
+            _core.SendToJS("vrcAvatars", avatarsObj);
+        }
 
-        var groups = _core.Cache.LoadRaw(CacheHandler.KeyGroups);
-        if (groups != null) _core.SendToJS("vrcMyGroups", groups);
+        if (_core.Cache.LoadRaw(CacheHandler.KeyGroups) is JArray groupsArr)
+        {
+            foreach (var g in groupsArr)
+                if (g is JObject go) go["iconUrl"] = ImageCacheHelper.GetGroupUrl(go["id"]?.ToString(), go["iconUrl"]?.ToString());
+            _core.SendToJS("vrcMyGroups", groupsArr);
+        }
 
-        var favWorlds = _core.Cache.LoadRaw(CacheHandler.KeyFavWorlds);
-        if (favWorlds != null) _core.SendToJS("vrcFavoriteWorlds", favWorlds);
+        if (_core.Cache.LoadRaw(CacheHandler.KeyFavWorlds) is JObject favWorldsObj)
+        {
+            foreach (var grp in favWorldsObj["worlds"] as JArray ?? new JArray())
+                if (grp is JObject wo) wo["imageUrl"] = ImageCacheHelper.GetWorldUrl(wo["id"]?.ToString(), wo["imageUrl"]?.ToString() ?? wo["thumbnailImageUrl"]?.ToString());
+            _core.SendToJS("vrcFavoriteWorlds", favWorldsObj);
+        }
 
-        var favAvatars = _core.Cache.LoadRaw(CacheHandler.KeyFavAvatars);
-        if (favAvatars != null) _core.SendToJS("vrcFavoriteAvatars", favAvatars);
+        if (_core.Cache.LoadRaw(CacheHandler.KeyFavAvatars) is JObject favAvatarsObj)
+        {
+            foreach (var a in favAvatarsObj["avatars"] as JArray ?? new JArray())
+                if (a is JObject ao) ao["imageUrl"] = ImageCacheHelper.GetAvatarUrl(ao["id"]?.ToString(), ao["imageUrl"]?.ToString());
+            _core.SendToJS("vrcFavoriteAvatars", favAvatarsObj);
+        }
     }
 
     private static readonly TimeSpan StartupCacheTtl = TimeSpan.FromDays(1);

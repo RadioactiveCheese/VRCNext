@@ -242,9 +242,11 @@ public class FriendsController
                         if (_core.Settings.FfcEnabled && _core.Cache.IsFresh(CacheHandler.KeyUserContent(uid), TimeSpan.FromDays(1)))
                         {
                             var cached = _core.Cache.LoadRaw(CacheHandler.KeyUserContent(uid)) as JObject;
-                            if (cached?["avatars"] != null)
+                            if (cached?["avatars"] is JArray cachedAvtrs)
                             {
-                                _core.SendToJS("vrcUserAvatars", new { userId = uid, avatars = cached["avatars"] });
+                                foreach (var a in cachedAvtrs)
+                                    if (a is JObject ao) ao["imageUrl"] = ImageCacheHelper.GetAvatarUrl(ao["id"]?.ToString(), ao["imageUrl"]?.ToString());
+                                _core.SendToJS("vrcUserAvatars", new { userId = uid, avatars = cachedAvtrs });
                                 break;
                             }
                         }
@@ -657,7 +659,24 @@ public class FriendsController
         if (_core.Settings.FfcEnabled && _core.Cache.IsFresh(CacheHandler.KeyUserFavContent(userId), TimeSpan.FromDays(3)))
         {
             var cached = _core.Cache.LoadRaw(CacheHandler.KeyUserFavContent(userId));
-            if (cached != null) { _core.SendToJS("vrcUserFavWorlds", cached); return; }
+            if (cached != null)
+            {
+                // Re-process thumbnailImageUrl through ImageCache.. FFC does stores raw CDN URLs
+                // that bypass the image cache and load directly in browser without being cached locally.
+                if (cached is Newtonsoft.Json.Linq.JObject cobj)
+                {
+                    foreach (var grp in cobj["groups"] ?? new Newtonsoft.Json.Linq.JArray())
+                        foreach (var w in grp["worlds"] ?? new Newtonsoft.Json.Linq.JArray())
+                        {
+                            var wid = w["id"]?.ToString() ?? "";
+                            var raw = w["thumbnailImageUrl"]?.ToString() ?? "";
+                            if (!string.IsNullOrEmpty(wid))
+                                ((Newtonsoft.Json.Linq.JObject)w)["thumbnailImageUrl"] = ImageCacheHelper.GetWorldUrl(wid, raw);
+                        }
+                }
+                _core.SendToJS("vrcUserFavWorlds", cached);
+                return;
+            }
         }
 
         // Fetch fresh data from API
@@ -678,10 +697,11 @@ public class FriendsController
                 foreach (var w in wArr)
                 {
                     if (w is not JObject wo) continue;
+                    var wfid = wo["id"]?.ToString() ?? "";
                     worlds.Add(new {
-                        id = wo["id"]?.ToString() ?? "",
+                        id = wfid,
                         name = wo["name"]?.ToString() ?? "",
-                        thumbnailImageUrl = wo["thumbnailImageUrl"]?.ToString() ?? "",
+                        thumbnailImageUrl = ImageCacheHelper.GetWorldUrl(wfid, wo["imageUrl"]?.ToString() ?? wo["thumbnailImageUrl"]?.ToString()),
                         occupants = wo["occupants"]?.Value<int>() ?? 0,
                         favorites = wo["favorites"]?.Value<int>() ?? 0,
                         authorName = wo["authorName"]?.ToString() ?? "",
@@ -1319,7 +1339,7 @@ public class FriendsController
                 shortCode = repGroup["shortCode"]?.ToString() ?? "",
                 discriminator = repGroup["discriminator"]?.ToString() ?? "",
                 iconUrl = ImageCacheHelper.GetGroupUrl(repGroup["groupId"]?.ToString() ?? repGroup["id"]?.ToString(), repGroup["iconUrl"]?.ToString()),
-                bannerUrl = ImageCacheHelper.GetGroupBannerUrl(repGroup["groupId"]?.ToString() ?? repGroup["id"]?.ToString(), repGroup["bannerUrl"]?.ToString()),
+                bannerUrl = ImageCacheHelper.NormalizeTo512(repGroup["bannerUrl"]?.ToString() ?? ""),
                 memberCount = repGroup["memberCount"]?.Value<int>() ?? 0,
             };
         }
@@ -1335,7 +1355,7 @@ public class FriendsController
                 shortCode = g["shortCode"]?.ToString() ?? "",
                 discriminator = g["discriminator"]?.ToString() ?? "",
                 iconUrl = ImageCacheHelper.GetGroupUrl(gid, g["iconUrl"]?.ToString()),
-                bannerUrl = ImageCacheHelper.GetGroupBannerUrl(gid, g["bannerUrl"]?.ToString()),
+                bannerUrl = ImageCacheHelper.NormalizeTo512(g["bannerUrl"]?.ToString() ?? ""),
                 memberCount = g["memberCount"]?.Value<int>() ?? 0,
                 isRepresenting = g["isRepresenting"]?.Value<bool>() ?? false,
             });
@@ -1368,7 +1388,7 @@ public class FriendsController
                 shortCode = mgObj["shortCode"]?.ToString() ?? "",
                 discriminator = mgObj["discriminator"]?.ToString() ?? "",
                 iconUrl = ImageCacheHelper.GetGroupUrl(gid, mgObj["iconUrl"]?.ToString()),
-                bannerUrl = ImageCacheHelper.GetGroupBannerUrl(gid, mgObj["bannerUrl"]?.ToString()),
+                bannerUrl = ImageCacheHelper.NormalizeTo512(mgObj["bannerUrl"]?.ToString() ?? ""),
                 memberCount = mgObj["memberCount"]?.Value<int>() ?? 0,
             });
         }

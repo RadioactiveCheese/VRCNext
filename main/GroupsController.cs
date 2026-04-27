@@ -157,8 +157,12 @@ public class GroupsController
             {
                 if (_core.Settings.FfcEnabled)
                 {
-                    var cachedGrps = _core.Cache.LoadRaw(CacheHandler.KeyGroups);
-                    if (cachedGrps != null) _core.SendToJS("vrcMyGroups", cachedGrps);
+                    if (_core.Cache.LoadRaw(CacheHandler.KeyGroups) is JArray cachedGrps)
+                    {
+                        foreach (var g in cachedGrps)
+                            if (g is JObject go) go["iconUrl"] = ImageCacheHelper.GetGroupUrl(go["id"]?.ToString(), go["iconUrl"]?.ToString());
+                        _core.SendToJS("vrcMyGroups", cachedGrps);
+                    }
                 }
                 _ = Task.Run(FetchAndCacheAsync);
                 break;

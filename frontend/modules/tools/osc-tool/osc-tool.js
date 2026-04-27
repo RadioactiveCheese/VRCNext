@@ -280,6 +280,12 @@ function _updateOscParamRowEl(row, name, type, value) {
     const activeEl = document.activeElement;
     if (row.contains(activeEl)) return;
 
+    const readonly = row.querySelector('.osc-readonly-val');
+    if (readonly) {
+        readonly.textContent = type === 'bool' ? (value ? 'true' : 'false') : (parseFloat(value) || 0).toFixed(4);
+        return;
+    }
+
     if (type === 'bool') {
         const inp = row.querySelector('input[type="checkbox"]');
         if (inp) inp.checked = !!value;
@@ -323,8 +329,14 @@ function _oscRowHtml(name, type, value, live) {
     const badgeClass = `osc-${type}`;
     const pendingClass = live ? '' : ' osc-row-pending';
 
+    const isSystemParam = name.startsWith('/avatar/') && !name.startsWith('/avatar/parameters/');
+
     let ctrl = '';
-    if (type === 'bool') {
+    if (isSystemParam && type === 'float') {
+        const v = (parseFloat(value) || 0).toFixed(4);
+        ctrl = `<input type="number" class="osc-float-num" min="0.01" max="10000" step="0.01" value="${v}"
+            onchange="oscSetParam('${jsName}','float',parseFloat(this.value)||0)">`;
+    } else if (type === 'bool') {
         const checked = value ? 'checked' : '';
         ctrl = `<label class="toggle osc-toggle">
             <input type="checkbox" ${checked} onchange="oscSetParam('${jsName}','bool',this.checked)">
@@ -404,6 +416,13 @@ function _updateOscParamCount() {
 
 function oscSetParam(name, type, value) {
     if (!oscConnected) return;
+    if (name.startsWith('/avatar/') && !name.startsWith('/avatar/parameters/')) {
+        if (type === 'float') value = parseFloat(value) || 0;
+        if (type === 'bool') value = !!value;
+        if (oscParams[name]) oscParams[name].value = value;
+        sendToCS({ action: 'oscSendRaw', address: name, type, value });
+        return;
+    }
     if (type === 'float') value = Math.max(-1, Math.min(1, parseFloat(value) || 0));
     if (type === 'int') value = Math.max(0, Math.min(255, parseInt(value) || 0));
     if (oscParams[name]) oscParams[name].value = value;

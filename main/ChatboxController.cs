@@ -156,6 +156,21 @@ public class ChatboxController : IDisposable
                 }
                 break;
 
+            case "oscSendRaw":
+                {
+                    if (_osc?.IsConnected == true)
+                    {
+                        var address = msg["address"]?.ToString() ?? "";
+                        var pType   = msg["type"]?.ToString() ?? "";
+                        if (!string.IsNullOrEmpty(address))
+                        {
+                            if (pType == "float") _osc.SendRawFloat(address, msg["value"]?.Value<float>() ?? 0f);
+                            else if (pType == "bool") _osc.SendRawBool(address, msg["value"]?.Value<bool>() ?? false);
+                        }
+                    }
+                }
+                break;
+
             case "oscEnableOutputs":
                 {
                     int filesUpdated = _osc != null ? _osc.EnableAllOutputs()

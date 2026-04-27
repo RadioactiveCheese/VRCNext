@@ -78,8 +78,7 @@
 }
 .osc-int-inp:focus, .osc-float-num:focus {
     border-color: var(--accent);
-}
-.osc-badge-count {
+}.osc-badge-count {
     font-size: 10px;
     color: var(--tx3);
     font-weight: 400;

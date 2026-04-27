@@ -1432,6 +1432,7 @@ public partial class AppShell
                 case "oscConnect":
                 case "oscDisconnect":
                 case "oscSend":
+                case "oscSendRaw":
                 case "oscEnableOutputs":
                     _chatboxCtrl.HandleMessage(action, msg);
                     break;

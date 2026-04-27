@@ -109,6 +109,22 @@ namespace VRCNext
                     return;
                 }
 
+                if (address == "/avatar/eyeheight" ||
+                    address == "/avatar/eyeheightmin" ||
+                    address == "/avatar/eyeheightmax")
+                {
+                    if (typeTag[1] == 'f' && pos + 4 <= data.Length)
+                        _onParam?.Invoke(address, ReadBigEndianFloat(data, ref pos), "float");
+                    return;
+                }
+
+                if (address == "/avatar/eyeheightscalingallowed")
+                {
+                    if (typeTag[1] == 'T' || typeTag[1] == 'F')
+                        _onParam?.Invoke(address, typeTag[1] == 'T', "bool");
+                    return;
+                }
+
                 if (!address.StartsWith("/avatar/parameters/")) return;
 
                 string paramName = address.Substring("/avatar/parameters/".Length);
@@ -388,6 +404,55 @@ namespace VRCNext
             catch (Exception ex) { _log($"[OSC] Send float error: {ex.Message}"); }
         }
 
+        public void SendRawFloat(string address, float value)
+        {
+            if (_sender == null) { _log("[OSC] SendRawFloat: no sender"); return; }
+            try
+            {
+                var buf = new List<byte>();
+                WriteOscString(buf, address);
+                WriteOscString(buf, ",f");
+                byte[] fb = BitConverter.GetBytes(value);
+                buf.Add(fb[3]); buf.Add(fb[2]); buf.Add(fb[1]); buf.Add(fb[0]);
+                var p = buf.ToArray();
+                int sent = _sender.Send(p, p.Length);
+                _log($"[OSC] → {address} = {value:F4} ({sent}B to :{VRC_SEND_PORT})");
+            }
+            catch (Exception ex) { _log($"[OSC] SendRawFloat error: {ex.Message}"); }
+        }
+
+        public void SendRawBool(string address, bool value)
+        {
+            if (_sender == null) { _log("[OSC] SendRawBool: no sender"); return; }
+            try
+            {
+                var buf = new List<byte>();
+                WriteOscString(buf, address);
+                WriteOscString(buf, value ? ",T" : ",F");
+                var p = buf.ToArray();
+                int sent = _sender.Send(p, p.Length);
+                _log($"[OSC] → {address} = {value} ({sent}B to :{VRC_SEND_PORT})");
+            }
+            catch (Exception ex) { _log($"[OSC] SendRawBool error: {ex.Message}"); }
+        }
+
+        public void SendEyeHeight(float meters)
+        {
+            if (_sender == null) { _log("[OSC] SendEyeHeight: no sender"); return; }
+            try
+            {
+                var buf = new List<byte>();
+                WriteOscString(buf, "/avatar/eyeheight");
+                WriteOscString(buf, ",f");
+                byte[] fb = BitConverter.GetBytes(meters);
+                buf.Add(fb[3]); buf.Add(fb[2]); buf.Add(fb[1]); buf.Add(fb[0]);
+                var p = buf.ToArray();
+                int sent = _sender.Send(p, p.Length);
+                _log($"[OSC] → /avatar/eyeheight = {meters:F4}m ({sent}B to :{VRC_SEND_PORT})");
+            }
+            catch (Exception ex) { _log($"[OSC] Send eye height error: {ex.Message}"); }
+        }
+
         public void SendInt(string name, int value)
         {
             if (_sender == null) { _log("[OSC] SendInt: no sender"); return; }
@@ -462,6 +527,7 @@ namespace VRCNext
                 return false;
             }
         }
+
 
         public void Dispose() { Stop(); _cts?.Dispose(); }
     }

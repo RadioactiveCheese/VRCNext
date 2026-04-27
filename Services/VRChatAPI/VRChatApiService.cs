@@ -367,6 +367,22 @@ public class VRChatApiService
         return null;
     }
 
+    public async Task<(JObject? result, int status)> GetUserWithStatusAsync(string userId)
+    {
+        if (!IsLoggedIn || string.IsNullOrEmpty(userId)) return (null, 0);
+        try
+        {
+            var resp = await _http.GetAsync($"{BASE}/users/{userId}");
+            var body = await resp.Content.ReadAsStringAsync();
+            Log($"GetUser response: {(int)resp.StatusCode}");
+            if (resp.IsSuccessStatusCode) return (JObject.Parse(body), (int)resp.StatusCode);
+            Log($"GetUser error: {body[..Math.Min(200, body.Length)]}");
+            return (null, (int)resp.StatusCode);
+        }
+        catch (Exception ex) { Log($"GetUser exception: {ex.Message}"); }
+        return (null, 0);
+    }
+
     // Get all favorite groups (world, vrcPlusWorld, avatar, friend)
     // VRC+ world groups have type="vrcPlusWorld" and names like "vrcPlusWorlds1"
     public async Task<List<JObject>> GetFavoriteGroupsAsync()
@@ -475,6 +491,26 @@ public class VRChatApiService
         }
         catch (Exception ex) { Log($"GetWorld exception: {ex.Message}"); }
         return null;
+    }
+
+    public async Task<(JObject? result, int status)> GetWorldWithStatusAsync(string worldId)
+    {
+        if (!IsLoggedIn || string.IsNullOrEmpty(worldId)) return (null, 0);
+        if (_worldCache.TryGetValue(worldId, out var cached)) return (cached, 200);
+        try
+        {
+            var resp = await _http.GetAsync($"{BASE}/worlds/{worldId}");
+            var body = await resp.Content.ReadAsStringAsync();
+            if (resp.IsSuccessStatusCode)
+            {
+                var world = JObject.Parse(body);
+                _worldCache[worldId] = world;
+                return (world, 200);
+            }
+            return (null, (int)resp.StatusCode);
+        }
+        catch (Exception ex) { Log($"GetWorld exception: {ex.Message}"); }
+        return (null, 0);
     }
 
     public async Task<JObject?> GetWorldFreshAsync(string worldId)

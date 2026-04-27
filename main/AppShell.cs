@@ -217,6 +217,7 @@ public partial class AppShell
         _core.HttpPort = _httpPort;
 
         VRCNext.Services.Helpers.ImageCacheHelper.Initialize(_vrcApi.GetHttpClient());
+        VRCNext.Services.Helpers.PermafailHelper.Initialize();
         VRCNext.Services.Helpers.ImageCacheHelper.Port            = _httpPort;
         VRCNext.Services.Helpers.ImageCacheHelper.LimitGb         = _settings.ImgCacheLimitGb;
         VRCNext.Services.Helpers.ImageCacheHelper.OptimizeEnabled = _settings.ImgCacheOptimizeEnabled;

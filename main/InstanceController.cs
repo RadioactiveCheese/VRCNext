@@ -498,7 +498,8 @@ public class InstanceController
                     var missingWorldIds = worldPage
                         .Where(w => !string.IsNullOrEmpty(w.WorldId)
                             && string.IsNullOrEmpty(w.WorldThumb)
-                            && ImageCacheHelper.GetWorldCached(w.WorldId) == null)
+                            && ImageCacheHelper.GetWorldCached(w.WorldId) == null
+                            && !PermafailHelper.IsPermafailed(w.WorldId, PfType.Entity))
                         .Select(w => w.WorldId).Distinct().Take(20).ToList();
 
                     bool anyResolved = false;
@@ -506,11 +507,11 @@ public class InstanceController
                     {
                         try
                         {
-                            var wj = await _core.VrcApi.GetWorldAsync(wid);
-                            if (wj != null)
+                            var wResult = await _core.VrcApi.GetWorldWithStatusAsync(wid);
+                            if (wResult.result != null)
                             {
-                                var wName  = wj["name"]?.ToString() ?? "";
-                                var wThumb = wj["imageUrl"]?.ToString() ?? "";
+                                var wName  = wResult.result["name"]?.ToString() ?? "";
+                                var wThumb = wResult.result["imageUrl"]?.ToString() ?? "";
                                 ImageCacheHelper.CacheWorldBackground(wid, wThumb);
                                 _core.TimeEngine.UpdateWorldInfo(wid, wName, wThumb);
                                 var idx = worldPage.FindIndex(x => x.WorldId == wid);
@@ -523,6 +524,10 @@ public class InstanceController
                                     anyResolved = true;
                                 }
                             }
+                            else if (wResult.status == 403 || wResult.status == 404)
+                            {
+                                PermafailHelper.Add(wid, PfType.Entity, wResult.status);
+                            }
                         }
                         catch { }
                     }
@@ -531,7 +536,8 @@ public class InstanceController
                     var missingPersonIds = personPage
                         .Where(p => string.IsNullOrEmpty(p.Image)
                             && !string.IsNullOrEmpty(p.UserId)
-                            && ImageCacheHelper.GetUserCached(p.UserId) == null)
+                            && ImageCacheHelper.GetUserCached(p.UserId) == null
+                            && !PermafailHelper.IsPermafailed(p.UserId, PfType.Entity))
                         .Select(p => p.UserId).Distinct().Take(30).ToList();
 
                     if (missingPersonIds.Count > 0)
@@ -550,12 +556,16 @@ public class InstanceController
                                     resolved = fi.image;
                                 else
                                 {
-                                    var profile = await _core.VrcApi.GetUserAsync(uid);
-                                    if (profile != null)
+                                    var uResult = await _core.VrcApi.GetUserWithStatusAsync(uid);
+                                    if (uResult.result != null)
                                     {
-                                        var img = VRChatApiService.GetUserImage(profile);
+                                        var img = VRChatApiService.GetUserImage(uResult.result);
                                         if (!string.IsNullOrEmpty(img))
                                             resolved = ImageCacheHelper.GetUserUrl(uid, img);
+                                    }
+                                    else if (uResult.status == 403 || uResult.status == 404)
+                                    {
+                                        PermafailHelper.Add(uid, PfType.Entity, uResult.status);
                                     }
                                     await Task.Delay(250);
                                 }

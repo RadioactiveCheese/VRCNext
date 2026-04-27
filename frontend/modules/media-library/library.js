@@ -444,7 +444,8 @@ function _buildLibCard(x) {
             const remaining = players.length - show.length;
             playersOverlay  = `<div class="lib-players-overlay" onclick="event.stopPropagation();openPhotoDetail(${idx})">` +
                 show.map(p => {
-                    const fr  = vrcFriendsData.find(f => f.id === p.userId);
+                    const isOwn = currentVrcUser && p.userId === currentVrcUser.id;
+                    const fr  = isOwn ? currentVrcUser : vrcFriendsData.find(f => f.id === p.userId);
                     const img = fr?.image || p.image || '';
                     return img
                         ? `<div class="lib-player-av" style="background-image:url('${cssUrl(img)}')" title="${esc(p.displayName)}"></div>`
@@ -593,7 +594,9 @@ function openPhotoDetail(idx) {
         playersHtml = `<div style="font-size:10px;font-weight:700;color:var(--tx3);padding:8px 0 4px;letter-spacing:.05em;">${tf('library.detail.players_title', { count: players.length }, 'PLAYERS IN INSTANCE ({count})')}</div><div class="photo-players-list">`;
         players.forEach(p => {
             const onclick = p.userId ? `document.getElementById('modalDetail').style.display='none';openFriendDetail('${jsq(p.userId)}')` : '';
-            playersHtml += renderProfileItemSmall({ id: p.userId, displayName: p.displayName, image: p.image }, onclick);
+            const isOwn = currentVrcUser && p.userId === currentVrcUser.id;
+            const fr    = isOwn ? currentVrcUser : vrcFriendsData.find(f => f.id === p.userId);
+            playersHtml += renderProfileItemSmall({ id: p.userId, displayName: p.displayName, image: fr?.image || p.image || '' }, onclick);
         });
         playersHtml += `</div>`;
     }

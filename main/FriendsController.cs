@@ -477,7 +477,12 @@ public class FriendsController
                     if (_core.Settings.FfcEnabled && _core.Cache.IsFresh(CacheHandler.KeyBlockedPersons, TimeSpan.FromDays(1)))
                     {
                         var cached = _core.Cache.LoadRaw(CacheHandler.KeyBlockedPersons);
-                        if (cached != null) { _core.SendToJS("vrcBlockedList", cached); return; }
+                        if (cached is JArray bArr)
+                        {
+                            foreach (var e in bArr)
+                                if (e is JObject eo) eo["image"] = ImageCacheHelper.GetUserUrl(eo["targetUserId"]?.ToString(), eo["image"]?.ToString());
+                            _core.SendToJS("vrcBlockedList", bArr); return;
+                        }
                     }
                     var arr = await _core.VrcApi.GetPlayerModerationsAsync("block");
                     await EnrichModerationsWithImagesAsync(arr);
@@ -492,7 +497,12 @@ public class FriendsController
                     if (_core.Settings.FfcEnabled && _core.Cache.IsFresh(CacheHandler.KeyMutedPersons, TimeSpan.FromDays(1)))
                     {
                         var cached = _core.Cache.LoadRaw(CacheHandler.KeyMutedPersons);
-                        if (cached != null) { _core.SendToJS("vrcMutedList", cached); return; }
+                        if (cached is JArray mArr)
+                        {
+                            foreach (var e in mArr)
+                                if (e is JObject eo) eo["image"] = ImageCacheHelper.GetUserUrl(eo["targetUserId"]?.ToString(), eo["image"]?.ToString());
+                            _core.SendToJS("vrcMutedList", mArr); return;
+                        }
                     }
                     var arr = await _core.VrcApi.GetPlayerModerationsAsync("mute");
                     await EnrichModerationsWithImagesAsync(arr);

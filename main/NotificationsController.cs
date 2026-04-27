@@ -1,5 +1,6 @@
 using Newtonsoft.Json.Linq;
 using VRCNext.Services;
+using VRCNext.Services.Helpers;
 
 namespace VRCNext;
 
@@ -422,7 +423,7 @@ public class NotificationsController
         if (string.IsNullOrEmpty(senderImg) && !string.IsNullOrEmpty(senderUserId))
         {
             if (_friends.TryGetNameImage(senderUserId, out var fi) && !string.IsNullOrEmpty(fi.image))
-                senderImg = fi.image;
+                senderImg = ImageCacheHelper.GetUserUrl(senderUserId, fi.image);
         }
 
         // Extract message — for v1 invite responses the text lives in details, not message
@@ -497,7 +498,7 @@ public class NotificationsController
                         {
                             var updated = _core.Timeline.GetEvents().FirstOrDefault(e => e.Id == evId);
                             if (updated != null) _core.SendToJS("timelineEvent", _instance.BuildTimelinePayload(updated));
-                            _core.SendToJS("vrcNotifImageUpdate", new { notifId, image = img, senderUsername = name });
+                            _core.SendToJS("vrcNotifImageUpdate", new { notifId, image = ImageCacheHelper.GetUserUrl(uid, img), senderUsername = name });
                         });
                     }
                     catch { }
@@ -550,7 +551,7 @@ public class NotificationsController
                         var group = await _core.VrcApi.GetGroupAsync(groupId);
                         if (group == null) return;
                         var groupName = group["name"]?.ToString() ?? "";
-                        var groupIcon = group["iconUrl"]?.ToString() ?? "";
+                        var groupIcon = ImageCacheHelper.GetGroupUrl(groupId, group["iconUrl"]?.ToString());
                         if (string.IsNullOrEmpty(groupName) && string.IsNullOrEmpty(groupIcon)) return;
                         _core.Timeline.UpdateEvent(evId, ev => { ev.SenderName = groupName; ev.SenderImage = groupIcon; });
                         if (!string.IsNullOrEmpty(groupIcon))
@@ -559,7 +560,7 @@ public class NotificationsController
                         {
                             var updated = _core.Timeline.GetEvents().FirstOrDefault(e => e.Id == evId);
                             if (updated != null) _core.SendToJS("timelineEvent", _instance.BuildTimelinePayload(updated));
-                            _core.SendToJS("vrcNotifImageUpdate", new { notifId, image = groupIcon, senderUsername = groupName });
+                            _core.SendToJS("vrcNotifImageUpdate", new { notifId, image = ImageCacheHelper.GetGroupUrl(groupId, groupIcon), senderUsername = groupName });
                         });
                     }
                     catch { }
@@ -572,9 +573,19 @@ public class NotificationsController
 
     public Task GetNotificationsAsync() => Task.Run(async () =>
     {
+        // Restore persisted v2 support flag — avoids one 404 call per session restart
+        _core.VrcApi.NotifV2Supported = _core.Settings.NotifV2Supported;
+
         var t1 = _core.VrcApi.GetNotificationsAsync();
         var t2 = _core.VrcApi.GetNotificationsV2Async();
         await Task.WhenAll(t1, t2);
+
+        // Persist if v2 was disabled this session (404)
+        if (!_core.VrcApi.NotifV2Supported && _core.Settings.NotifV2Supported)
+        {
+            _core.Settings.NotifV2Supported = false;
+            _core.Settings.Save();
+        }
 
         var list = t1.Result.Cast<JObject>().Select(NormalizeNotifV1).ToList();
         Invoke(() => _core.SendToJS("log", new { msg = $"[Notif REST] v1={t1.Result.Count} types=[{string.Join(",", t1.Result.Cast<JObject>().Select(n => n["type"]?.ToString()))}]", color = "sec" }));
@@ -743,10 +754,6 @@ public class NotificationsController
                     if (!string.IsNullOrEmpty(worldName))
                         capturedEvText = $"→ {worldName}";
                 }
-
-                // --- Route image through local cache proxy (starts background download) ---
-                if (!string.IsNullOrEmpty(capturedImg))
-                    capturedImg = _core.ImgCache?.Get(capturedImg) ?? capturedImg;
 
                 // --- Add to wrist overlay + enqueue toast with all data ready ---
                 _core.VrOverlay?.AddNotification(capturedEvType, capturedName, capturedEvText, time,

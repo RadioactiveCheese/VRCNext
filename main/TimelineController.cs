@@ -2,6 +2,7 @@ using Microsoft.Data.Sqlite;
 using NativeFileDialogSharp;
 using Newtonsoft.Json.Linq;
 using VRCNext.Services;
+using VRCNext.Services.Helpers;
 
 namespace VRCNext;
 
@@ -221,10 +222,17 @@ public class TimelineController
                 if (!_core.VrcApi.IsLoggedIn) return;
                 if (ftlCt.IsCancellationRequested) return;
 
-                // Resolve world thumbs (re-fetch any world not yet resolved this session)
-                var unknownGpsWorlds = fevents
+                var ftlCutoff    = DateTime.UtcNow - TimeSpan.FromDays(7);
+                var recentFevents = fevents.Where(e =>
+                    DateTime.TryParse(e.Timestamp, out var ts) && ts >= ftlCutoff).ToList();
+
+                foreach (var ev in recentFevents.Where(e => !string.IsNullOrEmpty(e.WorldId) && !string.IsNullOrEmpty(e.WorldThumb)))
+                    ImageCacheHelper.CacheWorldBackground(ev.WorldId, ev.WorldThumb);
+
+                var unknownGpsWorlds = recentFevents
                     .Where(e => !string.IsNullOrEmpty(e.WorldId)
-                        && !_core.WorldThumbCache.ContainsKey(e.WorldId))
+                             && string.IsNullOrEmpty(e.WorldThumb)
+                             && ImageCacheHelper.GetWorldCached(e.WorldId) == null)
                     .Select(e => e.WorldId).Distinct().ToList();
 
                 bool anyFevResolved = false;
@@ -236,10 +244,10 @@ public class TimelineController
                         var w = await _core.VrcApi.GetWorldAsync(wid);
                         if (w == null) continue;
                         var wName  = w["name"]?.ToString() ?? "";
-                        var wThumb = w["thumbnailImageUrl"]?.ToString() ?? w["imageUrl"]?.ToString() ?? "";
+                        var wThumb = w["imageUrl"]?.ToString() ?? "";
+                        ImageCacheHelper.CacheWorldBackground(wid, wThumb);
                         if (!string.IsNullOrEmpty(wThumb))
                         {
-                            _core.WorldThumbCache[wid] = wThumb;
                             foreach (var ev in fevents.Where(e => e.WorldId == wid))
                             {
                                 _core.Timeline.UpdateFriendEventWorld(ev.Id, wName, wThumb);
@@ -255,23 +263,20 @@ public class TimelineController
                 // Apply session-cached thumbs to all friend events
                 foreach (var ev in fevents.Where(e => !string.IsNullOrEmpty(e.WorldId)))
                 {
-                    if (_core.WorldThumbCache.TryGetValue(ev.WorldId, out var cached) && !string.IsNullOrEmpty(cached)
-                        && ev.WorldThumb != cached)
-                    { ev.WorldThumb = cached; anyFevResolved = true; }
                 }
 
                 // Resolve missing friend images from cache, then API
-                var missingFriendIds = fevents
+                var missingFriendIds = recentFevents
                     .Where(e => !string.IsNullOrEmpty(e.FriendId) && string.IsNullOrEmpty(e.FriendImage))
                     .Select(e => e.FriendId).Distinct().ToList();
 
                 var fetchedFriendImgs = new Dictionary<string, string>();
                 foreach (var fid in missingFriendIds)
                 {
-                    if (_core.PlayerImageCache.TryGetValue(fid, out var ci) && !string.IsNullOrEmpty(ci))
-                        fetchedFriendImgs[fid] = ci;
-                    else if (_friends.TryGetNameImage(fid, out var fi) && !string.IsNullOrEmpty(fi.image))
-                    { fetchedFriendImgs[fid] = fi.image; _core.PlayerImageCache[fid] = fi.image; }
+                    var disk = ImageCacheHelper.GetUserCached(fid);
+                    if (disk != null) { fetchedFriendImgs[fid] = ImageCacheHelper.ToLocalUrl(disk); continue; }
+                    if (_friends.TryGetNameImage(fid, out var fi) && !string.IsNullOrEmpty(fi.image))
+                        fetchedFriendImgs[fid] = fi.image;
                 }
 
                 var needApiImg = missingFriendIds.Where(fid => !fetchedFriendImgs.ContainsKey(fid)).Take(20).ToList();
@@ -284,12 +289,14 @@ public class TimelineController
                         try
                         {
                             if (ftlCt.IsCancellationRequested) return;
+                            var diskFi = ImageCacheHelper.GetUserCached(fid);
+                            if (diskFi != null) { fetchedFriendImgs[fid] = ImageCacheHelper.ToLocalUrl(diskFi); return; }
                             var profile = await _core.VrcApi.GetUserAsync(fid);
                             if (profile != null)
                             {
                                 var img = VRChatApiService.GetUserImage(profile);
                                 if (!string.IsNullOrEmpty(img))
-                                { fetchedFriendImgs[fid] = img; _core.PlayerImageCache[fid] = img; }
+                                    fetchedFriendImgs[fid] = ImageCacheHelper.GetUserUrl(fid, img);
                             }
                             await Task.Delay(250);
                         }
@@ -308,14 +315,6 @@ public class TimelineController
 
                 if (anyFevResolved)
                 {
-                    if (_core.ImgCache != null)
-                    {
-                        var thumbUrls = fevents
-                            .Where(e => !string.IsNullOrEmpty(e.WorldThumb) && e.WorldThumb.StartsWith("http") && !e.WorldThumb.Contains("localhost"))
-                            .Select(e => e.WorldThumb).Distinct().ToList();
-                        if (thumbUrls.Count > 0)
-                            await Task.WhenAll(thumbUrls.Select(u => _core.ImgCache.GetWorldAsync(u)));
-                    }
                     var updated = fevents.Select(e => _friends.BuildFriendTimelinePayload(e)).ToList();
                     _core.SendToJS("friendTimelineData", new { events = updated, hasMore, offset = 0, total = ftTotal, type = typeFilter });
                 }
@@ -347,9 +346,17 @@ public class TimelineController
 
                 if (!_core.VrcApi.IsLoggedIn || ftlCt.IsCancellationRequested) return;
 
-                var unknownWorlds = fevents
+                var ftlPageCutoff   = DateTime.UtcNow - TimeSpan.FromDays(7);
+                var recentFpageEvts = fevents.Where(e =>
+                    DateTime.TryParse(e.Timestamp, out var ts) && ts >= ftlPageCutoff).ToList();
+
+                foreach (var ev in recentFpageEvts.Where(e => !string.IsNullOrEmpty(e.WorldId) && !string.IsNullOrEmpty(e.WorldThumb)))
+                    ImageCacheHelper.CacheWorldBackground(ev.WorldId, ev.WorldThumb);
+
+                var unknownWorlds = recentFpageEvts
                     .Where(e => !string.IsNullOrEmpty(e.WorldId)
-                        && !_core.WorldThumbCache.ContainsKey(e.WorldId))
+                             && string.IsNullOrEmpty(e.WorldThumb)
+                             && ImageCacheHelper.GetWorldCached(e.WorldId) == null)
                     .Select(e => e.WorldId).Distinct().ToList();
 
                 bool anyResolved = false;
@@ -361,10 +368,10 @@ public class TimelineController
                         var w = await _core.VrcApi.GetWorldAsync(wid);
                         if (w == null) continue;
                         var wName  = w["name"]?.ToString() ?? "";
-                        var wThumb = w["thumbnailImageUrl"]?.ToString() ?? w["imageUrl"]?.ToString() ?? "";
+                        var wThumb = w["imageUrl"]?.ToString() ?? "";
+                        ImageCacheHelper.CacheWorldBackground(wid, wThumb);
                         if (!string.IsNullOrEmpty(wThumb))
                         {
-                            _core.WorldThumbCache[wid] = wThumb;
                             foreach (var ev in fevents.Where(e => e.WorldId == wid))
                             {
                                 _core.Timeline.UpdateFriendEventWorld(ev.Id, wName, wThumb);
@@ -379,21 +386,10 @@ public class TimelineController
 
                 foreach (var ev in fevents.Where(e => !string.IsNullOrEmpty(e.WorldId)))
                 {
-                    if (_core.WorldThumbCache.TryGetValue(ev.WorldId, out var cached) && !string.IsNullOrEmpty(cached)
-                        && ev.WorldThumb != cached)
-                    { ev.WorldThumb = cached; anyResolved = true; }
                 }
 
                 if (anyResolved && !ftlCt.IsCancellationRequested)
                 {
-                    if (_core.ImgCache != null)
-                    {
-                        var thumbUrls = fevents
-                            .Where(e => !string.IsNullOrEmpty(e.WorldThumb) && e.WorldThumb.StartsWith("http") && !e.WorldThumb.Contains("localhost"))
-                            .Select(e => e.WorldThumb).Distinct().ToList();
-                        if (thumbUrls.Count > 0)
-                            await Task.WhenAll(thumbUrls.Select(u => _core.ImgCache.GetWorldAsync(u)));
-                    }
                     var updated = fevents.Select(e => _friends.BuildFriendTimelinePayload(e)).ToList();
                     _core.SendToJS("friendTimelineData", new { events = updated, hasMore, offset = pageOffset, total = ftTotal, type = typeFilter });
                 }
@@ -417,7 +413,7 @@ public class TimelineController
                 {
                     friendId    = e.FriendId,
                     friendName  = e.FriendName,
-                    friendImage = _friends.ResolvePlayerImage(e.FriendId, e.FriendImage),
+                    friendImage = ImageCacheHelper.GetUserUrl(e.FriendId, _friends.ResolvePlayerImage(e.FriendId, e.FriendImage)),
                 }).ToList();
                 _core.SendToJS("ftAlsoWasHere", new { excludeId, friends = payload });
             }
@@ -462,11 +458,17 @@ public class TimelineController
         CancellationToken ct)
     {
         bool anyResolved = false;
+        var enrichCutoff = DateTime.UtcNow - TimeSpan.FromDays(7);
+        var recentEvents = events.Where(e =>
+            DateTime.TryParse(e.Timestamp, out var ts) && ts >= enrichCutoff).ToList();
 
-        // 1) World thumbs/names — re-fetch any world not yet resolved this session
-        var unknownWorlds = events
+        foreach (var ev in recentEvents.Where(e => !string.IsNullOrEmpty(e.WorldId) && !string.IsNullOrEmpty(e.WorldThumb)))
+            ImageCacheHelper.CacheWorldBackground(ev.WorldId, ev.WorldThumb);
+
+        var unknownWorlds = recentEvents
             .Where(e => !string.IsNullOrEmpty(e.WorldId)
-                && !_core.WorldThumbCache.ContainsKey(e.WorldId))
+                     && string.IsNullOrEmpty(e.WorldThumb)
+                     && ImageCacheHelper.GetWorldCached(e.WorldId) == null)
             .Select(e => e.WorldId).Distinct().ToList();
 
         foreach (var wid in unknownWorlds)
@@ -478,10 +480,10 @@ public class TimelineController
                 if (w != null)
                 {
                     var wName  = w["name"]?.ToString() ?? "";
-                    var wThumb = w["thumbnailImageUrl"]?.ToString() ?? w["imageUrl"]?.ToString() ?? "";
+                    var wThumb = w["imageUrl"]?.ToString() ?? "";
+                    ImageCacheHelper.CacheWorldBackground(wid, wThumb);
                     if (!string.IsNullOrEmpty(wThumb))
                     {
-                        _core.WorldThumbCache[wid] = wThumb;
                         _core.TimeEngine.UpdateWorldInfo(wid, wName, wThumb);
                         foreach (var ev in events.Where(e => e.WorldId == wid))
                         {
@@ -499,9 +501,6 @@ public class TimelineController
         // Apply session-cached thumbs to all events
         foreach (var ev in events.Where(e => !string.IsNullOrEmpty(e.WorldId)))
         {
-            if (_core.WorldThumbCache.TryGetValue(ev.WorldId, out var cached) && !string.IsNullOrEmpty(cached)
-                && ev.WorldThumb != cached)
-            { ev.WorldThumb = cached; anyResolved = true; }
         }
 
         // 2) Player / user images
@@ -509,7 +508,7 @@ public class TimelineController
         var playerRefs    = new List<(string evId, string userId)>();
         var userEventRefs = new List<(string evId, string userId)>();
 
-        foreach (var ev in events)
+        foreach (var ev in recentEvents)
         {
             if (ev.Type == "instance_join")
             {
@@ -529,8 +528,7 @@ public class TimelineController
             }
         }
 
-        // 3) Avatar images (avatar_switch — UserId is the avatarId, fetch via GetAvatarAsync)
-        var avatarEventRefs  = events
+        var avatarEventRefs  = recentEvents
             .Where(e => e.Type == "avatar_switch" && string.IsNullOrEmpty(e.UserImage) && !string.IsNullOrEmpty(e.UserId))
             .Select(e => (evId: e.Id, avatarId: e.UserId))
             .ToList();
@@ -579,16 +577,16 @@ public class TimelineController
                 try
                 {
                     if (ct.IsCancellationRequested) return;
-                    if (_core.PlayerImageCache.TryGetValue(uid, out var ci) && !string.IsNullOrEmpty(ci))
-                    { fetchedImgs[uid] = ci; return; }
+                    var diskU = ImageCacheHelper.GetUserCached(uid);
+                    if (diskU != null) { fetchedImgs[uid] = ImageCacheHelper.ToLocalUrl(diskU); return; }
                     if (_friends.TryGetNameImage(uid, out var fi) && !string.IsNullOrEmpty(fi.image))
-                    { fetchedImgs[uid] = fi.image; _core.PlayerImageCache[uid] = fi.image; return; }
+                    { fetchedImgs[uid] = fi.image; return; }
                     var profile = await _core.VrcApi.GetUserAsync(uid);
                     if (profile != null)
                     {
                         var img = VRChatApiService.GetUserImage(profile);
                         if (!string.IsNullOrEmpty(img))
-                        { fetchedImgs[uid] = img; _core.PlayerImageCache[uid] = img; _core.Timeline.SetUserImage(uid, img); }
+                        { fetchedImgs[uid] = ImageCacheHelper.GetUserUrl(uid, img); }
                     }
                     await Task.Delay(250);
                 }
@@ -621,16 +619,6 @@ public class TimelineController
 
         if (anyResolved && !ct.IsCancellationRequested)
         {
-            // Pre-download world thumbs so ResolveAndCache returns localhost URLs, not raw auth-gated URLs
-            if (_core.ImgCache != null)
-            {
-                var thumbUrls = events
-                    .Where(e => !string.IsNullOrEmpty(e.WorldThumb) && e.WorldThumb.StartsWith("http") && !e.WorldThumb.Contains("localhost"))
-                    .Select(e => e.WorldThumb).Distinct().ToList();
-                if (thumbUrls.Count > 0)
-                    await Task.WhenAll(thumbUrls.Select(u => _core.ImgCache.GetWorldAsync(u)));
-            }
-
             var updated = events.Select(e => _instance.BuildTimelinePayload(e)).ToList();
             if (date != null)
                 _core.SendToJS("timelineData", new { events = updated, hasMore, offset, total, type = typeFilter, date });
@@ -660,10 +648,13 @@ public class TimelineController
 
                 if (!_core.VrcApi.IsLoggedIn || ftlCt.IsCancellationRequested) return;
 
-                // Enrich world thumbs (re-fetch any world not yet resolved this session)
+                foreach (var ev in fevents.Where(e => !string.IsNullOrEmpty(e.WorldId) && !string.IsNullOrEmpty(e.WorldThumb)))
+                    ImageCacheHelper.CacheWorldBackground(ev.WorldId, ev.WorldThumb);
+
                 var unknownWorlds = fevents
                     .Where(e => !string.IsNullOrEmpty(e.WorldId)
-                        && !_core.WorldThumbCache.ContainsKey(e.WorldId))
+                             && string.IsNullOrEmpty(e.WorldThumb)
+                             && ImageCacheHelper.GetWorldCached(e.WorldId) == null)
                     .Select(e => e.WorldId).Distinct().ToList();
 
                 bool anyFtdResolved = false;
@@ -675,10 +666,10 @@ public class TimelineController
                         var w = await _core.VrcApi.GetWorldAsync(wid);
                         if (w == null) continue;
                         var wName  = w["name"]?.ToString() ?? "";
-                        var wThumb = w["thumbnailImageUrl"]?.ToString() ?? w["imageUrl"]?.ToString() ?? "";
+                        var wThumb = w["imageUrl"]?.ToString() ?? "";
+                        ImageCacheHelper.CacheWorldBackground(wid, wThumb);
                         if (!string.IsNullOrEmpty(wThumb))
                         {
-                            _core.WorldThumbCache[wid] = wThumb;
                             foreach (var ev in fevents.Where(e => e.WorldId == wid))
                             {
                                 _core.Timeline.UpdateFriendEventWorld(ev.Id, wName, wThumb);
@@ -691,13 +682,6 @@ public class TimelineController
                     catch { }
                 }
 
-                // Apply session-cached thumbs to all events
-                foreach (var ev in fevents.Where(e => !string.IsNullOrEmpty(e.WorldId)))
-                {
-                    if (_core.WorldThumbCache.TryGetValue(ev.WorldId, out var cached) && !string.IsNullOrEmpty(cached)
-                        && ev.WorldThumb != cached)
-                    { ev.WorldThumb = cached; anyFtdResolved = true; }
-                }
 
                 // Enrich missing friend images
                 var missingFriendIds = fevents
@@ -708,9 +692,8 @@ public class TimelineController
                 {
                     if (ftlCt.IsCancellationRequested) break;
                     string img = "";
-                    if (_core.PlayerImageCache.TryGetValue(fid, out var ci) && !string.IsNullOrEmpty(ci)) img = ci;
-                    else if (_friends.TryGetNameImage(fid, out var fi) && !string.IsNullOrEmpty(fi.image))
-                    { img = fi.image; _core.PlayerImageCache[fid] = fi.image; }
+                    if (_friends.TryGetNameImage(fid, out var fi) && !string.IsNullOrEmpty(fi.image))
+                        img = ImageCacheHelper.GetUserUrl(fid, fi.image);
                     if (!string.IsNullOrEmpty(img))
                         foreach (var ev in fevents.Where(e => e.FriendId == fid && string.IsNullOrEmpty(e.FriendImage)))
                         { ev.FriendImage = img; anyFtdResolved = true; }
@@ -718,14 +701,6 @@ public class TimelineController
 
                 if (anyFtdResolved && !ftlCt.IsCancellationRequested)
                 {
-                    if (_core.ImgCache != null)
-                    {
-                        var thumbUrls = fevents
-                            .Where(e => !string.IsNullOrEmpty(e.WorldThumb) && e.WorldThumb.StartsWith("http") && !e.WorldThumb.Contains("localhost"))
-                            .Select(e => e.WorldThumb).Distinct().ToList();
-                        if (thumbUrls.Count > 0)
-                            await Task.WhenAll(thumbUrls.Select(u => _core.ImgCache.GetWorldAsync(u)));
-                    }
                     var updated = fevents.Select(e => _friends.BuildFriendTimelinePayload(e)).ToList();
                     _core.SendToJS("friendTimelineData", new { events = updated, hasMore = false, offset = 0, type = typeFilter, date = dateStr });
                 }

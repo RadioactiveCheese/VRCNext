@@ -13,6 +13,31 @@ public partial class AppShell
     private Dictionary<string, (string name, string rawImageUrl)>? _sharedContentCache;
     private readonly object _sharedContentCacheLock = new();
 
+    // Lazy cache of own avatars — GET /api/1/avatars/{id} returns 403 for own private avatars.
+    // Loaded once via GetOwnAvatarsAsync (uses releaseStatus=all).
+    private Dictionary<string, (string name, string thumb)>? _ownAvatarCache;
+    private readonly SemaphoreSlim _ownAvatarCacheLock = new(1, 1);
+    private async Task EnsureOwnAvatarCacheAsync()
+    {
+        if (_ownAvatarCache != null) return;
+        await _ownAvatarCacheLock.WaitAsync();
+        try
+        {
+            if (_ownAvatarCache != null) return;
+            _ownAvatarCache = new();
+            var avatars = await _vrcApi.GetOwnAvatarsAsync();
+            foreach (var a in avatars)
+            {
+                var id    = a["id"]?.ToString() ?? "";
+                var name2 = a["name"]?.ToString() ?? "";
+                var thumb = a["thumbnailImageUrl"]?.ToString() ?? a["imageUrl"]?.ToString() ?? "";
+                if (!string.IsNullOrEmpty(id))
+                    _ownAvatarCache[id] = (name2, thumb);
+            }
+        }
+        finally { _ownAvatarCacheLock.Release(); }
+    }
+
     private Dictionary<string, (string name, string rawImageUrl)> GetSharedContentCache()
     {
         if (_sharedContentCache != null) return _sharedContentCache;
@@ -43,7 +68,11 @@ public partial class AppShell
 
         foreach (var (id, name, rawImageUrl) in entries)
         {
-            var image = _imgCache != null ? await _imgCache.GetAsync(rawImageUrl) : rawImageUrl;
+            var image = id.StartsWith("avtr_") ? ImageCacheHelper.GetAvatarUrl(id, rawImageUrl)
+                      : id.StartsWith("wrld_") ? ImageCacheHelper.GetWorldUrl(id, rawImageUrl)
+                      : id.StartsWith("usr_")  ? ImageCacheHelper.GetUserUrl(id, rawImageUrl)
+                      : id.StartsWith("grp_")  ? ImageCacheHelper.GetGroupUrl(id, rawImageUrl)
+                      : rawImageUrl;
             if (!string.IsNullOrEmpty(name) || !string.IsNullOrEmpty(image))
                 Invoke(() => SendToJS("vrcSharedContentInfo", new { contentId = id, name, image }));
         }
@@ -386,8 +415,8 @@ public partial class AppShell
                     var upPronouns = msg["pronouns"] != null ? msg["pronouns"]!.ToString() : (string?)null;
                     var upBioLinks = msg["bioLinks"]?.ToObject<List<string>>();
                     var upTags = msg["tags"]?.ToObject<List<string>>();
-                    var upUserIcon = msg["userIcon"]           != null ? _imgCache?.GetOriginalUrl(msg["userIcon"]!.ToString())           ?? msg["userIcon"]!.ToString()           : (string?)null;
-                    var upBanner   = msg["profilePicOverride"] != null ? _imgCache?.GetOriginalUrl(msg["profilePicOverride"]!.ToString()) ?? msg["profilePicOverride"]!.ToString() : (string?)null;
+                    var upUserIcon = msg["userIcon"]           != null ? msg["userIcon"]!.ToString()           : (string?)null;
+                    var upBanner   = msg["profilePicOverride"] != null ? msg["profilePicOverride"]!.ToString() : (string?)null;
                     _ = Task.Run(async () =>
                     {
                         var updUser = await _vrcApi.UpdateProfileAsync(upBio, upPronouns, upBioLinks, upTags, upUserIcon, upBanner);
@@ -453,6 +482,7 @@ public partial class AppShell
                     if (!string.IsNullOrEmpty(_activityLogDir) && Directory.Exists(_activityLogDir))
                         Process.Start(new ProcessStartInfo(_activityLogDir) { UseShellExecute = true });
                     break;
+
 
                 // Get friend detail / preview
                 case "vrcGetFriendDetail":
@@ -550,8 +580,8 @@ public partial class AppShell
                                 {
                                     id               = a["vrc_id"]?.ToString() ?? a["id"]?.ToString() ?? "",
                                     name             = a["name"]?.ToString() ?? "",
-                                    thumbnailImageUrl = a["image_url"]?.ToString() ?? a["thumbnailImageUrl"]?.ToString() ?? "",
-                                    imageUrl         = a["image_url"]?.ToString() ?? a["imageUrl"]?.ToString() ?? "",
+                                    thumbnailImageUrl = a["thumbnailImageUrl"]?.ToString() ?? "",
+                                    imageUrl         = ImageCacheHelper.GetAvatarUrl(a["vrc_id"]?.ToString() ?? a["id"]?.ToString(), a["image_url"]?.ToString() ?? a["imageUrl"]?.ToString()),
                                     authorName       = a["author"]?["name"]?.ToString() ?? a["authorName"]?.ToString() ?? "",
                                     releaseStatus    = "public",
                                     description      = a["description"]?.ToString() ?? "",
@@ -637,7 +667,7 @@ public partial class AppShell
                         var res = await _vrcApi.SearchUsersAsync(uQ, 20, uOff);
                         var list = res.Cast<JObject>().Select(u => new {
                             id = u["id"]?.ToString() ?? "", displayName = u["displayName"]?.ToString() ?? "",
-                            image = VRChatApiService.GetUserImage(u), status = u["status"]?.ToString() ?? "offline",
+                            image = ImageCacheHelper.GetUserUrl(u["id"]?.ToString(), VRChatApiService.GetUserImage(u)), status = u["status"]?.ToString() ?? "offline",
                             statusDescription = u["statusDescription"]?.ToString() ?? "", bio = u["bio"]?.ToString() ?? "",
                             isFriend = u["isFriend"]?.Value<bool>() ?? false,
                             location = u["location"]?.ToString() ?? "",
@@ -652,14 +682,17 @@ public partial class AppShell
                     _ = Task.Run(async () =>
                     {
                         var res = await _vrcApi.SearchWorldsAsync(wQ, 20, wOff);
-                        var list = res.Cast<JObject>().Select(w => new {
-                            id = w["id"]?.ToString() ?? "", name = w["name"]?.ToString() ?? "",
-                            imageUrl = w["imageUrl"]?.ToString() ?? "", thumbnailImageUrl = w["thumbnailImageUrl"]?.ToString() ?? "",
+                        var list = res.Cast<JObject>().Select(w => {
+                            var wid2 = w["id"]?.ToString() ?? "";
+                            return new {
+                            id = wid2, name = w["name"]?.ToString() ?? "",
+                            imageUrl = ImageCacheHelper.GetWorldUrl(wid2, w["imageUrl"]?.ToString()), thumbnailImageUrl = w["thumbnailImageUrl"]?.ToString() ?? "",
                             authorName = w["authorName"]?.ToString() ?? "", occupants = w["occupants"]?.Value<int>() ?? 0,
                             capacity = w["capacity"]?.Value<int>() ?? 0, favorites = w["favorites"]?.Value<int>() ?? 0,
                             visits = w["visits"]?.Value<int>() ?? 0, description = w["description"]?.ToString() ?? "",
                             tags = w["tags"]?.ToObject<List<string>>() ?? new(),
-                            worldTimeSeconds = _timeEngine.GetWorldStats(w["id"]?.ToString() ?? "").totalSeconds,
+                            worldTimeSeconds = _timeEngine.GetWorldStats(wid2).totalSeconds,
+                            };
                         }).ToList();
                         Invoke(() => SendToJS("vrcSearchResults", new { type = "worlds", results = list, offset = wOff, hasMore = list.Count >= 20 }));
                     });
@@ -682,8 +715,8 @@ public partial class AppShell
                                 id                  = wdId,
                                 name                = wdCached.WorldName,
                                 description         = wdCached.Description,
-                                imageUrl            = _imgCache?.GetWorldBanner(wdCached.ImageUrl) ?? wdCached.ImageUrl,
-                                thumbnailImageUrl   = _imgCache?.GetWorldBanner(wdCached.WorldThumb) ?? wdCached.WorldThumb,
+                                imageUrl            = ImageCacheHelper.GetWorldUrl(wdId, wdCached.ImageUrl),
+                                thumbnailImageUrl   = ImageCacheHelper.GetWorldUrl(wdId, wdCached.WorldThumb),
                                 authorName          = wdCached.AuthorName,
                                 authorId            = wdCached.AuthorId,
                                 occupants           = 0,
@@ -876,8 +909,8 @@ public partial class AppShell
                                 id = world["id"]?.ToString() ?? "",
                                 name = world["name"]?.ToString() ?? "",
                                 description = world["description"]?.ToString() ?? "",
-                                imageUrl = _imgCache?.GetWorldBanner(world["imageUrl"]?.ToString()) ?? world["imageUrl"]?.ToString() ?? "",
-                                thumbnailImageUrl = _imgCache?.GetWorldBanner(world["thumbnailImageUrl"]?.ToString()) ?? world["thumbnailImageUrl"]?.ToString() ?? "",
+                                imageUrl = ImageCacheHelper.GetWorldUrl(world["id"]?.ToString(), world["imageUrl"]?.ToString()),
+                                thumbnailImageUrl = world["thumbnailImageUrl"]?.ToString() ?? "",
                                 authorName = world["authorName"]?.ToString() ?? "",
                                 authorId = world["authorId"]?.ToString() ?? "",
                                 occupants = world["occupants"]?.Value<int>() ?? 0,
@@ -937,8 +970,8 @@ public partial class AppShell
                         if (avdCached != null)
                             Invoke(() => SendToJS("vrcAvatarDetail", new {
                                 id = avdId, name = avdCached.Name, authorName = avdCached.AuthorName,
-                                authorId = avdCached.AuthorId, thumbnailImageUrl = avdCached.ThumbnailImageUrl,
-                                imageUrl = avdCached.ImageUrl, releaseStatus = avdCached.ReleaseStatus,
+                                authorId = avdCached.AuthorId, thumbnailImageUrl = ImageCacheHelper.GetAvatarUrl(avdId, avdCached.ThumbnailImageUrl),
+                                imageUrl = ImageCacheHelper.GetAvatarUrl(avdId, avdCached.ImageUrl), releaseStatus = avdCached.ReleaseStatus,
                                 version = avdCached.Version, created_at = avdCached.CreatedAt,
                                 updated_at = avdCached.UpdatedAt, description = avdCached.Description,
                                 tags = avdCached.Tags, hasPC = avdCached.HasPC, hasQuest = avdCached.HasQuest,
@@ -984,8 +1017,8 @@ public partial class AppShell
                                 name             = avatar["name"]?.ToString()                ?? "",
                                 authorName       = avatar["authorName"]?.ToString()          ?? "",
                                 authorId         = avatar["authorId"]?.ToString()            ?? "",
-                                thumbnailImageUrl = avatar["thumbnailImageUrl"]?.ToString()  ?? "",
-                                imageUrl         = avatar["imageUrl"]?.ToString()            ?? "",
+                                thumbnailImageUrl = avatar["thumbnailImageUrl"]?.ToString() ?? "",
+                                imageUrl         = ImageCacheHelper.GetAvatarUrl(avatar["id"]?.ToString(), avatar["imageUrl"]?.ToString()),
                                 releaseStatus    = avatar["releaseStatus"]?.ToString()       ?? "",
                                 version          = avatar["version"]?.Value<int>()           ?? 0,
                                 created_at       = avatar["created_at"]?.ToString()          ?? "",
@@ -1037,8 +1070,8 @@ public partial class AppShell
                                 {
                                     var w = await _vrcApi.GetWorldFreshAsync(scId);
                                     name     = w?["name"]?.Value<string>() ?? "";
-                                    rawImage = w?["thumbnailImageUrl"]?.Value<string>()
-                                            ?? w?["imageUrl"]?.Value<string>() ?? "";
+                                    rawImage = w?["imageUrl"]?.Value<string>()
+                                            ?? w?["thumbnailImageUrl"]?.Value<string>() ?? "";
                                 }
                                 else if (scType == "avtr")
                                 {
@@ -1046,6 +1079,17 @@ public partial class AppShell
                                     name     = a?["name"]?.Value<string>() ?? "";
                                     rawImage = a?["thumbnailImageUrl"]?.Value<string>()
                                             ?? a?["imageUrl"]?.Value<string>() ?? "";
+                                    // GET /api/1/avatars/{id} returns 403 for own private avatars.
+                                    // Fall back to own avatar list (releaseStatus=all) which includes private avatars.
+                                    if (string.IsNullOrEmpty(rawImage) || string.IsNullOrEmpty(name))
+                                    {
+                                        await EnsureOwnAvatarCacheAsync();
+                                        if (_ownAvatarCache!.TryGetValue(scId, out var own))
+                                        {
+                                            if (string.IsNullOrEmpty(name))     name     = own.name;
+                                            if (string.IsNullOrEmpty(rawImage)) rawImage = own.thumb;
+                                        }
+                                    }
                                 }
                                 else if (scType == "grp")
                                 {
@@ -1071,16 +1115,20 @@ public partial class AppShell
                                 }
                             }
 
-                            // Send immediately with raw URL — CDN URLs load in browser right away
-                            if (!string.IsNullOrEmpty(name) || !string.IsNullOrEmpty(rawImage))
-                                Invoke(() => SendToJS("vrcSharedContentInfo", new { contentId = scId, contentType = scType, name, image = rawImage }));
-                            // Await download, then send update with localhost URL
-                            if (!string.IsNullOrEmpty(rawImage) && _imgCache != null)
+                            if (string.IsNullOrEmpty(name) && string.IsNullOrEmpty(rawImage)) return;
+
+                            string imageToSend = rawImage;
+                            if (!string.IsNullOrEmpty(rawImage))
                             {
-                                var localImage = await _imgCache.GetAsync(rawImage);
-                                if (!string.IsNullOrEmpty(localImage) && localImage != rawImage)
-                                    Invoke(() => SendToJS("vrcSharedContentInfo", new { contentId = scId, contentType = scType, name, image = localImage }));
+                                var fp = scType == "avtr" ? await ImageCacheHelper.CacheAvatarAsync(scId, rawImage)
+                                       : scType == "wrld" ? await ImageCacheHelper.CacheWorldAsync(scId, rawImage)
+                                       : scType == "grp"  ? await ImageCacheHelper.CacheGroupAsync(scId, rawImage)
+                                       : scType == "usr"  ? await ImageCacheHelper.CacheUserAsync(scId, rawImage)
+                                       : null;
+                                if (fp != null) imageToSend = ImageCacheHelper.ToLocalUrl(fp);
                             }
+
+                            Invoke(() => SendToJS("vrcSharedContentInfo", new { contentId = scId, contentType = scType, name, image = imageToSend }));
                         });
                     }
                     break;
@@ -1513,7 +1561,7 @@ public partial class AppShell
                                 id = guId, displayName = guCached.DisplayName, image = guCached.Image,
                                 status = guCached.Status, statusDescription = guCached.StatusDescription,
                                 bio = guCached.Bio, location = guCached.Location, isFriend = guCached.IsFriend,
-                                currentAvatarImageUrl = guCached.CurrentAvatarImg,
+                                currentAvatarImageUrl = ImageCacheHelper.GetAvatarUrl(null, guCached.CurrentAvatarImg),
                             }));
                         _ = Task.Run(async () => {
                             var u = await _vrcApi.GetUserAsync(guId);
@@ -1532,11 +1580,11 @@ public partial class AppShell
                                     u["currentAvatarImageUrl"]?.ToString() ?? "");
                                 Invoke(() => SendToJS("vrcUserDetail", new {
                                     id = u["id"]?.ToString() ?? "", displayName = u["displayName"]?.ToString() ?? "",
-                                    image = guImg, status = u["status"]?.ToString() ?? "offline",
+                                    image = ImageCacheHelper.GetUserUrl(u["id"]?.ToString() ?? guId, guImg), status = u["status"]?.ToString() ?? "offline",
                                     statusDescription = u["statusDescription"]?.ToString() ?? "",
                                     bio = u["bio"]?.ToString() ?? "", location = u["location"]?.ToString() ?? "",
                                     isFriend = u["isFriend"]?.Value<bool>() ?? false,
-                                    currentAvatarImageUrl = u["currentAvatarImageUrl"]?.ToString() ?? "",
+                                    currentAvatarImageUrl = ImageCacheHelper.GetAvatarUrl(u["currentAvatar"]?.ToString(), u["currentAvatarImageUrl"]?.ToString()),
                                 }));
                             }
                         });

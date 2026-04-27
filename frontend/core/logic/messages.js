@@ -414,9 +414,8 @@ window.external.receiveMessage(rawMsg => {
                     avatarsData = payload.avatars || [];
                     if (payload.currentAvatarId) currentAvatarId = payload.currentAvatarId;
                     avatarsLoaded = true;
-                    // Populate avatarInfoCache so messenger content cards resolve immediately
                     (payload.avatars || []).forEach(a => {
-                        if (a.id) avatarInfoCache[a.id] = { id: a.id, name: a.name || '', thumbnailImageUrl: a.thumbnailImageUrl || a.imageUrl || '' };
+                        if (a.id) avatarInfoCache[a.id] = { id: a.id, name: a.name || '' };
                     });
                     if (avatarFilter === 'own') renderAvatarGrid();
                     renderDashOwnAvatars();

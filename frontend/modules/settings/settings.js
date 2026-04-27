@@ -188,7 +188,6 @@ function saveSettings() {
             dpHidePlayersOnline: document.getElementById('dpHidePlayers_online')?.checked ?? false,
             dpHidePlayersAskMe:  document.getElementById('dpHidePlayers_askme')?.checked  ?? false,
             dpHidePlayersBusy:   document.getElementById('dpHidePlayers_busy')?.checked   ?? false,
-            imgCacheEnabled:         document.getElementById('setImgCacheEnabled').checked,
             imgCacheLimitGb:         parseInt(document.getElementById('setImgCacheLimit').value) || 5,
             imgCacheOptimizeEnabled: document.getElementById('setImgCacheOptimizeEnabled').checked,
             ffcEnabled: document.getElementById('setFfcEnabled').checked,
@@ -446,14 +445,12 @@ function loadSettingsToUI(s) {
     // Auto-starts are now triggered by vrcLaunched (see messages.js)
 
     // Image cache settings
-    const imgCacheEnabled         = s.ImgCacheEnabled         ?? s.imgCacheEnabled         ?? true;
     const imgCacheLimitGb         = Math.max(5, Math.min(30, s.ImgCacheLimitGb ?? s.imgCacheLimitGb ?? 5));
     const imgCacheOptimizeEnabled = s.ImgCacheOptimizeEnabled ?? s.imgCacheOptimizeEnabled ?? true;
-    document.getElementById('setImgCacheEnabled').checked = imgCacheEnabled;
     document.getElementById('setImgCacheLimit').value = imgCacheLimitGb;
     document.getElementById('imgCacheLimitVal').textContent = imgCacheLimitGb + ' GB';
     document.getElementById('setImgCacheOptimizeEnabled').checked = imgCacheOptimizeEnabled;
-    updateImgCacheUi();
+    sendToCS({ action: 'getImgCacheSize' });
 
     // Fast Fetch Cache
     document.getElementById('setFfcEnabled').checked = s.FfcEnabled ?? s.ffcEnabled ?? true;
@@ -497,9 +494,7 @@ function loadSettingsToUI(s) {
 }
 
 function updateImgCacheUi() {
-    const enabled = document.getElementById('setImgCacheEnabled').checked;
-    document.getElementById('imgCacheLimitRow').style.display = enabled ? '' : 'none';
-    if (enabled) sendToCS({ action: 'getImgCacheSize' });
+    sendToCS({ action: 'getImgCacheSize' });
 }
 
 function updateImgCacheSizeBar(bytes) {

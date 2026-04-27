@@ -142,7 +142,7 @@ public class VROverlayController : IDisposable
 
                 var host = EnsureHost();
                 var (auth, tfa) = _core.VrcApi.GetCookies();
-                host.EnsureRunning(_core.ImgCache?.CacheDir ?? "", _core.HttpPort, auth, tfa);
+                host.EnsureRunning("", _core.HttpPort, auth, tfa);
 
                 // Send theme colors
                 if (msg["themeColors"] is JObject tc)

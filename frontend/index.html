@@ -58,7 +58,7 @@
 </head>
 <body>
     <div class="sidebar" id="sidebarEl">
-        <div class="logo"><div class="logo-icon" id="logoIcon">V</div><div class="logo-txt"><div class="logo-text-row"><div class="logo-text">VRCNext</div></div><div class="logo-sub">v2026.18.8</div></div><button class="sb-toggle" onclick="toggleSidebar()" title="Toggle sidebar" data-i18n-title="common.toggle_sidebar"><span class="msi" id="sbIcon">chevron_left</span></button></div>
+        <div class="logo"><div class="logo-icon" id="logoIcon">V</div><div class="logo-txt"><div class="logo-text-row"><div class="logo-text">VRCNext</div></div><div class="logo-sub">v2026.18.10</div></div><button class="sb-toggle" onclick="toggleSidebar()" title="Toggle sidebar" data-i18n-title="common.toggle_sidebar"><span class="msi" id="sbIcon">chevron_left</span></button></div>
         <div class="nav vrcn-scrollbar">
             <button class="nav-btn active" onclick="showTab(0)" data-nav="dashboard"><span class="ni msi">dashboard</span><span class="nl" data-i18n="nav.dashboard">Dashboard</span></button>
             <button class="nav-btn" onclick="showTab(1)"><span class="ni msi">travel_explore</span><span class="nl" data-i18n="nav.worlds">Worlds</span></button>
@@ -899,10 +899,6 @@
                     <div class="vrcn-panel-card">
                         <div class="vrcn-panel-card-header"><span class="msi">cached</span> <span data-i18n="settings.image_cache.title">Image Cache</span></div>
                         <div class="set-desc" data-i18n="settings.image_cache.desc">VRCNext caches avatar, world, and profile images locally for instant loading. Over time this can grow to several gigabytes. Set a limit and the oldest cached images will be removed automatically when it is reached (~2 GB per cleanup pass).</div>
-                        <div class="sf-toggle-row">
-                            <span data-i18n="settings.image_cache.enable">Enable image caching</span>
-                            <label class="toggle"><input type="checkbox" id="setImgCacheEnabled" checked onchange="updateImgCacheUi();autoSave()"><div class="toggle-track"><div class="toggle-knob"></div></div></label>
-                        </div>
                         <div class="sf-toggle-row" style="margin-top:10px;">
                             <div>
                                 <span data-i18n="settings.image_cache.optimize.label">Optimize Caching</span>
@@ -925,7 +921,6 @@
                             <div style="font-size:10px;color:var(--tx3);margin-top:6px;" data-i18n="settings.image_cache.limit_hint">When the limit is reached, the oldest ~2 GB of cached images are removed automatically.</div>
                         </div>
                         <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap;">
-                            <button class="vrcn-button" onclick="sendToCS({action:'clearImgCache'})"><span class="msi" style="font-size:16px;">delete_sweep</span> <span data-i18n="settings.image_cache.clear">Clear Image Cache</span></button>
                             <button class="vrcn-button" id="btnForceOptimize" onclick="startForceOptimize()"><span class="msi" style="font-size:16px;">compress</span> <span data-i18n="settings.image_cache.force_optimize">Force Optimization</span></button>
                         </div>
                         <div id="imgOptimizeProgress" style="display:none;margin-top:8px;">

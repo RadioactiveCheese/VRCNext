@@ -1,4 +1,4 @@
-/* === Global date/time format (received from Windows system via C#) === */
+// Global date/time format (received from Windows system via C#)
 let _dtShortPattern = 'dd.MM.yyyy'; // e.g. "dd.MM.yyyy", "M/d/yyyy", "yyyy-MM-dd"
 let _dtIs24Hour = true;
 
@@ -144,20 +144,20 @@ let searchState = {
 };
 let currentFriendDetail = null;
 let _fdLiveTimer = null;
-/* === World info cache for library badges === */
+// World info cache for library badges
 let worldInfoCache = {};
 let pendingDeletePath = null;
-/* === World Tab: Favorites / Search filter === */
+// World Tab: Favorites / Search filter
 let worldFilter = 'favorites';
 let favWorldsData = [];
 let favWorldGroups = [];
 let favWorldGroupFilter = '';
-/* === People Tab: Favorites / Search / Blocked / Muted filter === */
+// People Tab: Favorites / Search / Blocked / Muted filter
 let peopleFilter = 'favorites';
 let favFriendsData = []; // [{ fvrtId, favoriteId }]
 let blockedData = null; // null = not yet loaded
 let mutedData = null;
-/* === VRChat API === */
+// VRChat API
 let vrc2faType = 'totp';
 let vrcFriendsData = [];
 let selectedStatus = 'active';
@@ -278,21 +278,21 @@ function getPlatformBadgeHtml(platform) {
     if (platform === 'web')               return `<span class="vrcn-badge platform-web" title="${t('instance.platform.web', 'Web')}"><span class="msi" style="font-size:11px;">language</span>${t('instance.platform.web', 'Web')}</span>`;
     return '';
 }
-/* === Space Flight === */
+// Space Flight
 let sfConnected = false;
-/* === Custom Chatbox OSC === */
+// Custom Chatbox OSC
 let chatboxEnabled = false;
 let chatboxCustomLines = [];
-/* === OSC Tool === */
+// OSC Tool
 let oscParams = {};
 let oscConnected = false;
-/* === Timeline === */
+// Timeline
 let timelineEvents = [];
 let tlFilter = 'all';
 let tlMode = 'personal';
 let friendTimelineEvents = [];
 let ftFilter = 'all';
-/* === Inventory === */
+// Inventory
 let activeInvTab = 'photos';
 let invFilesCache = {}; // tag → file[]
 let invPrintsCache = [];
@@ -1409,7 +1409,7 @@ function playVRChat() {
     sendToCS({ action: 'playVRChat' });
 }
 
-/* === Communication === */
+// Communication
 function sendToCS(m) {
     window.external.sendMessage(JSON.stringify(m));
 }

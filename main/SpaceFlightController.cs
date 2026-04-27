@@ -62,7 +62,7 @@ public class SpaceFlightController : IDisposable
             {
                 var host = EnsureHost();
                 var (auth, tfa) = _core.VrcApi.GetCookies();
-                host.EnsureRunning(_core.ImgCache?.CacheDir ?? "", _core.HttpPort, auth, tfa);
+                host.EnsureRunning("", _core.HttpPort, auth, tfa);
                 host.SfConnect(
                     _core.Settings.SfMultiplier,
                     _core.Settings.SfLockX, _core.Settings.SfLockY, _core.Settings.SfLockZ,
@@ -126,7 +126,7 @@ public class SpaceFlightController : IDisposable
         {
             var host = EnsureHost();
             var (auth, tfa) = _core.VrcApi.GetCookies();
-            host.EnsureRunning(_core.ImgCache?.CacheDir ?? "", _core.HttpPort, auth, tfa);
+            host.EnsureRunning("", _core.HttpPort, auth, tfa);
             host.SfConnect(
                 _core.Settings.SfMultiplier,
                 _core.Settings.SfLockX, _core.Settings.SfLockY, _core.Settings.SfLockZ,

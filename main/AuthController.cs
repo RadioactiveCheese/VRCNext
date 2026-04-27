@@ -2,6 +2,7 @@
 using Newtonsoft.Json.Linq;
 using NativeFileDialogSharp;
 using VRCNext.Services;
+using VRCNext.Services.Helpers;
 using System.Diagnostics;
 
 namespace VRCNext;
@@ -136,41 +137,26 @@ public class AuthController
                 _core.MemTrim.TrimNow();
                 break;
 
-            case "clearImgCache":
+            case "getImgCacheSize":
                 _ = Task.Run(() =>
                 {
-                    _core.ImgCache?.ClearAll();
-                    Invoke(() => _core.SendToJS("log", new { msg = "\ud83d\uddd1 Image cache cleared.", color = "sec" }));
-                    var bytesAfterClear = _core.ImgCache?.GetCacheSizeBytes() ?? 0;
-                    Invoke(() => _core.SendToJS("imgCacheSize", new { bytes = bytesAfterClear }));
+                    var bytes = ImageCacheHelper.GetCacheSizeBytes();
+                    Invoke(() => _core.SendToJS("imgCacheSize", new { bytes }));
                 });
                 break;
 
             case "optimizeImgCache":
                 _ = Task.Run(async () =>
                 {
-                    if (_core.ImgCache == null) return;
-                    Invoke(() => _core.SendToJS("log", new { msg = "\ud83d\uddc4 Optimizing image cache\u2026", color = "sec" }));
                     Invoke(() => _core.SendToJS("imgCacheOptimizeProgress", new { done = 0, total = -1 }));
-                    await _core.ImgCache.OptimizeAllAsync((done, total) =>
+                    await ImageCacheHelper.OptimizeAsync((done, total) =>
                         Invoke(() => _core.SendToJS("imgCacheOptimizeProgress", new { done, total })));
-                    // Clear in-memory image cache so stale .png URLs get rebuilt as .jpg on next access
-                    _core.PlayerImageCache.Clear();
-                    var bytes = _core.ImgCache.GetCacheSizeBytes();
+                    var bytes = ImageCacheHelper.GetCacheSizeBytes();
                     Invoke(() =>
                     {
-                        _core.SendToJS("log", new { msg = "\u2705 Image cache optimization complete.", color = "sec" });
-                        _core.SendToJS("imgCacheSize", new { bytes });
                         _core.SendToJS("imgCacheOptimizeProgress", new { done = -1, total = 0 });
+                        _core.SendToJS("imgCacheSize", new { bytes });
                     });
-                });
-                break;
-
-            case "getImgCacheSize":
-                _ = Task.Run(() =>
-                {
-                    var bytes = _core.ImgCache?.GetCacheSizeBytes() ?? 0;
-                    Invoke(() => _core.SendToJS("imgCacheSize", new { bytes }));
                 });
                 break;
 
@@ -705,8 +691,8 @@ public class AuthController
             pronouns = user["pronouns"]?.ToString() ?? "",
             bioLinks = user["bioLinks"]?.ToObject<List<string>>() ?? new List<string>(),
             tags = user["tags"]?.ToObject<List<string>>() ?? new List<string>(),
-            profilePicOverride    = _core.ImgCache?.Get(user["profilePicOverride"]?.ToString() ?? "") ?? user["profilePicOverride"]?.ToString() ?? "",
-            currentAvatarImageUrl = _core.ImgCache?.Get(user["currentAvatarImageUrl"]?.ToString() ?? "") ?? user["currentAvatarImageUrl"]?.ToString() ?? "",
+            profilePicOverride    = ImageCacheHelper.GetUserBannerUrl(user["id"]?.ToString(), user["profilePicOverride"]?.ToString()),
+            currentAvatarImageUrl = ImageCacheHelper.GetAvatarUrl(user["currentAvatar"]?.ToString(), user["currentAvatarImageUrl"]?.ToString()),
         });
 
 #if WINDOWS
@@ -879,18 +865,11 @@ public class AuthController
             _core.Settings.DpHideJoinBtnAskMe  = data["dpHideJoinBtnAskMe"]?.Value<bool>()  ?? true;
             _core.Settings.DpHideJoinBtnBusy   = data["dpHideJoinBtnBusy"]?.Value<bool>()   ?? true;
 
-            // Image cache settings
-            _core.Settings.ImgCacheEnabled         = data["imgCacheEnabled"]?.Value<bool>()         ?? true;
+            // Image cache
             _core.Settings.ImgCacheLimitGb         = Math.Clamp(data["imgCacheLimitGb"]?.Value<int>() ?? 5, 5, 30);
             _core.Settings.ImgCacheOptimizeEnabled = data["imgCacheOptimizeEnabled"]?.Value<bool>() ?? true;
-            if (_core.ImgCache != null)
-            {
-                _core.ImgCache.Enabled         = _core.Settings.ImgCacheEnabled;
-                _core.ImgCache.OptimizeEnabled  = _core.Settings.ImgCacheOptimizeEnabled;
-                _core.ImgCache.LimitBytes       = (long)_core.Settings.ImgCacheLimitGb * 1024 * 1024 * 1024;
-                if (_core.Settings.ImgCacheEnabled && _core.ImgCache.LimitBytes > 0)
-                    _ = Task.Run(() => _core.ImgCache.TrimIfNeeded(_core.ImgCache.LimitBytes));
-            }
+            ImageCacheHelper.LimitGb         = _core.Settings.ImgCacheLimitGb;
+            ImageCacheHelper.OptimizeEnabled = _core.Settings.ImgCacheOptimizeEnabled;
 
             // Fast Fetch Cache
             _core.Settings.FfcEnabled = data["ffcEnabled"]?.Value<bool>() ?? true;
@@ -1194,11 +1173,12 @@ public class AuthController
                 {
                     var wid = w["id"]?.ToString() ?? "";
                     var stats = _core.TimeEngine.GetWorldStats(wid);
+                    var rawWorldImg = w["imageUrl"]?.ToString() ?? "";
                     allWorlds.Add(new
                     {
                         id                = wid,
                         name              = w["name"]?.ToString() ?? "",
-                        imageUrl          = w["imageUrl"]?.ToString() ?? "",
+                        imageUrl          = rawWorldImg, // raw URL stored in FFC — processed on load via GetWorldUrl
                         thumbnailImageUrl = w["thumbnailImageUrl"]?.ToString() ?? "",
                         authorName        = w["authorName"]?.ToString() ?? "",
                         occupants         = w["occupants"]?.Value<int>()  ?? 0,
@@ -1265,7 +1245,7 @@ public class AuthController
                     {
                         id                = a["id"]?.ToString() ?? "",
                         name              = a["name"]?.ToString() ?? "",
-                        imageUrl          = a["imageUrl"]?.ToString() ?? "",
+                        imageUrl          = a["imageUrl"]?.ToString() ?? "", // raw URL for FFC
                         thumbnailImageUrl = a["thumbnailImageUrl"]?.ToString() ?? "",
                         authorName        = a["authorName"]?.ToString() ?? "",
                         releaseStatus     = a["releaseStatus"]?.ToString() ?? "private",
@@ -1298,7 +1278,7 @@ public class AuthController
             {
                 id                = a["id"]?.ToString() ?? "",
                 name              = a["name"]?.ToString() ?? "",
-                imageUrl          = a["imageUrl"]?.ToString() ?? "",
+                imageUrl          = a["imageUrl"]?.ToString() ?? "", // raw URL for FFC
                 thumbnailImageUrl = a["thumbnailImageUrl"]?.ToString() ?? "",
                 authorName        = a["authorName"]?.ToString() ?? "",
                 releaseStatus     = a["releaseStatus"]?.ToString() ?? "private",
@@ -1324,17 +1304,34 @@ public class AuthController
 
         if (!_core.Settings.FfcEnabled) return;
 
-        var avatars = _core.Cache.LoadRaw(CacheHandler.KeyAvatars);
-        if (avatars != null) _core.SendToJS("vrcAvatars", avatars);
+        // Re-process image URLs before sending — FFC stores raw CDN URLs that bypass ImageCache
+        if (_core.Cache.LoadRaw(CacheHandler.KeyAvatars) is JObject avatarsObj)
+        {
+            foreach (var a in avatarsObj["avatars"] as JArray ?? new JArray())
+                if (a is JObject ao) ao["imageUrl"] = ImageCacheHelper.GetAvatarUrl(ao["id"]?.ToString(), ao["imageUrl"]?.ToString());
+            _core.SendToJS("vrcAvatars", avatarsObj);
+        }
 
-        var groups = _core.Cache.LoadRaw(CacheHandler.KeyGroups);
-        if (groups != null) _core.SendToJS("vrcMyGroups", groups);
+        if (_core.Cache.LoadRaw(CacheHandler.KeyGroups) is JArray groupsArr)
+        {
+            foreach (var g in groupsArr)
+                if (g is JObject go) go["iconUrl"] = ImageCacheHelper.GetGroupUrl(go["id"]?.ToString(), go["iconUrl"]?.ToString());
+            _core.SendToJS("vrcMyGroups", groupsArr);
+        }
 
-        var favWorlds = _core.Cache.LoadRaw(CacheHandler.KeyFavWorlds);
-        if (favWorlds != null) _core.SendToJS("vrcFavoriteWorlds", favWorlds);
+        if (_core.Cache.LoadRaw(CacheHandler.KeyFavWorlds) is JObject favWorldsObj)
+        {
+            foreach (var grp in favWorldsObj["worlds"] as JArray ?? new JArray())
+                if (grp is JObject wo) wo["imageUrl"] = ImageCacheHelper.GetWorldUrl(wo["id"]?.ToString(), wo["imageUrl"]?.ToString() ?? wo["thumbnailImageUrl"]?.ToString());
+            _core.SendToJS("vrcFavoriteWorlds", favWorldsObj);
+        }
 
-        var favAvatars = _core.Cache.LoadRaw(CacheHandler.KeyFavAvatars);
-        if (favAvatars != null) _core.SendToJS("vrcFavoriteAvatars", favAvatars);
+        if (_core.Cache.LoadRaw(CacheHandler.KeyFavAvatars) is JObject favAvatarsObj)
+        {
+            foreach (var a in favAvatarsObj["avatars"] as JArray ?? new JArray())
+                if (a is JObject ao) ao["imageUrl"] = ImageCacheHelper.GetAvatarUrl(ao["id"]?.ToString(), ao["imageUrl"]?.ToString());
+            _core.SendToJS("vrcFavoriteAvatars", favAvatarsObj);
+        }
     }
 
     private static readonly TimeSpan StartupCacheTtl = TimeSpan.FromDays(1);
@@ -1347,7 +1344,6 @@ public class AuthController
         if (!_core.Cache.IsFresh(CacheHandler.KeyFavWorlds, StartupCacheTtl)) _ = Task.Run(FetchAndCacheFavWorldsAsync);
         if (!_core.Cache.IsFresh(CacheHandler.KeyFavAvatars, StartupCacheTtl)) _ = Task.Run(FetchAndCacheFavAvatarsAsync);
         if (_core.PrefetchSharedContent != null) _ = Task.Run(_core.PrefetchSharedContent);
-        _ = Task.Run(BackfillMissingPlayerImagesAsync);
         _ = Task.Run(CollectWorldStatsIfMissingAsync);
         if (_core.Settings.AutoUpdate) _ = Task.Run(AutoUpdateAsync);
         await Task.CompletedTask;
@@ -1391,40 +1387,6 @@ public class AuthController
             }
         }
         catch { }
-    }
-
-    private async Task BackfillMissingPlayerImagesAsync()
-    {
-        if (!_core.VrcApi.IsLoggedIn) return;
-        var missing = _core.Timeline.GetUsersWithMissingImages();
-        if (missing.Count == 0) return;
-
-        Invoke(() => _core.SendToJS("log", new { msg = $"[IMG] Backfilling images for {missing.Count} players\u2026", color = "sec" }));
-
-        var sem = new SemaphoreSlim(3);
-        var tasks = missing.Select(async m =>
-        {
-            await sem.WaitAsync();
-            try
-            {
-                if (!_core.VrcApi.IsLoggedIn) return;
-                var profile = await _core.VrcApi.GetUserAsync(m.UserId);
-                if (profile == null) return;
-                var img = VRChatApiService.GetUserImage(profile);
-                if (string.IsNullOrEmpty(img)) return;
-
-                _core.PlayerImageCache[m.UserId] = img;
-                _core.PlayerProfileCache[m.UserId] = profile;
-                _core.PlayerAgeVerifiedCache[m.UserId] = profile["ageVerified"]?.Value<bool>() ?? false;
-                _core.Timeline.SetUserImage(m.UserId, img);
-                await Task.Delay(300);
-            }
-            catch { }
-            finally { sem.Release(); }
-        });
-        await Task.WhenAll(tasks);
-
-        Invoke(() => _core.SendToJS("log", new { msg = "[IMG] Backfill complete", color = "ok" }));
     }
 
     public async Task ForceFfcAllAsync()

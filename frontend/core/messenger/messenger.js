@@ -5,7 +5,7 @@
 const MSGR_MAX_CHARS = 60;
 const MSGR_SEND_COOLDOWN = 45; // seconds
 
-// ── Shared Content Cards ──────────────────────────────────────────
+// Shared Cards
 const MSGR_VRC_ID_RE = /^((wrld|avtr|grp|usr|evnt)_[a-zA-Z0-9-]+)$/;
 const MSGR_CONTENT_META = {
     wrld: { typeKey: 'messenger.shared.type_world',   typeFb: 'World',   icon: 'travel_explore', openKey: 'messenger.shared.open_world',   openFb: 'Open World'   },
@@ -84,14 +84,18 @@ function msgrFillContentCard(id, prefix, cardEl) {
         image = _msgrContentCache[id].image || '';
     }
 
+    // Apply whatever we have now (shows name + placeholder while C# fetches)
     if (name || image) {
         _msgrContentCache[id] = { name, image };
         msgrApplyContentCard(id, name, image);
-        return;
     }
 
-    // 2 – request from C#
-    sendToCS({ action: 'vrcGetSharedContentInfo', contentId: id, contentType: prefix });
+    // Always request from C# unless we already have a localhost URL (already cached on disk).
+    // Raw VRChat URLs (api.vrchat.cloud) require auth and cannot be loaded by the browser directly.
+    const hasLocalUrl = image && image.startsWith('http://localhost:');
+    if (!hasLocalUrl) {
+        sendToCS({ action: 'vrcGetSharedContentInfo', contentId: id, contentType: prefix });
+    }
 }
 
 function msgrApplyContentCard(id, name, image) {
@@ -116,15 +120,16 @@ function handleSharedContentInfo(payload) {
     const { contentId, contentType, name, image } = payload;
     if (name || image) {
         const n = name || '', im = image || '';
-        _msgrContentCache[contentId] = { name: n, image: im };
+        const prev = _msgrContentCache[contentId];
+        // Never overwrite a good cached image with an empty one
+        _msgrContentCache[contentId] = { name: n || prev?.name || '', image: im || prev?.image || '' };
         if (contentType === 'avtr' && typeof avatarInfoCache !== 'undefined')
-            avatarInfoCache[contentId] = { id: contentId, name: n, thumbnailImageUrl: im };
+            avatarInfoCache[contentId] = { id: contentId, name: n };
         else if (contentType === 'wrld' && typeof worldInfoCache !== 'undefined')
-            worldInfoCache[contentId] = { id: contentId, name: n, thumbnailImageUrl: im };
+            worldInfoCache[contentId] = { id: contentId, name: n };
         msgrApplyContentCard(contentId, n, im);
     }
 }
-// ─────────────────────────────────────────────────────────────────
 
 let _messengerUserId = null;
 let _messengerName = '';

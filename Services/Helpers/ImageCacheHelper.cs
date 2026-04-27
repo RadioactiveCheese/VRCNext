@@ -98,6 +98,9 @@ public static class ImageCacheHelper
     public static string? GetUserBannerCached(string? userId)
         => FindCachedFile("Users", userId == null ? null : userId + "_banner");
 
+    public static Task<string?> CacheUserAsync(string? userId, string? iconUrl, bool forceRefresh = false)
+        => CacheAsync("Users", userId, iconUrl, forceRefresh);
+
     public static string GetUserUrl(string? userId, string? iconUrl)
     {
         var cached = GetUserCached(userId);

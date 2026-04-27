@@ -84,14 +84,18 @@ function msgrFillContentCard(id, prefix, cardEl) {
         image = _msgrContentCache[id].image || '';
     }
 
+    // Apply whatever we have now (shows name + placeholder while C# fetches)
     if (name || image) {
         _msgrContentCache[id] = { name, image };
         msgrApplyContentCard(id, name, image);
-        return;
     }
 
-    // 2 – request from C#
-    sendToCS({ action: 'vrcGetSharedContentInfo', contentId: id, contentType: prefix });
+    // Always request from C# unless we already have a localhost URL (already cached on disk).
+    // Raw VRChat URLs (api.vrchat.cloud) require auth and cannot be loaded by the browser directly.
+    const hasLocalUrl = image && image.startsWith('http://localhost:');
+    if (!hasLocalUrl) {
+        sendToCS({ action: 'vrcGetSharedContentInfo', contentId: id, contentType: prefix });
+    }
 }
 
 function msgrApplyContentCard(id, name, image) {
@@ -116,7 +120,9 @@ function handleSharedContentInfo(payload) {
     const { contentId, contentType, name, image } = payload;
     if (name || image) {
         const n = name || '', im = image || '';
-        _msgrContentCache[contentId] = { name: n, image: im };
+        const prev = _msgrContentCache[contentId];
+        // Never overwrite a good cached image with an empty one
+        _msgrContentCache[contentId] = { name: n || prev?.name || '', image: im || prev?.image || '' };
         if (contentType === 'avtr' && typeof avatarInfoCache !== 'undefined')
             avatarInfoCache[contentId] = { id: contentId, name: n };
         else if (contentType === 'wrld' && typeof worldInfoCache !== 'undefined')

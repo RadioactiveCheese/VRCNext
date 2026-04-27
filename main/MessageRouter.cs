@@ -13,6 +13,31 @@ public partial class AppShell
     private Dictionary<string, (string name, string rawImageUrl)>? _sharedContentCache;
     private readonly object _sharedContentCacheLock = new();
 
+    // Lazy cache of own avatars — GET /api/1/avatars/{id} returns 403 for own private avatars.
+    // Loaded once via GetOwnAvatarsAsync (uses releaseStatus=all).
+    private Dictionary<string, (string name, string thumb)>? _ownAvatarCache;
+    private readonly SemaphoreSlim _ownAvatarCacheLock = new(1, 1);
+    private async Task EnsureOwnAvatarCacheAsync()
+    {
+        if (_ownAvatarCache != null) return;
+        await _ownAvatarCacheLock.WaitAsync();
+        try
+        {
+            if (_ownAvatarCache != null) return;
+            _ownAvatarCache = new();
+            var avatars = await _vrcApi.GetOwnAvatarsAsync();
+            foreach (var a in avatars)
+            {
+                var id    = a["id"]?.ToString() ?? "";
+                var name2 = a["name"]?.ToString() ?? "";
+                var thumb = a["thumbnailImageUrl"]?.ToString() ?? a["imageUrl"]?.ToString() ?? "";
+                if (!string.IsNullOrEmpty(id))
+                    _ownAvatarCache[id] = (name2, thumb);
+            }
+        }
+        finally { _ownAvatarCacheLock.Release(); }
+    }
+
     private Dictionary<string, (string name, string rawImageUrl)> GetSharedContentCache()
     {
         if (_sharedContentCache != null) return _sharedContentCache;
@@ -1053,6 +1078,17 @@ public partial class AppShell
                                     name     = a?["name"]?.Value<string>() ?? "";
                                     rawImage = a?["thumbnailImageUrl"]?.Value<string>()
                                             ?? a?["imageUrl"]?.Value<string>() ?? "";
+                                    // GET /api/1/avatars/{id} returns 403 for own private avatars.
+                                    // Fall back to own avatar list (releaseStatus=all) which includes private avatars.
+                                    if (string.IsNullOrEmpty(rawImage) || string.IsNullOrEmpty(name))
+                                    {
+                                        await EnsureOwnAvatarCacheAsync();
+                                        if (_ownAvatarCache!.TryGetValue(scId, out var own))
+                                        {
+                                            if (string.IsNullOrEmpty(name))     name     = own.name;
+                                            if (string.IsNullOrEmpty(rawImage)) rawImage = own.thumb;
+                                        }
+                                    }
                                 }
                                 else if (scType == "grp")
                                 {
@@ -1078,17 +1114,20 @@ public partial class AppShell
                                 }
                             }
 
-                            // Send immediately with raw URL — CDN URLs load in browser right away
-                            if (!string.IsNullOrEmpty(name) || !string.IsNullOrEmpty(rawImage))
+                            if (string.IsNullOrEmpty(name) && string.IsNullOrEmpty(rawImage)) return;
+
+                            string imageToSend = rawImage;
+                            if (!string.IsNullOrEmpty(rawImage))
                             {
-                                var cachedImage = scType == "wrld" ? ImageCacheHelper.GetWorldUrl(scId, rawImage)
-                                               : scType == "avtr" ? ImageCacheHelper.GetAvatarUrl(scId, rawImage)
-                                               : scType == "grp"  ? ImageCacheHelper.GetGroupUrl(scId, rawImage)
-                                               : scType == "usr"  ? ImageCacheHelper.GetUserUrl(scId, rawImage)
-                                               : rawImage;
-                                Invoke(() => SendToJS("vrcSharedContentInfo", new { contentId = scId, contentType = scType, name, image = cachedImage }));
+                                var fp = scType == "avtr" ? await ImageCacheHelper.CacheAvatarAsync(scId, rawImage)
+                                       : scType == "wrld" ? await ImageCacheHelper.CacheWorldAsync(scId, rawImage)
+                                       : scType == "grp"  ? await ImageCacheHelper.CacheGroupAsync(scId, rawImage)
+                                       : scType == "usr"  ? await ImageCacheHelper.CacheUserAsync(scId, rawImage)
+                                       : null;
+                                if (fp != null) imageToSend = ImageCacheHelper.ToLocalUrl(fp);
                             }
-                            // Await download, then send update with localhost URL
+
+                            Invoke(() => SendToJS("vrcSharedContentInfo", new { contentId = scId, contentType = scType, name, image = imageToSend }));
                         });
                     }
                     break;

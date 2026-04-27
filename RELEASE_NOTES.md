@@ -1,7 +1,8 @@
-**2026.19.0**
+**2026.19.1**
 
 **Fixes**
 
+* Sidebar fixes
 * Fixed image caching across the app so images are reused properly and no longer downloaded again and again.
 * Fixed broken or unavailable images being retried too often. VRCNext now remembers failed images and avoids requesting them repeatedly.
 * Fixed Timeline loading too many old images. Older Timeline entries now use already cached images when available instead of downloading everything again.

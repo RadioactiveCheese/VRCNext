@@ -1144,11 +1144,12 @@ public class AuthController
                 {
                     var wid = w["id"]?.ToString() ?? "";
                     var stats = _core.TimeEngine.GetWorldStats(wid);
+                    var rawWorldImg = w["imageUrl"]?.ToString() ?? "";
                     allWorlds.Add(new
                     {
                         id                = wid,
                         name              = w["name"]?.ToString() ?? "",
-                        imageUrl          = ImageCacheHelper.GetWorldUrl(wid, w["imageUrl"]?.ToString()),
+                        imageUrl          = rawWorldImg, // raw URL stored in FFC — processed on load via GetWorldUrl
                         thumbnailImageUrl = w["thumbnailImageUrl"]?.ToString() ?? "",
                         authorName        = w["authorName"]?.ToString() ?? "",
                         occupants         = w["occupants"]?.Value<int>()  ?? 0,
@@ -1215,7 +1216,7 @@ public class AuthController
                     {
                         id                = a["id"]?.ToString() ?? "",
                         name              = a["name"]?.ToString() ?? "",
-                        imageUrl          = ImageCacheHelper.GetAvatarUrl(a["id"]?.ToString(), a["imageUrl"]?.ToString()),
+                        imageUrl          = a["imageUrl"]?.ToString() ?? "", // raw URL for FFC
                         thumbnailImageUrl = a["thumbnailImageUrl"]?.ToString() ?? "",
                         authorName        = a["authorName"]?.ToString() ?? "",
                         releaseStatus     = a["releaseStatus"]?.ToString() ?? "private",
@@ -1248,7 +1249,7 @@ public class AuthController
             {
                 id                = a["id"]?.ToString() ?? "",
                 name              = a["name"]?.ToString() ?? "",
-                imageUrl          = ImageCacheHelper.GetAvatarUrl(a["id"]?.ToString(), a["imageUrl"]?.ToString()),
+                imageUrl          = a["imageUrl"]?.ToString() ?? "", // raw URL for FFC
                 thumbnailImageUrl = a["thumbnailImageUrl"]?.ToString() ?? "",
                 authorName        = a["authorName"]?.ToString() ?? "",
                 releaseStatus     = a["releaseStatus"]?.ToString() ?? "private",

@@ -35,6 +35,7 @@ public static class ImageCacheHelper
     {
         var cached = GetWorldCached(worldId);
         if (cached != null) return ToLocalUrl(cached);
+        imageUrl = StripLocalhostUrl(imageUrl);
         CacheWorldBackground(worldId, imageUrl);
         return NormalizeTo512(imageUrl ?? "");
     }
@@ -80,6 +81,7 @@ public static class ImageCacheHelper
     {
         var cached = GetGroupCached(groupId);
         if (cached != null) return ToLocalUrl(cached);
+        iconUrl = StripLocalhostUrl(iconUrl);
         CacheGroupBackground(groupId, iconUrl);
         return NormalizeTo512(iconUrl ?? "");
     }
@@ -89,6 +91,7 @@ public static class ImageCacheHelper
         var bannerId = string.IsNullOrWhiteSpace(groupId) ? null : groupId + "_banner";
         var cached   = FindCachedFile("Groups", bannerId);
         if (cached != null) return ToLocalUrl(cached);
+        bannerUrl = StripLocalhostUrl(bannerUrl);
         if (!string.IsNullOrWhiteSpace(bannerId) && !string.IsNullOrWhiteSpace(bannerUrl))
             _ = CacheAsync("Groups", bannerId, bannerUrl, false);
         return NormalizeTo512(bannerUrl ?? "");
@@ -108,6 +111,7 @@ public static class ImageCacheHelper
     {
         var cached = GetUserCached(userId);
         if (cached != null) return ToLocalUrl(cached);
+        iconUrl = StripLocalhostUrl(iconUrl);
         if (!string.IsNullOrWhiteSpace(userId) && !string.IsNullOrWhiteSpace(iconUrl))
             _ = CacheAsync("Users", userId, iconUrl, false);
         return NormalizeTo512(iconUrl ?? "");
@@ -118,6 +122,7 @@ public static class ImageCacheHelper
         var bannerId = userId == null ? null : userId + "_banner";
         var cached = GetUserBannerCached(userId);
         if (cached != null) return ToLocalUrl(cached);
+        bannerUrl = StripLocalhostUrl(bannerUrl);
         if (!string.IsNullOrWhiteSpace(bannerId) && !string.IsNullOrWhiteSpace(bannerUrl))
             _ = CacheAsync("Users", bannerId, bannerUrl, false);
         return NormalizeTo512(bannerUrl ?? "");
@@ -128,6 +133,7 @@ public static class ImageCacheHelper
     {
         var cached = FindCachedFile("Badges", badgeId);
         if (cached != null) return ToLocalUrl(cached);
+        imageUrl = StripLocalhostUrl(imageUrl);
         if (!string.IsNullOrWhiteSpace(badgeId) && !string.IsNullOrWhiteSpace(imageUrl))
             _ = CacheAsync("Badges", badgeId, imageUrl, false);
         return NormalizeTo512(imageUrl ?? "");
@@ -154,13 +160,20 @@ public static class ImageCacheHelper
     {
         var cached = GetAvatarCached(avatarId);
         if (cached != null) return ToLocalUrl(cached);
+        imageUrl = StripLocalhostUrl(imageUrl);
         CacheAvatarBackground(avatarId, imageUrl);
         return NormalizeTo512(imageUrl ?? "");
     }
 // Core
 
+    // Strip stale localhost URLs — file was deleted but FFC still has old localhost URL.
+    // We can't re-download from localhost, and we've lost the original VRChat URL.
+    private static string? StripLocalhostUrl(string? url) =>
+        url != null && url.StartsWith("http://localhost:") ? null : url;
+
     private static Task<string?> CacheAsync(string subdir, string? entityId, string? imageUrl, bool forceRefresh)
     {
+        imageUrl = StripLocalhostUrl(imageUrl); // Never try to download from localhost
         if (string.IsNullOrWhiteSpace(entityId) || string.IsNullOrWhiteSpace(imageUrl) || _http == null)
             return Task.FromResult<string?>(null);
 

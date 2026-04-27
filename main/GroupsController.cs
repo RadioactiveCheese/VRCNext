@@ -60,8 +60,8 @@ public class GroupsController
                     shortCode      = full["shortCode"]?.ToString() ?? "",
                     discriminator  = full["discriminator"]?.ToString() ?? "",
                     description    = full["description"]?.ToString() ?? "",
-                    iconUrl        = ImageCacheHelper.GetGroupUrl(full["id"]?.ToString() ?? ids[i], full["iconUrl"]?.ToString()),
-                    bannerUrl      = ImageCacheHelper.GetGroupBannerUrl(full["id"]?.ToString() ?? ids[i], full["bannerUrl"]?.ToString()),
+                    iconUrl        = full["iconUrl"]?.ToString() ?? "",   // raw URL for FFC
+                    bannerUrl      = full["bannerUrl"]?.ToString() ?? "", // raw URL for FFC
                     memberCount    = full["memberCount"]?.Value<int>() ?? 0,
                     privacy        = full["privacy"]?.ToString() ?? "",
                     joinState      = full["joinState"]?.ToString() ?? "",
@@ -72,8 +72,15 @@ public class GroupsController
                 });
             }
             if (_core.Settings.FfcEnabled) _core.Cache.Save(CacheHandler.KeyGroups, enriched);
+            // Process image URLs for JS send (FFC stores raw, JS gets cached/CDN URLs)
+            var enrichedForJs = enriched.Select(g => {
+                var jo = JObject.FromObject(g);
+                var gid = jo["id"]?.ToString();
+                jo["iconUrl"] = ImageCacheHelper.GetGroupUrl(gid, jo["iconUrl"]?.ToString());
+                return (object)jo;
+            }).ToList();
             _core.SendToJS("log", new { msg = $"[GROUPS] {enriched.Count} loaded", color = "sec" });
-            _core.SendToJS("vrcMyGroups", enriched);
+            _core.SendToJS("vrcMyGroups", enrichedForJs);
         }
         catch (Exception ex)
         {

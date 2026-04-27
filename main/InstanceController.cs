@@ -489,8 +489,8 @@ public class InstanceController
 
                     SendPage();
 
-                    // Backfill world thumbs on the current page (re-fetch any world not yet resolved this session)
-                    // Worlds with stored URL → start background cache download, no API call
+                    if (tsPage > 1) return;
+
                     foreach (var w in worldPage.Where(w => !string.IsNullOrEmpty(w.WorldId) && !string.IsNullOrEmpty(w.WorldThumb)))
                         ImageCacheHelper.CacheWorldBackground(w.WorldId, w.WorldThumb);
 

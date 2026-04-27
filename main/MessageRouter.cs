@@ -690,7 +690,7 @@ public partial class AppShell
                                 name                = wdCached.WorldName,
                                 description         = wdCached.Description,
                                 imageUrl            = ImageCacheHelper.GetWorldUrl(wdId, wdCached.ImageUrl),
-                                thumbnailImageUrl   = wdCached.WorldThumb,
+                                thumbnailImageUrl   = ImageCacheHelper.GetWorldUrl(wdId, wdCached.WorldThumb),
                                 authorName          = wdCached.AuthorName,
                                 authorId            = wdCached.AuthorId,
                                 occupants           = 0,
@@ -944,7 +944,7 @@ public partial class AppShell
                         if (avdCached != null)
                             Invoke(() => SendToJS("vrcAvatarDetail", new {
                                 id = avdId, name = avdCached.Name, authorName = avdCached.AuthorName,
-                                authorId = avdCached.AuthorId, thumbnailImageUrl = avdCached.ThumbnailImageUrl,
+                                authorId = avdCached.AuthorId, thumbnailImageUrl = ImageCacheHelper.GetAvatarUrl(avdId, avdCached.ThumbnailImageUrl),
                                 imageUrl = ImageCacheHelper.GetAvatarUrl(avdId, avdCached.ImageUrl), releaseStatus = avdCached.ReleaseStatus,
                                 version = avdCached.Version, created_at = avdCached.CreatedAt,
                                 updated_at = avdCached.UpdatedAt, description = avdCached.Description,
@@ -1044,8 +1044,8 @@ public partial class AppShell
                                 {
                                     var w = await _vrcApi.GetWorldFreshAsync(scId);
                                     name     = w?["name"]?.Value<string>() ?? "";
-                                    rawImage = w?["thumbnailImageUrl"]?.Value<string>()
-                                            ?? w?["imageUrl"]?.Value<string>() ?? "";
+                                    rawImage = w?["imageUrl"]?.Value<string>()
+                                            ?? w?["thumbnailImageUrl"]?.Value<string>() ?? "";
                                 }
                                 else if (scType == "avtr")
                                 {
@@ -1080,7 +1080,14 @@ public partial class AppShell
 
                             // Send immediately with raw URL — CDN URLs load in browser right away
                             if (!string.IsNullOrEmpty(name) || !string.IsNullOrEmpty(rawImage))
-                                Invoke(() => SendToJS("vrcSharedContentInfo", new { contentId = scId, contentType = scType, name, image = rawImage }));
+                            {
+                                var cachedImage = scType == "wrld" ? ImageCacheHelper.GetWorldUrl(scId, rawImage)
+                                               : scType == "avtr" ? ImageCacheHelper.GetAvatarUrl(scId, rawImage)
+                                               : scType == "grp"  ? ImageCacheHelper.GetGroupUrl(scId, rawImage)
+                                               : scType == "usr"  ? ImageCacheHelper.GetUserUrl(scId, rawImage)
+                                               : rawImage;
+                                Invoke(() => SendToJS("vrcSharedContentInfo", new { contentId = scId, contentType = scType, name, image = cachedImage }));
+                            }
                             // Await download, then send update with localhost URL
                         });
                     }
@@ -1533,7 +1540,7 @@ public partial class AppShell
                                     u["currentAvatarImageUrl"]?.ToString() ?? "");
                                 Invoke(() => SendToJS("vrcUserDetail", new {
                                     id = u["id"]?.ToString() ?? "", displayName = u["displayName"]?.ToString() ?? "",
-                                    image = guImg, status = u["status"]?.ToString() ?? "offline",
+                                    image = ImageCacheHelper.GetUserUrl(u["id"]?.ToString() ?? guId, guImg), status = u["status"]?.ToString() ?? "offline",
                                     statusDescription = u["statusDescription"]?.ToString() ?? "",
                                     bio = u["bio"]?.ToString() ?? "", location = u["location"]?.ToString() ?? "",
                                     isFriend = u["isFriend"]?.Value<bool>() ?? false,

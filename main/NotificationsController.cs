@@ -423,7 +423,7 @@ public class NotificationsController
         if (string.IsNullOrEmpty(senderImg) && !string.IsNullOrEmpty(senderUserId))
         {
             if (_friends.TryGetNameImage(senderUserId, out var fi) && !string.IsNullOrEmpty(fi.image))
-                senderImg = fi.image;
+                senderImg = ImageCacheHelper.GetUserUrl(senderUserId, fi.image);
         }
 
         // Extract message — for v1 invite responses the text lives in details, not message
@@ -551,7 +551,7 @@ public class NotificationsController
                         var group = await _core.VrcApi.GetGroupAsync(groupId);
                         if (group == null) return;
                         var groupName = group["name"]?.ToString() ?? "";
-                        var groupIcon = group["iconUrl"]?.ToString() ?? "";
+                        var groupIcon = ImageCacheHelper.GetGroupUrl(groupId, group["iconUrl"]?.ToString());
                         if (string.IsNullOrEmpty(groupName) && string.IsNullOrEmpty(groupIcon)) return;
                         _core.Timeline.UpdateEvent(evId, ev => { ev.SenderName = groupName; ev.SenderImage = groupIcon; });
                         if (!string.IsNullOrEmpty(groupIcon))

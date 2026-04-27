@@ -647,7 +647,7 @@ public class GroupsController
                         var list = bans.Select(b => new {
                             id          = b["userId"]?.ToString() ?? "",
                             displayName = b["user"]?["displayName"]?.ToString() ?? b["displayName"]?.ToString() ?? "",
-                            image       = b["user"] is JObject gu ? (VRChatApiService.GetUserImage(gu) is var gi && gi.Length > 0 ? gi : gu["thumbnailUrl"]?.ToString() ?? "") : "",
+                            image       = ImageCacheHelper.GetUserUrl(b["userId"]?.ToString(), b["user"] is JObject gu ? VRChatApiService.GetUserImage(gu) : ""),
                             bannedAt    = b["bannedAt"]?.ToString() ?? b["createdAt"]?.ToString() ?? "",
                         }).ToList();
                         _core.SendToJS("vrcGroupBans", new { groupId = gbId, bans = list });

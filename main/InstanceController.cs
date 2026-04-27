@@ -1061,7 +1061,7 @@ public class InstanceController
                     {
                         var profile = await _core.VrcApi.GetUserAsync(userId);
                         if (profile == null) return;
-                        var fetchedImg = VRChatApiService.GetUserImage(profile);
+                        var fetchedImg = ImageCacheHelper.GetUserUrl(userId, VRChatApiService.GetUserImage(profile));
                         if (string.IsNullOrEmpty(fetchedImg)) return;
                         _core.PlayerProfileCache[userId]   = profile;
                         _core.PlayerAgeVerifiedCache[userId] = profile["ageVerified"]?.Value<bool>() ?? false;
@@ -1130,7 +1130,7 @@ public class InstanceController
                         {
                             var profile = await _core.VrcApi.GetUserAsync(userId);
                             if (profile == null) return;
-                            var fetchedImg = VRChatApiService.GetUserImage(profile);
+                            var fetchedImg = ImageCacheHelper.GetUserUrl(userId, VRChatApiService.GetUserImage(profile));
                             if (string.IsNullOrEmpty(fetchedImg)) return;
                             _core.PlayerProfileCache[userId]   = profile;
                             _core.PlayerAgeVerifiedCache[userId] = profile["ageVerified"]?.Value<bool>() ?? false;

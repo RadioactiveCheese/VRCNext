@@ -116,6 +116,17 @@ public static class ImageCacheHelper
             _ = CacheAsync("Users", bannerId, bannerUrl, false);
         return bannerUrl ?? "";
     }
+// Badges
+
+    public static string GetBadgeUrl(string? badgeId, string? imageUrl)
+    {
+        var cached = FindCachedFile("Badges", badgeId);
+        if (cached != null) return ToLocalUrl(cached);
+        if (!string.IsNullOrWhiteSpace(badgeId) && !string.IsNullOrWhiteSpace(imageUrl))
+            _ = CacheAsync("Badges", badgeId, imageUrl, false);
+        return imageUrl ?? "";
+    }
+
 // Avatars
 
     public static string? GetAvatarCached(string? avatarId)

@@ -959,7 +959,7 @@ public class FriendsController
             var uid = entry["targetUserId"]?.ToString();
             if (string.IsNullOrEmpty(uid)) return;
             var user = await _core.VrcApi.GetUserAsync(uid);
-            if (user != null) entry["image"] = VRChatApiService.GetUserImage(user);
+            if (user != null) entry["image"] = ImageCacheHelper.GetUserUrl(uid, VRChatApiService.GetUserImage(user));
         });
         await Task.WhenAll(tasks);
     }
@@ -1063,7 +1063,7 @@ public class FriendsController
                     worldImageUrl: world.thumb,
                     friendId: f["id"]?.ToString() ?? "",
                     friendName: f["displayName"]?.ToString() ?? "",
-                    friendImageUrl: rawFriendImg,
+                    friendImageUrl: ImageCacheHelper.GetUserUrl(f["id"]?.ToString(), rawFriendImg),
                     location: loc
                 );
             })
@@ -1100,7 +1100,7 @@ public class FriendsController
                 return (
                     friendId: f["id"]?.ToString() ?? "",
                     friendName: f["displayName"]?.ToString() ?? "",
-                    friendImageUrl: rawImg,
+                    friendImageUrl: ImageCacheHelper.GetUserUrl(f["id"]?.ToString(), rawImg),
                     status: f["status"]?.ToString() ?? "",
                     statusDescription: f["statusDescription"]?.ToString() ?? "",
                     location: loc,
@@ -1398,14 +1398,15 @@ public class FriendsController
         foreach (var b in badgesArr)
         {
             if (b is not JObject bObj) continue;
-            var imageUrl = bObj["badgeImageUrl"]?.ToString() ?? "";
-            if (string.IsNullOrEmpty(imageUrl)) continue;
+            var rawBadgeUrl = bObj["badgeImageUrl"]?.ToString() ?? "";
+            if (string.IsNullOrEmpty(rawBadgeUrl)) continue;
+            var badgeId = bObj["badgeId"]?.ToString() ?? "";
             badges.Add(new
             {
-                id = bObj["badgeId"]?.ToString() ?? "",
+                id = badgeId,
                 name = bObj["badgeName"]?.ToString() ?? "",
                 description = bObj["badgeDescription"]?.ToString() ?? "",
-                imageUrl, showcased = bObj["showcased"]?.Value<bool>() ?? false,
+                imageUrl = ImageCacheHelper.GetBadgeUrl(badgeId, rawBadgeUrl), showcased = bObj["showcased"]?.Value<bool>() ?? false,
             });
         }
 

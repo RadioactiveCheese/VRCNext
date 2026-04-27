@@ -161,7 +161,7 @@ public class PhotosController
                     {
                         UserId      = p.UserId,
                         DisplayName = p.DisplayName,
-                        Image       = _friends.ResolvePlayerImage(p.UserId, p.Image)
+                        Image       = _friends.ResolveWithDiskFallback(p.UserId, p.Image)
                     }).ToList()
                 };
                 _core.Timeline.AddEvent(ev);
@@ -500,7 +500,7 @@ public class PhotosController
                     players = rec.Players.Select(p => (object)new
                     {
                         userId = p.UserId, displayName = p.DisplayName,
-                        image  = _friends.ResolvePlayerImage(p.UserId, p.Image)
+                        image  = _friends.ResolveWithDiskFallback(p.UserId, p.Image)
                     }).ToList();
                 }
             }
@@ -704,7 +704,7 @@ public class PhotosController
                     players = rec.Players.Select(p => (object)new
                     {
                         userId = p.UserId, displayName = p.DisplayName,
-                        image  = _friends.ResolvePlayerImage(p.UserId, p.Image)
+                        image  = _friends.ResolveWithDiskFallback(p.UserId, p.Image)
                     }).ToList();
                 }
             }

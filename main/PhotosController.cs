@@ -536,8 +536,16 @@ public class PhotosController
 
             var players = new List<(string userId, string displayName, string image)>();
 
+            var selfRaw  = _core.VrcApi.CurrentUserRaw;
+            var selfId   = _core.VrcApi.CurrentUserId ?? "";
+            var selfName = selfRaw?["displayName"]?.ToString() ?? "";
+            var selfImg  = selfRaw != null ? ImageCacheHelper.GetUserUrl(selfId, VRChatApiService.GetUserImage(selfRaw)) : "";
+            if (!string.IsNullOrEmpty(selfId) && !string.IsNullOrEmpty(selfName))
+                players.Add((selfId, selfName, selfImg));
+
             foreach (var p in logPlayers)
             {
+                if (p.UserId == selfId) continue;
                 var img = "";
                 if (!string.IsNullOrEmpty(p.UserId))
                 {

@@ -876,7 +876,13 @@ public class InstanceController
         _instanceSnapshotTimer?.Dispose();
         _instanceSnapshotTimer = null;
 
-        // Create new instance_join timeline event (world name resolved asynchronously)
+        var selfRaw  = _core.VrcApi.CurrentUserRaw;
+        var selfId   = _core.VrcApi.CurrentUserId ?? "";
+        var selfName = selfRaw?["displayName"]?.ToString() ?? "";
+        var selfImg  = selfRaw != null ? ImageCacheHelper.GetUserUrl(selfId, VRChatApiService.GetUserImage(selfRaw)) : "";
+        if (!string.IsNullOrEmpty(selfId) && !string.IsNullOrEmpty(selfName))
+            _cumulativeInstancePlayers[selfId] = (selfName, selfImg);
+
         var evId  = Guid.NewGuid().ToString("N")[..8];
         _pendingInstanceEventId = evId;
 

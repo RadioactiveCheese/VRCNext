@@ -67,6 +67,14 @@ public class FriendsController
         return storedImage ?? "";
     }
 
+    public string ResolveWithDiskFallback(string? userId, string? storedImage)
+    {
+        if (string.IsNullOrEmpty(userId)) return storedImage ?? "";
+        var disk = ImageCacheHelper.GetUserCached(userId);
+        if (disk != null) return ImageCacheHelper.ToLocalUrl(disk);
+        return ResolvePlayerImage(userId, storedImage);
+    }
+
     // Constructor
 
     public FriendsController(CoreLibrary core) => _core = core;
@@ -1813,12 +1821,22 @@ public class FriendsController
 
     public object BuildFriendTimelinePayload(TimelineService.FriendTimelineEvent ev)
     {
-        var wThumb = ImageCacheHelper.GetWorldUrl(ev.WorldId, ev.WorldThumb);
+        var isRecent = DateTime.TryParse(ev.Timestamp, out var evTs) && evTs >= DateTime.UtcNow - TimeSpan.FromDays(7);
+        string wThumb;
+        if (isRecent)
+        {
+            wThumb = ImageCacheHelper.GetWorldUrl(ev.WorldId, ev.WorldThumb);
+        }
+        else
+        {
+            var disk = ImageCacheHelper.GetWorldCached(ev.WorldId);
+            wThumb = disk != null ? ImageCacheHelper.ToLocalUrl(disk) : ImageCacheHelper.NormalizeTo512(ev.WorldThumb ?? "");
+        }
         return new
         {
             id = ev.Id, type = ev.Type, timestamp = ev.Timestamp,
             friendId = ev.FriendId, friendName = ev.FriendName,
-            friendImage = ResolvePlayerImage(ev.FriendId, ev.FriendImage),
+            friendImage = ResolveWithDiskFallback(ev.FriendId, ev.FriendImage),
             worldId = ev.WorldId, worldName = ev.WorldName,
             worldThumb = wThumb,
             location = ev.Location, oldValue = ev.OldValue, newValue = ev.NewValue,

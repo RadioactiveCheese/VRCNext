@@ -1239,9 +1239,29 @@ public class InstanceController
         }
     }
 
+    private static readonly TimeSpan _tlPayloadCacheCutoff = TimeSpan.FromDays(7);
+
+    private string ResolveWithDiskFallback(string? userId, string? storedImage)
+    {
+        if (string.IsNullOrEmpty(userId)) return storedImage ?? "";
+        var disk = ImageCacheHelper.GetUserCached(userId);
+        if (disk != null) return ImageCacheHelper.ToLocalUrl(disk);
+        return _friends.ResolvePlayerImage(userId, storedImage);
+    }
+
     public object BuildTimelinePayload(TimelineService.TimelineEvent ev)
     {
-        var wThumb = ImageCacheHelper.GetWorldUrl(ev.WorldId, ev.WorldThumb);
+        var isRecent = DateTime.TryParse(ev.Timestamp, out var evTs) && evTs >= DateTime.UtcNow - _tlPayloadCacheCutoff;
+        string wThumb;
+        if (isRecent)
+        {
+            wThumb = ImageCacheHelper.GetWorldUrl(ev.WorldId, ev.WorldThumb);
+        }
+        else
+        {
+            var disk = ImageCacheHelper.GetWorldCached(ev.WorldId);
+            wThumb = disk != null ? ImageCacheHelper.ToLocalUrl(disk) : ImageCacheHelper.NormalizeTo512(ev.WorldThumb ?? "");
+        }
         return new
         {
         id          = ev.Id,
@@ -1251,12 +1271,12 @@ public class InstanceController
         worldName   = ev.WorldName,
         worldThumb  = wThumb,
         location    = ev.Location,
-        players     = ev.Players.Select(p => new { userId = p.UserId, displayName = p.DisplayName, image = _friends.ResolvePlayerImage(p.UserId, p.Image) }).ToList(),
+        players     = ev.Players.Select(p => new { userId = p.UserId, displayName = p.DisplayName, image = ResolveWithDiskFallback(p.UserId, p.Image) }).ToList(),
         photoPath   = ev.PhotoPath,
         photoUrl    = !string.IsNullOrEmpty(ev.PhotoPath) ? (_core.GetVirtualMediaUrl?.Invoke(ev.PhotoPath) ?? "") : _core.FixLocalUrl(ev.PhotoUrl),
         userId      = ev.UserId,
         userName    = ev.UserName,
-        userImage   = _friends.ResolvePlayerImage(ev.UserId, ev.UserImage),
+        userImage   = ResolveWithDiskFallback(ev.UserId, ev.UserImage),
         meetCount   = ev.Type == "meet_again" ? _core.Timeline.GetMeetAgainCount(ev.UserId) : 0,
         notifId     = ev.NotifId,
         notifType   = ev.NotifType,

@@ -222,12 +222,14 @@ public class TimelineController
                 if (!_core.VrcApi.IsLoggedIn) return;
                 if (ftlCt.IsCancellationRequested) return;
 
-                // Events that have a stored URL but no cached file yet → start background download
-                foreach (var ev in fevents.Where(e => !string.IsNullOrEmpty(e.WorldId) && !string.IsNullOrEmpty(e.WorldThumb)))
+                var ftlCutoff    = DateTime.UtcNow - TimeSpan.FromDays(7);
+                var recentFevents = fevents.Where(e =>
+                    DateTime.TryParse(e.Timestamp, out var ts) && ts >= ftlCutoff).ToList();
+
+                foreach (var ev in recentFevents.Where(e => !string.IsNullOrEmpty(e.WorldId) && !string.IsNullOrEmpty(e.WorldThumb)))
                     ImageCacheHelper.CacheWorldBackground(ev.WorldId, ev.WorldThumb);
 
-                // Only call the API for worlds with no stored URL AND no cached file
-                var unknownGpsWorlds = fevents
+                var unknownGpsWorlds = recentFevents
                     .Where(e => !string.IsNullOrEmpty(e.WorldId)
                              && string.IsNullOrEmpty(e.WorldThumb)
                              && ImageCacheHelper.GetWorldCached(e.WorldId) == null)
@@ -264,7 +266,7 @@ public class TimelineController
                 }
 
                 // Resolve missing friend images from cache, then API
-                var missingFriendIds = fevents
+                var missingFriendIds = recentFevents
                     .Where(e => !string.IsNullOrEmpty(e.FriendId) && string.IsNullOrEmpty(e.FriendImage))
                     .Select(e => e.FriendId).Distinct().ToList();
 
@@ -344,10 +346,14 @@ public class TimelineController
 
                 if (!_core.VrcApi.IsLoggedIn || ftlCt.IsCancellationRequested) return;
 
-                foreach (var ev in fevents.Where(e => !string.IsNullOrEmpty(e.WorldId) && !string.IsNullOrEmpty(e.WorldThumb)))
+                var ftlPageCutoff   = DateTime.UtcNow - TimeSpan.FromDays(7);
+                var recentFpageEvts = fevents.Where(e =>
+                    DateTime.TryParse(e.Timestamp, out var ts) && ts >= ftlPageCutoff).ToList();
+
+                foreach (var ev in recentFpageEvts.Where(e => !string.IsNullOrEmpty(e.WorldId) && !string.IsNullOrEmpty(e.WorldThumb)))
                     ImageCacheHelper.CacheWorldBackground(ev.WorldId, ev.WorldThumb);
 
-                var unknownWorlds = fevents
+                var unknownWorlds = recentFpageEvts
                     .Where(e => !string.IsNullOrEmpty(e.WorldId)
                              && string.IsNullOrEmpty(e.WorldThumb)
                              && ImageCacheHelper.GetWorldCached(e.WorldId) == null)
@@ -452,13 +458,14 @@ public class TimelineController
         CancellationToken ct)
     {
         bool anyResolved = false;
+        var enrichCutoff = DateTime.UtcNow - TimeSpan.FromDays(7);
+        var recentEvents = events.Where(e =>
+            DateTime.TryParse(e.Timestamp, out var ts) && ts >= enrichCutoff).ToList();
 
-        // Events with stored URL but no cached file → background download, no API call
-        foreach (var ev in events.Where(e => !string.IsNullOrEmpty(e.WorldId) && !string.IsNullOrEmpty(e.WorldThumb)))
+        foreach (var ev in recentEvents.Where(e => !string.IsNullOrEmpty(e.WorldId) && !string.IsNullOrEmpty(e.WorldThumb)))
             ImageCacheHelper.CacheWorldBackground(ev.WorldId, ev.WorldThumb);
 
-        // Only call the API for worlds with no stored URL AND no cached file
-        var unknownWorlds = events
+        var unknownWorlds = recentEvents
             .Where(e => !string.IsNullOrEmpty(e.WorldId)
                      && string.IsNullOrEmpty(e.WorldThumb)
                      && ImageCacheHelper.GetWorldCached(e.WorldId) == null)
@@ -501,7 +508,7 @@ public class TimelineController
         var playerRefs    = new List<(string evId, string userId)>();
         var userEventRefs = new List<(string evId, string userId)>();
 
-        foreach (var ev in events)
+        foreach (var ev in recentEvents)
         {
             if (ev.Type == "instance_join")
             {
@@ -521,8 +528,7 @@ public class TimelineController
             }
         }
 
-        // 3) Avatar images (avatar_switch — UserId is the avatarId, fetch via GetAvatarAsync)
-        var avatarEventRefs  = events
+        var avatarEventRefs  = recentEvents
             .Where(e => e.Type == "avatar_switch" && string.IsNullOrEmpty(e.UserImage) && !string.IsNullOrEmpty(e.UserId))
             .Select(e => (evId: e.Id, avatarId: e.UserId))
             .ToList();

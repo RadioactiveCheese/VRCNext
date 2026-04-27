@@ -216,6 +216,9 @@ public partial class AppShell
         StartHttpListener();
         _core.HttpPort = _httpPort;
 
+        VRCNext.Services.Helpers.ImageCacheHelper.Initialize(_vrcApi.GetHttpClient());
+        VRCNext.Services.Helpers.ImageCacheHelper.Port = _httpPort;
+
         _thumbCacheDir = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
             "VRCNext", "ThumbCache");
@@ -700,7 +703,15 @@ public partial class AppShell
         var isThumb = ctx.Request.Url?.Query?.Contains("thumb=1") == true;
         try
         {
-            if (path.StartsWith("/vrcphotos/"))
+            if (path.StartsWith("/imgcache/"))
+            {
+                var rel  = Uri.UnescapeDataString(path["/imgcache/".Length..]).Replace('/', Path.DirectorySeparatorChar);
+                var file = Path.Combine(
+                    Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+                    "VRCNext", "Caches", "ImageCache", rel);
+                await ServeFileAsync(ctx, file);
+            }
+            else if (path.StartsWith("/vrcphotos/"))
             {
                 if (!string.IsNullOrEmpty(_photos.VrcPhotoDir))
                 {

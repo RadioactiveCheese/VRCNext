@@ -2,6 +2,7 @@ using Microsoft.Data.Sqlite;
 using NativeFileDialogSharp;
 using Newtonsoft.Json.Linq;
 using VRCNext.Services;
+using VRCNext.Services.Helpers;
 
 namespace VRCNext;
 
@@ -221,10 +222,15 @@ public class TimelineController
                 if (!_core.VrcApi.IsLoggedIn) return;
                 if (ftlCt.IsCancellationRequested) return;
 
-                // Resolve world thumbs (re-fetch any world not yet resolved this session)
+                // Events that have a stored URL but no cached file yet → start background download
+                foreach (var ev in fevents.Where(e => !string.IsNullOrEmpty(e.WorldId) && !string.IsNullOrEmpty(e.WorldThumb)))
+                    ImageCacheHelper.CacheWorldBackground(ev.WorldId, ev.WorldThumb);
+
+                // Only call the API for worlds with no stored URL AND no cached file
                 var unknownGpsWorlds = fevents
                     .Where(e => !string.IsNullOrEmpty(e.WorldId)
-)
+                             && string.IsNullOrEmpty(e.WorldThumb)
+                             && ImageCacheHelper.GetWorldCached(e.WorldId) == null)
                     .Select(e => e.WorldId).Distinct().ToList();
 
                 bool anyFevResolved = false;
@@ -236,7 +242,8 @@ public class TimelineController
                         var w = await _core.VrcApi.GetWorldAsync(wid);
                         if (w == null) continue;
                         var wName  = w["name"]?.ToString() ?? "";
-                        var wThumb = w["thumbnailImageUrl"]?.ToString() ?? w["imageUrl"]?.ToString() ?? "";
+                        var wThumb = w["imageUrl"]?.ToString() ?? "";
+                        ImageCacheHelper.CacheWorldBackground(wid, wThumb);
                         if (!string.IsNullOrEmpty(wThumb))
                         {
                             foreach (var ev in fevents.Where(e => e.WorldId == wid))
@@ -264,6 +271,8 @@ public class TimelineController
                 var fetchedFriendImgs = new Dictionary<string, string>();
                 foreach (var fid in missingFriendIds)
                 {
+                    var disk = ImageCacheHelper.GetUserCached(fid);
+                    if (disk != null) { fetchedFriendImgs[fid] = ImageCacheHelper.ToLocalUrl(disk); continue; }
                     if (_friends.TryGetNameImage(fid, out var fi) && !string.IsNullOrEmpty(fi.image))
                         fetchedFriendImgs[fid] = fi.image;
                 }
@@ -278,12 +287,14 @@ public class TimelineController
                         try
                         {
                             if (ftlCt.IsCancellationRequested) return;
+                            var diskFi = ImageCacheHelper.GetUserCached(fid);
+                            if (diskFi != null) { fetchedFriendImgs[fid] = ImageCacheHelper.ToLocalUrl(diskFi); return; }
                             var profile = await _core.VrcApi.GetUserAsync(fid);
                             if (profile != null)
                             {
                                 var img = VRChatApiService.GetUserImage(profile);
                                 if (!string.IsNullOrEmpty(img))
-                                fetchedFriendImgs[fid] = img;
+                                    fetchedFriendImgs[fid] = ImageCacheHelper.GetUserUrl(fid, img);
                             }
                             await Task.Delay(250);
                         }
@@ -333,9 +344,13 @@ public class TimelineController
 
                 if (!_core.VrcApi.IsLoggedIn || ftlCt.IsCancellationRequested) return;
 
+                foreach (var ev in fevents.Where(e => !string.IsNullOrEmpty(e.WorldId) && !string.IsNullOrEmpty(e.WorldThumb)))
+                    ImageCacheHelper.CacheWorldBackground(ev.WorldId, ev.WorldThumb);
+
                 var unknownWorlds = fevents
                     .Where(e => !string.IsNullOrEmpty(e.WorldId)
-)
+                             && string.IsNullOrEmpty(e.WorldThumb)
+                             && ImageCacheHelper.GetWorldCached(e.WorldId) == null)
                     .Select(e => e.WorldId).Distinct().ToList();
 
                 bool anyResolved = false;
@@ -347,7 +362,8 @@ public class TimelineController
                         var w = await _core.VrcApi.GetWorldAsync(wid);
                         if (w == null) continue;
                         var wName  = w["name"]?.ToString() ?? "";
-                        var wThumb = w["thumbnailImageUrl"]?.ToString() ?? w["imageUrl"]?.ToString() ?? "";
+                        var wThumb = w["imageUrl"]?.ToString() ?? "";
+                        ImageCacheHelper.CacheWorldBackground(wid, wThumb);
                         if (!string.IsNullOrEmpty(wThumb))
                         {
                             foreach (var ev in fevents.Where(e => e.WorldId == wid))
@@ -391,7 +407,7 @@ public class TimelineController
                 {
                     friendId    = e.FriendId,
                     friendName  = e.FriendName,
-                    friendImage = _friends.ResolvePlayerImage(e.FriendId, e.FriendImage),
+                    friendImage = ImageCacheHelper.GetUserUrl(e.FriendId, _friends.ResolvePlayerImage(e.FriendId, e.FriendImage)),
                 }).ToList();
                 _core.SendToJS("ftAlsoWasHere", new { excludeId, friends = payload });
             }
@@ -437,10 +453,15 @@ public class TimelineController
     {
         bool anyResolved = false;
 
-        // 1) World thumbs/names — re-fetch any world not yet resolved this session
+        // Events with stored URL but no cached file → background download, no API call
+        foreach (var ev in events.Where(e => !string.IsNullOrEmpty(e.WorldId) && !string.IsNullOrEmpty(e.WorldThumb)))
+            ImageCacheHelper.CacheWorldBackground(ev.WorldId, ev.WorldThumb);
+
+        // Only call the API for worlds with no stored URL AND no cached file
         var unknownWorlds = events
             .Where(e => !string.IsNullOrEmpty(e.WorldId)
-)
+                     && string.IsNullOrEmpty(e.WorldThumb)
+                     && ImageCacheHelper.GetWorldCached(e.WorldId) == null)
             .Select(e => e.WorldId).Distinct().ToList();
 
         foreach (var wid in unknownWorlds)
@@ -452,7 +473,8 @@ public class TimelineController
                 if (w != null)
                 {
                     var wName  = w["name"]?.ToString() ?? "";
-                    var wThumb = w["thumbnailImageUrl"]?.ToString() ?? w["imageUrl"]?.ToString() ?? "";
+                    var wThumb = w["imageUrl"]?.ToString() ?? "";
+                    ImageCacheHelper.CacheWorldBackground(wid, wThumb);
                     if (!string.IsNullOrEmpty(wThumb))
                     {
                         _core.TimeEngine.UpdateWorldInfo(wid, wName, wThumb);
@@ -549,6 +571,8 @@ public class TimelineController
                 try
                 {
                     if (ct.IsCancellationRequested) return;
+                    var diskU = ImageCacheHelper.GetUserCached(uid);
+                    if (diskU != null) { fetchedImgs[uid] = ImageCacheHelper.ToLocalUrl(diskU); return; }
                     if (_friends.TryGetNameImage(uid, out var fi) && !string.IsNullOrEmpty(fi.image))
                     { fetchedImgs[uid] = fi.image; return; }
                     var profile = await _core.VrcApi.GetUserAsync(uid);
@@ -556,7 +580,7 @@ public class TimelineController
                     {
                         var img = VRChatApiService.GetUserImage(profile);
                         if (!string.IsNullOrEmpty(img))
-                        fetchedImgs[uid] = img;
+                        { fetchedImgs[uid] = ImageCacheHelper.GetUserUrl(uid, img); }
                     }
                     await Task.Delay(250);
                 }
@@ -618,10 +642,13 @@ public class TimelineController
 
                 if (!_core.VrcApi.IsLoggedIn || ftlCt.IsCancellationRequested) return;
 
-                // Enrich world thumbs (re-fetch any world not yet resolved this session)
+                foreach (var ev in fevents.Where(e => !string.IsNullOrEmpty(e.WorldId) && !string.IsNullOrEmpty(e.WorldThumb)))
+                    ImageCacheHelper.CacheWorldBackground(ev.WorldId, ev.WorldThumb);
+
                 var unknownWorlds = fevents
                     .Where(e => !string.IsNullOrEmpty(e.WorldId)
-)
+                             && string.IsNullOrEmpty(e.WorldThumb)
+                             && ImageCacheHelper.GetWorldCached(e.WorldId) == null)
                     .Select(e => e.WorldId).Distinct().ToList();
 
                 bool anyFtdResolved = false;
@@ -633,7 +660,8 @@ public class TimelineController
                         var w = await _core.VrcApi.GetWorldAsync(wid);
                         if (w == null) continue;
                         var wName  = w["name"]?.ToString() ?? "";
-                        var wThumb = w["thumbnailImageUrl"]?.ToString() ?? w["imageUrl"]?.ToString() ?? "";
+                        var wThumb = w["imageUrl"]?.ToString() ?? "";
+                        ImageCacheHelper.CacheWorldBackground(wid, wThumb);
                         if (!string.IsNullOrEmpty(wThumb))
                         {
                             foreach (var ev in fevents.Where(e => e.WorldId == wid))
@@ -659,7 +687,7 @@ public class TimelineController
                     if (ftlCt.IsCancellationRequested) break;
                     string img = "";
                     if (_friends.TryGetNameImage(fid, out var fi) && !string.IsNullOrEmpty(fi.image))
-                        img = fi.image;
+                        img = ImageCacheHelper.GetUserUrl(fid, fi.image);
                     if (!string.IsNullOrEmpty(img))
                         foreach (var ev in fevents.Where(e => e.FriendId == fid && string.IsNullOrEmpty(e.FriendImage)))
                         { ev.FriendImage = img; anyFtdResolved = true; }

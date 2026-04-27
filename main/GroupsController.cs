@@ -1,5 +1,6 @@
 using Newtonsoft.Json.Linq;
 using VRCNext.Services;
+using VRCNext.Services.Helpers;
 
 namespace VRCNext;
 
@@ -59,8 +60,8 @@ public class GroupsController
                     shortCode      = full["shortCode"]?.ToString() ?? "",
                     discriminator  = full["discriminator"]?.ToString() ?? "",
                     description    = full["description"]?.ToString() ?? "",
-                    iconUrl        = full["iconUrl"]?.ToString() ?? "",
-                    bannerUrl      = full["bannerUrl"]?.ToString() ?? "",
+                    iconUrl        = ImageCacheHelper.GetGroupUrl(full["id"]?.ToString() ?? ids[i], full["iconUrl"]?.ToString()),
+                    bannerUrl      = ImageCacheHelper.GetGroupBannerUrl(full["id"]?.ToString() ?? ids[i], full["bannerUrl"]?.ToString()),
                     memberCount    = full["memberCount"]?.Value<int>() ?? 0,
                     privacy        = full["privacy"]?.ToString() ?? "",
                     joinState      = full["joinState"]?.ToString() ?? "",
@@ -97,7 +98,7 @@ public class GroupsController
                     var list = res.Cast<JObject>().Select(g => new {
                         id = g["id"]?.ToString() ?? "", name = g["name"]?.ToString() ?? "",
                         shortCode = g["shortCode"]?.ToString() ?? "", description = g["description"]?.ToString() ?? "",
-                        iconUrl = g["iconUrl"]?.ToString() ?? "", bannerUrl = g["bannerUrl"]?.ToString() ?? "",
+                        iconUrl = ImageCacheHelper.GetGroupUrl(g["id"]?.ToString(), g["iconUrl"]?.ToString()), bannerUrl = ImageCacheHelper.GetGroupBannerUrl(g["id"]?.ToString(), g["bannerUrl"]?.ToString()),
                         memberCount = g["memberCount"]?.Value<int>() ?? 0, privacy = g["privacy"]?.ToString() ?? "",
                     }).ToList();
                     _core.SendToJS("vrcSearchResults", new { type = "groups", results = list, offset = gOff, hasMore = list.Count >= 20 });
@@ -118,7 +119,7 @@ public class GroupsController
                         .Select(g => new {
                             gid  = g["groupId"]?.ToString() ?? g["id"]?.ToString() ?? "",
                             name = g["name"]?.ToString() ?? "",
-                            icon = g["iconUrl"]?.ToString() ?? "",
+                            icon = ImageCacheHelper.GetGroupUrl(g["groupId"]?.ToString() ?? g["id"]?.ToString(), g["iconUrl"]?.ToString()),
                         })
                         .Where(g => !string.IsNullOrEmpty(g.gid))
                         .GroupBy(g => g.gid).Select(grp => grp.First())
@@ -172,8 +173,8 @@ public class GroupsController
                     if (ggCached != null)
                         _core.SendToJS("vrcGroupDetail", new {
                             id = ggId, name = ggCached.Name, shortCode = ggCached.ShortCode,
-                            description = ggCached.Description, iconUrl = ggCached.IconUrl,
-                            bannerUrl = ggCached.BannerUrl, memberCount = ggCached.MemberCount,
+                            description = ggCached.Description, iconUrl = ImageCacheHelper.GetGroupUrl(ggId, ggCached.IconUrl),
+                            bannerUrl = ImageCacheHelper.GetGroupBannerUrl(ggId, ggCached.BannerUrl), memberCount = ggCached.MemberCount,
                             privacy = ggCached.Privacy, joinState = ggCached.JoinState,
                             ownerId = ggCached.OwnerId, ownerDisplayName = ggCached.OwnerName,
                             visibility = "", rules = ggCached.Rules,
@@ -235,7 +236,7 @@ public class GroupsController
                                     foreach (var img in imgs)
                                     {
                                         galleryImages.Add(new {
-                                            imageUrl = img["imageUrl"]?.ToString() ?? "",
+                                            imageUrl = ImageCacheHelper.GetGroupUrl(img["id"]?.ToString(), img["imageUrl"]?.ToString()),
                                             galleryName = galName,
                                             createdAt = img["createdAt"]?.ToString() ?? "",
                                         });
@@ -281,7 +282,7 @@ public class GroupsController
                             _core.SendToJS("vrcGroupDetail", new {
                                 id = g["id"]?.ToString() ?? "", name = g["name"]?.ToString() ?? "",
                                 shortCode = g["shortCode"]?.ToString() ?? "", description = g["description"]?.ToString() ?? "",
-                                iconUrl = g["iconUrl"]?.ToString() ?? "", bannerUrl = g["bannerUrl"]?.ToString() ?? "",
+                                iconUrl = ImageCacheHelper.GetGroupUrl(g["id"]?.ToString(), g["iconUrl"]?.ToString()), bannerUrl = ImageCacheHelper.GetGroupBannerUrl(g["id"]?.ToString(), g["bannerUrl"]?.ToString()),
                                 memberCount = g["memberCount"]?.Value<int>() ?? 0, privacy = g["privacy"]?.ToString() ?? "",
                                 joinState = g["joinState"]?.ToString() ?? "",
                                 ownerId, ownerDisplayName,
@@ -309,7 +310,7 @@ public class GroupsController
                                     id = p["id"]?.ToString() ?? "",
                                     title = p["title"]?.ToString() ?? "",
                                     text = p["text"]?.ToString() ?? "",
-                                    imageUrl = p["imageUrl"]?.ToString() ?? "",
+                                    imageUrl = ImageCacheHelper.GetGroupUrl(p["id"]?.ToString(), p["imageUrl"]?.ToString()),
                                     createdAt = p["createdAt"]?.ToString() ?? "",
                                     authorId = p["authorId"]?.ToString() ?? "",
                                     visibility = p["visibility"]?.ToString() ?? "",
@@ -321,14 +322,14 @@ public class GroupsController
                                     description = e["description"]?.ToString() ?? "",
                                     startsAt = e["startsAt"]?.ToString() ?? "",
                                     endsAt = e["endsAt"]?.ToString() ?? "",
-                                    imageUrl = e["imageUrl"]?.ToString() ?? "",
+                                    imageUrl = ImageCacheHelper.GetGroupUrl(e["id"]?.ToString(), e["imageUrl"]?.ToString()),
                                     accessType = e["accessType"]?.ToString() ?? "",
                                 }),
                                 groupInstances = instances.Select(i => new {
                                     instanceId = i["instanceId"]?.ToString() ?? "",
                                     location = i["location"]?.ToString() ?? "",
                                     worldName = i["world"]?["name"]?.ToString() ?? "",
-                                    worldThumb = i["world"]?["thumbnailImageUrl"]?.ToString() ?? i["world"]?["imageUrl"]?.ToString() ?? "",
+                                    worldThumb = ImageCacheHelper.GetWorldUrl(i["world"]?["id"]?.ToString(), i["world"]?["imageUrl"]?.ToString()),
                                     userCount = i["userCount"]?.Value<int>() ?? i["n_users"]?.Value<int>() ?? 0,
                                     capacity = i["world"]?["capacity"]?.Value<int>() ?? 0,
                                 }),

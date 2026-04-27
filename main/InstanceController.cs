@@ -1,5 +1,6 @@
 using Newtonsoft.Json.Linq;
 using VRCNext.Services;
+using VRCNext.Services.Helpers;
 
 namespace VRCNext;
 
@@ -182,7 +183,7 @@ public class InstanceController
                             if (world != null)
                             {
                                 worldName  = world["name"]?.ToString() ?? "";
-                                worldThumb = world["imageUrl"]?.ToString() ?? world["thumbnailImageUrl"]?.ToString() ?? "";
+                                worldThumb = ImageCacheHelper.GetWorldUrl(parsedWid, world["imageUrl"]?.ToString());
                             }
                         }
                     }
@@ -294,7 +295,7 @@ public class InstanceController
                                 {
                                     name             = world["name"]?.ToString() ?? "",
                                     thumbnailImageUrl = world["thumbnailImageUrl"]?.ToString() ?? "",
-                                    imageUrl         = world["imageUrl"]?.ToString() ?? ""
+                                    imageUrl         = ImageCacheHelper.GetWorldUrl(wid, world["imageUrl"]?.ToString())
                                 });
                             }
                             catch { return (wid, null as object); }
@@ -390,7 +391,9 @@ public class InstanceController
                             tlPersons.TryGetValue(kv.Key, out var tl);
                             var name  = !string.IsNullOrEmpty(kv.Value.DisplayName) ? kv.Value.DisplayName
                                       : tl?.DisplayName ?? "";
-                            var image = _friends.ResolvePlayerImage(kv.Key, null);
+                            var image = ImageCacheHelper.GetUserCached(kv.Key) is { } diskImg
+                                ? ImageCacheHelper.ToLocalUrl(diskImg)
+                                : _friends.ResolvePlayerImage(kv.Key, null);
                             if (string.IsNullOrEmpty(image))
                                 image = !string.IsNullOrEmpty(kv.Value.Image) ? kv.Value.Image : tl?.Image ?? "";
                             if (string.IsNullOrEmpty(name) || string.IsNullOrEmpty(image))
@@ -470,7 +473,7 @@ public class InstanceController
                         {
                             worldId    = w.WorldId,
                             worldName  = w.WorldName,
-                            worldThumb = w.WorldThumb,
+                            worldThumb = ImageCacheHelper.GetWorldUrl(w.WorldId, w.WorldThumb),
                             seconds    = w.Seconds,
                             visits     = w.Visits,
                         }),
@@ -478,7 +481,7 @@ public class InstanceController
                         {
                             userId      = p.UserId,
                             displayName = p.DisplayName,
-                            image       = p.Image,
+                            image       = ImageCacheHelper.GetUserUrl(p.UserId, p.Image),
                             seconds     = p.Seconds,
                             meets       = p.Meets,
                         }),
@@ -487,9 +490,15 @@ public class InstanceController
                     SendPage();
 
                     // Backfill world thumbs on the current page (re-fetch any world not yet resolved this session)
+                    // Worlds with stored URL → start background cache download, no API call
+                    foreach (var w in worldPage.Where(w => !string.IsNullOrEmpty(w.WorldId) && !string.IsNullOrEmpty(w.WorldThumb)))
+                        ImageCacheHelper.CacheWorldBackground(w.WorldId, w.WorldThumb);
+
+                    // Only call API for worlds with no stored URL AND no cached file
                     var missingWorldIds = worldPage
                         .Where(w => !string.IsNullOrEmpty(w.WorldId)
-                            && string.IsNullOrEmpty(w.WorldThumb))
+                            && string.IsNullOrEmpty(w.WorldThumb)
+                            && ImageCacheHelper.GetWorldCached(w.WorldId) == null)
                         .Select(w => w.WorldId).Distinct().Take(20).ToList();
 
                     bool anyResolved = false;
@@ -501,7 +510,8 @@ public class InstanceController
                             if (wj != null)
                             {
                                 var wName  = wj["name"]?.ToString() ?? "";
-                                var wThumb = wj["imageUrl"]?.ToString() ?? wj["thumbnailImageUrl"]?.ToString() ?? "";
+                                var wThumb = wj["imageUrl"]?.ToString() ?? "";
+                                ImageCacheHelper.CacheWorldBackground(wid, wThumb);
                                 _core.TimeEngine.UpdateWorldInfo(wid, wName, wThumb);
                                 var idx = worldPage.FindIndex(x => x.WorldId == wid);
                                 if (idx >= 0)
@@ -513,13 +523,15 @@ public class InstanceController
                                     anyResolved = true;
                                 }
                             }
-                            }
+                        }
                         catch { }
                     }
 
                     // Backfill missing person images on the current page
                     var missingPersonIds = personPage
-                        .Where(p => string.IsNullOrEmpty(p.Image) && !string.IsNullOrEmpty(p.UserId))
+                        .Where(p => string.IsNullOrEmpty(p.Image)
+                            && !string.IsNullOrEmpty(p.UserId)
+                            && ImageCacheHelper.GetUserCached(p.UserId) == null)
                         .Select(p => p.UserId).Distinct().Take(30).ToList();
 
                     if (missingPersonIds.Count > 0)
@@ -531,7 +543,10 @@ public class InstanceController
                             try
                             {
                                 string resolved = "";
-                                if (_friends.TryGetNameImage(uid, out var fi) && !string.IsNullOrEmpty(fi.image))
+                                var disk = ImageCacheHelper.GetUserCached(uid);
+                                if (disk != null)
+                                    resolved = ImageCacheHelper.ToLocalUrl(disk);
+                                else if (_friends.TryGetNameImage(uid, out var fi) && !string.IsNullOrEmpty(fi.image))
                                     resolved = fi.image;
                                 else
                                 {
@@ -540,7 +555,7 @@ public class InstanceController
                                     {
                                         var img = VRChatApiService.GetUserImage(profile);
                                         if (!string.IsNullOrEmpty(img))
-                                            resolved = img;
+                                            resolved = ImageCacheHelper.GetUserUrl(uid, img);
                                     }
                                     await Task.Delay(250);
                                 }
@@ -640,7 +655,7 @@ public class InstanceController
                     if (world != null)
                     {
                         worldName     = world["name"]?.ToString() ?? "";
-                        worldThumb    = world["imageUrl"]?.ToString() ?? world["thumbnailImageUrl"]?.ToString() ?? "";
+                        worldThumb    = ImageCacheHelper.GetWorldUrl(parsed.worldId, world["imageUrl"]?.ToString());
                         worldCapacity = world["capacity"]?.Value<int>() ?? 0;
                     }
                 }
@@ -1210,7 +1225,7 @@ public class InstanceController
 
     public object BuildTimelinePayload(TimelineService.TimelineEvent ev)
     {
-        var wThumb = ev.WorldThumb ?? "";
+        var wThumb = ImageCacheHelper.GetWorldUrl(ev.WorldId, ev.WorldThumb);
         return new
         {
         id          = ev.Id,

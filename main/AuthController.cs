@@ -2,6 +2,7 @@
 using Newtonsoft.Json.Linq;
 using NativeFileDialogSharp;
 using VRCNext.Services;
+using VRCNext.Services.Helpers;
 using System.Diagnostics;
 
 namespace VRCNext;
@@ -667,8 +668,8 @@ public class AuthController
             pronouns = user["pronouns"]?.ToString() ?? "",
             bioLinks = user["bioLinks"]?.ToObject<List<string>>() ?? new List<string>(),
             tags = user["tags"]?.ToObject<List<string>>() ?? new List<string>(),
-            profilePicOverride    = user["profilePicOverride"]?.ToString() ?? "",
-            currentAvatarImageUrl = user["currentAvatarImageUrl"]?.ToString() ?? "",
+            profilePicOverride    = ImageCacheHelper.GetUserBannerUrl(user["id"]?.ToString(), user["profilePicOverride"]?.ToString()),
+            currentAvatarImageUrl = ImageCacheHelper.GetAvatarUrl(user["currentAvatar"]?.ToString(), user["currentAvatarImageUrl"]?.ToString()),
         });
 
 #if WINDOWS
@@ -1147,7 +1148,7 @@ public class AuthController
                     {
                         id                = wid,
                         name              = w["name"]?.ToString() ?? "",
-                        imageUrl          = w["imageUrl"]?.ToString() ?? "",
+                        imageUrl          = ImageCacheHelper.GetWorldUrl(wid, w["imageUrl"]?.ToString()),
                         thumbnailImageUrl = w["thumbnailImageUrl"]?.ToString() ?? "",
                         authorName        = w["authorName"]?.ToString() ?? "",
                         occupants         = w["occupants"]?.Value<int>()  ?? 0,
@@ -1214,7 +1215,7 @@ public class AuthController
                     {
                         id                = a["id"]?.ToString() ?? "",
                         name              = a["name"]?.ToString() ?? "",
-                        imageUrl          = a["imageUrl"]?.ToString() ?? "",
+                        imageUrl          = ImageCacheHelper.GetAvatarUrl(a["id"]?.ToString(), a["imageUrl"]?.ToString()),
                         thumbnailImageUrl = a["thumbnailImageUrl"]?.ToString() ?? "",
                         authorName        = a["authorName"]?.ToString() ?? "",
                         releaseStatus     = a["releaseStatus"]?.ToString() ?? "private",
@@ -1247,7 +1248,7 @@ public class AuthController
             {
                 id                = a["id"]?.ToString() ?? "",
                 name              = a["name"]?.ToString() ?? "",
-                imageUrl          = a["imageUrl"]?.ToString() ?? "",
+                imageUrl          = ImageCacheHelper.GetAvatarUrl(a["id"]?.ToString(), a["imageUrl"]?.ToString()),
                 thumbnailImageUrl = a["thumbnailImageUrl"]?.ToString() ?? "",
                 authorName        = a["authorName"]?.ToString() ?? "",
                 releaseStatus     = a["releaseStatus"]?.ToString() ?? "private",

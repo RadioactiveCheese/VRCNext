@@ -33,7 +33,7 @@ public static class ImageCacheHelper
         var cached = GetWorldCached(worldId);
         if (cached != null) return ToLocalUrl(cached);
         CacheWorldBackground(worldId, imageUrl);
-        return imageUrl ?? "";
+        return NormalizeTo512(imageUrl ?? "");
     }
 
     public static string ToLocalUrl(string localPath)
@@ -78,7 +78,7 @@ public static class ImageCacheHelper
         var cached = GetGroupCached(groupId);
         if (cached != null) return ToLocalUrl(cached);
         CacheGroupBackground(groupId, iconUrl);
-        return iconUrl ?? "";
+        return NormalizeTo512(iconUrl ?? "");
     }
 
     public static string GetGroupBannerUrl(string? groupId, string? bannerUrl)
@@ -88,7 +88,7 @@ public static class ImageCacheHelper
         if (cached != null) return ToLocalUrl(cached);
         if (!string.IsNullOrWhiteSpace(bannerId) && !string.IsNullOrWhiteSpace(bannerUrl))
             _ = CacheAsync("Groups", bannerId, bannerUrl, false);
-        return bannerUrl ?? "";
+        return NormalizeTo512(bannerUrl ?? "");
     }
 // Users
 
@@ -107,7 +107,7 @@ public static class ImageCacheHelper
         if (cached != null) return ToLocalUrl(cached);
         if (!string.IsNullOrWhiteSpace(userId) && !string.IsNullOrWhiteSpace(iconUrl))
             _ = CacheAsync("Users", userId, iconUrl, false);
-        return iconUrl ?? "";
+        return NormalizeTo512(iconUrl ?? "");
     }
 
     public static string GetUserBannerUrl(string? userId, string? bannerUrl)
@@ -117,7 +117,7 @@ public static class ImageCacheHelper
         if (cached != null) return ToLocalUrl(cached);
         if (!string.IsNullOrWhiteSpace(bannerId) && !string.IsNullOrWhiteSpace(bannerUrl))
             _ = CacheAsync("Users", bannerId, bannerUrl, false);
-        return bannerUrl ?? "";
+        return NormalizeTo512(bannerUrl ?? "");
     }
 // Badges
 
@@ -127,7 +127,7 @@ public static class ImageCacheHelper
         if (cached != null) return ToLocalUrl(cached);
         if (!string.IsNullOrWhiteSpace(badgeId) && !string.IsNullOrWhiteSpace(imageUrl))
             _ = CacheAsync("Badges", badgeId, imageUrl, false);
-        return imageUrl ?? "";
+        return NormalizeTo512(imageUrl ?? "");
     }
 
 // Avatars
@@ -152,7 +152,7 @@ public static class ImageCacheHelper
         var cached = GetAvatarCached(avatarId);
         if (cached != null) return ToLocalUrl(cached);
         CacheAvatarBackground(avatarId, imageUrl);
-        return imageUrl ?? "";
+        return NormalizeTo512(imageUrl ?? "");
     }
 // Core
 
@@ -182,12 +182,13 @@ public static class ImageCacheHelper
 
     private static async Task<string?> DownloadAsync(string subdir, string entityId, string imageUrl, bool forceRefresh)
     {
-        var dir     = Path.Combine(_baseDir, subdir);
-        var tmpPath = Path.Combine(dir, entityId + ".tmp");
+        var dir      = Path.Combine(_baseDir, subdir);
+        var tmpPath  = Path.Combine(dir, entityId + ".tmp");
+        var fetchUrl = NormalizeTo512(imageUrl);
 
         try
         {
-            using var resp = await _http!.GetAsync(imageUrl, HttpCompletionOption.ResponseHeadersRead);
+            using var resp = await _http!.GetAsync(fetchUrl, HttpCompletionOption.ResponseHeadersRead);
             if (!resp.IsSuccessStatusCode) return null;
 
             using (var stream = await resp.Content.ReadAsStreamAsync())
@@ -257,6 +258,25 @@ public static class ImageCacheHelper
         }
         catch { }
         return null;
+    }
+
+    // Converts VRC Url to CDN 512 Endpoints
+    private static string NormalizeTo512(string url)
+    {
+        // /api/1/file/file_xxx/{version}/file try and getting /api/1/image/file_xxx/{version}/512
+        const string filePrefix = "/api/1/file/";
+        var fi = url.IndexOf(filePrefix, StringComparison.Ordinal);
+        if (fi >= 0)
+        {
+            var rest  = url[(fi + filePrefix.Length)..]; // "file_xxx/{version}/file" should work
+            var parts = rest.Split('/');
+            if (parts.Length >= 3 && parts[0].StartsWith("file_", StringComparison.OrdinalIgnoreCase))
+                return $"https://api.vrchat.cloud/api/1/image/{parts[0]}/{parts[1]}/512";
+        }
+        // /api/1/image/.../256 the normalize if needed /512 - very hacky way lol
+        if (url.Contains("/api/1/image/", StringComparison.Ordinal) && url.EndsWith("/256", StringComparison.Ordinal))
+            return url[..^3] + "512";
+        return url;
     }
 
     private static void TryDelete(string path)

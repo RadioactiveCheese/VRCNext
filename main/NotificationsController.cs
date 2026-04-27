@@ -573,9 +573,19 @@ public class NotificationsController
 
     public Task GetNotificationsAsync() => Task.Run(async () =>
     {
+        // Restore persisted v2 support flag — avoids one 404 call per session restart
+        _core.VrcApi.NotifV2Supported = _core.Settings.NotifV2Supported;
+
         var t1 = _core.VrcApi.GetNotificationsAsync();
         var t2 = _core.VrcApi.GetNotificationsV2Async();
         await Task.WhenAll(t1, t2);
+
+        // Persist if v2 was disabled this session (404)
+        if (!_core.VrcApi.NotifV2Supported && _core.Settings.NotifV2Supported)
+        {
+            _core.Settings.NotifV2Supported = false;
+            _core.Settings.Save();
+        }
 
         var list = t1.Result.Cast<JObject>().Select(NormalizeNotifV1).ToList();
         Invoke(() => _core.SendToJS("log", new { msg = $"[Notif REST] v1={t1.Result.Count} types=[{string.Join(",", t1.Result.Cast<JObject>().Select(n => n["type"]?.ToString()))}]", color = "sec" }));

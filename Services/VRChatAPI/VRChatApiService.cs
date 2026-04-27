@@ -2181,6 +2181,7 @@ public class VRChatApiService
         return new JArray();
     }
 
+    public bool NotifV2Supported { get => _notifV2Supported; set => _notifV2Supported = value; }
     private bool _notifV2Supported = true;
     private bool _requestMessageSupported = true;
 

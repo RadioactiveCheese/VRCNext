@@ -9,7 +9,9 @@ public static class ImageCacheHelper
     private static string _baseDir = "";
     private static HttpClient? _http;
 
-    public static int Port { get; set; } = 49152;
+    public static int  Port            { get; set; } = 49152;
+    public static int  LimitGb         { get; set; } = 5;
+    public static bool OptimizeEnabled { get; set; } = true;
 
     /// <summary>Set at startup to route download logs to the activity log.</summary>
     public static Action<string>? Log { get; set; }
@@ -248,6 +250,7 @@ public static class ImageCacheHelper
         }
 
         Log?.Invoke($"[IMG] OK {subdir}/{entityId}{ext}");
+        _ = Task.Run(TrimIfNeeded);
         return finalPath;
     }
 // Helpers
@@ -283,6 +286,74 @@ public static class ImageCacheHelper
         }
         catch { }
         return null;
+    }
+
+    // Cache Manager
+
+    public static long GetCacheSizeBytes()
+    {
+        if (!Directory.Exists(_baseDir)) return 0;
+        return new DirectoryInfo(_baseDir)
+            .GetFiles("*", SearchOption.AllDirectories)
+            .Where(f => !f.Name.EndsWith(".tmp"))
+            .Sum(f => f.Length);
+    }
+
+    public static void TrimIfNeeded()
+    {
+        var limitBytes = (long)LimitGb * 1024 * 1024 * 1024;
+        if (limitBytes <= 0 || !Directory.Exists(_baseDir)) return;
+        try
+        {
+            var files = new DirectoryInfo(_baseDir)
+                .GetFiles("*", SearchOption.AllDirectories)
+                .Where(f => !f.Name.EndsWith(".tmp"))
+                .OrderBy(f => f.LastWriteTimeUtc)
+                .ToList();
+            var total = files.Sum(f => f.Length);
+            if (total <= limitBytes) return;
+            var target = (long)(limitBytes * 0.8);
+            foreach (var f in files)
+            {
+                if (total <= target) break;
+                try { total -= f.Length; f.Delete(); } catch { }
+            }
+        }
+        catch { }
+    }
+
+    public static async Task OptimizeAsync(Action<int, int>? onProgress = null)
+    {
+        if (!Directory.Exists(_baseDir)) return;
+        const long threshold = (long)(1.5 * 1024 * 1024);
+        var pngFiles = new DirectoryInfo(_baseDir)
+            .GetFiles("*.png", SearchOption.AllDirectories)
+            .Where(f => f.Length > threshold)
+            .Select(f => f.FullName)
+            .ToList();
+        int total = pngFiles.Count, done = 0;
+        onProgress?.Invoke(done, total);
+        foreach (var pngPath in pngFiles)
+        {
+            var jpgPath = pngPath[..^4] + ".jpg";
+            try
+            {
+                using var bmp = SkiaSharp.SKBitmap.Decode(pngPath);
+                if (bmp == null) continue;
+                using var img  = SkiaSharp.SKImage.FromBitmap(bmp);
+                using var data = img.Encode(SkiaSharp.SKEncodedImageFormat.Jpeg, 80);
+                if (data != null)
+                {
+                    using var fs = File.Create(jpgPath);
+                    data.SaveTo(fs);
+                    try { File.Delete(pngPath); } catch { }
+                }
+            }
+            catch { }
+            done++;
+            onProgress?.Invoke(done, total);
+            await Task.Yield();
+        }
     }
 
     // Converts VRC Url to CDN 512 Endpoints

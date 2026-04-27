@@ -1,4 +1,4 @@
-/* === Global date/time format (received from Windows system via C#) === */
+// Global date/time format (received from Windows system via C#)
 let _dtShortPattern = 'dd.MM.yyyy'; // e.g. "dd.MM.yyyy", "M/d/yyyy", "yyyy-MM-dd"
 let _dtIs24Hour = true;
 
@@ -144,20 +144,20 @@ let searchState = {
 };
 let currentFriendDetail = null;
 let _fdLiveTimer = null;
-/* === World info cache for library badges === */
+// World info cache for library badges
 let worldInfoCache = {};
 let pendingDeletePath = null;
-/* === World Tab: Favorites / Search filter === */
+// World Tab: Favorites / Search filter
 let worldFilter = 'favorites';
 let favWorldsData = [];
 let favWorldGroups = [];
 let favWorldGroupFilter = '';
-/* === People Tab: Favorites / Search / Blocked / Muted filter === */
+// People Tab: Favorites / Search / Blocked / Muted filter
 let peopleFilter = 'favorites';
 let favFriendsData = []; // [{ fvrtId, favoriteId }]
 let blockedData = null; // null = not yet loaded
 let mutedData = null;
-/* === VRChat API === */
+// VRChat API
 let vrc2faType = 'totp';
 let vrcFriendsData = [];
 let selectedStatus = 'active';
@@ -278,21 +278,21 @@ function getPlatformBadgeHtml(platform) {
     if (platform === 'web')               return `<span class="vrcn-badge platform-web" title="${t('instance.platform.web', 'Web')}"><span class="msi" style="font-size:11px;">language</span>${t('instance.platform.web', 'Web')}</span>`;
     return '';
 }
-/* === Space Flight === */
+// Space Flight
 let sfConnected = false;
-/* === Custom Chatbox OSC === */
+// Custom Chatbox OSC
 let chatboxEnabled = false;
 let chatboxCustomLines = [];
-/* === OSC Tool === */
+// OSC Tool
 let oscParams = {};
 let oscConnected = false;
-/* === Timeline === */
+// Timeline
 let timelineEvents = [];
 let tlFilter = 'all';
 let tlMode = 'personal';
 let friendTimelineEvents = [];
 let ftFilter = 'all';
-/* === Inventory === */
+// Inventory
 let activeInvTab = 'photos';
 let invFilesCache = {}; // tag → file[]
 let invPrintsCache = [];
@@ -1369,79 +1369,6 @@ function rerenderVcTranslations() {
 
 document.documentElement.addEventListener('languagechange', rerenderVcTranslations);
 
-// ── Dev Console ──────────────────────────────────────────────────────────────
-
-let _consoleView = 'log';
-
-function switchLogView(view) {
-    _consoleView = view;
-    const logArea     = document.getElementById('logArea');
-    const consolePanel = document.getElementById('consolePanel');
-    const logBtn      = document.getElementById('logTabBtn');
-    const conBtn      = document.getElementById('consoleTabBtn');
-    const showFull    = document.getElementById('logShowFullBtn');
-    const searchBar   = document.querySelector('#tab8 .search-bar-row');
-    if (view === 'log') {
-        if (logArea)      logArea.style.display      = '';
-        if (consolePanel) consolePanel.style.display  = 'none';
-        if (logBtn)       logBtn.classList.add('vrcn-button-active');
-        if (conBtn)       conBtn.classList.remove('vrcn-button-active');
-        if (showFull)     showFull.style.display      = '';
-        if (searchBar)    searchBar.style.display     = '';
-    } else {
-        if (logArea)      logArea.style.display      = 'none';
-        if (consolePanel) { consolePanel.style.display = 'flex'; }
-        if (logBtn)       logBtn.classList.remove('vrcn-button-active');
-        if (conBtn)       conBtn.classList.add('vrcn-button-active');
-        if (showFull)     showFull.style.display      = 'none';
-        if (searchBar)    searchBar.style.display     = 'none';
-        const inp = document.getElementById('consoleInput');
-        if (inp) inp.focus();
-    }
-}
-
-function consolePrint(text, color) {
-    const out = document.getElementById('consoleOutput');
-    if (!out) return;
-    const line = document.createElement('div');
-    line.style.cssText = `padding:2px 0;color:${color || 'var(--text-normal)'};white-space:pre-wrap;`;
-    line.textContent = text;
-    out.appendChild(line);
-    out.scrollTop = out.scrollHeight;
-}
-
-function consoleCopyAll() {
-    const out = document.getElementById('consoleOutput');
-    if (!out) return;
-    navigator.clipboard.writeText(out.innerText).catch(() => {});
-}
-
-function consoleRun(raw) {
-    const inp = document.getElementById('consoleInput');
-    if (inp) inp.value = '';
-    const cmd = (raw || '').trim().toLowerCase();
-    if (!cmd) return;
-    consolePrint('> ' + raw, 'var(--text-muted)');
-
-    if (cmd === '/help') {
-        consolePrint('/wipe webview cache  — Deletes the WebView2 browser cache (images, HTTP cache)', '#7289da');
-        consolePrint('/help                — Shows this help', '#7289da');
-        return;
-    }
-    if (cmd === '/wipe webview cache') {
-        consolePrint('Wiping WebView2 cache...', '#faa61a');
-        sendToCS({ action: 'devWipeWebViewCache' });
-        return;
-    }
-    consolePrint('Unknown command. Type /help for available commands.', '#ed4245');
-}
-
-// C# response handler for console commands
-function handleDevConsoleResponse(payload) {
-    const color = payload.ok ? '#3ba55d' : '#ed4245';
-    consolePrint(payload.msg || (payload.ok ? 'Done.' : 'Failed.'), color);
-}
-
 function clearLog() {
     _logSearch = ''; _logShowFull = false;
     const si = document.getElementById('logSearchInput'); if (si) si.value = '';
@@ -1482,7 +1409,7 @@ function playVRChat() {
     sendToCS({ action: 'playVRChat' });
 }
 
-/* === Communication === */
+// Communication
 function sendToCS(m) {
     window.external.sendMessage(JSON.stringify(m));
 }

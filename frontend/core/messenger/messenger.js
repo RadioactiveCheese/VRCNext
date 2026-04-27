@@ -5,7 +5,7 @@
 const MSGR_MAX_CHARS = 60;
 const MSGR_SEND_COOLDOWN = 45; // seconds
 
-// ── Shared Content Cards ──────────────────────────────────────────
+// Shared Cards
 const MSGR_VRC_ID_RE = /^((wrld|avtr|grp|usr|evnt)_[a-zA-Z0-9-]+)$/;
 const MSGR_CONTENT_META = {
     wrld: { typeKey: 'messenger.shared.type_world',   typeFb: 'World',   icon: 'travel_explore', openKey: 'messenger.shared.open_world',   openFb: 'Open World'   },
@@ -130,7 +130,6 @@ function handleSharedContentInfo(payload) {
         msgrApplyContentCard(contentId, n, im);
     }
 }
-// ─────────────────────────────────────────────────────────────────
 
 let _messengerUserId = null;
 let _messengerName = '';

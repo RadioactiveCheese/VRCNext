@@ -370,7 +370,6 @@ public class AppSettings
     public bool DpHideJoinBtnBusy   { get; set; } = true;
 
     // Image cache settings
-    public bool ImgCacheEnabled         { get; set; } = true;
     public int  ImgCacheLimitGb         { get; set; } = 5;
     public bool ImgCacheOptimizeEnabled { get; set; } = true;
 

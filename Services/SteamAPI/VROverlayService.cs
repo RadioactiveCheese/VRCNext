@@ -19,7 +19,7 @@ namespace VRCNext.Services
 {
     public class VROverlayService : IDisposable
     {
-        //  Config 
+        // Config
         public bool AttachToLeft   { get; set; } = true;
         public bool AttachToHand   { get; set; } = true;
         public float PosX          { get; set; } = 0.0f;
@@ -35,13 +35,13 @@ namespace VRCNext.Services
         public List<uint> KeybindDt     { get; private set; } = new();
         public int        KeybindDtHand { get; private set; } = 0; // 0=any, 1=left, 2=right (doubletap slot)
 
-        //  State 
+        // State
         public bool IsConnected    { get; private set; }
         public bool IsVisible      { get; private set; }
         public bool IsRecording    { get; private set; }
         public string? LastError   { get; private set; }
 
-        //  Events 
+        // Events
         public event Action<object>? OnStateUpdate;
         public event Action<List<uint>, List<string>, int, int>? OnKeybindRecorded; // (ids, names, hand, mode)
         public event Action<int>? OnToolToggle;
@@ -49,24 +49,24 @@ namespace VRCNext.Services
         public event Action<string>?         OnInviteFriend;  // (friendId) — invite friend to MY instance
         public event Action<string, string, string, string>? OnNotifAccept; // (notifId, notifType, senderId, notifData)
 
-        //  OpenVR handles 
+        // OpenVR handles
         private volatile CVRSystem? _vrSystem;
         private bool _ownedInit;
         private ulong _overlayHandle;
 
-        //  Poll loop 
+        // Poll loop
         private CancellationTokenSource? _cts;
         private Task? _pollTask;
         private bool _running;
         private bool _disposed;
         private readonly Action<string> _log;
 
-        //  Controller tracking 
+        // Controller tracking
         private uint _leftIdx  = OpenVR.k_unTrackedDeviceIndexInvalid;
         private uint _rightIdx = OpenVR.k_unTrackedDeviceIndexInvalid;
         private readonly TrackedDevicePose_t[] _poses = new TrackedDevicePose_t[OpenVR.k_unMaxTrackedDeviceCount];
 
-        //  Keybind recording 
+        // Keybind recording
         private ulong _lastPressedButtons;
         private int   _stableFrames;
         private const int STABLE_FRAMES_REQUIRED = 25; // ~275ms at 11ms poll
@@ -83,14 +83,14 @@ namespace VRCNext.Services
         private uint     _doubleTapLastButton  = uint.MaxValue;
         private DateTime _doubleTapLastTime    = DateTime.MinValue;
 
-        //  D3D11 (staging + overlay textures for flicker-free upload) 
+        // D3D11 (staging + overlay textures for flicker-free upload)
 
         private ID3D11Device?        _d3dDevice;
         private ID3D11DeviceContext? _d3dContext;
         private ID3D11Texture2D?     _stagingTex;  
         private ID3D11Texture2D?     _overlayTex; 
 
-        //  Rendering 
+        // Rendering
         private Bitmap?   _bitmap;
         private const int W = 512;
         private const int H = 384;
@@ -110,27 +110,27 @@ namespace VRCNext.Services
         // Track last controller index that a valid transform was applied for
         private uint _lastTransformIdx = OpenVR.k_unTrackedDeviceIndexInvalid;
 
-        //  Profile image cache (notification avatars)
+        // Profile image cache (notification avatars)
         private readonly Dictionary<string, Bitmap?> _notifImgCache = new();
         private HttpClient? _authHttpClient;
 
-        //  Join button cooldowns (friendId → click time) 
+        // Join button cooldowns (friendId → click time)
         private readonly Dictionary<string, DateTime> _joinCooldowns = new();
 
-        //  Material Symbols Rounded font (downloaded once, used for tool icons) 
+        // Material Symbols Rounded font (downloaded once, used for tool icons)
         private System.Drawing.Text.PrivateFontCollection? _matSymFonts;
         private FontFamily? _matSymFamily;
 
-        //  Album art (SMTC thumbnail) 
+        // Album art (SMTC thumbnail)
         private Bitmap? _albumArt;
 
-        //  Proximity interaction 
+        // Proximity interaction
         private bool  _interactMode      = false;
         public float ControlRadius { get; private set; } = 0.28f; // enter dist in metres
         private float InteractEnterDist => Math.Max(0.03f, ControlRadius);
         private float InteractLeaveDist => InteractEnterDist + 0.08f;
 
-        //  Overlay content
+        // Overlay content
         private int                   _activeTab = 0;
         private float                 _tabIndicatorX = 0f;
         private readonly List<NotifEntry> _notifications = new();
@@ -140,7 +140,7 @@ namespace VRCNext.Services
         private bool     _mediaPlaying  = false;
         private bool     _dirty         = true;
 
-        //  Tool states
+        // Tool states
         private bool _toolDiscord  = false;
         private bool _toolVoice    = false;
         private bool _toolKikitan  = false;
@@ -148,7 +148,7 @@ namespace VRCNext.Services
         private bool _toolRelay    = false;
         private bool _toolChatbox  = false;
 
-        //  Toast notification overlay (HMD-attached)
+        // Toast notification overlay (HMD-attached)
         private ulong _toastHandle;
         private Bitmap? _toastBitmap;
         private ID3D11Texture2D? _toastStagingTex;
@@ -192,7 +192,7 @@ namespace VRCNext.Services
         public event Action? OnToastSound;
         public event Action? OnVRQuit;
 
-        //  Water Reminder (Dashboard tab)
+        // Water Reminder (Dashboard tab)
         private bool     _waterEnabled     = false;
         private long     _waterIntervalMs  = 3_600_000; // 1 hour default
         private long     _waterRemainMs    = 3_600_000;
@@ -412,13 +412,13 @@ namespace VRCNext.Services
             }
         }
 
-        //  Allowed buttons & keybind limits 
+        // Allowed buttons & keybind limits
         private const ulong ALLOWED_BUTTON_MASK =
             (1UL << 1) | (1UL << 2) | (1UL << 7) | (1UL << 32) | (1UL << 33);
         private const int MAX_KEYBIND_BUTTONS  = 4;
         private const int DOUBLE_TAP_WINDOW_MS = 400;
 
-        //  Button name maps 
+        // Button name maps
         private static readonly Dictionary<uint, string> ButtonNames = new()
         {
             { (uint)EVRButtonId.k_EButton_ApplicationMenu, "B/Y"       },
@@ -430,7 +430,7 @@ namespace VRCNext.Services
 
         private record NotifEntry(string EvType, string FriendName, string EvText, string Time, string ImageUrl = "", string FriendId = "", string Location = "", string NotifId = "", string NotifData = "");
 
-        //  Location tab
+        // Location tab
         private record LocationEntry(string WorldId, string InstanceId, string WorldName, string WorldImageUrl, string FriendId, string FriendName, string FriendImageUrl, string Location);
         private readonly List<LocationEntry>         _friendLocations  = new();
         private readonly Dictionary<string, Bitmap?> _locationImgCache = new(); 
@@ -448,11 +448,11 @@ namespace VRCNext.Services
         private float _scrollLastNY    = 0f;
         private float _scrollLastDeltaY = 0f; 
 
-        //  Friends tab (online/in-game friends list)
+        // Friends tab (online/in-game friends list)
         private record FriendTabEntry(string FriendId, string FriendName, string FriendImageUrl, string Status, string StatusDescription, string Location, string WorldName);
         private readonly List<FriendTabEntry> _onlineFriends = new();
 
-        //  Location layout constants (shared by Draw + Click)
+        // Location layout constants (shared by Draw + Click)
         private const int LocPadX          = 12;
         private const int LocColGap        = 6;
         private const int LocRowGap        = 6;
@@ -460,18 +460,18 @@ namespace VRCNext.Services
         private const int LocContentY      = 72;
         private static int LocColW         => (W - 2 * LocPadX - LocColGap) / 2; // = 241
 
-        //  Friends tab layout constants
+        // Friends tab layout constants
         private const int FrdPadX     = 12;
         private const int FrdCardH    = 50;
         private const int FrdGap      = 6;
         private const int FrdContentY = 72;
 
-        //  Shared scroll area (used by both location + friends tabs)
+        // Shared scroll area (used by both location + friends tabs)
         private const int ScrollContentBottom = H - 12;    
         private const int ScrollContentH      = ScrollContentBottom - LocContentY; 
         private const int ScrollBarW          = 3;      
 
-        //  Theme colors 
+        // Theme colors
         private OverlayTheme _theme = OverlayTheme.FromName("midnight");
 
         public void SetTheme(string name)
@@ -561,7 +561,7 @@ namespace VRCNext.Services
         /// <summary>Authenticated VRChat HTTP client for direct image downloads in the overlay.</summary>
         public void SetAuthHttpClient(HttpClient? client) => _authHttpClient = client;
 
-        //  Public API 
+        // Public API
 
         public bool Connect()
         {
@@ -996,7 +996,7 @@ namespace VRCNext.Services
             }
         }
 
-        //  Friend location data (Location tab)
+        // Friend location data (Location tab)
 
         public void SetFriendLocations(IReadOnlyList<(string worldId, string instanceId, string worldName, string worldImageUrl, string friendId, string friendName, string friendImageUrl, string location)> entries)
         {
@@ -1038,7 +1038,7 @@ namespace VRCNext.Services
             _dirty = true;
         }
 
-        //  Online friends list (Friends tab)
+        // Online friends list (Friends tab)
 
         public void SetOnlineFriends(IReadOnlyList<(string friendId, string friendName, string friendImageUrl, string status, string statusDescription, string location, string worldName)> entries)
         {
@@ -1214,7 +1214,7 @@ namespace VRCNext.Services
             EmitState();
         }
 
-        //  Private helpers 
+        // Private helpers
 
         // proximity check: enables laser pointer when free hand is near the wrist overlay, disables when far
         private void UpdateProximityInteract()
@@ -1451,7 +1451,7 @@ namespace VRCNext.Services
             var sys = _vrSystem;
             if (sys == null) return;
 
-            //  Reconcile event-driven button state with GetControllerState
+            // Reconcile event-driven button state with GetControllerState
             {
                 var s  = new VRControllerState_t();
                 var sz = (uint)Marshal.SizeOf<VRControllerState_t>();
@@ -1626,8 +1626,8 @@ namespace VRCNext.Services
             }
 
             // Music player controls:
-            //   Controls GDI+ y 286–338 → ny 0.12–0.25
-            //   Prev cx=172±18 → nx 0.27–0.40, Play cx=256±26 → nx 0.43–0.57, Next cx=340±18 → nx 0.60–0.73
+            //  Controls GDI+ y 286–338 → ny 0.12–0.25
+            //  Prev cx=172±18 → nx 0.27–0.40, Play cx=256±26 → nx 0.43–0.57, Next cx=340±18 → nx 0.60–0.73
             if (_activeTab == 3 && ny >= 0.11f && ny <= 0.27f)
             {
                 if      (nx >= 0.27f && nx <= 0.40f) SendSmtcCommand("prev");
@@ -1880,7 +1880,7 @@ namespace VRCNext.Services
 
             if (KeybindMode == 1)
             {
-                //  Double-tap mode 
+                // Double-tap mode
                 ulong cur      = GetSideButtonState(KeybindDtHand) & ALLOWED_BUTTON_MASK;
                 ulong newPress = cur & ~_prevTriggerHeld; // edge: newly pressed this frame
                 _prevTriggerHeld = cur;
@@ -1923,7 +1923,7 @@ namespace VRCNext.Services
             }
             else
             {
-                //  Combo (hold) mode 
+                // Combo (hold) mode
                 ulong mask = 0;
                 foreach (var b in Keybind) mask |= 1UL << (int)b;
                 bool allHeld = mask != 0 && (GetSideButtonState(KeybindHand) & mask) == mask;
@@ -2180,7 +2180,7 @@ namespace VRCNext.Services
         {
             var th = _theme;
 
-            //  Background — rounded card
+            // Background — rounded card
             using var bg = new SolidBrush(Color.FromArgb(A(220, fade), th.BgCard));
             FillRoundedRect(g, bg, 0, oY, TW, TH, 14);
 
@@ -2188,7 +2188,7 @@ namespace VRCNext.Services
             using var brdPen = new Pen(Color.FromArgb(A(80, fade), th.Brd), 1f);
             DrawRoundedRect(g, brdPen, 0, oY, TW, TH, 14);
 
-            //  Avatar — 36x36, rounded
+            // Avatar — 36x36, rounded
             const int avSize = 36, avR = 8;
             int avX = 12, avY = oY + (TH - avSize - 6) / 2; // leave room for progress bar
 
@@ -2229,7 +2229,7 @@ namespace VRCNext.Services
             }
             g.SetClip(oldClip, CombineMode.Replace);
 
-            //  Text
+            // Text
             int textX = avX + avSize + 10;
             int textRight = TW - 14;
 
@@ -2279,7 +2279,7 @@ namespace VRCNext.Services
             g.DrawString(evText, evFont, evBrush,
                 new RectangleF(textX, row2Y, textRight - textX, 16f), ellipsisFmt);
 
-            //  Progress bar at bottom
+            // Progress bar at bottom
             double barProgress;
             if (elapsedMs < TOAST_FADE_IN_MS) barProgress = 0;
             else if (elapsedMs >= TOAST_FADE_IN_MS + _toastVisibleMs) barProgress = 1;
@@ -2350,7 +2350,7 @@ namespace VRCNext.Services
             }
         }
 
-        //  Rendering
+        // Rendering
 
         private void Render()
         {
@@ -2397,7 +2397,7 @@ namespace VRCNext.Services
 
             if (hasArt)
             {
-                //  Music tab: blurred art fills entire card 
+                // Music tab: blurred art fills entire card
                 // Clip drawing to rounded card shape
                 using var cardClip = RoundedRectPath(0, 0, W, H, r);
                 var oldClip = g.Clip;
@@ -2438,7 +2438,7 @@ namespace VRCNext.Services
             }
             else
             {
-                //  All other tabs: solid themed card 
+                // All other tabs: solid themed card
                 using var brush = new SolidBrush(Color.FromArgb(235, th.BgCard));
                 FillRoundedRect(g, brush, 0, 0, W, H, r);
             }
@@ -2511,7 +2511,7 @@ namespace VRCNext.Services
             int   clockH     = _waterEnabled ? 82 : 162;
             float timeFontSz = _waterEnabled ? 27f : 36f;
 
-            // ── CLOCK (flat) ──────────────────────────────────────────────────────
+            // Clock
             using (var lf = new Font("Segoe UI", 7f, FontStyle.Bold, GraphicsUnit.Point))
             using (var lb = new SolidBrush(th.Tx3))
             using (var ab = new SolidBrush(th.Accent))
@@ -2555,7 +2555,7 @@ namespace VRCNext.Services
 
             y += clockH + 10;
 
-            // ── WATER (flat, only when enabled) ───────────────────────────────────
+            // Water (only when enabled)
             if (_waterEnabled)
             {
                 const int waterH = 74;
@@ -2624,7 +2624,7 @@ namespace VRCNext.Services
                 y += waterH + 10;
             }
 
-            // ── RECENT NOTIFICATIONS ──────────────────────────────────────────────
+            // Recent notifications
             using (var nlf = new Font("Segoe UI", 7f, FontStyle.Bold, GraphicsUnit.Point))
             using (var nlb = new SolidBrush(th.Tx3))
                 g.DrawString(VroL("recent_notifications"), nlf, nlb, new RectangleF(padX, y + 2, cardW, 12));
@@ -2777,11 +2777,11 @@ namespace VRCNext.Services
             bool inCooldown = _joinCooldowns.TryGetValue(locKey, out var cdT)
                 && (DateTime.UtcNow - cdT).TotalSeconds < 5;
 
-            //  Card background 
+            // Card background
             using var cardBg = new SolidBrush(Color.FromArgb(inCooldown ? 200 : 190, inCooldown ? th.Ok : th.BgCard));
             FillRoundedRect(g, cardBg, x, y, w, h, 8);
 
-            //  Cooldown state: green card + centred checkmark only 
+            // Cooldown state: green card + centred checkmark only
             if (inCooldown)
             {
                 using var checkFont = _matSymFamily != null
@@ -2793,7 +2793,7 @@ namespace VRCNext.Services
                 return;
             }
 
-            //  World image (left strip 52×h-4) 
+            // World image (left strip 52×h-4)
             const int imgW = 52;
             Bitmap? worldImg = null;
             if (!string.IsNullOrEmpty(first.WorldImageUrl))
@@ -2812,7 +2812,7 @@ namespace VRCNext.Services
             }
             g.SetClip(oldClip, System.Drawing.Drawing2D.CombineMode.Replace);
 
-            //  Avatar (right side, 24×24)
+            // Avatar (right side, 24×24)
             const int avSz = 24, avRadius = 5;
             int avX = x + w - avSz - 6;
             int avY = y + (h - avSz) / 2;
@@ -2858,7 +2858,7 @@ namespace VRCNext.Services
                     new RectangleF(badgeX, badgeY, 16, 12), bFmt);
             }
 
-            //  Text area 
+            // Text area
             int textX = x + imgW + 6;
             int textW = w - imgW - 6 - avSz - 10;
 
@@ -2900,7 +2900,7 @@ namespace VRCNext.Services
             return "Unknown";
         }
 
-        //  Friends tab rendering
+        // Friends tab rendering
 
         private void DrawFriends(Graphics g)
         {
@@ -2959,11 +2959,11 @@ namespace VRCNext.Services
                 && (DateTime.UtcNow - cdT).TotalSeconds < 5;
             bool hasLocation = !string.IsNullOrEmpty(friend.Location) && friend.Location != "offline";
 
-            //  Card background
+            // Card background
             using var cardBg = new SolidBrush(Color.FromArgb(190, th.BgCard));
             FillRoundedRect(g, cardBg, x, y, w, h, 8);
 
-            //  Invite/Join button (right side, 42×h-8)
+            // Invite/Join button (right side, 42×h-8)
             const int btnW = 42;
             int btnX = x + w - btnW - 4;
             int btnY = y + 4;
@@ -2987,7 +2987,7 @@ namespace VRCNext.Services
                 g.DrawString(btnIcon, btnFont, btnBrush, new RectangleF(btnX, btnY, btnW, btnH), btnFmt);
             }
 
-            //  Avatar (36×36, rounded 8px)
+            // Avatar (36×36, rounded 8px)
             const int avSz = 36, avR = 8;
             int avX = x + 8;
             int avY = y + (h - avSz) / 2;
@@ -3017,7 +3017,7 @@ namespace VRCNext.Services
             using var avBorder = new Pen(Color.FromArgb(50, th.Brd), 1f);
             DrawRoundedRect(g, avBorder, avX, avY, avSz, avSz, avR);
 
-            //  Status dot (10px, overlaid on bottom-right of avatar)
+            // Status dot (10px, overlaid on bottom-right of avatar)
             int dotSz = 10;
             int dotX = avX + avSz - dotSz + 1;
             int dotY = avY + avSz - dotSz + 1;
@@ -3027,7 +3027,7 @@ namespace VRCNext.Services
             using var dotBrush = new SolidBrush(statusColor);
             g.FillEllipse(dotBrush, dotX, dotY, dotSz, dotSz);
 
-            //  Text area
+            // Text area
             int textX = avX + avSz + 10;
             int textW = (hasLocation ? btnX - 6 : x + w - 8) - textX;
             var ellipsisFmt = new StringFormat { Trimming = StringTrimming.EllipsisCharacter, FormatFlags = StringFormatFlags.NoWrap };
@@ -3215,11 +3215,11 @@ namespace VRCNext.Services
             bool hasButton = hasJoin || hasAccept;
             string buttonCdKey = hasJoin ? entry.FriendId : entry.NotifId;
 
-            //  Card background (matches sidebar bg-card)
+            // Card background (matches sidebar bg-card)
             using var bg = new SolidBrush(Color.FromArgb(190, th.BgCard));
             FillRoundedRect(g, bg, x, y, w, h, 8);
 
-            //  Action button — square (width = height), right edge of card
+            // Action button — square (width = height), right edge of card
             int jbW = h - 4;   // square: width equals height (h minus 2px top+bottom margin)
             int jbX = x + w - jbW - 2;
             if (hasButton)
@@ -3239,7 +3239,7 @@ namespace VRCNext.Services
                 g.DrawString(icon, iconFont, iconBrush, new RectangleF(jbX, y + 2, jbW, h - 4), iconFmt);
             }
 
-            //  Avatar — 32×32 rounded square (8px radius), like sidebar 
+            // Avatar — 32×32 rounded square (8px radius), like sidebar
             const int avSize = 32, avR = 8;
             int avX = x + 8;
             int avY = y + (h - avSize) / 2;
@@ -3269,7 +3269,7 @@ namespace VRCNext.Services
             }
             g.SetClip(oldClip, System.Drawing.Drawing2D.CombineMode.Replace);
 
-            //  Text area layout 
+            // Text area layout
             // textX: start after avatar + 8px gap (matches sidebar gap)
             // textRight: stop before join button (or right margin 8px)
             int textX     = avX + avSize + 8;
@@ -3283,7 +3283,7 @@ namespace VRCNext.Services
             float row1Y = y + (h - row1H - rowGap - row2H) / 2f;
             float row2Y = row1Y + row1H + rowGap;
 
-            //  Row 1: Time · Dot · Name 
+            // Row 1: Time · Dot · Name
             using var timeFont  = new Font("Segoe UI", 7.5f, FontStyle.Regular, GraphicsUnit.Point);
             using var timeBrush = new SolidBrush(th.Tx3);
             var timeSz = g.MeasureString(entry.Time, timeFont);
@@ -3330,7 +3330,7 @@ namespace VRCNext.Services
                 }
             }
 
-            //  Row 2: Event content text
+            // Row 2: Event content text
             string evText = EventBadgeLabel(entry.EvType, entry.EvText);
             using var evFont  = new Font("Segoe UI", 8.5f, FontStyle.Regular, GraphicsUnit.Point);
             using var evBrush = new SolidBrush(th.Tx3);
@@ -3407,12 +3407,12 @@ namespace VRCNext.Services
 
             // Background is drawn by DrawBackground() — no duplicate here.
 
-            //  Layout constants 
+            // Layout constants
             const int artSize = 128;
             int artX = (W - artSize) / 2;   // centered
             int artY = tabBottom + 10;
 
-            //  Album art (centered, rounded) 
+            // Album art (centered, rounded)
             if (_albumArt != null)
             {
                 var artRect = new Rectangle(artX, artY, artSize, artSize);
@@ -3434,7 +3434,7 @@ namespace VRCNext.Services
 
             int artBottom = artY + artSize;
 
-            //  Title + Artist (centered below art) 
+            // Title + Artist (centered below art)
             var ellipsisFmt = new StringFormat { Trimming = StringTrimming.EllipsisCharacter,
                                                   FormatFlags = StringFormatFlags.NoWrap,
                                                   Alignment = StringAlignment.Center };
@@ -3452,7 +3452,7 @@ namespace VRCNext.Services
                     new RectangleF(pad, artBottom + 36, W - pad * 2, 20), ellipsisFmt);
             }
 
-            //  Progress bar 
+            // Progress bar
             int barY = artBottom + 62;
             int barH = 6;
             int barX = pad + 4;
@@ -3490,7 +3490,7 @@ namespace VRCNext.Services
                 new RectangleF(barX + barW - 55, barY + barH + 4, 55, 15),
                 new StringFormat { Alignment = StringAlignment.Far });
 
-            //  Controls 
+            // Controls
             // Play button: large filled accent circle, center at (W/2, ctrlCY)
             // Prev/Next: smaller, subtle bg circle
             int ctrlCY = barY + barH + 38;   // center Y of all controls
@@ -3633,7 +3633,7 @@ namespace VRCNext.Services
             }
         }
 
-        //  GDI+ helpers
+        // GDI+ helpers
         private static void DrawImageCover(Graphics g, Bitmap img, Rectangle dest)
         {
             float srcAspect = (float)img.Width / img.Height;
@@ -3682,7 +3682,7 @@ namespace VRCNext.Services
             return path;
         }
 
-        //  IDisposable 
+        // IDisposable
 
         public void Dispose()
         {

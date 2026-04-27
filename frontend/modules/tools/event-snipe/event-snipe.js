@@ -9,7 +9,7 @@ function onSnipeTabOpen() {
     sendToCS({ action: 'vrcSnipeStatus' });
 }
 
-// ── Group picker ──────────────────────────────────────────────────────────────
+// Group picker
 
 function snipePopulateGroups(filter) {
     const list = document.getElementById('snipeGroupList');
@@ -67,7 +67,7 @@ function openSnipeForGroup(groupId) {
     else   _snipeSelectedGroupId = groupId;
 }
 
-// ── Start / Stop ──────────────────────────────────────────────────────────────
+// Start / Stop
 
 function snipeBuildBtnHtml() {
     return _snipeRunning
@@ -101,7 +101,7 @@ function snipeToggle() {
     sendToCS({ action: 'vrcStartSnipe', groupId: _snipeSelectedGroupId, worldId, autoJoin, minCapacity: minCap, accessTypes });
 }
 
-// ── Message handlers ──────────────────────────────────────────────────────────
+// Message handlers
 
 function handleSnipeStatus(p) {
     _snipeRunning = !!p.active;

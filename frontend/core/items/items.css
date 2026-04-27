@@ -1,6 +1,4 @@
-/* === Core Item Components === */
-
-/* ── Profile Item ─────────────────────────────────────────────── */
+/* Profile Item */
 .vrcn-profile-item {
     display: flex;
     align-items: center;
@@ -82,7 +80,7 @@
 }
 
 
-/* ── Instance Item ────────────────────────────────────────────── */
+/* Instance Item */
 .inst-item {
     display: flex;
     align-items: center;
@@ -185,7 +183,7 @@
 .inst-item-join { height: 24px !important; padding: 0 10px !important; font-size: 11px !important; }
 
 
-/* ── Instance Friend Strip ────────────────────────────────────── */
+/* Instance Friend Strip */
 .inst-friends-strip {
     display: flex;
     align-items: center;

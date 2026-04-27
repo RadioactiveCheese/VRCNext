@@ -137,6 +137,29 @@ public class AuthController
                 _core.MemTrim.TrimNow();
                 break;
 
+            case "getImgCacheSize":
+                _ = Task.Run(() =>
+                {
+                    var bytes = ImageCacheHelper.GetCacheSizeBytes();
+                    Invoke(() => _core.SendToJS("imgCacheSize", new { bytes }));
+                });
+                break;
+
+            case "optimizeImgCache":
+                _ = Task.Run(async () =>
+                {
+                    Invoke(() => _core.SendToJS("imgCacheOptimizeProgress", new { done = 0, total = -1 }));
+                    await ImageCacheHelper.OptimizeAsync((done, total) =>
+                        Invoke(() => _core.SendToJS("imgCacheOptimizeProgress", new { done, total })));
+                    var bytes = ImageCacheHelper.GetCacheSizeBytes();
+                    Invoke(() =>
+                    {
+                        _core.SendToJS("imgCacheOptimizeProgress", new { done = -1, total = 0 });
+                        _core.SendToJS("imgCacheSize", new { bytes });
+                    });
+                });
+                break;
+
             case "clearFfcCache":
                 _ = Task.Run(() =>
                 {
@@ -841,6 +864,12 @@ public class AuthController
             _core.Settings.DpHideJoinBtnOnline = data["dpHideJoinBtnOnline"]?.Value<bool>() ?? false;
             _core.Settings.DpHideJoinBtnAskMe  = data["dpHideJoinBtnAskMe"]?.Value<bool>()  ?? true;
             _core.Settings.DpHideJoinBtnBusy   = data["dpHideJoinBtnBusy"]?.Value<bool>()   ?? true;
+
+            // Image cache
+            _core.Settings.ImgCacheLimitGb         = Math.Clamp(data["imgCacheLimitGb"]?.Value<int>() ?? 5, 5, 30);
+            _core.Settings.ImgCacheOptimizeEnabled = data["imgCacheOptimizeEnabled"]?.Value<bool>() ?? true;
+            ImageCacheHelper.LimitGb         = _core.Settings.ImgCacheLimitGb;
+            ImageCacheHelper.OptimizeEnabled = _core.Settings.ImgCacheOptimizeEnabled;
 
             // Fast Fetch Cache
             _core.Settings.FfcEnabled = data["ffcEnabled"]?.Value<bool>() ?? true;

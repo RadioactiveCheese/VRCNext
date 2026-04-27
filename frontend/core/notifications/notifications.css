@@ -1,6 +1,4 @@
-/* === Notifications === */
-
-/* ── Notify Buttons ────────────────────────────────────────────── */
+/* Notify Buttons */
 .vrcn-notify-button {
     display: inline-flex;
     align-items: center;
@@ -26,7 +24,7 @@
 .vrcn-notify-button.danger:hover { background: rgba(255,75,85,.15); color: var(--err); border-color: var(--err); }
 
 
-/* ── Notification Bell + Count ─────────────────────────────────── */
+/* Notification Bell + Count */
 .btn-notif {
     position: relative;
     background: none;
@@ -81,7 +79,7 @@
 }
 
 
-/* ── Notification Panel ────────────────────────────────────────── */
+/* Notification Panel */
 .notif-panel {
     position: absolute;
     top: 50px;
@@ -196,7 +194,7 @@
 }
 
 
-/* ── Toast Notifications ───────────────────────────────────────── */
+/* Toast Notifications */
 .notif-toast-area {
     position: fixed;
     top: 16px;
@@ -330,7 +328,7 @@
 }
 
 
-/* ── Instance Widget ───────────────────────────────────────────── */
+/* Instance Widget */
 .inst-card {
     background: var(--bg-card);
     border-radius: 12px;

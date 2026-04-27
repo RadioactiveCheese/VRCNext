@@ -483,33 +483,6 @@ public partial class AppShell
                         Process.Start(new ProcessStartInfo(_activityLogDir) { UseShellExecute = true });
                     break;
 
-                case "devWipeWebViewCache":
-                    _ = Task.Run(() =>
-                    {
-                        try
-                        {
-                            var webView2Dir = Path.Combine(
-                                Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-                                "VRCNext", "WebView2");
-                            long deleted = 0;
-                            // Actual Photino WebView2 cache path: EBWebView/Default/Cache
-                            var defaultDir = Path.Combine(webView2Dir, "EBWebView", "Default");
-                            foreach (var subDir in new[] { "Cache", "Code Cache", "GPUCache", "ShaderCache" })
-                            {
-                                var path = Path.Combine(defaultDir, subDir);
-                                if (!Directory.Exists(path)) continue;
-                                foreach (var f in Directory.GetFiles(path, "*", SearchOption.AllDirectories))
-                                    try { deleted += new FileInfo(f).Length; File.Delete(f); } catch { }
-                            }
-                            var mb = deleted / 1024.0 / 1024.0;
-                            Invoke(() => SendToJS("devConsoleResponse", new { ok = true, msg = $"WebView2 cache wiped. Freed {mb:0.00} MB. Restart the app for full effect." }));
-                        }
-                        catch (Exception ex)
-                        {
-                            Invoke(() => SendToJS("devConsoleResponse", new { ok = false, msg = $"Failed: {ex.Message}" }));
-                        }
-                    });
-                    break;
 
                 // Get friend detail / preview
                 case "vrcGetFriendDetail":

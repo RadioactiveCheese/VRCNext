@@ -86,6 +86,7 @@ public class KikitanXDController : IDisposable
                 if (msg["oscEnabled"] is JToken oe) _settings.OscEnabled = oe.Value<bool>();
                 if (msg["noiseGatePct"] is JToken ng) _settings.NoiseGatePercent = ng.Value<int>();
                 _settings.Save();
+                _core.SendToJS("toast", new { ok = true, msg = "Saved" });
                 _service?.UpdateSettings(_settings.ApiKey, _settings.SourceLang, _settings.TargetLang,
                     _settings.TranslateEnabled, _settings.OscEnabled, _settings.NoiseGatePercent);
                 break;

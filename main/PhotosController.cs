@@ -88,11 +88,7 @@ public class PhotosController
         try
         {
             // Build set of filenames already in timeline
-            var existingFiles = new HashSet<string>(
-                _core.Timeline.GetEvents()
-                    .Where(e => e.Type == "photo" && !string.IsNullOrEmpty(e.PhotoPath))
-                    .Select(e => Path.GetFileName(e.PhotoPath)),
-                StringComparer.OrdinalIgnoreCase);
+            var existingFiles = _core.Timeline.GetPhotoFilePaths();
 
             if (_core.PhotoPlayersStore.Photos.Count == 0) return;
 

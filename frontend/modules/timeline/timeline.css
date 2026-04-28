@@ -225,6 +225,12 @@
 .tl-dp-day.selected { background: var(--accent); color: #fff; font-weight: 700; }
 .tl-dp-day.selected:hover { background: var(--accent); }
 .tl-dp-day.today.selected { background: var(--accent); color: #fff; }
+.tl-dp-day { position: relative; }
+.dp-dots { position: absolute; bottom: 2px; left: 0; right: 0; display: flex; gap: 2px; justify-content: center; pointer-events: none; }
+.dp-dot { width: 3px; height: 3px; border-radius: 50%; flex-shrink: 0; }
+.dp-dot-p { background: var(--accent); }
+.dp-dot-f { background: var(--tx3); }
+.tl-dp-day.selected .dp-dot { background: rgba(255,255,255,0.75); }
 .tl-dp-footer {
     display: flex;
     gap: 6px;

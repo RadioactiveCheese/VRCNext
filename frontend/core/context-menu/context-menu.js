@@ -261,6 +261,95 @@
         positionSubmenu(parentBtn);
     }
 
+    function showFavFriendGroupSubmenu(userId, parentBtn) {
+        const groups = (typeof favFriendGroups !== 'undefined') ? favFriendGroups : [];
+        if (groups.length === 0) {
+            submenu.innerHTML = `<div class="vn-ctx-loading">
+                <span class="msi">hourglass_empty</span><span>${esc(cm('loading_groups', 'Loading groups...'))}</span>
+            </div>`;
+            positionSubmenu(parentBtn);
+            sendToCS({ action: 'vrcGetFavoriteFriends' });
+            let attempts = 0;
+            const retry = setInterval(() => {
+                const g = (typeof favFriendGroups !== 'undefined') ? favFriendGroups : [];
+                if (g.length > 0 || ++attempts > 15) {
+                    clearInterval(retry);
+                    if (g.length > 0 && submenu.style.display !== 'none') showFavFriendGroupSubmenu(userId, parentBtn);
+                }
+            }, 300);
+            return;
+        }
+        submenu.innerHTML = groups.map(g => {
+            const count = (typeof favFriendsData !== 'undefined')
+                ? favFriendsData.filter(f => f.groupName === g.name).length : 0;
+            return `<button class="vn-ctx-item" data-ff-name="${esc(g.name)}" data-ff-uid="${esc(userId)}">
+                <span class="msi" style="font-size:14px;">bookmark_border</span>
+                <span class="vn-ctx-label">${esc(g.displayName || g.name)}</span>
+                <span class="vn-ctx-count">${count}</span>
+            </button>`;
+        }).join('');
+        submenu.querySelectorAll('[data-ff-name]').forEach(btn => {
+            btn.addEventListener('click', e => {
+                e.stopPropagation();
+                sendToCS({ action: 'vrcAddFavoriteFriend', userId: btn.dataset.ffUid, groupName: btn.dataset.ffName });
+                hideMenu();
+            });
+            btn.addEventListener('mouseenter', () => clearTimeout(submenuTimer));
+        });
+        positionSubmenu(parentBtn);
+    }
+
+    function showFavFriendMoveSubmenu(userId, favEntry, parentBtn) {
+        const groups = (typeof favFriendGroups !== 'undefined') ? favFriendGroups : [];
+        submenu.innerHTML = groups.map(g => {
+            const isCurrent = g.name === favEntry?.groupName;
+            const count = (typeof favFriendsData !== 'undefined')
+                ? favFriendsData.filter(f => f.groupName === g.name).length : 0;
+            const iconEl = isCurrent
+                ? `<span class="msi" style="font-size:14px;color:var(--accent);">check_circle</span>`
+                : `<span class="msi" style="font-size:14px;">drive_file_move</span>`;
+            return `<button class="vn-ctx-item${isCurrent ? ' ci-group-selected' : ''}"
+                data-ffmv-name="${esc(g.name)}" data-ffmv-uid="${esc(userId)}" data-ffmv-old="${esc(favEntry?.fvrtId || '')}" data-ffmv-current="${isCurrent}">
+                ${iconEl}
+                <span class="vn-ctx-label">${esc(g.displayName || g.name)}</span>
+                <span class="vn-ctx-count">${count}</span>
+            </button>`;
+        }).join('');
+        submenu.querySelectorAll('[data-ffmv-name]').forEach(btn => {
+            btn.addEventListener('click', e => {
+                e.stopPropagation();
+                if (btn.dataset.ffmvCurrent === 'true') { hideMenu(); return; }
+                sendToCS({ action: 'vrcAddFavoriteFriendToGroup', userId: btn.dataset.ffmvUid, groupName: btn.dataset.ffmvName, oldFvrtId: btn.dataset.ffmvOld });
+                hideMenu();
+            });
+            btn.addEventListener('mouseenter', () => clearTimeout(submenuTimer));
+        });
+        positionSubmenu(parentBtn);
+    }
+
+    function showFriendEditModeGroupSubmenu(parentBtn) {
+        const groups = (typeof favFriendGroups !== 'undefined') ? favFriendGroups : [];
+        submenu.innerHTML = groups.map(g => {
+            const count = (typeof favFriendsData !== 'undefined')
+                ? favFriendsData.filter(f => f.groupName === g.name).length : 0;
+            return `<button class="vn-ctx-item"
+                data-ff-edit-move-name="${esc(g.name)}">
+                <span class="msi" style="font-size:14px;">folder</span>
+                <span class="vn-ctx-label">${esc(g.displayName || g.name)}</span>
+                <span class="vn-ctx-count">${count}</span>
+            </button>`;
+        }).join('');
+        submenu.querySelectorAll('[data-ff-edit-move-name]').forEach(btn => {
+            btn.addEventListener('click', e => {
+                e.stopPropagation();
+                if (typeof friendEditMoveSelected === 'function') friendEditMoveSelected(btn.dataset.ffEditMoveName);
+                hideMenu();
+            });
+            btn.addEventListener('mouseenter', () => clearTimeout(submenuTimer));
+        });
+        positionSubmenu(parentBtn);
+    }
+
     function positionSubmenu(parentBtn) {
         const rect = parentBtn.getBoundingClientRect();
         const z = (typeof _guiZoom !== 'undefined' ? _guiZoom : 1);
@@ -435,7 +524,7 @@
         if (friendCard) {
             const id = extractFriendId(friendCard);
             if (id) {
-                const items = buildFriendItems(id);
+                const items = buildFriendItems(id, friendCard);
                 const isInstanceRow = friendCard.classList.contains('iim-user-tr') || friendCard.classList.contains('inst-user-row');
                 if (isInstanceRow) {
                     items.unshift('sep');
@@ -462,6 +551,7 @@
         const onclick = el.getAttribute('onclick') || '';
         return onclick.match(/openFriendDetail\('([^']+)'\)/)?.[1]
             || onclick.match(/navOpenModal\('friend','([^']+)'/)?.[1]
+            || el.dataset.uid
             || null;
     }
 
@@ -826,7 +916,19 @@
         return items;
     }
 
-    function buildFriendItems(id) {
+    function buildFriendItems(id, sourceEl) {
+        if (typeof _favFriendEditMode !== 'undefined' && _favFriendEditMode) {
+            if (!_favFriendEditSelected.has(id)) {
+                _favFriendEditSelected.add(id);
+                if (typeof filterFavFriends === 'function') filterFavFriends();
+                else if (typeof updateFriendEditBar === 'function') updateFriendEditBar();
+            }
+            return [
+                { icon: 'drive_file_move', label: cm('friend.move_group', 'Move to Group'), submenuFn: btn => showFriendEditModeGroupSubmenu(btn) },
+                { icon: 'star_border', label: cm('friend.remove_favorites', 'Remove from Favorites'), action: () => friendEditRemoveSelected(), danger: true, confirm: true },
+            ];
+        }
+
         const f = (typeof vrcFriendsData !== 'undefined') && vrcFriendsData.find(x => x.id === id);
         const items = [
             { icon: 'person', label: cm('friend.view_profile', 'View Profile'), action: () => navOpenModal('friend', id, f?.displayName || '') },
@@ -867,11 +969,19 @@
         if (f) {
             const isFav = Array.isArray(favFriendsData) && favFriendsData.some(x => x.favoriteId === id);
             const favEntry = isFav ? favFriendsData.find(x => x.favoriteId === id) : null;
+            const onFavTab = sourceEl?.classList.contains('fav-friend-card');
             items.push('sep');
-            items.push(isFav
-                ? { icon: 'star_border', label: cm('friend.unfavorite', 'Unfavorite'), action: () => sendToCS({ action: 'vrcRemoveFavoriteFriend', userId: id, fvrtId: favEntry?.fvrtId || '' }) }
-                : { icon: 'star', label: cm('friend.favorite', 'Favorite'), action: () => sendToCS({ action: 'vrcAddFavoriteFriend', userId: id }) }
-            );
+            if (isFav) {
+                items.push({ icon: 'star_border', label: cm('friend.unfavorite', 'Unfavorite'), action: () => sendToCS({ action: 'vrcRemoveFavoriteFriend', userId: id, fvrtId: favEntry?.fvrtId || '' }) });
+                if (onFavTab) {
+                    const otherGroups = (typeof favFriendGroups !== 'undefined') ? favFriendGroups.filter(g => g.name !== favEntry?.groupName) : [];
+                    if (otherGroups.length > 0) {
+                        items.push({ icon: 'drive_file_move', label: cm('friend.move_group', 'Move to Group'), submenuFn: btn => showFavFriendMoveSubmenu(id, favEntry, btn) });
+                    }
+                }
+            } else {
+                items.push({ icon: 'star', label: cm('friend.favorite', 'Add to Favorites'), submenuFn: btn => showFavFriendGroupSubmenu(id, btn) });
+            }
 
             const isMuted = Array.isArray(mutedData) && mutedData.some(x => x.targetUserId === id);
             const isBlocked = Array.isArray(blockedData) && blockedData.some(x => x.targetUserId === id);
@@ -903,6 +1013,9 @@
             items.push({ icon: 'desktop_windows', label: cm('library.set_wallpaper', 'Set as Desktop Background'), action: () => sendToCS({ action: 'setDesktopBackground', path }) });
         }
         items.push({ icon: 'folder_open', label: cm('library.reveal_in_explorer', 'Reveal in Explorer'), action: () => sendToCS({ action: 'revealInExplorer', path }) });
+        if (typeof relayOn !== 'undefined' && relayOn) {
+            items.push({ icon: 'send', label: cm('library.send_to_webhook', 'Send to Webhook'), action: () => sendToCS({ action: 'manualPost', filePath: path }) });
+        }
         items.push('sep');
         items.push(isFav
             ? { icon: 'star_border', label: cm('library.remove_favorite', 'Remove Favorite'), action: () => toggleFavorite(path) }

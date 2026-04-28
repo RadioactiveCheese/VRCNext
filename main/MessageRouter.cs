@@ -1138,6 +1138,7 @@ public partial class AppShell
                 case "vrcGetFavoriteFriends":
                 case "vrcAddFavoriteFriend":
                 case "vrcRemoveFavoriteFriend":
+                case "vrcAddFavoriteFriendToGroup":
                     await _friends.HandleMessage(action, msg);
                     break;
 
@@ -1234,6 +1235,37 @@ public partial class AppShell
                             .ToList();
                         groupList = AuthController.FillMissingWorldSlots(groupList);
                         Invoke(() => SendToJS("vrcWorldFavGroups", groupList));
+                    });
+                    break;
+
+                case "vrcGetFriendFavGroups":
+                    _ = Task.Run(async () =>
+                    {
+                        var groups = await _vrcApi.GetFavoriteGroupsAsync();
+                        var groupList = groups
+                            .Where(g => g["type"]?.ToString() == "friend")
+                            .Select(g => new AuthController.WFavGroup {
+                                name        = g["name"]?.ToString() ?? "",
+                                displayName = g["displayName"]?.ToString() ?? "",
+                                type        = "friend",
+                                capacity    = g["capacity"]?.Value<int>() ?? 150,
+                                visibility  = g["visibility"]?.ToString() ?? "private",
+                            })
+                            .Where(g => !string.IsNullOrEmpty(g.name))
+                            .ToList();
+                        groupList = AuthController.FillMissingFriendSlots(groupList);
+                        Invoke(() => SendToJS("vrcFriendFavGroups", groupList));
+                    });
+                    break;
+
+                case "vrcUpdateFavoriteFriendGroup":
+                    _ = Task.Run(async () =>
+                    {
+                        var groupName   = msg["groupName"]?.ToString() ?? "";
+                        var displayName = msg["displayName"]?.ToString() ?? "";
+                        var visibility  = msg["visibility"]?.ToString();
+                        var ok = await _vrcApi.UpdateFavoriteGroupAsync("friend", groupName, displayName, visibility);
+                        Invoke(() => SendToJS("vrcFriendFavoriteGroupUpdated", new { ok, groupName, displayName, visibility }));
                     });
                     break;
 
@@ -1603,6 +1635,7 @@ public partial class AppShell
                 case "getTimelineByDate":
                 case "getFriendTimelineByDate":
                 case "getTimelineForUser":
+                case "getTimelineMonthActivity":
                     await _timelineCtrl.HandleMessage(action, msg);
                     break;
 
@@ -2000,6 +2033,7 @@ public partial class AppShell
                                     item["allowAskMe"]?.Value<bool>()  ?? false,
                                     item["allowDnD"]?.Value<bool>()    ?? false);
                         }
+                        _core.SendToJS("toast", new { ok = true, msg = "Saved" });
                     }
                     break;
                 }

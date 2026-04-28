@@ -382,6 +382,10 @@ public class AppSettings
     // Memory Trim
     public bool MemoryTrimEnabled { get; set; } = false;
 
+    // Database optimization — load limited entries into RAM at startup
+    public bool DbOptimize           { get; set; } = true;
+    public int  DbOptimizeMaxEntries { get; set; } = 500;
+
     // Auto-Update on startup
     public bool AutoUpdate { get; set; } = true;
 
@@ -463,8 +467,9 @@ public class AppSettings
             var dir = Path.GetDirectoryName(FilePath)!;
             if (!Directory.Exists(dir)) Directory.CreateDirectory(dir);
             File.WriteAllText(FilePath, JsonConvert.SerializeObject(this, Formatting.Indented));
+            LastSaveError = null;
         }
-        catch { }
+        catch (Exception ex) { LastSaveError = ex.Message; }
     }
 }
 

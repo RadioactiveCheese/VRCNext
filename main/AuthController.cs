@@ -620,7 +620,7 @@ public class AuthController
         {
             _core.LogWatcher.Start();
             _photos.StartVrcPhotoWatcher();
-            _ = _friends.LoadFavoriteFriendsAsync();
+            _ = Task.Run(_friends.FetchAndCacheFavFriendsAsync);
         }
 
         if (!_instance.LogWatcherBootstrapped)
@@ -882,6 +882,10 @@ public class AuthController
             _core.Settings.MemoryTrimEnabled = data["memoryTrimEnabled"]?.Value<bool>() ?? false;
             _core.MemTrim.SetEnabled(_core.Settings.MemoryTrimEnabled);
 
+            // Database optimization (requires restart to take effect)
+            _core.Settings.DbOptimize           = data["dbOptimize"]?.Value<bool>() ?? true;
+            _core.Settings.DbOptimizeMaxEntries = Math.Clamp(data["dbOptimizeMaxEntries"]?.Value<int>() ?? 500, 500, 10000);
+
             // Auto-Update
             _core.Settings.AutoUpdate = data["autoUpdate"]?.Value<bool>() ?? true;
 
@@ -906,15 +910,23 @@ public class AuthController
 
             _core.Settings.Save();
             if (_core.Settings.LastSaveError != null)
-                _core.SendToJS("log", new { msg = $"\u274c Save failed: {_core.Settings.LastSaveError}", color = "err" });
+            {
+                _core.SendToJS("log", new { msg = $"❌ Save failed: {_core.Settings.LastSaveError}", color = "err" });
+                _core.SendToJS("toast", new { ok = false, msg = "Failed to save this setting, please report this error" });
+            }
+            else
+            {
+                _core.SendToJS("toast", new { ok = true, msg = "Saved" });
+            }
 
             _core.PushDiscordPresence?.Invoke();
 
-            // No-op with Photino â€" watch folders served via /media{i}/ routes
+            // No-op with Photino — watch folders served via /media{i}/ routes
         }
         catch (Exception ex)
         {
             _core.SendToJS("log", new { msg = $"Save error: {ex.Message}", color = "err" });
+            _core.SendToJS("toast", new { ok = false, msg = "Failed to save this setting, please report this error" });
         }
     }
 
@@ -1136,6 +1148,21 @@ public class AuthController
             .ToList();
     }
 
+    internal static List<WFavGroup> FillMissingFriendSlots(List<WFavGroup> groupList)
+    {
+        var existing = new HashSet<string>(groupList.Select(g => g.name));
+        var slots = new[] {
+            ("group_0", "Group 1", "friend"),
+            ("group_1", "Group 2", "friend"),
+            ("group_2", "Group 3", "friend"),
+        };
+        foreach (var (sName, sDisplay, sType) in slots)
+            if (!existing.Contains(sName))
+                groupList.Add(new WFavGroup { name = sName, displayName = sDisplay, type = sType, capacity = 150 });
+        foreach (var g in groupList) if (g.capacity < 100) g.capacity = 150;
+        return groupList.OrderBy(g => g.name).ToList();
+    }
+
     public async Task FetchAndCacheFavWorldsAsync()
     {
         if (Interlocked.CompareExchange(ref _favWorldsInFlight, 1, 0) != 0) return; // already running
@@ -1332,6 +1359,9 @@ public class AuthController
                 if (a is JObject ao) ao["imageUrl"] = ImageCacheHelper.GetAvatarUrl(ao["id"]?.ToString(), ao["imageUrl"]?.ToString());
             _core.SendToJS("vrcFavoriteAvatars", favAvatarsObj);
         }
+
+        if (_core.Cache.LoadRaw(CacheHandler.KeyFavFriends) is JObject favFriendsObj)
+            _core.SendToJS("vrcFavoriteFriends", favFriendsObj);
     }
 
     private static readonly TimeSpan StartupCacheTtl = TimeSpan.FromDays(1);
@@ -1343,6 +1373,7 @@ public class AuthController
         if (!_core.Cache.IsFresh(CacheHandler.KeyGroups,    StartupCacheTtl))  _ = Task.Run(_groups.FetchAndCacheAsync);
         if (!_core.Cache.IsFresh(CacheHandler.KeyFavWorlds, StartupCacheTtl)) _ = Task.Run(FetchAndCacheFavWorldsAsync);
         if (!_core.Cache.IsFresh(CacheHandler.KeyFavAvatars, StartupCacheTtl)) _ = Task.Run(FetchAndCacheFavAvatarsAsync);
+        if (!_core.Cache.IsFresh(CacheHandler.KeyFavFriends, StartupCacheTtl)) _ = Task.Run(_friends.FetchAndCacheFavFriendsAsync);
         if (_core.PrefetchSharedContent != null) _ = Task.Run(_core.PrefetchSharedContent);
         _ = Task.Run(CollectWorldStatsIfMissingAsync);
         if (_core.Settings.AutoUpdate) _ = Task.Run(AutoUpdateAsync);

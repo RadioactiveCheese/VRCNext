@@ -258,6 +258,7 @@ public class VoiceFightController : IDisposable
                     int devIdx = msg["deviceIndex"]?.Value<int>() ?? 0;
                     _vfSettings.InputDeviceIndex = devIdx;
                     _vfSettings.Save();
+                    _core.SendToJS("toast", new { ok = true, msg = "Saved" });
                     if (_voiceFight?.IsRunning == true)
                     {
                         _voiceFight.Stop();
@@ -271,6 +272,7 @@ public class VoiceFightController : IDisposable
                     int outIdx = msg["deviceIndex"]?.Value<int>() ?? -1;
                     _vfSettings.OutputDeviceIndex = outIdx;
                     _vfSettings.Save();
+                    _core.SendToJS("toast", new { ok = true, msg = "Saved" });
                     if (_voiceFight?.IsRunning == true)
                     {
                         _voiceFight.Stop();

@@ -134,7 +134,7 @@ public partial class AppShell
             () => _core?.IsVrcRunning?.Invoke() ?? false,
             msg => _core?.SendToJS("log", new { msg, color = "sec" }));
         _photoPlayersStore = PhotoPlayersStore.Load();
-        _timeline = TimelineService.Load();
+        _timeline = TimelineService.Load(_settings);
         _minimized = args.Contains("--minimized");
         LoadDeletedAvatarsCache();
 

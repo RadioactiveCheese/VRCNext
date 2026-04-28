@@ -2599,12 +2599,12 @@ public class VRChatApiService
         catch (Exception ex) { Log($"GetFavoriteFriends exception: {ex.Message}"); return new JArray(); }
     }
 
-    public async Task<JObject?> AddFavoriteFriendAsync(string userId)
+    public async Task<JObject?> AddFavoriteFriendAsync(string userId, string groupName = "group_0")
     {
         if (!IsLoggedIn) return null;
         try
         {
-            var json = JsonConvert.SerializeObject(new { type = "friend", favoriteId = userId, tags = new[] { "group_0" } });
+            var json = JsonConvert.SerializeObject(new { type = "friend", favoriteId = userId, tags = new[] { groupName } });
             var resp = await _http.PostAsync($"{BASE}/favorites",
                 new System.Net.Http.StringContent(json, System.Text.Encoding.UTF8, "application/json"));
             var body = await resp.Content.ReadAsStringAsync();
@@ -2612,6 +2612,33 @@ public class VRChatApiService
             return JObject.Parse(body);
         }
         catch (Exception ex) { Log($"AddFavoriteFriend exception: {ex.Message}"); return null; }
+    }
+
+    // moves a friend to a different favorite group. if oldFvrtId is set, removes it first.
+    public async Task<(bool ok, string error)> AddFavoriteFriendToGroupAsync(string userId, string groupName, string? oldFvrtId = null)
+    {
+        if (!IsLoggedIn) return (false, "Not logged in");
+        try
+        {
+            if (!string.IsNullOrEmpty(oldFvrtId))
+            {
+                await _http.DeleteAsync($"{BASE}/favorites/{oldFvrtId}");
+                await Task.Delay(400);
+            }
+            var json = JsonConvert.SerializeObject(new { type = "friend", favoriteId = userId, tags = new[] { groupName } });
+            var resp = await _http.PostAsync($"{BASE}/favorites",
+                new System.Net.Http.StringContent(json, System.Text.Encoding.UTF8, "application/json"));
+            var body = await resp.Content.ReadAsStringAsync();
+            if (!resp.IsSuccessStatusCode)
+            {
+                var msg = TryGetApiError(body) ?? $"HTTP {(int)resp.StatusCode}";
+                Log($"AddFavoriteFriendToGroup error: {msg}");
+                return (false, msg);
+            }
+            var newFvrtId = JObject.Parse(body)["id"]?.ToString() ?? "";
+            return (true, newFvrtId);
+        }
+        catch (Exception ex) { Log($"AddFavoriteFriendToGroup exception: {ex.Message}"); return (false, ex.Message); }
     }
 
     // adds a world to a favorite group. if oldFvrtId is set, removes it first (move between groups).

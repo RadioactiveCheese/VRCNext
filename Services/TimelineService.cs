@@ -61,6 +61,8 @@ public class TimelineService : IDisposable
     private readonly object                    _lock         = new();
     private bool                               _knownUsersSeeded;
     private bool                               _disposed;
+    private bool                               _optimizeMode;
+    private int                                _maxN;
 
     private readonly SqliteConnection _db;
 
@@ -77,11 +79,12 @@ public class TimelineService : IDisposable
 
     private TimelineService(SqliteConnection db) { _db = db; }
 
-    public static TimelineService Load()
+    public static TimelineService Load(AppSettings settings)
     {
-        var conn = Database.OpenConnection();
-
-        var svc = new TimelineService(conn);
+        var conn          = Database.OpenConnection();
+        var svc           = new TimelineService(conn);
+        svc._optimizeMode = settings.DbOptimize;
+        svc._maxN         = Math.Clamp(settings.DbOptimizeMaxEntries, 500, 10000);
         svc.InitSchema();
         svc.MigrateFromJson();
         svc.LoadFromDb();
@@ -216,6 +219,114 @@ public class TimelineService : IDisposable
 
     private void LoadFromDb()
     {
+        if (_optimizeMode)
+        {
+            // Players only for the N most recent events (subquery avoids SQLite param-count limits)
+            var optPlayerMap = new Dictionary<string, List<PlayerSnap>>();
+            using (var cmd = _db.CreateCommand())
+            {
+                cmd.CommandText = @"SELECT ep.event_id,ep.user_id,ep.display_name,ep.image
+                    FROM event_players ep
+                    WHERE ep.event_id IN (SELECT id FROM events ORDER BY timestamp DESC LIMIT $n)";
+                cmd.Parameters.AddWithValue("$n", _maxN);
+                using var r = cmd.ExecuteReader();
+                while (r.Read())
+                {
+                    var eid = r.GetString(0);
+                    if (!optPlayerMap.TryGetValue(eid, out var list)) optPlayerMap[eid] = list = new();
+                    list.Add(new PlayerSnap { UserId = r.GetString(1), DisplayName = r.GetString(2), Image = r.GetString(3) });
+                }
+            }
+
+            // Latest N events — newest-first (DESC)
+            using (var cmd = _db.CreateCommand())
+            {
+                cmd.CommandText = @"SELECT id,type,timestamp,world_id,world_name,world_thumb,
+                    location,photo_path,photo_url,user_id,user_name,user_image,
+                    notif_id,notif_type,notif_title,sender_name,sender_id,sender_image,message
+                    FROM events
+                    WHERE id IN (SELECT id FROM events ORDER BY timestamp DESC LIMIT $n)
+                    ORDER BY timestamp DESC";
+                cmd.Parameters.AddWithValue("$n", _maxN);
+                using var r = cmd.ExecuteReader();
+                while (r.Read())
+                {
+                    var id = r.GetString(0);
+                    var ev = new TimelineEvent
+                    {
+                        Id          = id,
+                        Type        = r.GetString(1),
+                        Timestamp   = r.GetString(2),
+                        WorldId     = r.GetString(3),
+                        WorldName   = r.GetString(4),
+                        WorldThumb  = r.GetString(5),
+                        Location    = r.GetString(6),
+                        PhotoPath   = r.GetString(7),
+                        PhotoUrl    = r.GetString(8),
+                        UserId      = r.GetString(9),
+                        UserName    = r.GetString(10),
+                        UserImage   = r.GetString(11),
+                        NotifId     = r.GetString(12),
+                        NotifType   = r.GetString(13),
+                        NotifTitle  = r.GetString(14),
+                        SenderName  = r.GetString(15),
+                        SenderId    = r.GetString(16),
+                        SenderImage = r.GetString(17),
+                        Message     = r.GetString(18),
+                        Players     = optPlayerMap.TryGetValue(id, out var pl) ? pl : new(),
+                    };
+                    _events.Add(ev);
+                    if (ev.Type == "notification" && !string.IsNullOrEmpty(ev.NotifId))
+                        _loggedNotifs.Add(ev.NotifId);
+                }
+            }
+
+            using (var cmd = _db.CreateCommand())
+            {
+                cmd.CommandText = "SELECT user_id FROM known_users";
+                using var r = cmd.ExecuteReader();
+                while (r.Read()) _knownUserIds.Add(r.GetString(0));
+            }
+            if (_knownUserIds.Count > 0) _knownUsersSeeded = true;
+
+            using (var cmd = _db.CreateCommand())
+            {
+                cmd.CommandText = "SELECT notif_id FROM logged_notifs";
+                using var r = cmd.ExecuteReader();
+                while (r.Read()) _loggedNotifs.Add(r.GetString(0));
+            }
+
+            // Latest N friend events — newest-first (DESC)
+            using (var cmd = _db.CreateCommand())
+            {
+                cmd.CommandText = @"SELECT id,type,timestamp,friend_id,friend_name,friend_image,
+                    world_id,world_name,world_thumb,location,old_value,new_value
+                    FROM friend_events
+                    WHERE id IN (SELECT id FROM friend_events ORDER BY timestamp DESC LIMIT $n)
+                    ORDER BY timestamp DESC";
+                cmd.Parameters.AddWithValue("$n", _maxN);
+                using var r = cmd.ExecuteReader();
+                while (r.Read())
+                    _friendEvents.Add(new FriendTimelineEvent
+                    {
+                        Id          = r.GetString(0),
+                        Type        = r.GetString(1),
+                        Timestamp   = r.GetString(2),
+                        FriendId    = r.GetString(3),
+                        FriendName  = r.GetString(4),
+                        FriendImage = r.GetString(5),
+                        WorldId     = r.GetString(6),
+                        WorldName   = r.GetString(7),
+                        WorldThumb  = r.GetString(8),
+                        Location    = r.GetString(9),
+                        OldValue    = r.GetString(10),
+                        NewValue    = r.GetString(11),
+                    });
+            }
+
+            return; // skip full load
+        }
+
         var playerMap = new Dictionary<string, List<PlayerSnap>>();
         using (var cmd = _db.CreateCommand())
         {
@@ -320,7 +431,13 @@ public class TimelineService : IDisposable
     {
         lock (_lock)
         {
-            _events.Add(ev);
+            if (_optimizeMode)
+            {
+                _events.Insert(0, ev);
+                if (_events.Count > _maxN) _events.RemoveAt(_events.Count - 1);
+            }
+            else
+                _events.Add(ev);
             DbInsertEvent(ev, null);
         }
     }
@@ -340,6 +457,12 @@ public class TimelineService : IDisposable
                 tx.Commit();
             }
             catch { }
+
+            if (_optimizeMode)
+            {
+                _events.Sort((a, b) => string.Compare(b.Timestamp, a.Timestamp, StringComparison.Ordinal));
+                if (_events.Count > _maxN) _events.RemoveRange(_maxN, _events.Count - _maxN);
+            }
         }
     }
 
@@ -358,6 +481,12 @@ public class TimelineService : IDisposable
                 tx.Commit();
             }
             catch { }
+
+            if (_optimizeMode)
+            {
+                _friendEvents.Sort((a, b) => string.Compare(b.Timestamp, a.Timestamp, StringComparison.Ordinal));
+                if (_friendEvents.Count > _maxN) _friendEvents.RemoveRange(_maxN, _friendEvents.Count - _maxN);
+            }
         }
     }
 
@@ -379,9 +508,28 @@ public class TimelineService : IDisposable
             return _events.OrderByDescending(e => e.Timestamp).ToList();
     }
 
+    public HashSet<string> GetPhotoFilePaths()
+    {
+        var result = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        try
+        {
+            using var cmd = _db.CreateCommand();
+            cmd.CommandText = "SELECT photo_path FROM events WHERE type = 'photo' AND photo_path != ''";
+            using var r = cmd.ExecuteReader();
+            while (r.Read()) result.Add(Path.GetFileName(r.GetString(0)));
+        }
+        catch { }
+        return result;
+    }
+
     public long GetMeetAgainCount(string userId)
     {
         if (string.IsNullOrEmpty(userId)) return 0;
+        if (_optimizeMode)
+        {
+            lock (_lock)
+                return _events.Count(e => e.Type == "meet_again" && e.UserId == userId);
+        }
         try
         {
             using var cmd = _db.CreateCommand();
@@ -410,6 +558,16 @@ public class TimelineService : IDisposable
 
     public long GetEventCount(string typeFilter = "")
     {
+        if (_optimizeMode)
+        {
+            lock (_lock)
+            {
+                return string.IsNullOrEmpty(typeFilter)
+                    ? _events.Count
+                    : _events.Count(e => e.Type == typeFilter);
+            }
+        }
+
         try
         {
             using var cmd = _db.CreateCommand();
@@ -423,6 +581,15 @@ public class TimelineService : IDisposable
 
     public long GetFriendEventCount(string typeFilter = "")
     {
+        if (_optimizeMode)
+        {
+            lock (_lock)
+            {
+                var hasType = !string.IsNullOrEmpty(typeFilter) && typeFilter != "all";
+                return hasType ? _friendEvents.Count(e => e.Type == typeFilter) : _friendEvents.Count;
+            }
+        }
+
         try
         {
             using var cmd = _db.CreateCommand();
@@ -472,7 +639,8 @@ public class TimelineService : IDisposable
                 cmd.Parameters.AddWithValue("$ds", utcStart);
                 cmd.Parameters.AddWithValue("$de", utcEnd);
             }
-            return Convert.ToInt64(cmd.ExecuteScalar() ?? 0L);
+            var count = Convert.ToInt64(cmd.ExecuteScalar() ?? 0L);
+            return (_optimizeMode && count > _maxN) ? (long)_maxN : count;
         }
         catch { return 0; }
     }
@@ -513,7 +681,8 @@ public class TimelineService : IDisposable
                 cmd.Parameters.AddWithValue("$ds", utcStart);
                 cmd.Parameters.AddWithValue("$de", utcEnd);
             }
-            return Convert.ToInt64(cmd.ExecuteScalar() ?? 0L);
+            var count = Convert.ToInt64(cmd.ExecuteScalar() ?? 0L);
+            return (_optimizeMode && count > _maxN) ? (long)_maxN : count;
         }
         catch { return 0; }
     }
@@ -602,6 +771,17 @@ public class TimelineService : IDisposable
 
     public (List<TimelineEvent> Events, bool HasMore) GetEventsPaged(int limit, int offset, string typeFilter = "")
     {
+        if (_optimizeMode)
+        {
+            lock (_lock)
+            {
+                var filtered = string.IsNullOrEmpty(typeFilter)
+                    ? _events.ToList()
+                    : _events.Where(e => e.Type == typeFilter).ToList();
+                return (filtered.Skip(offset).Take(limit).ToList(), offset + limit < filtered.Count);
+            }
+        }
+
         var ids = new List<string>();
         try
         {
@@ -729,6 +909,13 @@ public class TimelineService : IDisposable
             while (r.Read()) ids.Add(r.GetString(0));
         }
         catch { return (new List<TimelineEvent>(), false); }
+
+        if (_optimizeMode)
+        {
+            int remaining = _maxN - offset;
+            if (remaining <= 0) return (new List<TimelineEvent>(), false);
+            if (ids.Count > remaining) ids = ids.Take(remaining).ToList();
+        }
 
         var hasMore = ids.Count > 100;
         if (hasMore) ids.RemoveAt(ids.Count - 1);
@@ -879,7 +1066,13 @@ public class TimelineService : IDisposable
     {
         lock (_lock)
         {
-            _friendEvents.Add(ev);
+            if (_optimizeMode)
+            {
+                _friendEvents.Insert(0, ev);
+                if (_friendEvents.Count > _maxN) _friendEvents.RemoveAt(_friendEvents.Count - 1);
+            }
+            else
+                _friendEvents.Add(ev);
             DbInsertFriendEvent(ev);
         }
     }
@@ -893,6 +1086,16 @@ public class TimelineService : IDisposable
     public (List<FriendTimelineEvent> Events, bool HasMore) GetFriendEventsPaged(
         int limit, int offset, string? type = null)
     {
+        if (_optimizeMode)
+        {
+            lock (_lock)
+            {
+                var hasType  = !string.IsNullOrEmpty(type) && type != "all";
+                var filtered = (hasType ? _friendEvents.Where(e => e.Type == type) : _friendEvents).ToList();
+                return (filtered.Skip(offset).Take(limit).ToList(), offset + limit < filtered.Count);
+            }
+        }
+
         var result = new List<FriendTimelineEvent>();
         try
         {
@@ -1074,6 +1277,12 @@ public class TimelineService : IDisposable
                 });
         }
         catch { }
+        if (_optimizeMode)
+        {
+            int remaining = _maxN - offset;
+            if (remaining <= 0) return (new List<FriendTimelineEvent>(), false);
+            if (result.Count > remaining) result.RemoveRange(remaining, result.Count - remaining);
+        }
         var hasMore = result.Count > 100;
         if (hasMore) result.RemoveAt(result.Count - 1);
         return (result, hasMore);
@@ -1641,6 +1850,60 @@ public class TimelineService : IDisposable
             cmd.Parameters.AddWithValue("@ts", hourBucket);
             return Convert.ToInt32(cmd.ExecuteScalar()) > 0;
         }
+    }
+
+    // Month activity for calendar dot debug
+
+    public (Dictionary<string, int> Personal, Dictionary<string, int> Friends)
+        GetMonthActivity(int year, int month)
+    {
+        var localStart = new DateTime(year, month, 1, 0, 0, 0, DateTimeKind.Local);
+        var localEnd   = localStart.AddMonths(1);
+        var utcStart   = localStart.ToUniversalTime().ToString("o");
+        var utcEnd     = localEnd.ToUniversalTime().ToString("o");
+
+        var personal = new Dictionary<string, int>();
+        var friends  = new Dictionary<string, int>();
+
+        try
+        {
+            using var cmd = _db.CreateCommand();
+            cmd.CommandText = "SELECT timestamp FROM events WHERE timestamp >= $s AND timestamp < $e";
+            cmd.Parameters.AddWithValue("$s", utcStart);
+            cmd.Parameters.AddWithValue("$e", utcEnd);
+            using var r = cmd.ExecuteReader();
+            while (r.Read())
+            {
+                var ts = r.GetString(0);
+                if (DateTime.TryParse(ts, null, System.Globalization.DateTimeStyles.RoundtripKind, out var dt))
+                {
+                    var key = dt.ToLocalTime().ToString("yyyy-MM-dd");
+                    personal[key] = personal.TryGetValue(key, out var c) ? c + 1 : 1;
+                }
+            }
+        }
+        catch { }
+
+        try
+        {
+            using var cmd = _db.CreateCommand();
+            cmd.CommandText = "SELECT timestamp FROM friend_events WHERE timestamp >= $s AND timestamp < $e";
+            cmd.Parameters.AddWithValue("$s", utcStart);
+            cmd.Parameters.AddWithValue("$e", utcEnd);
+            using var r = cmd.ExecuteReader();
+            while (r.Read())
+            {
+                var ts = r.GetString(0);
+                if (DateTime.TryParse(ts, null, System.Globalization.DateTimeStyles.RoundtripKind, out var dt))
+                {
+                    var key = dt.ToLocalTime().ToString("yyyy-MM-dd");
+                    friends[key] = friends.TryGetValue(key, out var c) ? c + 1 : 1;
+                }
+            }
+        }
+        catch { }
+
+        return (personal, friends);
     }
 
     // Disposal

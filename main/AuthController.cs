@@ -882,6 +882,10 @@ public class AuthController
             _core.Settings.MemoryTrimEnabled = data["memoryTrimEnabled"]?.Value<bool>() ?? false;
             _core.MemTrim.SetEnabled(_core.Settings.MemoryTrimEnabled);
 
+            // Database optimization (requires restart to take effect)
+            _core.Settings.DbOptimize           = data["dbOptimize"]?.Value<bool>() ?? true;
+            _core.Settings.DbOptimizeMaxEntries = Math.Clamp(data["dbOptimizeMaxEntries"]?.Value<int>() ?? 500, 500, 10000);
+
             // Auto-Update
             _core.Settings.AutoUpdate = data["autoUpdate"]?.Value<bool>() ?? true;
 
@@ -906,15 +910,23 @@ public class AuthController
 
             _core.Settings.Save();
             if (_core.Settings.LastSaveError != null)
-                _core.SendToJS("log", new { msg = $"\u274c Save failed: {_core.Settings.LastSaveError}", color = "err" });
+            {
+                _core.SendToJS("log", new { msg = $"❌ Save failed: {_core.Settings.LastSaveError}", color = "err" });
+                _core.SendToJS("toast", new { ok = false, msg = "Failed to save this setting, please report this error" });
+            }
+            else
+            {
+                _core.SendToJS("toast", new { ok = true, msg = "Saved" });
+            }
 
             _core.PushDiscordPresence?.Invoke();
 
-            // No-op with Photino â€" watch folders served via /media{i}/ routes
+            // No-op with Photino — watch folders served via /media{i}/ routes
         }
         catch (Exception ex)
         {
             _core.SendToJS("log", new { msg = $"Save error: {ex.Message}", color = "err" });
+            _core.SendToJS("toast", new { ok = false, msg = "Failed to save this setting, please report this error" });
         }
     }
 

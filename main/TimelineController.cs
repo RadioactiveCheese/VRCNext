@@ -86,6 +86,10 @@ public class TimelineController
             case "getTimelineForUser":
                 HandleGetTimelineForUser(msg);
                 break;
+
+            case "getTimelineMonthActivity":
+                HandleGetTimelineMonthActivity(msg);
+                break;
         }
     }
 
@@ -141,8 +145,7 @@ public class TimelineController
     {
         _tlFetchCts.Cancel();
         _tlFetchCts = new CancellationTokenSource();
-        var tlCt = _tlFetchCts.Token;
-        _ = Task.Run(async () =>
+        _ = Task.Run(() =>
         {
             try
             {
@@ -152,9 +155,6 @@ public class TimelineController
                 var total   = _core.Timeline.GetEventCount(tlTypeFilter);
                 var payload = events.Select(e => _instance.BuildTimelinePayload(e)).ToList();
                 _core.SendToJS("timelineData", new { events = payload, hasMore, offset = pageOffset, total, type = tlTypeFilter });
-
-                if (!_core.VrcApi.IsLoggedIn || tlCt.IsCancellationRequested) return;
-                await EnrichTimelineEventsAsync(events, hasMore, pageOffset, (int)total, tlTypeFilter, date: null, tlCt);
             }
             catch { }
         });
@@ -332,8 +332,7 @@ public class TimelineController
     {
         _ftlFetchCts.Cancel();
         _ftlFetchCts = new CancellationTokenSource();
-        var ftlCt = _ftlFetchCts.Token;
-        _ = Task.Run(async () =>
+        _ = Task.Run(() =>
         {
             try
             {
@@ -343,56 +342,6 @@ public class TimelineController
                 var ftTotal  = _core.Timeline.GetFriendEventCount(typeFilter);
                 var fpayload = fevents.Select(e => _friends.BuildFriendTimelinePayload(e)).ToList();
                 _core.SendToJS("friendTimelineData", new { events = fpayload, hasMore, offset = pageOffset, total = ftTotal, type = typeFilter });
-
-                if (!_core.VrcApi.IsLoggedIn || ftlCt.IsCancellationRequested) return;
-
-                var ftlPageCutoff   = DateTime.UtcNow - TimeSpan.FromDays(7);
-                var recentFpageEvts = fevents.Where(e =>
-                    DateTime.TryParse(e.Timestamp, out var ts) && ts >= ftlPageCutoff).ToList();
-
-                foreach (var ev in recentFpageEvts.Where(e => !string.IsNullOrEmpty(e.WorldId) && !string.IsNullOrEmpty(e.WorldThumb)))
-                    ImageCacheHelper.CacheWorldBackground(ev.WorldId, ev.WorldThumb);
-
-                var unknownWorlds = recentFpageEvts
-                    .Where(e => !string.IsNullOrEmpty(e.WorldId)
-                             && string.IsNullOrEmpty(e.WorldThumb)
-                             && ImageCacheHelper.GetWorldCached(e.WorldId) == null)
-                    .Select(e => e.WorldId).Distinct().ToList();
-
-                bool anyResolved = false;
-                foreach (var wid in unknownWorlds)
-                {
-                    if (ftlCt.IsCancellationRequested) return;
-                    try
-                    {
-                        var w = await _core.VrcApi.GetWorldAsync(wid);
-                        if (w == null) continue;
-                        var wName  = w["name"]?.ToString() ?? "";
-                        var wThumb = w["imageUrl"]?.ToString() ?? "";
-                        ImageCacheHelper.CacheWorldBackground(wid, wThumb);
-                        if (!string.IsNullOrEmpty(wThumb))
-                        {
-                            foreach (var ev in fevents.Where(e => e.WorldId == wid))
-                            {
-                                _core.Timeline.UpdateFriendEventWorld(ev.Id, wName, wThumb);
-                                ev.WorldName  = wName;
-                                ev.WorldThumb = wThumb;
-                                anyResolved = true;
-                            }
-                        }
-                    }
-                    catch { }
-                }
-
-                foreach (var ev in fevents.Where(e => !string.IsNullOrEmpty(e.WorldId)))
-                {
-                }
-
-                if (anyResolved && !ftlCt.IsCancellationRequested)
-                {
-                    var updated = fevents.Select(e => _friends.BuildFriendTimelinePayload(e)).ToList();
-                    _core.SendToJS("friendTimelineData", new { events = updated, hasMore, offset = pageOffset, total = ftTotal, type = typeFilter });
-                }
             }
             catch { }
         });
@@ -642,9 +591,10 @@ public class TimelineController
                 var typeFilter = msg["type"]?.ToString() ?? "";
                 if (!DateTime.TryParse(dateStr, out var localDate)) return;
                 localDate = DateTime.SpecifyKind(localDate, DateTimeKind.Local);
-                var fevents  = _core.Timeline.GetFriendEventsByDate(localDate, typeFilter);
-                var fpayload = fevents.Select(e => _friends.BuildFriendTimelinePayload(e)).ToList();
-                _core.SendToJS("friendTimelineData", new { events = fpayload, hasMore = false, offset = 0, type = typeFilter, date = dateStr });
+                var fevents   = _core.Timeline.GetFriendEventsByDate(localDate, typeFilter);
+                var ftdTotal  = fevents.Count;
+                var fpayload  = fevents.Select(e => _friends.BuildFriendTimelinePayload(e)).ToList();
+                _core.SendToJS("friendTimelineData", new { events = fpayload, hasMore = false, offset = 0, total = ftdTotal, type = typeFilter, date = dateStr });
 
                 if (!_core.VrcApi.IsLoggedIn || ftlCt.IsCancellationRequested) return;
 
@@ -702,7 +652,7 @@ public class TimelineController
                 if (anyFtdResolved && !ftlCt.IsCancellationRequested)
                 {
                     var updated = fevents.Select(e => _friends.BuildFriendTimelinePayload(e)).ToList();
-                    _core.SendToJS("friendTimelineData", new { events = updated, hasMore = false, offset = 0, type = typeFilter, date = dateStr });
+                    _core.SendToJS("friendTimelineData", new { events = updated, hasMore = false, offset = 0, total = ftdTotal, type = typeFilter, date = dateStr });
                 }
             }
             catch { }
@@ -1075,6 +1025,35 @@ public class TimelineController
             var events  = _core.Timeline.GetEventsForUser(userId, 10);
             var payload = events.Select(e => _instance.BuildTimelinePayload(e)).ToList();
             _core.SendToJS("timelineForUser", new { userId, events = payload });
+        });
+    }
+
+    // getTimelineMonthActivity — debug: verify payload delivery
+
+    private void HandleGetTimelineMonthActivity(JObject msg)
+    {
+        var year  = msg["year"]?.Value<int>()  ?? 0;
+        var month = msg["month"]?.Value<int>() ?? 0;
+        if (year < 2000 || year > 2100 || month < 1 || month > 12)
+        {
+            _core.SendToJS("timelineMonthActivity", new { year, month, days = Array.Empty<object>() });
+            return;
+        }
+        _ = Task.Run(() =>
+        {
+            try
+            {
+                var (personal, friends) = _core.Timeline.GetMonthActivity(year, month);
+                var allDates = personal.Keys.Union(friends.Keys).OrderBy(x => x).ToList();
+                var days = allDates.Select(d => new
+                {
+                    date     = d,
+                    personal = personal.TryGetValue(d, out var p) ? p : 0,
+                    friends  = friends.TryGetValue(d, out var f)  ? f : 0,
+                }).ToList();
+                _core.SendToJS("timelineMonthActivity", new { year, month, days });
+            }
+            catch { }
         });
     }
 

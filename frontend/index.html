@@ -58,7 +58,7 @@
 </head>
 <body>
     <div class="sidebar" id="sidebarEl">
-        <div class="logo"><div class="logo-icon" id="logoIcon">V</div><div class="logo-txt"><div class="logo-text-row"><div class="logo-text">VRCNext</div></div><div class="logo-sub">v2026.19.3</div></div><button class="sb-toggle" onclick="toggleSidebar()" title="Toggle sidebar" data-i18n-title="common.toggle_sidebar"><span class="msi" id="sbIcon">chevron_left</span></button></div>
+        <div class="logo"><div class="logo-icon" id="logoIcon">V</div><div class="logo-txt"><div class="logo-text-row"><div class="logo-text">VRCNext</div></div><div class="logo-sub">v2026.19.6</div></div><button class="sb-toggle" onclick="toggleSidebar()" title="Toggle sidebar" data-i18n-title="common.toggle_sidebar"><span class="msi" id="sbIcon">chevron_left</span></button></div>
         <div class="nav vrcn-scrollbar">
             <button class="nav-btn active" onclick="showTab(0)" data-nav="dashboard"><span class="ni msi">dashboard</span><span class="nl" data-i18n="nav.dashboard">Dashboard</span></button>
             <button class="nav-btn" onclick="showTab(1)"><span class="ni msi">travel_explore</span><span class="nl" data-i18n="nav.worlds">Worlds</span></button>
@@ -942,6 +942,24 @@
                         <button class="vrcn-button" style="margin-top:12px;" onclick="sendToCS({action:'clearFfcCache'})"><span class="msi" style="font-size:16px;">delete_sweep</span> <span data-i18n="settings.ffc.clear">Clear FFC Cache</span></button>
                     </div>
                     </div><!-- /vrcn-panel-card-pair -->
+
+                    <!-- DATABASE SETTINGS -->
+                    <div class="vrcn-panel-card">
+                        <div class="vrcn-panel-card-header"><span class="msi">database</span> Database Settings</div>
+                        <div class="set-desc" style="margin-bottom:12px;">Limits how many timeline entries are loaded into memory at startup. Keeps the Timeline fast with large databases. A restart is required to apply changes.</div>
+                        <div class="sf-toggle-row">
+                            <span>Optimize Database</span>
+                            <label class="toggle"><input type="checkbox" id="setDbOptimize" checked onchange="onDbOptimizeChange();autoSave()"><div class="toggle-track"><div class="toggle-knob"></div></div></label>
+                        </div>
+                        <div id="dbOptimizeEntriesRow" style="margin-top:12px;">
+                            <div class="sf-row">
+                                <label style="font-size:12px;color:var(--tx2);flex-shrink:0;margin-right:10px;">Optimized Database Entries</label>
+                                <input type="number" id="setDbOptimizeMaxEntries" class="vrcn-edit-field" min="500" max="10000" step="100" value="500" style="width:90px;" oninput="autoSave()">
+                            </div>
+                            <div class="set-desc" style="margin-top:6px;">Min: 500 — Max: 10,000. Loads the N most recent entries for Personal and Friends separately.</div>
+                        </div>
+                        <div id="dbOptimizeOffWarning" style="display:none;margin-top:12px;color:var(--red,#e55);" class="set-desc">Warning: Optimize Database is disabled. All entries will be loaded on startup. This may significantly impact performance with large databases.</div>
+                    </div>
 
                     <div class="vrcn-panel-card">
                         <div class="vrcn-panel-card-header"><span class="msi">database</span> <span data-i18n="settings.avtrdb.title">Avtrdb Community Support</span></div>

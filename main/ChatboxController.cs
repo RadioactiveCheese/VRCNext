@@ -85,6 +85,10 @@ public class ChatboxController : IDisposable
                     _core.Settings.CbCustomLines = customLines;
                     _core.Settings.CbHideBackground = hideBackground;
                     _core.Settings.Save();
+                    if (_core.Settings.LastSaveError != null)
+                        _core.SendToJS("toast", new { ok = false, msg = "Failed to save this setting, please report this error" });
+                    else
+                        _core.SendToJS("toast", new { ok = true, msg = "Saved" });
                 }
                 break;
 

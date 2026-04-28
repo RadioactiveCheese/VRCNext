@@ -1603,6 +1603,7 @@ public partial class AppShell
                 case "getTimelineByDate":
                 case "getFriendTimelineByDate":
                 case "getTimelineForUser":
+                case "getTimelineMonthActivity":
                     await _timelineCtrl.HandleMessage(action, msg);
                     break;
 
@@ -2000,6 +2001,7 @@ public partial class AppShell
                                     item["allowAskMe"]?.Value<bool>()  ?? false,
                                     item["allowDnD"]?.Value<bool>()    ?? false);
                         }
+                        _core.SendToJS("toast", new { ok = true, msg = "Saved" });
                     }
                     break;
                 }

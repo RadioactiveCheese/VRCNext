@@ -365,6 +365,11 @@ function filterTimeline() {
     if (!c) return;
 
     if (!timelineEvents.length && !tlLoading) {
+        if (tlDateFilter) {
+            c.innerHTML = `<div class="empty-msg">${esc(t('timeline.empty.initial', 'No events for this day.'))}</div>`;
+            _setTlPaginator('');
+            return;
+        }
         // Events cleared (e.g. filter switched while searching) — reload from server
         refreshTimeline();
         return;
@@ -427,7 +432,7 @@ function _renderTlSearchResults(search) {
         + `${esc(tlSearchSummary(total, search))}</div>`;
     let html = banner + (tlViewMode === 'list' ? buildPersonalListHtml(events) : buildTimelineHtml(events));
     c.innerHTML = html;
-    _setTlPaginator(buildSearchPagination(_tlSearchPage, totalPages, 'tlGoSearchPage'));
+    _setTlPaginator(buildSearchPagination(_tlSearchPage, totalPages, 'tlGoSearchPage', _tlSearchTotal));
 }
 
 // Called when backend delivers search results
@@ -476,13 +481,15 @@ function _buildPaginatorBtns(page, totalPages, onPageFn) {
     return btn(0) + ell(m0 > 1) + btn(m0) + btn(mid) + btn(m2) + ell(m2 < last - 1) + btn(last);
 }
 
-function buildSearchPagination(page, totalPages, onPageFn) {
-    if (totalPages <= 1) return '';
+function buildSearchPagination(page, totalPages, onPageFn, total = 0) {
+    const countInfo = total > 0 ? `<span style="font-size:11px;color:var(--tx3);padding:0 8px;">${esc(tlTotalSummary(total))}</span>` : '';
+    if (totalPages <= 1) return countInfo;
     const prevDis = page === 0 ? 'disabled' : '';
     const nextDis = page >= totalPages - 1 ? 'disabled' : '';
     return `<button class="vrcn-button" ${prevDis} onclick="${onPageFn}(${page - 1})"><span class="msi" style="font-size:16px;">chevron_left</span></button>
         ${_buildPaginatorBtns(page, totalPages, onPageFn)}
-        <button class="vrcn-button" ${nextDis} onclick="${onPageFn}(${page + 1})"><span class="msi" style="font-size:16px;">chevron_right</span></button>`;
+        <button class="vrcn-button" ${nextDis} onclick="${onPageFn}(${page + 1})"><span class="msi" style="font-size:16px;">chevron_right</span></button>
+        ${countInfo}`;
 }
 
 // Personal Timeline pagination helpers
@@ -508,10 +515,10 @@ function _setTlPaginator(html) {
 }
 
 function buildTlPagination(page, totalPages, hasMore) {
-    if (totalPages <= 1 && !hasMore) return '';
+    const countInfo = tlTotal > 0 ? `<span style="font-size:11px;color:var(--tx3);padding:0 8px;">${esc(tlTotalSummary(tlTotal))}</span>` : '';
+    if (totalPages <= 1 && !hasMore) return countInfo;
     const prevDis = page === 0 ? 'disabled' : '';
     const nextDis = (page >= totalPages - 1 && !hasMore) ? 'disabled' : '';
-    const countInfo = tlTotal > 0 ? `<span style="font-size:11px;color:var(--tx3);padding:0 8px;">${esc(tlTotalSummary(tlTotal))}</span>` : '';
     return `<button class="vrcn-button" ${prevDis} onclick="tlGoPage(${page - 1})"><span class="msi" style="font-size:16px;">chevron_left</span></button>
         ${_buildPaginatorBtns(page, totalPages, 'tlGoPage')}
         <button class="vrcn-button" ${nextDis} onclick="tlGoPage(${page + 1})"><span class="msi" style="font-size:16px;">chevron_right</span></button>
@@ -550,6 +557,24 @@ function tlGoPage(page) {
 // Date filter
 
 let _dpYear = 0, _dpMonth = 0; // currently rendered calendar month
+let _dpMonthActivity = {};     // key: "YYYY-MM-DD" → { personal, friends }
+let _dpActivityKey   = '';     // "YYYY-M" of loaded data
+
+function handleTimelineMonthActivity(payload) {
+    if (!payload?.days) return;
+    _dpMonthActivity = {};
+    _dpActivityKey   = payload.year + '-' + payload.month;
+    for (const d of payload.days) _dpMonthActivity[d.date] = d;
+    const picker = document.getElementById('tlDatePicker');
+    if (picker && picker.style.display !== 'none') renderDatePickerCalendar();
+}
+
+function _dpDotHtml(hasP, hasF) {
+    if (!hasP && !hasF) return '';
+    const p = hasP ? '<span class="dp-dot dp-dot-p"></span>' : '';
+    const f = hasF  ? '<span class="dp-dot dp-dot-f"></span>' : '';
+    return `<span class="dp-dots">${p}${f}</span>`;
+}
 
 function toggleTlDatePicker() {
     const picker = document.getElementById('tlDatePicker');
@@ -563,6 +588,8 @@ function toggleTlDatePicker() {
     const base = tlDateFilter ? new Date(tlDateFilter + 'T00:00:00') : new Date();
     _dpYear  = base.getFullYear();
     _dpMonth = base.getMonth();
+    // Debug: request month activity to verify payload delivery
+    sendToCS({ action: 'getTimelineMonthActivity', year: _dpYear, month: _dpMonth + 1 });
     renderDatePickerCalendar();
 
     picker.style.display = '';
@@ -612,7 +639,9 @@ function renderDatePickerCalendar() {
     for (let d = 1; d <= daysInMonth; d++) {
         const ds  = _dpFmt(_dpYear, _dpMonth, d);
         const cls = (ds === todayStr ? ' today' : '') + (ds === selStr ? ' selected' : '');
-        html += `<button class="tl-dp-day${cls}" onclick="selectDpDate('${ds}')">${d}</button>`;
+        const act = _dpMonthActivity[ds];
+        const dot = act ? _dpDotHtml(act.personal > 0, act.friends > 0) : '';
+        html += `<button class="tl-dp-day${cls}" onclick="selectDpDate('${ds}')">${d}${dot}</button>`;
     }
     // Trailing next-month days
     const used      = firstDowMon + daysInMonth;
@@ -635,6 +664,11 @@ function dpNavMonth(dir) {
     _dpMonth += dir;
     if (_dpMonth < 0)  { _dpMonth = 11; _dpYear--; }
     if (_dpMonth > 11) { _dpMonth = 0;  _dpYear++; }
+    const newKey = _dpYear + '-' + (_dpMonth + 1);
+    if (_dpActivityKey !== newKey) {
+        _dpMonthActivity = {};
+        sendToCS({ action: 'getTimelineMonthActivity', year: _dpYear, month: _dpMonth + 1 });
+    }
     renderDatePickerCalendar();
 }
 
@@ -1078,6 +1112,11 @@ function filterFriendTimeline() {
     _ftlSearchEvents = [];
 
     if (!friendTimelineEvents.length && !ftlLoading) {
+        if (tlDateFilter) {
+            c.innerHTML = `<div class="empty-msg">${esc(t('timeline.empty.initial', 'No events for this day.'))}</div>`;
+            _setTlPaginator('');
+            return;
+        }
         // Events cleared (e.g. filter switched while searching) — reload from server
         refreshFriendTimeline();
         return;
@@ -1105,10 +1144,10 @@ function filterFriendTimeline() {
 }
 
 function buildFtlPagination(page, totalPages, hasMore) {
-    if (totalPages <= 1 && !hasMore) return '';
+    const countInfo = ftlTotal > 0 ? `<span style="font-size:11px;color:var(--tx3);padding:0 8px;">${esc(tlTotalSummary(ftlTotal))}</span>` : '';
+    if (totalPages <= 1 && !hasMore) return countInfo;
     const prevDis = page === 0 ? 'disabled' : '';
     const nextDis = (page >= totalPages - 1 && !hasMore) ? 'disabled' : '';
-    const countInfo = ftlTotal > 0 ? `<span style="font-size:11px;color:var(--tx3);padding:0 8px;">${esc(tlTotalSummary(ftlTotal))}</span>` : '';
     return `<button class="vrcn-button" ${prevDis} onclick="ftlGoPage(${page - 1})"><span class="msi" style="font-size:16px;">chevron_left</span></button>
         ${_buildPaginatorBtns(page, totalPages, 'ftlGoPage')}
         <button class="vrcn-button" ${nextDis} onclick="ftlGoPage(${page + 1})"><span class="msi" style="font-size:16px;">chevron_right</span></button>
@@ -1133,7 +1172,7 @@ function _renderFtlSearchResults(search) {
         + `${esc(tlSearchSummary(total, search))}</div>`;
     let html = banner + (tlViewMode === 'list' ? buildFriendListHtml(events) : buildFriendTimelineHtml(events));
     c.innerHTML = html;
-    _setTlPaginator(buildSearchPagination(_ftlSearchPage, totalPages, 'ftlGoSearchPage'));
+    _setTlPaginator(buildSearchPagination(_ftlSearchPage, totalPages, 'ftlGoSearchPage', _ftlSearchTotal));
 }
 
 function handleFtlSearchResults(payload) {

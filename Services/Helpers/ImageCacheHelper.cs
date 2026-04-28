@@ -16,6 +16,8 @@ public static class ImageCacheHelper
     /// <summary>Set at startup to route download logs to the activity log.</summary>
     public static Action<string>? Log { get; set; }
     private static readonly ConcurrentDictionary<string, Task<string?>> _downloads = new();
+    // Session-scoped path memo: "" = checked, not found; non-empty = full path
+    private static readonly ConcurrentDictionary<string, string> _pathCache = new();
 
 
     private static readonly string[] _imageExtensions = [".jpg", ".png", ".webp", ".gif"];
@@ -240,8 +242,11 @@ public static class ImageCacheHelper
         }
 
         if (forceRefresh)
+        {
+            _pathCache.TryRemove($"{subdir}/{entityId}", out _);
             foreach (var old in _imageExtensions)
                 TryDelete(Path.Combine(dir, entityId + old));
+        }
 
         var finalPath = Path.Combine(dir, entityId + ext);
         try
@@ -254,6 +259,7 @@ public static class ImageCacheHelper
             return null;
         }
 
+        _pathCache[$"{subdir}/{entityId}"] = finalPath;
         Log?.Invoke($"[IMG] OK {subdir}/{entityId}{ext}");
         _ = Task.Run(TrimIfNeeded);
         return finalPath;
@@ -262,12 +268,20 @@ public static class ImageCacheHelper
     private static string? FindCachedFile(string subdir, string? entityId)
     {
         if (string.IsNullOrWhiteSpace(entityId)) return null;
+        var key = $"{subdir}/{entityId}";
+        if (_pathCache.TryGetValue(key, out var memo))
+            return memo.Length > 0 ? memo : null;
         var dir = Path.Combine(_baseDir, subdir);
         foreach (var ext in _imageExtensions)
         {
             var path = Path.Combine(dir, entityId + ext);
-            if (File.Exists(path)) return path;
+            if (File.Exists(path))
+            {
+                _pathCache[key] = path;
+                return path;
+            }
         }
+        _pathCache[key] = "";
         return null;
     }
 

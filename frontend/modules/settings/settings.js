@@ -192,6 +192,8 @@ function saveSettings() {
             imgCacheOptimizeEnabled: document.getElementById('setImgCacheOptimizeEnabled').checked,
             ffcEnabled: document.getElementById('setFfcEnabled').checked,
             memoryTrimEnabled: document.getElementById('setMemoryTrimEnabled').checked,
+            dbOptimize: document.getElementById('setDbOptimize').checked,
+            dbOptimizeMaxEntries: Math.max(500, Math.min(10000, parseInt(document.getElementById('setDbOptimizeMaxEntries').value) || 500)),
             autoUpdate: document.getElementById('setAutoUpdate').checked,
             sendCrashData: document.getElementById('setSendCrashData').checked,
             restartAfterCrash: document.getElementById('setRestartAfterCrash').checked,
@@ -222,6 +224,12 @@ function updateTrayNotifToggle() {
     if (desc) desc.classList.toggle('disabled', !hideInTray);
 }
 
+function onDbOptimizeChange() {
+    const on = document.getElementById('setDbOptimize').checked;
+    document.getElementById('setDbOptimizeMaxEntries').disabled = !on;
+    document.getElementById('dbOptimizeOffWarning').style.display = on ? 'none' : '';
+}
+
 // Autosave: debounced save on any settings change
 let _autoSaveTimer = null;
 function autoSave() {
@@ -249,15 +257,7 @@ function initAutoSave() {
         else if (el.type === 'range') el.addEventListener('input', autoSave);
         else el.addEventListener('input', autoSave);
     });
-    // Webhook fields (4 slots x 3 fields)
-    for (let i = 0; i < 4; i++) {
-        ['whName','whUrl','whOn'].forEach(prefix => {
-            const el = document.getElementById(prefix + i);
-            if (!el) return;
-            if (el.type === 'checkbox') el.addEventListener('change', autoSave);
-            else el.addEventListener('input', autoSave);
-        });
-    }
+
 }
 
 function loadSettingsToUI(s) {
@@ -461,6 +461,14 @@ function loadSettingsToUI(s) {
 
     // Memory Trim
     document.getElementById('setMemoryTrimEnabled').checked = s.MemoryTrimEnabled ?? s.memoryTrimEnabled ?? false;
+
+    // Database optimization
+    const dbOptimize           = s.DbOptimize ?? s.dbOptimize ?? true;
+    const dbOptimizeMaxEntries = Math.max(500, Math.min(10000, s.DbOptimizeMaxEntries ?? s.dbOptimizeMaxEntries ?? 500));
+    document.getElementById('setDbOptimize').checked            = dbOptimize;
+    document.getElementById('setDbOptimizeMaxEntries').value    = dbOptimizeMaxEntries;
+    document.getElementById('setDbOptimizeMaxEntries').disabled = !dbOptimize;
+    document.getElementById('dbOptimizeOffWarning').style.display = dbOptimize ? 'none' : '';
 
     // Crash Reporting
     document.getElementById('setAutoUpdate').checked          = s.AutoUpdate          ?? s.autoUpdate          ?? true;

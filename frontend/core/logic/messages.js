@@ -751,6 +751,7 @@ case 'popularWorlds':
             case 'oscOutputsEnabled':
                 handleOscOutputsEnabled(payload);
                 break;
+            case 'timelineMonthActivity': handleTimelineMonthActivity(payload); break;
             case 'timelineData': renderTimeline(payload); renderDashRecentPhotos(); break;
             case 'timelineEvent': handleTimelineEvent(payload); renderDashRecentPhotos(); break;
             case 'timelineSearchResults': handleTlSearchResults(payload); break;

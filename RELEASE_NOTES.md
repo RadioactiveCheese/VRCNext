@@ -1,19 +1,50 @@
-**2026.19.6**
+**2026.19.8**
+
+**Settings**
+* Added Database Settings.
+
+**i18n**
+* Added missing translations for Content Cards in messenger.
+* Added missing translation for people tab and edit mode.
+
+**Media Library**
+
+* Added a new context menu option: “Send to Webhook”. This requires Media Relay to be enabled.
+* This sends the selected image to your configured webhook bots.
+* Feature request by sophiepastelz.
+
+**People Tab**
+
+* Added favorite friend management in People > Favorites.
+* You can now edit all three VRChat favorite friend groups directly in VRCNext.
+* You can rename group names, move friends between favorite groups, and manage them similarly to the Worlds and Avatars management editor.
+* Feature request by raveen.
 
 **Save Notification**
-* Added Saving Notification. When you change a setting in various modules or the settings menu you will be notified that your change has been saved.
-If the save fails it wil lshow an error. This should never be the case but it is good for the enduser to know if something is saved.
+
+* Added save notifications. When you change a setting in various modules or in the settings menu, VRCNext now shows a notification confirming that the change was saved.
+* If saving fails, an error notification will be shown. This should rarely happen, but it makes it clearer when something was not saved correctly.
 
 **Database**
-* Added database optimization used by the timeline feature.
+
+* Added database optimization for the Timeline feature.
 
 **Timeline**
-* Added status dots in the date picker to show which days have data. One dot means there are entries for either personal or friends logs, two dots means both.
-* Added a 500-entry display limit to the timeline. Only the latest 500 events are shown — nothing is deleted. You can still access everything beyond this limit via the search function.
-* The display limit can be raised up to 10,000 entries in the settings. Disabling database optimization entirely is not recommended, especially if your database exceeds 200 MB — doing so may result in over 1 GB of RAM usage, slow search results, and potential crashes depending on your hardware.
+
+* Added status dots to the date picker to show which days contain data. One dot means entries exist for either Personal or Friends logs. Two dots means both logs have entries.
+* Added a 500-entry display limit to the Timeline. Only the latest 500 events are shown by default. Nothing is deleted, and older entries can still be found using search.
+* The display limit can be increased up to 10,000 entries in settings.
+* Disabling database optimization entirely is not recommended, especially if your database is larger than 200 MB. This can cause over 1 GB of RAM usage, slower search results, and possible crashes depending on your hardware.
+
+**Caching**
+* Added favorite friends caches.
 
 **Avatar Scaling**
-* Added avatar scaling endpoints: `/avatar/eyeheight` (read/write), `/avatar/eyeheightmin`, `/avatar/eyeheightmax`, `/avatar/eyeheightscalingallowed` — all visible and controllable in the OSC parameter list (requires VRChat build 1834+).
+
+* Added avatar scaling OSC endpoints to the OSC parameter list. Requires VRChat build 1834 or newer.
+* Added support for `/avatar/eyeheight` as read and write.
+* Added support for `/avatar/eyeheightmin`, `/avatar/eyeheightmax`, and `/avatar/eyeheightscalingallowed` as read-only values.
 
 **Bug Fixes**
-* Fixed webhook channel toggles and URL/name fields not saving when changed directly in the media relay panel. Changes now correctly trigger an auto-save.
+
+* Fixed webhook channel toggles and URL/name fields not saving when changed directly in the Media Relay panel. Changes now correctly trigger auto-save.

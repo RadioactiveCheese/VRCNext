@@ -379,7 +379,7 @@ function renderFriendDetail(d) {
         const myInInstance = currentInstanceData && currentInstanceData.location && !currentInstanceData.empty && !currentInstanceData.error;
         if (myInInstance) actionsHtml += `<button class="vrcn-button-round" onclick="openFriendInviteModal('${uid}','${esc(d.displayName).replace(/'/g, "\\'")}')">${t('instance.actions.invite', 'Invite')}</button>`;
         const favFid = (d.favFriendId || '').replace(/'/g, "\\'");
-        actionsHtml += `<button class="vrcn-button-round${d.isFavorited ? ' active' : ''}" id="fdFavBtn" onclick="toggleFavFriend('${uid}','${favFid}',this)" title="${d.isFavorited ? t('profiles.actions.unfavorite', 'Unfavorite') : t('profiles.actions.favorite', 'Favorite')}" style="margin-left:auto;"><span class="msi" style="font-size:16px;">${d.isFavorited ? 'star' : 'star_outline'}</span></button>`;
+        actionsHtml += `<button class="vrcn-button-round${d.isFavorited ? ' active' : ''}" id="fdFavBtn" onclick="toggleFriendFavPicker('${uid}')" title="${d.isFavorited ? t('profiles.actions.unfavorite', 'Unfavorite') : t('profiles.actions.favorite', 'Favorite')}" style="margin-left:auto;"><span class="msi" style="font-size:16px;">${d.isFavorited ? 'star' : 'star_outline'}</span></button>`;
     } else {
         actionsHtml += `<button class="vrcn-button-round vrcn-btn-primary" id="fdAddFriend" onclick="sendToCS({action:'vrcSendFriendRequest',userId:'${uid}'});this.disabled=true;this.textContent='${esc(t('profiles.actions.request_sent', 'Request Sent'))}';">${t('profiles.actions.add_friend', 'Add Friend')}</button>`;
     }
@@ -387,6 +387,11 @@ function renderFriendDetail(d) {
     actionsHtml += `<button class="vrcn-button-round vrcn-btn-danger${isBlocked ? ' active' : ''}" id="fdBlockBtn" onclick="toggleMod('${uid}','block',this)" title="${isBlocked ? t('profiles.actions.unblock', 'Unblock') : t('profiles.actions.block', 'Block')}"><span class="msi" style="font-size:16px;">${isBlocked ? 'block' : 'shield'}</span></button>`;
     if (d.isFriend) actionsHtml += `<button class="vrcn-button-round vrcn-btn-danger" id="fdUnfriend" onclick="confirmUnfriend('${uid}','${esc(d.displayName).replace(/'/g, "\\'")}') " title="${t('profiles.actions.unfriend', 'Unfriend')}"><span class="msi" style="font-size:16px;">person_remove</span></button>`;
     actionsHtml += '</div>';
+    const favPickerHtml = d.isFriend
+        ? `<div id="fdFavPicker" style="display:none;margin-bottom:14px;">
+            <div class="wd-section-label" style="margin-bottom:6px;">ADD TO FAVORITE GROUP</div>
+            <div class="ci-group-list" id="fdFavGroupList"><div style="font-size:11px;color:var(--tx3);padding:8px 0;">Loading groups...</div></div>
+           </div>` : '';
 
     let badgesHtml = '<div class="fd-badges-row">';
     const platBadge = getPlatformBadgeHtml(d.platform || d.lastPlatform || '');
@@ -613,7 +618,7 @@ function renderFriendDetail(d) {
             <div class="empty-msg">${t('profiles.content.loading_avatars', 'Loading avatars...')}</div>
         </div>`;
 
-    c.innerHTML = `${bannerHtml}<div class="fd-content${bannerSrc ? ' fd-has-banner' : ''}"><div class="fd-header">${imgTag}<div><div class="fd-name" style="display:flex;align-items:center;gap:6px;">${esc(d.displayName)}${vrcPlusBadge}</div>${pronounsHtml}<div class="fd-status-row"><div class="fd-status" id="fd-live-status"><span class="${fdDotClass} ${fdStatusDotCls}" style="width:8px;height:8px;"></span>${fdIsOffline ? t('status.offline', 'Offline') : statusLabel(d.status)}${(!fdIsOffline && fdIsWeb) ? ' ' + t('profiles.friends.web_suffix', '(Web)') : ''}${(!fdIsOffline && d.statusDescription) ? ' - ' + esc(d.statusDescription) : ''}</div>${repGroupBadgeHtml}</div></div></div>${badgesHtml}${actionsHtml}${tabsHtml}<div id="fdTabInfo">${infoContent}</div><div id="fdTabGroups" style="display:none;">${groupsContent}</div><div id="fdTabMutuals" style="display:none;">${mutualsContent}</div><div id="fdTabContent" style="display:none;">${contentHtml}</div><div id="fdTabFavs" style="display:none;" data-user-id="${esc(userId)}"></div><div style="margin-top:10px;text-align:right;"><button class="vrcn-button-round" onclick="closeFriendDetail()">${t('common.close', 'Close')}</button></div></div>`;
+    c.innerHTML = `${bannerHtml}<div class="fd-content${bannerSrc ? ' fd-has-banner' : ''}"><div class="fd-header">${imgTag}<div><div class="fd-name" style="display:flex;align-items:center;gap:6px;">${esc(d.displayName)}${vrcPlusBadge}</div>${pronounsHtml}<div class="fd-status-row"><div class="fd-status" id="fd-live-status"><span class="${fdDotClass} ${fdStatusDotCls}" style="width:8px;height:8px;"></span>${fdIsOffline ? t('status.offline', 'Offline') : statusLabel(d.status)}${(!fdIsOffline && fdIsWeb) ? ' ' + t('profiles.friends.web_suffix', '(Web)') : ''}${(!fdIsOffline && d.statusDescription) ? ' - ' + esc(d.statusDescription) : ''}</div>${repGroupBadgeHtml}</div></div></div>${badgesHtml}${actionsHtml}${favPickerHtml}${tabsHtml}<div id="fdTabInfo">${infoContent}</div><div id="fdTabGroups" style="display:none;">${groupsContent}</div><div id="fdTabMutuals" style="display:none;">${mutualsContent}</div><div id="fdTabContent" style="display:none;">${contentHtml}</div><div id="fdTabFavs" style="display:none;" data-user-id="${esc(userId)}"></div><div style="margin-top:10px;text-align:right;"><button class="vrcn-button-round" onclick="closeFriendDetail()">${t('common.close', 'Close')}</button></div></div>`;
 
     if (bannerSrc) {
         const bannerSlot = document.getElementById('fd-banner-slot');
@@ -750,20 +755,71 @@ function confirmUnfriend(userId, displayName) {
     }
 }
 
-function toggleFavFriend(userId, fvrtId, btn) {
-    const isFav = btn.classList.contains('active');
-    btn.disabled = true;
-    if (isFav) {
-        sendToCS({ action: 'vrcRemoveFavoriteFriend', userId, fvrtId });
+function toggleFriendFavPicker(userId) {
+    const entry = favFriendsData.find(f => f.favoriteId === userId);
+    if (entry) {
+        const btn = document.getElementById('fdFavBtn');
+        if (btn) btn.disabled = true;
+        sendToCS({ action: 'vrcRemoveFavoriteFriend', userId, fvrtId: entry.fvrtId });
+        return;
+    }
+    const picker = document.getElementById('fdFavPicker');
+    if (!picker) return;
+    const open = picker.style.display !== 'none';
+    picker.style.display = open ? 'none' : '';
+    if (!open) renderFriendFavPicker(userId);
+}
+
+function renderFriendFavPicker(userId) {
+    const list = document.getElementById('fdFavGroupList');
+    if (!list) return;
+    if (favFriendGroups.length === 0) {
+        list.innerHTML = `<div style="font-size:11px;color:var(--tx3);padding:8px 0;">Loading groups...</div>`;
+        sendToCS({ action: 'vrcGetFriendFavGroups' });
+        list.dataset.pendingUserId = userId;
+        return;
+    }
+    const currentEntry = favFriendsData.find(f => f.favoriteId === userId);
+    const currentGroup = currentEntry?.groupName || '';
+    list.innerHTML = favFriendGroups.map(g => {
+        const count = favFriendsData.filter(f => f.groupName === g.name).length;
+        const cap = g.capacity || 150;
+        const isCurrent = g.name === currentGroup;
+        const check = isCurrent
+            ? `<span class="msi" style="color:var(--accent);font-size:18px;flex-shrink:0;">check_circle</span>`
+            : '';
+        const gn = jsq(g.name), uid = jsq(userId);
+        const oldFvrt = isCurrent ? jsq(currentEntry?.fvrtId || '') : '';
+        return `<div class="fd-group-card ci-group-card${isCurrent ? ' ci-group-selected' : ''}"
+            onclick="addFriendToFavGroup('${uid}','${gn}','${oldFvrt}',this)" style="cursor:pointer;">
+            <div style="flex:1;min-width:0;">
+                <div style="font-size:12px;font-weight:600;color:var(--tx1);">${esc(g.displayName || g.name)}</div>
+                <div style="font-size:10px;color:var(--tx3);margin-top:1px;">${count}/${cap} friends</div>
+            </div>
+            ${check}
+        </div>`;
+    }).join('');
+}
+
+function addFriendToFavGroup(userId, groupName, oldFvrtId, rowEl) {
+    document.querySelectorAll('#fdFavGroupList .ci-group-card').forEach(c => {
+        c.classList.remove('ci-group-selected');
+        const chk = c.querySelector('.msi');
+        if (chk && chk.textContent === 'check_circle') chk.remove();
+    });
+    rowEl.classList.add('ci-group-selected');
+    rowEl.insertAdjacentHTML('beforeend', '<span class="msi" style="color:var(--accent);font-size:18px;flex-shrink:0;">check_circle</span>');
+    if (oldFvrtId) {
+        sendToCS({ action: 'vrcAddFavoriteFriendToGroup', userId, groupName, oldFvrtId });
     } else {
-        sendToCS({ action: 'vrcAddFavoriteFriend', userId });
+        sendToCS({ action: 'vrcAddFavoriteFriend', userId, groupName });
     }
 }
 
 function handleFavFriendToggled(payload) {
-    const { userId, fvrtId, isFavorited } = payload;
+    const { userId, fvrtId, isFavorited, groupName } = payload;
     favFriendsData = favFriendsData.filter(f => f.favoriteId !== userId);
-    if (isFavorited) favFriendsData.push({ fvrtId, favoriteId: userId });
+    if (isFavorited) favFriendsData.push({ fvrtId, favoriteId: userId, groupName: groupName || 'group_0' });
     const btn = document.getElementById('fdFavBtn');
     if (btn) {
         btn.disabled = false;
@@ -771,8 +827,48 @@ function handleFavFriendToggled(payload) {
         btn.title = isFavorited ? t('profiles.actions.unfavorite', 'Unfavorite') : t('profiles.actions.favorite', 'Favorite');
         btn.innerHTML = `<span class="msi" style="font-size:16px;">${isFavorited ? 'star' : 'star_outline'}</span>`;
     }
+    const picker = document.getElementById('fdFavPicker');
+    if (isFavorited) {
+        if (picker && picker.style.display !== 'none') renderFriendFavPicker(userId);
+    } else {
+        if (picker) picker.style.display = 'none';
+    }
     filterFavFriends();
     renderVrcFriends(vrcFriendsData);
+    _scheduleBgFavFriendRefresh();
+}
+
+function handleFriendFavoriteResult(data) {
+    if (data.ok) {
+        const entry = favFriendsData.find(f => f.favoriteId === data.userId);
+        if (entry) {
+            entry.groupName = data.groupName;
+            entry.fvrtId   = data.newFvrtId;
+        }
+        const group = (typeof favFriendGroups !== 'undefined') && favFriendGroups.find(g => g.name === data.groupName);
+        const groupLabel = group?.displayName || data.groupName;
+        showToast(true, `Moved to ${groupLabel}`);
+        const list = document.getElementById('fdFavGroupList');
+        if (list && document.getElementById('fdFavPicker')?.style.display !== 'none') renderFriendFavPicker(data.userId);
+        filterFavFriends();
+        _scheduleBgFavFriendRefresh();
+    } else {
+        const list = document.getElementById('fdFavGroupList');
+        if (list) {
+            list.innerHTML = `<div style="font-size:11px;color:var(--err,#e55);padding:6px 0;">Failed to move. Try again.</div>`;
+            setTimeout(() => { if (document.getElementById('fdFavGroupList')) renderFriendFavPicker(data.userId); }, 1800);
+        }
+    }
+}
+
+function onFriendFavGroupsLoaded(groups) {
+    favFriendGroups = groups;
+    const list = document.getElementById('fdFavGroupList');
+    if (list?.dataset.pendingUserId) {
+        const uid = list.dataset.pendingUserId;
+        delete list.dataset.pendingUserId;
+        renderFriendFavPicker(uid);
+    }
 }
 
 function toggleMod(userId, type, btn) {

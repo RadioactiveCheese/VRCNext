@@ -8,6 +8,7 @@ public class CacheHandler
         Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "VRCNext");
 
     public static readonly string KeyFavWorlds      = "Caches/fav_worlds_cache.json";
+    public static readonly string KeyFavFriends     = "Caches/fav_friends_cache.json";
     public static readonly string KeyFavAvatars     = "Caches/fav_avatars_cache.json";
     public static readonly string KeyAvatars        = "Caches/avatars_cache.json";
     public static readonly string KeyGroups         = "Caches/groups_cache.json";
@@ -67,6 +68,7 @@ public class CacheHandler
         try
         {
             Delete(KeyFavWorlds);
+            Delete(KeyFavFriends);
             Delete(KeyFavAvatars);
             Delete(KeyAvatars);
             Delete(KeyGroups);

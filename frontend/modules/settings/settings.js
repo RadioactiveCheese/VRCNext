@@ -468,6 +468,7 @@ function loadSettingsToUI(s) {
     document.getElementById('setDbOptimize').checked            = dbOptimize;
     document.getElementById('setDbOptimizeMaxEntries').value    = dbOptimizeMaxEntries;
     document.getElementById('setDbOptimizeMaxEntries').disabled = !dbOptimize;
+    document.getElementById('dbOptimizeEntriesVal').textContent = dbOptimizeMaxEntries;
     document.getElementById('dbOptimizeOffWarning').style.display = dbOptimize ? 'none' : '';
 
     // Crash Reporting

@@ -590,6 +590,15 @@ window.external.receiveMessage(rawMsg => {
             case 'vrcWorldFavGroups':
                 onWorldFavGroupsLoaded(payload);
                 break;
+            case 'vrcFriendFavGroups':
+                if (typeof onFriendFavGroupsLoaded === 'function') onFriendFavGroupsLoaded(payload);
+                break;
+            case 'vrcFriendFavoriteGroupUpdated':
+                if (typeof onFriendFavoriteGroupUpdated === 'function') onFriendFavoriteGroupUpdated(payload);
+                break;
+            case 'vrcFriendFavoriteResult':
+                if (typeof handleFriendFavoriteResult === 'function') handleFriendFavoriteResult(payload);
+                break;
             case 'vrcWorldsResolved':
                 onWorldsResolved(payload);
                 if (typeof onCreateInstanceWorldResolved === 'function') onCreateInstanceWorldResolved(payload);

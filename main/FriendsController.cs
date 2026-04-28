@@ -18,7 +18,8 @@ public class FriendsController
     private readonly Dictionary<string, string> _friendLastStatusDesc = new();
     private readonly Dictionary<string, string> _friendLastBio = new();
     private readonly Dictionary<string, (string name, string image)> _friendNameImg = new();
-    private readonly Dictionary<string, string> _favoriteFriends = new();
+    private readonly Dictionary<string, (string fvrtId, string groupName)> _favoriteFriends = new();
+    private int _favFriendsInFlight = 0;
     private bool _friendStateSeeded;
     private readonly SemaphoreSlim _friendsRefreshLock = new(1, 1);
     private readonly HashSet<string> _profileRefreshInFlight = new();
@@ -43,7 +44,10 @@ public class FriendsController
     }
 
     public bool IsFavorited(string userId) => _favoriteFriends.ContainsKey(userId);
-    public string GetFavoriteFriendId(string userId) => _favoriteFriends.GetValueOrDefault(userId, "");
+    public string GetFavoriteFriendId(string userId)
+        => _favoriteFriends.TryGetValue(userId, out var v) ? v.fvrtId : "";
+    public string GetFavoriteFriendGroup(string userId)
+        => _favoriteFriends.TryGetValue(userId, out var v) ? v.groupName : "group_0";
 
     public List<JObject> GetStoreSnapshot()
     {
@@ -408,22 +412,31 @@ public class FriendsController
             }
 
             case "vrcGetFavoriteFriends":
-                _ = LoadFavoriteFriendsAsync();
+                _ = Task.Run(async () =>
+                {
+                    if (_core.Settings.FfcEnabled)
+                    {
+                        var cached = _core.Cache.LoadRaw(CacheHandler.KeyFavFriends);
+                        if (cached != null) _core.SendToJS("vrcFavoriteFriends", cached);
+                    }
+                    await FetchAndCacheFavFriendsAsync();
+                });
                 break;
 
             case "vrcAddFavoriteFriend":
             {
                 var uid = msg["userId"]?.ToString() ?? "";
+                var groupName = msg["groupName"]?.ToString() ?? "group_0";
                 _ = Task.Run(async () =>
                 {
                     try
                     {
-                        var result = await _core.VrcApi.AddFavoriteFriendAsync(uid);
+                        var result = await _core.VrcApi.AddFavoriteFriendAsync(uid, groupName);
                         if (result == null) return;
                         var fvrtId = result["id"]?.ToString() ?? "";
                         if (string.IsNullOrEmpty(fvrtId)) return;
-                        lock (_favoriteFriends) _favoriteFriends[uid] = fvrtId;
-                        _core.SendToJS("vrcFavoriteFriendToggled", new { userId = uid, fvrtId, isFavorited = true });
+                        lock (_favoriteFriends) _favoriteFriends[uid] = (fvrtId, groupName);
+                        _core.SendToJS("vrcFavoriteFriendToggled", new { userId = uid, fvrtId, isFavorited = true, groupName });
                     }
                     catch { }
                 });
@@ -447,6 +460,22 @@ public class FriendsController
                 });
                 break;
             }
+
+            case "vrcAddFavoriteFriendToGroup":
+            {
+                var uid     = msg["userId"]?.ToString() ?? "";
+                var group   = msg["groupName"]?.ToString() ?? "group_0";
+                var oldFvrt = msg["oldFvrtId"]?.ToString();
+                _ = Task.Run(async () =>
+                {
+                    var (ok, resultData) = await _core.VrcApi.AddFavoriteFriendToGroupAsync(uid, group, oldFvrt);
+                    if (ok) lock (_favoriteFriends) _favoriteFriends[uid] = (resultData, group);
+                    _core.SendToJS("vrcFriendFavoriteResult",
+                        new { ok, userId = uid, groupName = group, newFvrtId = ok ? resultData : "", error = ok ? "" : resultData });
+                });
+                break;
+            }
+
 
             case "vrcSendFriendRequest":
             {
@@ -740,6 +769,7 @@ public class FriendsController
         "vrcInviteFriend", "vrcInviteFriendWithPhoto", "vrcGetInviteMessages",
         "vrcUpdateInviteMessage", "vrcRequestInvite", "vrcUpdateNote", "vrcBatchInvite",
         "vrcGetFavoriteFriends", "vrcAddFavoriteFriend", "vrcRemoveFavoriteFriend",
+        "vrcAddFavoriteFriendToGroup",
         "vrcSendFriendRequest", "vrcUnfriend", "vrcGetBlocked", "vrcGetMuted",
         "vrcBlock", "vrcMute", "vrcUnblock", "vrcUnmute", "vrcBoop",
         "vrcSendChatMessage", "vrcGetChatHistory", "vrcGetUser",
@@ -750,30 +780,56 @@ public class FriendsController
 
     // Core Friend Methods
 
-    public async Task LoadFavoriteFriendsAsync()
+    public async Task FetchAndCacheFavFriendsAsync()
     {
+        if (Interlocked.CompareExchange(ref _favFriendsInFlight, 1, 0) != 0) return;
         try
         {
+            var allGroups = await _core.VrcApi.GetFavoriteGroupsAsync();
+            var groupList = allGroups
+                .Where(g => g["type"]?.ToString() == "friend")
+                .Select(g => new AuthController.WFavGroup
+                {
+                    name        = g["name"]?.ToString() ?? "",
+                    displayName = g["displayName"]?.ToString() ?? "",
+                    type        = "friend",
+                    visibility  = g["visibility"]?.ToString() ?? "private",
+                    capacity    = g["capacity"]?.Value<int>() ?? 150,
+                })
+                .Where(g => !string.IsNullOrEmpty(g.name))
+                .ToList();
+            groupList = AuthController.FillMissingFriendSlots(groupList);
+
             var favs = await _core.VrcApi.GetFavoriteFriendsAsync();
             lock (_favoriteFriends)
             {
                 _favoriteFriends.Clear();
                 foreach (var fav in favs)
                 {
-                    var uid = fav["favoriteId"]?.ToString() ?? "";
+                    var uid    = fav["favoriteId"]?.ToString() ?? "";
                     var fvrtId = fav["id"]?.ToString() ?? "";
+                    var tag    = (fav["tags"] as JArray)?.FirstOrDefault()?.ToString() ?? "group_0";
                     if (!string.IsNullOrEmpty(uid) && !string.IsNullOrEmpty(fvrtId))
-                        _favoriteFriends[uid] = fvrtId;
+                        _favoriteFriends[uid] = (fvrtId, tag);
                 }
             }
-            var list = favs.Select(f => new
-            {
-                fvrtId = f["id"]?.ToString() ?? "",
-                favoriteId = f["favoriteId"]?.ToString() ?? "",
-            }).Where(f => !string.IsNullOrEmpty(f.favoriteId)).ToList();
-            _core.SendToJS("vrcFavoriteFriends", list);
+
+            var friends = favs
+                .Select(f => new
+                {
+                    fvrtId     = f["id"]?.ToString() ?? "",
+                    favoriteId = f["favoriteId"]?.ToString() ?? "",
+                    groupName  = (f["tags"] as JArray)?.FirstOrDefault()?.ToString() ?? "group_0",
+                })
+                .Where(f => !string.IsNullOrEmpty(f.favoriteId))
+                .ToList();
+
+            var payload = new { friends, groups = groupList };
+            if (_core.Settings.FfcEnabled) _core.Cache.Save(CacheHandler.KeyFavFriends, payload);
+            _core.SendToJS("vrcFavoriteFriends", payload);
         }
         catch { }
+        finally { Interlocked.Exchange(ref _favFriendsInFlight, 0); }
     }
 
     public async Task RefreshFriendsAsync(bool silent = false)
@@ -1491,7 +1547,7 @@ public class FriendsController
             representedGroup, userGroups, mutuals = mutualsList, mutualGroups = mutualGroupsList, mutualsOptedOut, userWorlds,
             bioLinks = user["bioLinks"]?.ToObject<List<string>>() ?? new List<string>(),
             isFavorited = _favoriteFriends.ContainsKey(userId),
-            favFriendId = _favoriteFriends.GetValueOrDefault(userId, ""),
+            favFriendId = GetFavoriteFriendId(userId),
             badges,
         };
     }

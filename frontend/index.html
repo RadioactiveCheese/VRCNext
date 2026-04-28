@@ -360,17 +360,64 @@
             </div>
             <!-- Tab 3: People (Favorites + Search + Blocked + Muted) -->
             <div class="tab" id="tab3">
-                <div style="display:flex;gap:8px;align-items:center;margin-bottom:12px;">
-                    <button class="vrcn-button sub-tab-btn active" id="peopleFilterFav" onclick="setPeopleFilter('favorites')"><span class="msi" style="font-size:16px;">star</span> <span data-i18n="profiles.people.filters.favorites">Favorites</span></button>
-                    <button class="vrcn-button sub-tab-btn" id="peopleFilterAll" onclick="setPeopleFilter('all')"><span class="msi" style="font-size:16px;">group</span> <span data-i18n="profiles.people.filters.all">All Friends</span></button>
-                    <button class="vrcn-button sub-tab-btn" id="peopleFilterSearch" onclick="setPeopleFilter('search')"><span class="msi" style="font-size:16px;">search</span> <span data-i18n="common.search">Search</span></button>
-                    <button class="vrcn-button sub-tab-btn" id="peopleFilterBlocked" onclick="setPeopleFilter('blocked')"><span class="msi" style="font-size:16px;">block</span> <span data-i18n="profiles.people.filters.blocked">Blocked</span></button>
-                    <button class="vrcn-button sub-tab-btn" id="peopleFilterMuted" onclick="setPeopleFilter('muted')"><span class="msi" style="font-size:16px;">volume_off</span> <span data-i18n="profiles.people.filters.muted">Muted</span></button>
-                    <button class="vrcn-button" id="peopleRefreshBtn" onclick="refreshPeopleTab()" title="Refresh" data-i18n-title="common.refresh" style="margin-left:auto;"><span class="msi" style="font-size:16px;">refresh</span> <span data-i18n="common.refresh">Refresh</span></button>
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px;">
+                    <div id="peopleFilterBtns" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+                        <button class="vrcn-button sub-tab-btn active" id="peopleFilterFav" onclick="setPeopleFilter('favorites')"><span class="msi" style="font-size:16px;">star</span> <span data-i18n="profiles.people.filters.favorites">Favorites</span></button>
+                        <button class="vrcn-button sub-tab-btn" id="peopleFilterAll" onclick="setPeopleFilter('all')"><span class="msi" style="font-size:16px;">group</span> <span data-i18n="profiles.people.filters.all">All Friends</span></button>
+                        <button class="vrcn-button sub-tab-btn" id="peopleFilterSearch" onclick="setPeopleFilter('search')"><span class="msi" style="font-size:16px;">search</span> <span data-i18n="common.search">Search</span></button>
+                        <button class="vrcn-button sub-tab-btn" id="peopleFilterBlocked" onclick="setPeopleFilter('blocked')"><span class="msi" style="font-size:16px;">block</span> <span data-i18n="profiles.people.filters.blocked">Blocked</span></button>
+                        <button class="vrcn-button sub-tab-btn" id="peopleFilterMuted" onclick="setPeopleFilter('muted')"><span class="msi" style="font-size:16px;">volume_off</span> <span data-i18n="profiles.people.filters.muted">Muted</span></button>
+                    </div>
+                    <div id="favFriendEditBar" style="display:none;align-items:center;gap:6px;flex-wrap:wrap;flex:1;margin-left:8px;">
+                        <span id="favFriendEditCount" style="font-size:12px;color:var(--tx2);white-space:nowrap;">0 selected</span>
+                        <button id="favFriendEditSelectAllBtn" class="vrcn-button" onclick="friendEditSelectAll()" data-i18n="friends.edit.select_all">Select All</button>
+                        <div style="position:relative;">
+                            <button id="favFriendEditMoveBtn" class="vrcn-button wd-edit-action" disabled onclick="friendEditShowMoveMenu(this)">
+                                <span class="msi" style="font-size:14px;">drive_file_move</span> <span data-i18n="friends.edit.move_to">Move to...</span>
+                            </button>
+                            <div id="favFriendEditMovePicker" class="vn-select-panel" style="display:none;min-width:180px;z-index:1200;"></div>
+                        </div>
+                        <button id="favFriendEditRemoveBtn" class="vrcn-button wd-edit-action" disabled onclick="friendEditRemoveSelected()">
+                            <span class="msi" style="font-size:14px;">star_border</span> <span data-i18n="friends.edit.remove">Remove from Favorites</span>
+                        </button>
+                    </div>
+                    <div style="display:flex;gap:6px;align-items:center;">
+                        <button id="favFriendEditModeBtn" class="vrcn-button" onclick="toggleFriendEditMode()" data-i18n-title="friends.favorites.edit_title" title="Edit favorites">
+                            <span class="msi" style="font-size:16px;">edit</span> <span id="favFriendEditModeBtnLabel" data-i18n="friends.edit.button">Edit</span>
+                        </button>
+                        <button class="vrcn-button" id="peopleRefreshBtn" onclick="refreshPeopleTab()" title="Refresh" data-i18n-title="common.refresh"><span class="msi" style="font-size:16px;">refresh</span> <span data-i18n="common.refresh">Refresh</span></button>
+                    </div>
                 </div>
                 <div id="peopleFavArea">
-                    <div class="search-bar-row" style="margin-bottom:12px;"><span class="msi search-ico">search</span><input type="text" id="favFriendSearchInput" class="vrcn-input" placeholder="Filter favorite friends..." data-i18n-placeholder="profiles.people.favorite_search_placeholder" oninput="filterFavFriends()"></div>
-                    <div id="favFriendsGrid" class="search-grid"><div class="empty-msg" data-i18n="profiles.people.loading_favorites">Loading favorite friends...</div></div>
+                    <div id="favFriendGroupHeader" style="display:flex;align-items:center;gap:6px;margin-bottom:10px;min-height:24px;">
+                        <span id="favFriendGroupLabel" style="font-size:13px;font-weight:600;color:var(--tx1);">All Favorites</span>
+                        <button id="favFriendGroupEditBtn" class="myp-edit-btn" onclick="startEditFriendGroupName()" style="display:none;" data-i18n-title="friends.favorites.rename_category" title="Rename category">
+                            <span class="msi" style="font-size:14px;">edit</span>
+                        </button>
+                        <span id="favFriendGroupVisLabel" style="display:none;font-size:11px;color:var(--tx3);font-weight:400;"></span>
+                        <div id="favFriendGroupVisDropWrap" style="display:none;">
+                            <select id="favFriendGroupVisDrop" class="vrcn-dropdown" onchange="saveFavFriendGroupVisibility(this.value)" style="min-width:160px;">
+                                <option value="public" data-i18n="friends.favorites.visibility.public">Visible for everyone</option>
+                                <option value="friends" data-i18n="friends.favorites.visibility.friends">Visible for friends</option>
+                                <option value="private" data-i18n="friends.favorites.visibility.private">Visible only to you</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div id="favFriendGroupRenameRow" style="display:none;align-items:center;gap:6px;margin-bottom:10px;">
+                        <input type="text" id="favFriendGroupNameInput" class="vrcn-edit-field" maxlength="64" style="flex:1;max-width:280px;">
+                        <button class="vrcn-button vrcn-btn-primary" onclick="saveFriendGroupName()" data-i18n="common.save">Save</button>
+                        <button class="vrcn-button" onclick="cancelEditFriendGroupName()" data-i18n="common.cancel">Cancel</button>
+                    </div>
+                    <div style="display:flex;gap:8px;align-items:center;margin-bottom:12px;flex-wrap:wrap;">
+                        <select id="favFriendGroupFilter" class="vrcn-dropdown" onchange="setFavFriendGroup(this.value)" style="min-width:160px;max-width:220px;">
+                            <option value="" data-i18n="friends.favorites.group.all">All Favorites</option>
+                        </select>
+                        <div class="search-bar-row" style="margin-bottom:0;flex:1;min-width:140px;">
+                            <span class="msi search-ico">search</span>
+                            <input type="text" id="favFriendSearchInput" class="vrcn-input" placeholder="Filter favorite friends..." data-i18n-placeholder="friends.favorites.filter_placeholder" oninput="filterFavFriends()">
+                        </div>
+                    </div>
+                    <div id="favFriendsGrid" class="search-grid"><div class="empty-msg" data-i18n="friends.favorites.loading">Loading favorite friends...</div></div>
                 </div>
                 <div id="peopleAllArea" style="display:none;">
                     <div class="search-bar-row" style="margin-bottom:12px;"><span class="msi search-ico">search</span><input type="text" id="allFriendSearchInput" class="vrcn-input" placeholder="Filter friends..." data-i18n-placeholder="profiles.people.all_search_placeholder" oninput="filterAllFriends()"></div>
@@ -945,20 +992,23 @@
 
                     <!-- DATABASE SETTINGS -->
                     <div class="vrcn-panel-card">
-                        <div class="vrcn-panel-card-header"><span class="msi">database</span> Database Settings</div>
-                        <div class="set-desc" style="margin-bottom:12px;">Limits how many timeline entries are loaded into memory at startup. Keeps the Timeline fast with large databases. A restart is required to apply changes.</div>
+                        <div class="vrcn-panel-card-header"><span class="msi">database</span> <span data-i18n="settings.db.title">Database Settings</span></div>
+                        <div class="set-desc" style="margin-bottom:12px;" data-i18n="settings.db.desc">Limits how many timeline entries are loaded into memory at startup. Keeps the Timeline fast with large databases. A restart is required to apply changes.</div>
                         <div class="sf-toggle-row">
-                            <span>Optimize Database</span>
+                            <span data-i18n="settings.db.optimize">Optimize Database</span>
                             <label class="toggle"><input type="checkbox" id="setDbOptimize" checked onchange="onDbOptimizeChange();autoSave()"><div class="toggle-track"><div class="toggle-knob"></div></div></label>
                         </div>
                         <div id="dbOptimizeEntriesRow" style="margin-top:12px;">
                             <div class="sf-row">
-                                <label style="font-size:12px;color:var(--tx2);flex-shrink:0;margin-right:10px;">Optimized Database Entries</label>
-                                <input type="number" id="setDbOptimizeMaxEntries" class="vrcn-edit-field" min="500" max="10000" step="100" value="500" style="width:90px;" oninput="autoSave()">
+                                <label style="font-size:12px;color:var(--tx2);flex-shrink:0;margin-right:10px;" data-i18n="settings.db.entries_label">Optimized Database Entries</label>
+                                <div style="display:flex;align-items:center;gap:10px;flex:1;">
+                                    <input type="range" id="setDbOptimizeMaxEntries" min="500" max="10000" step="100" value="500" style="flex:1;" oninput="document.getElementById('dbOptimizeEntriesVal').textContent=this.value;autoSave()">
+                                    <span id="dbOptimizeEntriesVal" style="font-size:12px;color:var(--tx2);min-width:44px;text-align:right;">500</span>
+                                </div>
                             </div>
-                            <div class="set-desc" style="margin-top:6px;">Min: 500 — Max: 10,000. Loads the N most recent entries for Personal and Friends separately.</div>
+                            <div class="set-desc" style="margin-top:6px;" data-i18n="settings.db.entries_desc">Min: 500, Max: 10,000. Loads the N most recent entries for Personal and Friends separately.</div>
                         </div>
-                        <div id="dbOptimizeOffWarning" style="display:none;margin-top:12px;color:var(--red,#e55);" class="set-desc">Warning: Optimize Database is disabled. All entries will be loaded on startup. This may significantly impact performance with large databases.</div>
+                        <div id="dbOptimizeOffWarning" style="display:none;margin-top:12px;color:var(--red,#e55);" class="set-desc" data-i18n="settings.db.optimize_off_warning">Warning: Optimize Database is disabled. All entries will be loaded on startup. This may significantly impact performance with large databases.</div>
                     </div>
 
                     <div class="vrcn-panel-card">

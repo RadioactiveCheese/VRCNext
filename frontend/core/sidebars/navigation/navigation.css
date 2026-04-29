@@ -203,7 +203,7 @@
 
 .nav-group-items {
     overflow: hidden;
-    max-height: 600px;
+    max-height: 900px;
     transition: max-height .25s ease, opacity .2s;
     opacity: 1;
 }

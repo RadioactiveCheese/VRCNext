@@ -25,3 +25,37 @@
     visibility: visible;
     opacity: 1;
 }
+
+/* Collapsible card */
+.vrcn-card-collapse-trigger {
+    cursor: pointer;
+    user-select: none;
+}
+.vrcn-card-collapse-trigger::after {
+    content: 'expand_more';
+    font-family: 'Material Symbols Rounded';
+    font-weight: normal;
+    font-style: normal;
+    font-size: 18px;
+    line-height: 1;
+    margin-left: auto;
+    color: var(--tx3);
+    transition: transform 0.2s ease;
+}
+.vrcn-panel-card.collapsed .vrcn-card-collapse-trigger {
+    margin-bottom: 0;
+}
+.vrcn-panel-card.collapsed .vrcn-card-collapse-trigger::after {
+    transform: rotate(-90deg);
+}
+.vrcn-card-collapse-body {
+    overflow: visible;
+    max-height: 3000px;
+    opacity: 1;
+    transition: max-height 0.3s ease, opacity 0.2s ease;
+}
+.vrcn-panel-card.collapsed .vrcn-card-collapse-body {
+    overflow: hidden;
+    max-height: 0;
+    opacity: 0;
+}

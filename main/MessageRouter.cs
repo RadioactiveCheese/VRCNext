@@ -1460,6 +1460,15 @@ public partial class AppShell
                     await _snipeCtrl.HandleMessage(action, msg);
                     break;
 
+                // Avatar Scaling
+                case "asConnect":
+                case "asDisconnect":
+                case "asSaveSettings":
+                case "asSetScale":
+                case "asRecordKey":
+                    _asCtrl.HandleMessage(action, msg);
+                    break;
+
                 // OSC Tool
                 case "oscConnect":
                 case "oscDisconnect":
@@ -2083,6 +2092,9 @@ public partial class AppShell
                 case "vroRecordKeybind":
                 case "vroCancelRecording":
                 case "vroSetTab":
+                case "vroScaleConfig":
+                case "vroRecordScaleKeybind":
+                case "vroCancelScaleRecording":
                     await _vroCtrl.HandleMessage(action, msg);
                     break;
             }

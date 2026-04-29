@@ -138,6 +138,17 @@ function saveSettings() {
             dpAutoStartDesktop:       document.getElementById('setDpAutoStartDesktop')?.checked   ?? false,
             vroAutoStart: false, // legacy
             vroAutoStartVR:           document.getElementById('setVroAutoStartVR')?.checked       ?? false,
+            // Avatar Scaling
+            asAutoStartVR:      !!document.getElementById('setAsAutoStartVR')?.checked,
+            asAutoStartDesktop: !!document.getElementById('setAsAutoStartDesktop')?.checked,
+            asUseSafety:        !!document.getElementById('asUseSafety')?.checked,
+            asScale:            parseFloat(document.getElementById('asScaleSlider')?.value) || 1.0,
+            asScaleMin:         parseFloat(document.getElementById('asScaleMin')?.value) || 0.5,
+            asScaleMax:         parseFloat(document.getElementById('asScaleMax')?.value) || 3.0,
+            asSaveScale:        !!document.getElementById('asSaveScale')?.checked,
+            asKeyUp:            typeof _asKeyUpCode !== 'undefined' ? _asKeyUpCode : 0,
+            asKeyDown:          typeof _asKeyDownCode !== 'undefined' ? _asKeyDownCode : 0,
+            asSmoothing:        parseInt(document.getElementById('asSmoothSlider')?.value) || 30,
             vroAttachLeft:   document.getElementById('vroAttachLeft')?.value === 'left',
             vroAttachHand:   document.getElementById('vroAttachPart')?.value === 'hand',
             vroPosX:  parseFloat(document.getElementById('vroPosX')?.value) || 0,
@@ -172,6 +183,7 @@ function saveSettings() {
             vroWaterEnabled:    !!document.getElementById('vroWaterEnabled')?.checked,
             vroWaterHours:      parseInt(document.getElementById('vroWaterHours')?.value   ?? '1', 10),
             vroWaterMinutes:    parseInt(document.getElementById('vroWaterMinutes')?.value ?? '0', 10),
+            vroScaleScrollSensitivity: parseInt(document.getElementById('vroScaleSensitivity')?.value) || 25,
             dpHideJoinBtnJoinMe: document.getElementById('dpHideJoinBtn_joinme')?.checked ?? false,
             dpHideJoinBtnOnline: document.getElementById('dpHideJoinBtn_online')?.checked ?? false,
             dpHideJoinBtnAskMe:  document.getElementById('dpHideJoinBtn_askme')?.checked  ?? false,
@@ -441,8 +453,30 @@ function loadSettingsToUI(s) {
         vroWaterEnabled:    s.VroWaterEnabled    ?? s.vroWaterEnabled    ?? false,
         vroWaterHours:      s.VroWaterHours      ?? s.vroWaterHours      ?? 1,
         vroWaterMinutes:    s.VroWaterMinutes    ?? s.vroWaterMinutes    ?? 0,
+        vroScaleEnabled:     s.VroScaleEnabled     ?? s.vroScaleEnabled     ?? true,
+        vroScaleLeftThumb:   s.VroScaleLeftThumb   ?? s.vroScaleLeftThumb   ?? false,
+        vroScaleRightThumb:  s.VroScaleRightThumb  ?? s.vroScaleRightThumb  ?? true,
+        vroScaleKeybind:            s.VroScaleKeybind            ?? s.vroScaleKeybind            ?? [],
+        vroScaleKeybindHand:        s.VroScaleKeybindHand        ?? s.vroScaleKeybindHand        ?? 0,
+        vroScaleScrollSensitivity:  s.VroScaleScrollSensitivity  ?? s.vroScaleScrollSensitivity  ?? 25,
     });
     // Auto-starts are now triggered by vrcLaunched (see messages.js)
+
+    // Avatar Scaling settings
+    if (typeof asLoadSettings === 'function') {
+        asLoadSettings({
+            autoStartVR:      s.AsAutoStartVR            ?? s.asAutoStartVR            ?? false,
+            autoStartDesktop: s.AsAutoStartDesktop       ?? s.asAutoStartDesktop       ?? false,
+            useSafety:        s.AsUseSafetySettings      ?? s.asUseSafety              ?? false,
+            scale:            s.AsScale                  ?? s.asScale                  ?? 1.0,
+            scaleMin:         s.AsScaleMin               ?? s.asScaleMin               ?? 0.5,
+            scaleMax:         s.AsScaleMax               ?? s.asScaleMax               ?? 3.0,
+            saveScale:        s.AsSaveScaleBetweenWorlds ?? s.asSaveScale              ?? false,
+            keyUp:            s.AsKeyUp                  ?? s.asKeyUp                  ?? 0,
+            keyDown:          s.AsKeyDown                ?? s.asKeyDown                ?? 0,
+            smoothing:        s.AsSmoothing              ?? s.asSmoothing              ?? 30,
+        });
+    }
 
     // Image cache settings
     const imgCacheLimitGb         = Math.max(5, Math.min(30, s.ImgCacheLimitGb ?? s.imgCacheLimitGb ?? 5));

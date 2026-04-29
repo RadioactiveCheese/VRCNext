@@ -41,7 +41,9 @@ namespace VRCNext
             if (_running) return true;
             try
             {
-                _receiver = new UdpClient(VRC_LISTEN_PORT);
+                _receiver = new UdpClient();
+                _receiver.Client.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
+                _receiver.Client.Bind(new IPEndPoint(IPAddress.Any, VRC_LISTEN_PORT));
                 _sender = new UdpClient();
                 _sender.Connect(IPAddress.Parse(OSC_IP), VRC_SEND_PORT);
                 _cts = new CancellationTokenSource();

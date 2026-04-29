@@ -403,6 +403,26 @@ public class AppSettings
     public bool V8Heap128           { get; set; } = false;
     public bool TwoRenderProcesses  { get; set; } = false;
 
+    // Avatar Scaling
+    public bool  AsAutoStartVR            { get; set; }
+    public bool  AsAutoStartDesktop       { get; set; }
+    public bool  AsUseSafetySettings      { get; set; }
+    public float AsScale                  { get; set; } = 1.0f;
+    public float AsScaleMin               { get; set; } = 0.5f;
+    public float AsScaleMax               { get; set; } = 3.0f;
+    public bool  AsSaveScaleBetweenWorlds { get; set; }
+    public int   AsKeyUp                  { get; set; }
+    public int   AsKeyDown                { get; set; }
+    public float AsSmoothing              { get; set; } = 30f;
+
+    // VR Overlay — Avatar Scale Tab
+    public bool        VroScaleEnabled      { get; set; } = true;
+    public bool        VroScaleLeftThumb    { get; set; } = false;
+    public bool        VroScaleRightThumb   { get; set; } = true;
+    public List<uint>  VroScaleKeybind           { get; set; } = new();
+    public int         VroScaleKeybindHand       { get; set; } = 0;
+    public int         VroScaleScrollSensitivity { get; set; } = 25;
+
     // Dashboard layout customization
     public List<string> DashSectionOrder  { get; set; } = new();
     public List<string> DashSectionHidden { get; set; } = new();

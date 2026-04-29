@@ -1663,3 +1663,7 @@ function handleFfcProgress(d) {
     if (btn)  btn.disabled = true;
 }
 
+function vrcnToggleCollapse(headerEl) {
+    headerEl.closest('.vrcn-panel-card').classList.toggle('collapsed');
+}
+

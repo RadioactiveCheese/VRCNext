@@ -7,6 +7,7 @@ using System.Drawing.Imaging;
 using System.Drawing.Text;
 using System.Numerics;
 using System.Runtime.InteropServices;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Valve.VR;
@@ -202,6 +203,55 @@ namespace VRCNext.Services
         private string   _language         = "en";
         public event Action? OnWaterAlarm;
         public event Action? OnWaterDismissed;
+
+        // Avatar Scale Tab (tab 6)
+        private float      _scaleValue        = 1.0f;
+        private bool       _scaleEnabled           = true;
+        private bool       _scaleLeftThumb    = false;
+        private bool       _scaleRightThumb   = true;
+        private List<uint> _scaleKeybind           = new();
+        private int        _scaleKeybindHand       = 0;
+        private int        _scaleScrollSensitivity = 25;
+        private float      _thumbDisplayX          = 0f;
+        private float      _thumbDisplayY          = 0f;
+        private bool       _isScaleRecording  = false;
+        private ulong      _scaleLastPressed  = 0;
+        private int        _scaleStableFrames = 0;
+        public event Action<float>? OnScaleChange;
+        public event Action<List<uint>, List<string>, int>? OnScaleKeybindRecorded;
+
+        public void SetScaleConfig(bool scaleEnabled, bool leftThumb, bool rightThumb, List<uint> keybind, int keybindHand, float currentScale, int scrollSensitivity = 25)
+        {
+            _scaleEnabled            = scaleEnabled;
+            _scaleLeftThumb          = leftThumb;
+            _scaleRightThumb         = rightThumb;
+            _scaleKeybind            = keybind ?? new();
+            _scaleKeybindHand        = keybindHand;
+            _scaleValue              = currentScale;
+            _scaleScrollSensitivity  = Math.Clamp(scrollSensitivity, 1, 100);
+            if (!scaleEnabled && _activeTab == 6) _activeTab = 0;
+            _dirty = true;
+        }
+
+        public void SetCurrentScale(float scale)
+        {
+            _scaleValue = scale;
+            if (_activeTab == 6) _dirty = true;
+        }
+
+        public void StartScaleKeybindRecording()
+        {
+            _isScaleRecording  = true;
+            _scaleLastPressed  = 0;
+            _scaleStableFrames = 0;
+            EmitState();
+        }
+
+        public void StopScaleKeybindRecording()
+        {
+            _isScaleRecording = false;
+            EmitState();
+        }
 
         public void SetLanguage(string lang) => _language = string.IsNullOrWhiteSpace(lang) ? "en" : lang;
 
@@ -1289,6 +1339,8 @@ namespace VRCNext.Services
 
                     if (IsRecording)
                         PollKeybindRecording();
+                    else if (_isScaleRecording)
+                        PollScaleKeybindRecording();
                     else
                         PollKeybindTrigger();
 
@@ -1308,7 +1360,7 @@ namespace VRCNext.Services
                     {
                         // Animate tab indicator slide
                         const int tabX = 8;
-                        int tabW = (W - 16) / 6;
+                        int tabW = (W - 16) / (_scaleEnabled ? 7 : 6);
                         float targetX = tabX + 2f + _activeTab * tabW;
                         if (MathF.Abs(_tabIndicatorX - targetX) > 0.5f)
                         {
@@ -1370,6 +1422,44 @@ namespace VRCNext.Services
                             {
                                 _lastDisplayedSecond = sec;
                                 _dirty = true;
+                            }
+                        }
+
+                        // Scale tab: poll thumbstick and apply scale when keybind held
+                        if (_activeTab == 6)
+                        {
+                            float tx = 0f, ty = 0f;
+                            var sys2 = _vrSystem;
+                            if (sys2 != null)
+                            {
+                                var cs  = new VRControllerState_t();
+                                var csz = (uint)Marshal.SizeOf<VRControllerState_t>();
+                                if (_scaleLeftThumb && _leftIdx != OpenVR.k_unTrackedDeviceIndexInvalid)
+                                    if (sys2.GetControllerState(_leftIdx, ref cs, csz))
+                                    { if (MathF.Abs(cs.rAxis0.y) > MathF.Abs(ty)) { ty = cs.rAxis0.y; tx = cs.rAxis0.x; } }
+                                if (_scaleRightThumb && _rightIdx != OpenVR.k_unTrackedDeviceIndexInvalid)
+                                    if (sys2.GetControllerState(_rightIdx, ref cs, csz))
+                                    { if (MathF.Abs(cs.rAxis0.y) > MathF.Abs(ty)) { ty = cs.rAxis0.y; tx = cs.rAxis0.x; } }
+                            }
+                            if (MathF.Abs(tx - _thumbDisplayX) > 0.02f || MathF.Abs(ty - _thumbDisplayY) > 0.02f)
+                            {
+                                _thumbDisplayX = tx;
+                                _thumbDisplayY = ty;
+                                _dirty = true;
+                            }
+                            // Apply scale when keybind held + thumb moved past deadzone
+                            if (!_isScaleRecording && _scaleKeybind.Count > 0 && MathF.Abs(ty) > 0.15f)
+                            {
+                                ulong scaleMask = 0;
+                                foreach (var b in _scaleKeybind) scaleMask |= 1UL << (int)b;
+                                bool held = (GetSideButtonState(_scaleKeybindHand) & scaleMask) == scaleMask;
+                                if (held)
+                                {
+                                    float delta = ty * 0.096f * (_scaleScrollSensitivity / 25f);
+                                    _scaleValue = Math.Clamp(_scaleValue + delta, 0.01f, 10000f);
+                                    _dirty = true;
+                                    OnScaleChange?.Invoke(delta);
+                                }
                             }
                         }
 
@@ -1595,7 +1685,10 @@ namespace VRCNext.Services
             // 4 tabs, each 124px: tabTW=496/4=124 → thresholds at nx 0.25, 0.50, 0.75
             if (ny > 0.84f)
             {
-                _activeTab = nx < (1f/6f) ? 0 : nx < (2f/6f) ? 1 : nx < (3f/6f) ? 2 : nx < (4f/6f) ? 3 : nx < (5f/6f) ? 4 : 5;
+                if (_scaleEnabled)
+                    _activeTab = nx < (1f/7f) ? 0 : nx < (2f/7f) ? 1 : nx < (3f/7f) ? 2 : nx < (4f/7f) ? 3 : nx < (5f/7f) ? 4 : nx < (6f/7f) ? 5 : 6;
+                else
+                    _activeTab = nx < (1f/6f) ? 0 : nx < (2f/6f) ? 1 : nx < (3f/6f) ? 2 : nx < (4f/6f) ? 3 : nx < (5f/6f) ? 4 : 5;
                 _lastDisplayedSecond = -1;
                 _locationScrollY = 0f; _locationScrollVY = 0f;
                 _friendsScrollY  = 0f; _friendsScrollVY  = 0f;
@@ -1763,8 +1856,8 @@ namespace VRCNext.Services
 
                     if (localY < FrdCardH)
                     {
-                        // Invite button: right 46px of card
-                        int btnX = W - FrdPadX - 42 - 4;
+                        // Invite button: right 62px of card
+                        int btnX = W - FrdPadX - 58 - 4;
                         if (gdixF >= btnX && gdixF < W - FrdPadX)
                         {
                             List<FriendTabEntry> snapF;
@@ -1782,6 +1875,33 @@ namespace VRCNext.Services
                                 }
                             }
                         }
+                    }
+                }
+            }
+
+            // Scale tab: +/- buttons
+            // Layout (GDI): [-] x=68..156  [+] x=356..444  y=303..337
+            if (_activeTab == 6 && !_isScaleRecording)
+            {
+                int gx = (int)(nx * W);
+                int gy = (int)((1f - ny) * H);
+                if (gy >= 303 && gy <= 337)
+                {
+                    if (gx >= 68 && gx <= 156)
+                    {
+                        // minus
+                        float delta = -0.1f;
+                        _scaleValue = Math.Clamp(_scaleValue + delta, 0.01f, 10000f);
+                        _dirty = true;
+                        OnScaleChange?.Invoke(delta);
+                    }
+                    else if (gx >= 356 && gx <= 444)
+                    {
+                        // plus
+                        float delta = 0.1f;
+                        _scaleValue = Math.Clamp(_scaleValue + delta, 0.01f, 10000f);
+                        _dirty = true;
+                        OnScaleChange?.Invoke(delta);
                     }
                 }
             }
@@ -1981,6 +2101,57 @@ namespace VRCNext.Services
             EmitState();
         }
 
+        private void PollScaleKeybindRecording()
+        {
+            ulong pressed  = GetMergedButtonState() & ALLOWED_BUTTON_MASK;
+            int   bitCount = CountBits(pressed);
+
+            if (bitCount >= 1 && bitCount <= MAX_KEYBIND_BUTTONS && pressed == _scaleLastPressed)
+            {
+                _scaleStableFrames++;
+                if (_scaleStableFrames >= STABLE_FRAMES_REQUIRED)
+                    FinishScaleKeybindRecording(pressed);
+            }
+            else
+            {
+                _scaleLastPressed  = pressed;
+                _scaleStableFrames = 0;
+            }
+        }
+
+        private void FinishScaleKeybindRecording(ulong pressed)
+        {
+            _isScaleRecording  = false;
+            _scaleStableFrames = 0;
+
+            var ids   = new List<uint>();
+            var names = new List<string>();
+            int added = 0;
+            for (int b = 0; b < 64 && added < MAX_KEYBIND_BUTTONS; b++)
+            {
+                if ((pressed & (1UL << b)) != 0)
+                {
+                    var id = (uint)b;
+                    ids.Add(id);
+                    names.Add(ButtonNames.TryGetValue(id, out var n) ? n : $"Button{b}");
+                    added++;
+                }
+            }
+
+            bool leftHasAll  = (GetSideButtonState(1) & pressed) == pressed;
+            bool rightHasAll = (GetSideButtonState(2) & pressed) == pressed;
+            int hand = leftHasAll && !rightHasAll ? 1
+                     : rightHasAll && !leftHasAll ? 2
+                     : 0;
+
+            _scaleKeybind     = ids;
+            _scaleKeybindHand = hand;
+
+            _log($"[VROverlay] Scale keybind recorded: {string.Join("+", names)}");
+            OnScaleKeybindRecorded?.Invoke(ids, names, hand);
+            EmitState();
+        }
+
         private static uint FirstSetBit(ulong v)
         {
             for (int b = 0; b < 64; b++)
@@ -2042,7 +2213,8 @@ namespace VRCNext.Services
                 keybindDtHand = KeybindDtHand,
                 leftController  = _leftIdx  != OpenVR.k_unTrackedDeviceIndexInvalid,
                 rightController = _rightIdx != OpenVR.k_unTrackedDeviceIndexInvalid,
-                error      = LastError
+                error           = LastError,
+                scaleRecording  = _isScaleRecording
             });
         }
 
@@ -2377,6 +2549,7 @@ namespace VRCNext.Services
                 else if (_activeTab == 3) DrawMusicPlayer(g);
                 else if (_activeTab == 4) DrawTools(g);
                 else if (_activeTab == 5) DrawFriends(g);
+                else if (_activeTab == 6) DrawScaleTab(g);
                 // Water alarm renders over everything — any tab, full screen
                 if (_waterAlarmActive) DrawDashboardAlarm(g);
 
@@ -2451,10 +2624,11 @@ namespace VRCNext.Services
         private void DrawTabBar(Graphics g)
         {
             var th = _theme;
-            int tabH  = 50;
-            int tabX  = 8;
-            int tabTW = W - 16;           // total usable width
-            int tabW  = tabTW / 6;        // each of 6 tabs
+            int tabH   = 50;
+            int tabX   = 8;
+            int tabTW  = W - 16;
+            int numTabs = _scaleEnabled ? 7 : 6;
+            int tabW   = tabTW / numTabs;
 
             bool artBg = _activeTab == 3 && _albumArt != null && !string.IsNullOrWhiteSpace(_mediaTitle);
             if (!artBg)
@@ -2468,12 +2642,14 @@ namespace VRCNext.Services
             using var indicatorBg = new SolidBrush(Color.FromArgb(200, th.Accent));
             FillRoundedRect(g, indicatorBg, (int)_tabIndicatorX, 10, indicatorW, tabH - 4, 12);
 
-            DrawTab(g, "\uE871", "Dash",     0, tabX,               8, tabW,              tabH);
-            DrawTab(g, "\uE7F4", "Alerts",   1, tabX + tabW,         8, tabW,              tabH);
-            DrawTab(g, "\uE0C8", "Location", 2, tabX + tabW * 2,     8, tabW,              tabH);
-            DrawTab(g, "\uE405", "Music",    3, tabX + tabW * 3,     8, tabW,              tabH);
-            DrawTab(g, "\uE869", "Tools",    4, tabX + tabW * 4,     8, tabW,              tabH);
-            DrawTab(g, "\uE7FB", "Friends",  5, tabX + tabW * 5,     8, tabTW - tabW * 5,  tabH);
+            DrawTab(g, "\uE871", "Dash",     0, tabX,           8, tabW, tabH);
+            DrawTab(g, "\uE7F4", "Alerts",   1, tabX + tabW,     8, tabW, tabH);
+            DrawTab(g, "\uE0C8", "Location", 2, tabX + tabW * 2, 8, tabW, tabH);
+            DrawTab(g, "\uE405", "Music",    3, tabX + tabW * 3, 8, tabW, tabH);
+            DrawTab(g, "\uE869", "Tools",    4, tabX + tabW * 4, 8, tabW, tabH);
+            DrawTab(g, "\uE7FB", "Friends",  5, tabX + tabW * 5, 8, _scaleEnabled ? tabW : tabTW - tabW * 5, tabH);
+            if (_scaleEnabled)
+                DrawTab(g, "\uEA16", "Size", 6, tabX + tabW * 6, 8, tabTW - tabW * 6, tabH);
 
             if (!artBg)
             {
@@ -2963,28 +3139,30 @@ namespace VRCNext.Services
             using var cardBg = new SolidBrush(Color.FromArgb(190, th.BgCard));
             FillRoundedRect(g, cardBg, x, y, w, h, 8);
 
-            // Invite/Join button (right side, 42×h-8)
-            const int btnW = 42;
+            // Invite button (right side)
+            const int btnW = 58;
             int btnX = x + w - btnW - 4;
             int btnY = y + 4;
             int btnH = h - 8;
             if (hasLocation)
             {
-                var btnColor = inCooldown ? Color.FromArgb(170, th.Ok) : Color.FromArgb(55, th.Accent);
+                var btnColor = inCooldown ? Color.FromArgb(170, th.Ok) : Color.FromArgb(210, th.Accent);
                 using var btnBg = new SolidBrush(btnColor);
-                FillRoundedRect(g, btnBg, btnX, btnY, btnW, btnH, 8);
-                if (!inCooldown)
-                {
-                    using var btnBorder = new Pen(Color.FromArgb(80, th.Accent), 1f);
-                    DrawRoundedRect(g, btnBorder, btnX, btnY, btnW, btnH, 8);
-                }
-                string btnIcon = inCooldown ? "\uE876" : "\uE879"; // checkmark or door
-                using var btnFont = _matSymFamily != null
-                    ? new Font(_matSymFamily, 16f, FontStyle.Regular, GraphicsUnit.Point)
-                    : new Font("Segoe MDL2 Assets", 14f, FontStyle.Regular, GraphicsUnit.Point);
-                using var btnBrush = new SolidBrush(inCooldown ? Color.White : th.Tx1);
+                FillRoundedRect(g, btnBg, btnX, btnY, btnW, btnH, 6);
+                using var btnBrush = new SolidBrush(Color.White);
                 var btnFmt = new StringFormat { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Center };
-                g.DrawString(btnIcon, btnFont, btnBrush, new RectangleF(btnX, btnY, btnW, btnH), btnFmt);
+                if (inCooldown)
+                {
+                    using var iconFont = _matSymFamily != null
+                        ? new Font(_matSymFamily, 16f, FontStyle.Regular, GraphicsUnit.Point)
+                        : new Font("Segoe MDL2 Assets", 14f, FontStyle.Regular, GraphicsUnit.Point);
+                    g.DrawString("", iconFont, btnBrush, new RectangleF(btnX, btnY, btnW, btnH), btnFmt);
+                }
+                else
+                {
+                    using var lblFont = new Font("Segoe UI", 9f, FontStyle.Bold, GraphicsUnit.Point);
+                    g.DrawString("Invite", lblFont, btnBrush, new RectangleF(btnX, btnY, btnW, btnH), btnFmt);
+                }
             }
 
             // Avatar (36×36, rounded 8px)
@@ -3176,6 +3354,88 @@ namespace VRCNext.Services
             int dotY = y + 5;
             using var dotBr = new SolidBrush(active ? th.Ok : Color.FromArgb(70, th.Tx3));
             g.FillEllipse(dotBr, dotX, dotY, dotR * 2, dotR * 2);
+        }
+
+        private void DrawScaleTab(Graphics g)
+        {
+            var th   = _theme;
+            var fmtC = new StringFormat { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Center };
+
+            // Header label
+            using (var hf = new Font("Segoe UI", 7.5f, FontStyle.Bold, GraphicsUnit.Point))
+            using (var hb = new SolidBrush(th.Tx3))
+                g.DrawString("AVATAR SIZE", hf, hb, new RectangleF(0, 62, W, 16), fmtC);
+
+            // Ring + thumbstick circle
+            int cx = W / 2;
+            int cy = 178;
+            int outerR = 72;
+            int innerR = 56;
+            int dotR   = 13;
+            int maxOff = innerR - dotR; // max offset from center for dot
+
+            using (var ringPen = new Pen(Color.FromArgb(60, th.Brd), innerR - outerR < 0 ? outerR - innerR : 16f))
+            {
+                // draw ring as thick circle stroke
+                using var ringBrushOuter = new SolidBrush(Color.FromArgb(40, th.Accent));
+                g.FillEllipse(ringBrushOuter, cx - outerR, cy - outerR, outerR * 2, outerR * 2);
+                using var ringBrushInner = new SolidBrush(Color.FromArgb(200, th.BgCard));
+                g.FillEllipse(ringBrushInner, cx - innerR, cy - innerR, innerR * 2, innerR * 2);
+            }
+
+            // Thumbstick dot
+            float tx = Math.Clamp(_thumbDisplayX, -1f, 1f);
+            float ty = Math.Clamp(_thumbDisplayY, -1f, 1f);
+            float dotOffX = tx * maxOff;
+            float dotOffY = -ty * maxOff; // GDI Y is flipped
+            int dotX = cx + (int)dotOffX - dotR;
+            int dotY = cy + (int)dotOffY - dotR;
+            using (var dotBg = new SolidBrush(Color.FromArgb(180, th.Accent)))
+                g.FillEllipse(dotBg, dotX, dotY, dotR * 2, dotR * 2);
+
+            // Scale value label
+            string scaleText = $"{_scaleValue:F2} m";
+            using (var sf = new Font("Segoe UI", 18f, FontStyle.Bold, GraphicsUnit.Point))
+            using (var sb = new SolidBrush(th.Tx1))
+                g.DrawString(scaleText, sf, sb, new RectangleF(0, 260, W, 32), fmtC);
+
+            // Recording hint (overlays button row when recording)
+            if (_isScaleRecording)
+            {
+                using var hf = new Font("Segoe UI", 9f, FontStyle.Regular, GraphicsUnit.Point);
+                using var hb = new SolidBrush(th.Warn);
+                g.DrawString("Hold 1-4 buttons to record hold keybind...", hf, hb,
+                    new RectangleF(12, 303, W - 24, 34), fmtC);
+                return;
+            }
+
+            // [-] and [+] buttons (pill style, same as notification invite buttons)
+            // [-]: x=68 y=303 w=88 h=34  [+]: x=356 y=303 w=88 h=34
+            DrawScaleButton(g, "", 68,  303, 88, 34); // remove icon
+            DrawScaleButton(g, "", 356, 303, 88, 34); // add icon
+
+            // Hint: grip keybind
+            string holdHint = _scaleKeybind.Count > 0
+                ? $"Hold {string.Join("+", _scaleKeybind.Select(b => ButtonNames.TryGetValue(b, out var n) ? n : $"Btn{b}"))} + Stick to scale"
+                : "Set hold keybind in settings to scale with Stick";
+            using (var hf2 = new Font("Segoe UI", 7f, FontStyle.Regular, GraphicsUnit.Point))
+            using (var hb2 = new SolidBrush(th.Tx3))
+                g.DrawString(holdHint, hf2, hb2, new RectangleF(12, 346, W - 24, 30), fmtC);
+        }
+
+        private void DrawScaleButton(Graphics g, string icon, int x, int y, int w, int h)
+        {
+            var th = _theme;
+            using var bg = new SolidBrush(Color.FromArgb(55, th.Accent));
+            FillRoundedRect(g, bg, x, y, w, h, h / 2);
+            using var border = new Pen(Color.FromArgb(100, th.Accent), 1f);
+            DrawRoundedRect(g, border, x, y, w, h, h / 2);
+            using var iconFont = _matSymFamily != null
+                ? new Font(_matSymFamily, 18f, FontStyle.Regular, GraphicsUnit.Point)
+                : new Font("Segoe MDL2 Assets", 16f, FontStyle.Regular, GraphicsUnit.Point);
+            using var iconBrush = new SolidBrush(th.Tx1);
+            var fmt = new StringFormat { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Center };
+            g.DrawString(icon, iconFont, iconBrush, new RectangleF(x, y, w, h), fmt);
         }
 
         private void DrawNotifications(Graphics g)

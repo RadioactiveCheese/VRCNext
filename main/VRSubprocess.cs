@@ -76,6 +76,15 @@ static class VRSubprocess
         vro.OnToastSound  += ()  => SendLine(new JObject { ["t"] = "vro_toast_sound" });
         vro.OnWaterAlarm     += () => SendLine(new JObject { ["t"] = "vro_water_alarm" });
         vro.OnWaterDismissed += () => SendLine(new JObject { ["t"] = "vro_water_dismissed" });
+        vro.OnScaleChange    += delta => SendLine(new JObject { ["t"] = "vro_scale_change", ["delta"] = delta });
+        vro.OnScaleKeybindRecorded += (ids, names, hand) =>
+            SendLine(new JObject
+            {
+                ["t"]     = "vro_scale_keybind_recorded",
+                ["ids"]   = JArray.FromObject(ids),
+                ["names"] = JArray.FromObject(names),
+                ["hand"]  = hand,
+            });
         vro.OnVRQuit      += ()  => Environment.Exit(0);
 
         sf.SetUpdateCallback(data =>
@@ -232,6 +241,25 @@ static class VRSubprocess
 
             case "vro_record_keybind":   vro.StartKeybindRecording(); break;
             case "vro_cancel_recording": vro.StopKeybindRecording();  break;
+
+            case "vro_scale_config":
+                vro.SetScaleConfig(
+                    B(cmd, "scaleEnabled", true), B(cmd, "leftThumb"), B(cmd, "rightThumb", true),
+                    UList(cmd, "keybind"), I(cmd, "keybindHand"), F(cmd, "currentScale", 1f),
+                    I(cmd, "scrollSensitivity", 25));
+                break;
+
+            case "vro_scale_update":
+                vro.SetCurrentScale(F(cmd, "scale", 1f));
+                break;
+
+            case "vro_record_scale_keybind":
+                vro.StartScaleKeybindRecording();
+                break;
+
+            case "vro_cancel_scale_recording":
+                vro.StopScaleKeybindRecording();
+                break;
 
             case "sf_connect":
             {

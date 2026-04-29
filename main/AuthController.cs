@@ -845,6 +845,17 @@ public class AuthController
             _core.Settings.DpAutoStartVR           = data["dpAutoStartVR"]?.Value<bool>()           ?? false;
             _core.Settings.DpAutoStartDesktop      = data["dpAutoStartDesktop"]?.Value<bool>()      ?? false;
             _core.Settings.VroAutoStartVR          = data["vroAutoStartVR"]?.Value<bool>()          ?? false;
+            // Avatar Scaling
+            _core.Settings.AsAutoStartVR            = data["asAutoStartVR"]?.Value<bool>()            ?? false;
+            _core.Settings.AsAutoStartDesktop       = data["asAutoStartDesktop"]?.Value<bool>()       ?? false;
+            _core.Settings.AsUseSafetySettings      = data["asUseSafety"]?.Value<bool>()              ?? false;
+            _core.Settings.AsScale                  = data["asScale"]?.Value<float>()                 ?? 1.0f;
+            _core.Settings.AsScaleMin               = data["asScaleMin"]?.Value<float>()              ?? 0.5f;
+            _core.Settings.AsScaleMax               = data["asScaleMax"]?.Value<float>()              ?? 3.0f;
+            _core.Settings.AsSaveScaleBetweenWorlds = data["asSaveScale"]?.Value<bool>()              ?? false;
+            _core.Settings.AsKeyUp                  = data["asKeyUp"]?.Value<int>()                   ?? 0;
+            _core.Settings.AsKeyDown                = data["asKeyDown"]?.Value<int>()                 ?? 0;
+            _core.Settings.AsSmoothing              = data["asSmoothing"]?.Value<float>()             ?? 30f;
             _core.Settings.VroWaterEnabled = data["vroWaterEnabled"]?.Value<bool>() ?? false;
             _core.Settings.VroWaterHours   = data["vroWaterHours"]?.Value<int>()    ?? 1;
             _core.Settings.VroWaterMinutes = data["vroWaterMinutes"]?.Value<int>()  ?? 0;

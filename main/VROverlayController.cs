@@ -1,4 +1,5 @@
 #if WINDOWS
+using System.Collections.Generic;
 using Newtonsoft.Json.Linq;
 
 namespace VRCNext;
@@ -14,7 +15,9 @@ public class VROverlayController : IDisposable
     private bool _disposed;
 
     // Callbacks set by AppShell
-    public Action<int>? OnToolToggle { get; set; }
+    public Action<int>?    OnToolToggle    { get; set; }
+    public Action<float>?  OnVrScaleChange { get; set; }
+    public Action<List<uint>, List<string>, int>? OnVrScaleKeybindRecorded { get; set; }
     public Func<(bool discord, bool voice, bool kikitan, bool space, bool relay, bool chatbox)>? GetToolStates { get; set; }
 
     public VROverlayController(CoreLibrary core, FriendsController friends)
@@ -74,6 +77,13 @@ public class VROverlayController : IDisposable
             h.OnVroToastSound     += () => Invoke(() => _core.SendToJS("vroPlayToastSound",  new { }));
             h.OnVroWaterAlarm     += () => Invoke(() => _core.SendToJS("vroPlayWaterSound",  new { }));
             h.OnVroWaterDismissed += () => Invoke(() => _core.SendToJS("vroStopWaterSound",  new { }));
+            h.OnVroScaleChange    += delta => Invoke(() => OnVrScaleChange?.Invoke(delta));
+            h.OnVroScaleKeybindRecorded += (ids, names, hand) =>
+                Invoke(() =>
+                {
+                    OnVrScaleKeybindRecorded?.Invoke(ids, names, hand);
+                    _core.SendToJS("vroScaleKeybindRecorded", new { ids, names, hand });
+                });
 
             h.OnVroNotifAccept += (notifId, notifType, senderId, notifData) => Invoke(async () =>
             {
@@ -175,6 +185,13 @@ public class VROverlayController : IDisposable
                 // Send water config
                 host.VroWaterConfig(_core.Settings.VroWaterEnabled,
                     _core.Settings.VroWaterHours * 3600 + _core.Settings.VroWaterMinutes * 60);
+
+                // Send scale config
+                host.VroScaleConfig(
+                    _core.Settings.VroScaleEnabled,
+                    _core.Settings.VroScaleLeftThumb, _core.Settings.VroScaleRightThumb,
+                    _core.Settings.VroScaleKeybind, _core.Settings.VroScaleKeybindHand,
+                    _core.Settings.AsScale, _core.Settings.VroScaleScrollSensitivity);
 
                 // Connect — subprocess sends back vro_state with result
                 host.VroConnect();
@@ -320,6 +337,36 @@ public class VROverlayController : IDisposable
                     friendReq, invite, groupInv);
                 break;
             }
+
+            case "vroScaleConfig":
+            {
+                bool scEnabled   = msg["enabled"]?.Value<bool>()     ?? true;
+                bool leftThumb   = msg["leftThumb"]?.Value<bool>()   ?? false;
+                bool rightThumb  = msg["rightThumb"]?.Value<bool>()  ?? true;
+                var  kb          = msg["keybind"]?.ToObject<List<uint>>() ?? new();
+                int  kbHand      = msg["keybindHand"]?.Value<int>()  ?? 0;
+                int  sensitivity = msg["scrollSensitivity"]?.Value<int>() ?? 25;
+
+                _core.Settings.VroScaleEnabled            = scEnabled;
+                _core.Settings.VroScaleLeftThumb          = leftThumb;
+                _core.Settings.VroScaleRightThumb         = rightThumb;
+                _core.Settings.VroScaleKeybind            = kb;
+                _core.Settings.VroScaleKeybindHand        = kbHand;
+                _core.Settings.VroScaleScrollSensitivity  = sensitivity;
+                _core.Settings.Save();
+
+                _core.VrOverlay?.VroScaleConfig(scEnabled, leftThumb, rightThumb, kb, kbHand,
+                    _core.Settings.AsScale, sensitivity);
+                break;
+            }
+
+            case "vroRecordScaleKeybind":
+                _core.VrOverlay?.VroRecordScaleKeybind();
+                break;
+
+            case "vroCancelScaleRecording":
+                _core.VrOverlay?.VroCancelScaleRecording();
+                break;
         }
     }
 

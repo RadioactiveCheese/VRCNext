@@ -44,6 +44,7 @@ public partial class AppShell
     private ChatboxController _chatboxCtrl = null!;
     private VoiceFightController _vfCtrl = null!;
     private KikitanXDController _kxdCtrl = null!;
+    private AvatarScalingController _asCtrl = null!;
     private RelayController _relayCtrl = null!;
     private SnipeController _snipeCtrl = null!;
     private WindowController _windowCtrl = null!;
@@ -162,6 +163,7 @@ public partial class AppShell
         _chatboxCtrl = new ChatboxController(_core, _vroCtrl);
         _vfCtrl = new VoiceFightController(_core, _vroCtrl);
         _kxdCtrl = new KikitanXDController(_core);
+        _asCtrl = new AvatarScalingController(_core);
         _snipeCtrl = new SnipeController(_core);
         _relayCtrl = new RelayController(_core, _friends, _instance, _notifications, _vroCtrl);
         _windowCtrl = new WindowController(_core);
@@ -171,7 +173,8 @@ public partial class AppShell
         _authCtrl = new AuthController(_core, _friends, _instance, _photos, _relayCtrl, _groups, _discordCtrl);
         _relayCtrl.OnOwnUserUpdated = user => _authCtrl.SendVrcUserData(user);
         _core.PushDiscordPresence = () => _discordCtrl.PushPresence();
-        _vroCtrl.OnToolToggle = ToggleToolFromOverlay;
+        _vroCtrl.OnToolToggle    = ToggleToolFromOverlay;
+        _vroCtrl.OnVrScaleChange = delta => _asCtrl.ApplyVrScaleDelta(delta);
         _vroCtrl.GetToolStates = () => (
             _discordCtrl.IsConnected,
             _vfCtrl.IsRunning,
@@ -436,6 +439,7 @@ public partial class AppShell
         _sfCtrl?.Dispose();
         _vfCtrl?.Dispose();
         _kxdCtrl?.Dispose();
+        _asCtrl?.Dispose();
         _snipeCtrl?.Dispose();
         _discordCtrl?.Dispose();
         _chatboxCtrl?.Dispose();

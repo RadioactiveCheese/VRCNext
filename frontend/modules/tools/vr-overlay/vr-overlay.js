@@ -17,6 +17,16 @@ let _vroAutoTimer   = null;
 let _vroPrevHand    = null; // tracks previous hand selection for mirror logic
 let _vroLastError   = '';
 
+// Scale keybind state (VR overlay Size tab)
+let _vroScaleKeybindIds    = [];
+let _vroScaleKeybindHand   = 0;
+let _vroScaleRecording     = false;
+let _vroScaleManualIds     = [];
+let _vroScaleManualEditing = false;
+let _vroScaleAutoTimer     = null;
+let _asAutoStartedByVro    = false;
+let _vroScaleWasEnabled    = true;
+
 // Button name lookup (mirrors C# ButtonNames dictionary)
 const VRO_BTN_NAMES = { 1: 'B/Y', 2: 'Grip', 7: 'A/X', 32: 'Stick', 33: 'Trigger' };
 function vroGetNames(ids) {
@@ -35,6 +45,7 @@ function vroActiveHand() { return vroKeybindMode === 0 ? vroComboHand : vroDtHan
 // State sync from C#.
 
 function handleVroState(d) {
+    const _wasConnected = vroConnected;
     vroConnected    = !!d.connected;
     vroVisible      = !!d.visible;
     vroRecording    = !!d.recording;
@@ -51,6 +62,11 @@ function handleVroState(d) {
     const btn   = document.getElementById('vroConnBtn');
     const badge = document.getElementById('badgeVro');
     const badgeTop = document.getElementById('badgeVroTop');
+
+    if (!_wasConnected && vroConnected && document.getElementById('vroScaleEnabled')?.checked && !_asConnected) {
+        sendToCS({ action: 'asConnect' });
+        _asAutoStartedByVro = true;
+    }
 
     if (d.connected) {
         dot?.classList.replace('offline', 'online');
@@ -377,6 +393,189 @@ function vroWaterAutoSave() {
     _vroWaterTimer = setTimeout(() => saveSettings(), 600);
 }
 
+// Avatar Scale keybind (VR overlay Size tab).
+
+function vroScaleUpdateSensitivityLabel() {
+    const lbl = document.getElementById('vroScaleSensitivityVal');
+    const val = document.getElementById('vroScaleSensitivity')?.value ?? 25;
+    if (lbl) lbl.textContent = val + '%';
+}
+
+function vroScaleSendConfig() {
+    sendToCS({
+        action:              'vroScaleConfig',
+        enabled:             !!document.getElementById('vroScaleEnabled')?.checked,
+        leftThumb:           !!document.getElementById('vroScaleLeftThumb')?.checked,
+        rightThumb:          !!document.getElementById('vroScaleRightThumb')?.checked,
+        keybind:             _vroScaleKeybindIds,
+        keybindHand:         _vroScaleKeybindHand,
+        scrollSensitivity:   parseInt(document.getElementById('vroScaleSensitivity')?.value) || 25,
+    });
+}
+
+function vroScaleAutoSave() {
+    const nowEnabled = !!document.getElementById('vroScaleEnabled')?.checked;
+    if (nowEnabled !== _vroScaleWasEnabled) {
+        _vroScaleWasEnabled = nowEnabled;
+        if (nowEnabled && !_asConnected) {
+            sendToCS({ action: 'asConnect' });
+            _asAutoStartedByVro = true;
+        } else if (!nowEnabled && _asConnected && _asAutoStartedByVro) {
+            sendToCS({ action: 'asDisconnect' });
+            _asAutoStartedByVro = false;
+        }
+    }
+    vroScaleSendConfig();
+    clearTimeout(_vroScaleAutoTimer);
+    _vroScaleAutoTimer = setTimeout(() => saveSettings(), 600);
+}
+
+function vroScaleStartRecord() {
+    if (!vroConnected) return;
+    _vroScaleRecording = true;
+    updateScaleRecordingUI();
+    sendToCS({ action: 'vroRecordScaleKeybind' });
+}
+
+function vroScaleCancelRecord() {
+    _vroScaleRecording = false;
+    updateScaleRecordingUI();
+    sendToCS({ action: 'vroCancelScaleRecording' });
+}
+
+function vroScaleStartManual() {
+    _vroScaleManualEditing = true;
+    _vroScaleManualIds = [..._vroScaleKeybindIds];
+    document.getElementById('vroScaleControllerVisual')?.querySelectorAll('.vro-btn').forEach(el => {
+        el.onclick = () => vroScaleToggleManualBtn(parseInt(el.dataset.scaleBtnId, 10));
+        el.classList.toggle('active', _vroScaleManualIds.includes(parseInt(el.dataset.scaleBtnId, 10)));
+    });
+    updateScaleRecordingUI();
+}
+
+function vroScaleStopManual() {
+    _vroScaleManualEditing = false;
+    _vroScaleManualIds = [];
+    document.getElementById('vroScaleControllerVisual')?.querySelectorAll('.vro-btn').forEach(el => {
+        el.onclick = null;
+        el.classList.remove('active');
+    });
+    updateScaleRecordingUI();
+    updateScaleKeybindDisplay();
+}
+
+function vroScaleToggleManualBtn(id) {
+    if (!_vroScaleManualEditing) return;
+    const i = _vroScaleManualIds.indexOf(id);
+    if (i >= 0) _vroScaleManualIds.splice(i, 1);
+    else { if (_vroScaleManualIds.length >= 4) _vroScaleManualIds = [id]; else _vroScaleManualIds.push(id); }
+    document.getElementById('vroScaleControllerVisual')?.querySelectorAll('.vro-btn').forEach(el => {
+        el.classList.toggle('active', _vroScaleManualIds.includes(parseInt(el.dataset.scaleBtnId, 10)));
+    });
+}
+
+function vroScaleSetHand(hand) {
+    _vroScaleKeybindHand = hand;
+    _vroScaleSetManualHandUI(hand);
+    if (!_vroScaleManualEditing) vroScaleAutoSave();
+}
+
+function _vroScaleSetManualHandUI(hand) {
+    ['vroScaleHandAny', 'vroScaleHandLeft', 'vroScaleHandRight'].forEach((id, i) => {
+        document.getElementById(id)?.classList.toggle('active', i === hand);
+    });
+}
+
+function vroScaleConfirmManual() {
+    if (_vroScaleManualIds.length === 0) return;
+    _vroScaleKeybindIds = [..._vroScaleManualIds];
+    vroScaleStopManual();
+    updateScaleKeybindDisplay();
+    vroScaleSendConfig();
+}
+
+function vroScaleClearKeybind() {
+    _vroScaleKeybindIds  = [];
+    _vroScaleKeybindHand = 0;
+    _vroScaleSetManualHandUI(0);
+    updateScaleKeybindDisplay();
+    vroScaleAutoSave();
+}
+
+function updateScaleKeybindDisplay() {
+    const display = document.getElementById('vroScaleKeybindDisplay');
+    const visual  = document.getElementById('vroScaleControllerVisual');
+
+    if (!display) return;
+
+    if (_vroScaleKeybindIds.length === 0) {
+        display.innerHTML = `<span style="color:var(--tx3);font-style:italic;">${t('vro.keybind.none', 'No keybind set')}</span>`;
+    } else {
+        const names = vroGetNames(_vroScaleKeybindIds);
+        const sideLabel = _vroScaleKeybindHand === 1
+            ? '<span class="vro-keybind-chip" style="background:var(--accent20);color:var(--accent);">L</span>'
+            : _vroScaleKeybindHand === 2
+                ? '<span class="vro-keybind-chip" style="background:var(--accent20);color:var(--accent);">R</span>'
+                : '';
+        const chips = names
+            .map(name => `<span class="vro-keybind-chip">${name}</span>`)
+            .join('<span class="vro-keybind-plus">+</span>');
+        const sep = sideLabel ? '<span class="vro-keybind-plus">/</span>' : '';
+        display.innerHTML = sideLabel + sep + chips;
+    }
+
+    if (!visual) return;
+    visual.querySelectorAll('.vro-btn').forEach(el => {
+        el.classList.remove('active');
+        const btnId = parseInt(el.dataset.scaleBtnId ?? '999', 10);
+        if (_vroScaleKeybindIds.includes(btnId)) el.classList.add('active');
+    });
+}
+
+function updateScaleRecordingUI() {
+    const idleBtns    = document.getElementById('vroScaleIdleButtons');
+    const recordBtns  = document.getElementById('vroScaleRecordingButtons');
+    const manualPanel = document.getElementById('vroScaleManualPanel');
+    const hint        = document.getElementById('vroScaleRecordHint');
+
+    if (_vroScaleManualEditing) {
+        if (idleBtns)    idleBtns.style.display    = 'none';
+        if (recordBtns)  recordBtns.style.display   = 'none';
+        if (manualPanel) manualPanel.style.display   = 'block';
+        if (hint)        hint.textContent = '';
+        return;
+    }
+
+    if (_vroScaleRecording) {
+        if (idleBtns)    idleBtns.style.display    = 'none';
+        if (recordBtns)  recordBtns.style.display   = 'flex';
+        if (manualPanel) manualPanel.style.display   = 'none';
+        if (hint) {
+            hint.textContent = t('vro.scale.hint.record', 'Hold 1–4 buttons simultaneously to record a combo…');
+            hint.style.color = 'var(--warn)';
+        }
+        return;
+    }
+
+    if (idleBtns)    idleBtns.style.display    = 'flex';
+    if (recordBtns)  recordBtns.style.display   = 'none';
+    if (manualPanel) manualPanel.style.display   = 'none';
+    if (hint) {
+        hint.textContent = t('vro.scale.hint.idle', 'Hold keybind + move thumbstick up/down to scale.');
+        hint.style.color = 'var(--tx3)';
+    }
+}
+
+function handleVroScaleKeybindRecorded(d) {
+    _vroScaleKeybindIds  = d.ids  || [];
+    _vroScaleKeybindHand = d.hand ?? 0;
+    _vroScaleRecording   = false;
+    _vroScaleSetManualHandUI(_vroScaleKeybindHand);
+    updateScaleKeybindDisplay();
+    updateScaleRecordingUI();
+    vroScaleSendConfig();
+}
+
 function updateRecordingUI() {
     const idleBtns     = document.getElementById('vroIdleButtons');
     const recordBtns   = document.getElementById('vroRecordingButtons');
@@ -577,6 +776,24 @@ function vroLoadSettings(s) {
 
     const waterMinutesEl = document.getElementById('vroWaterMinutes');
     if (waterMinutesEl) waterMinutesEl.value = s.vroWaterMinutes ?? 0;
+
+    // Scale keybind settings
+    _vroScaleKeybindIds  = s.vroScaleKeybind     || [];
+    _vroScaleKeybindHand = s.vroScaleKeybindHand ?? 0;
+
+    const scaleEnabledEl    = document.getElementById('vroScaleEnabled');
+    if (scaleEnabledEl)    scaleEnabledEl.checked    = !!(s.vroScaleEnabled    ?? true);
+    _vroScaleWasEnabled = !!(s.vroScaleEnabled ?? true);
+    const scaleLeftThumbEl  = document.getElementById('vroScaleLeftThumb');
+    if (scaleLeftThumbEl)  scaleLeftThumbEl.checked   = !!(s.vroScaleLeftThumb  ?? false);
+    const scaleRightThumbEl = document.getElementById('vroScaleRightThumb');
+    if (scaleRightThumbEl) scaleRightThumbEl.checked  = !!(s.vroScaleRightThumb ?? true);
+    const scaleSensEl = document.getElementById('vroScaleSensitivity');
+    if (scaleSensEl) { scaleSensEl.value = s.vroScaleScrollSensitivity ?? 25; vroScaleUpdateSensitivityLabel(); }
+
+    _vroScaleSetManualHandUI(_vroScaleKeybindHand);
+    updateScaleKeybindDisplay();
+    updateScaleRecordingUI();
 }
 
 function rerenderVroTranslations() {
@@ -611,6 +828,7 @@ function rerenderVroTranslations() {
 
     updateKeybindDisplay();
     updateRecordingUI();
+    updateScaleRecordingUI();
 }
 
 document.documentElement.addEventListener('languagechange', rerenderVroTranslations);

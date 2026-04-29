@@ -37,6 +37,8 @@ public sealed class VRSubprocessHost : IDisposable
     public event Action? OnVroToastSound;
     public event Action? OnVroWaterAlarm;
     public event Action? OnVroWaterDismissed;
+    public event Action<float>? OnVroScaleChange;
+    public event Action<List<uint>, List<string>, int>? OnVroScaleKeybindRecorded;
     public event Action? OnVroQuit;
     public event Action<JObject>? OnSfUpdate;
     public event Action? OnSfQuit;
@@ -188,6 +190,15 @@ public sealed class VRSubprocessHost : IDisposable
             case "vro_water_dismissed":
                 OnVroWaterDismissed?.Invoke();
                 break;
+            case "vro_scale_change":
+                OnVroScaleChange?.Invoke(msg["delta"]?.Value<float>() ?? 0f);
+                break;
+            case "vro_scale_keybind_recorded":
+                OnVroScaleKeybindRecorded?.Invoke(
+                    msg["ids"]?.ToObject<List<uint>>()   ?? new(),
+                    msg["names"]?.ToObject<List<string>>() ?? new(),
+                    msg["hand"]?.Value<int>()  ?? 0);
+                break;
             case "sf_update":
                 OnSfUpdate?.Invoke(msg);
                 break;
@@ -233,6 +244,18 @@ public sealed class VRSubprocessHost : IDisposable
 
     public void VroWaterConfig(bool enabled, int intervalSec)
         => Send("vro_water_config", new { enabled, intervalSec });
+
+    public void VroScaleConfig(bool scaleEnabled, bool leftThumb, bool rightThumb, List<uint> keybind, int keybindHand, float currentScale, int scrollSensitivity = 25)
+        => Send("vro_scale_config", new { scaleEnabled, leftThumb, rightThumb, keybind, keybindHand, currentScale, scrollSensitivity });
+
+    public void VroScaleUpdate(float scale)
+        => Send("vro_scale_update", new { scale });
+
+    public void VroRecordScaleKeybind()
+        => Send("vro_record_scale_keybind");
+
+    public void VroCancelScaleRecording()
+        => Send("vro_cancel_scale_recording");
 
     public void VroSetLanguage(string lang)
         => Send("vro_set_language", new { lang });
@@ -341,9 +364,15 @@ public sealed class VRSubprocessHost : IDisposable
     public void SfConfig(float a, bool b, bool c, bool d, bool e, bool f, bool g) { }
     public void SfReset() { }
     public void VroWaterConfig(bool enabled, int intervalSec) { }
+    public void VroScaleConfig(bool a0, bool a, bool b, System.Collections.Generic.List<uint> c, int d, float e, int f = 25) { }
+    public void VroScaleUpdate(float scale) { }
+    public void VroRecordScaleKeybind() { }
+    public void VroCancelScaleRecording() { }
     public void VroSetLanguage(string lang) { }
     public event System.Action? OnVroWaterAlarm;
     public event System.Action? OnVroWaterDismissed;
+    public event System.Action<float>? OnVroScaleChange;
+    public event System.Action<System.Collections.Generic.List<uint>, System.Collections.Generic.List<string>, int>? OnVroScaleKeybindRecorded;
     public void Dispose() { }
 }
 #endif

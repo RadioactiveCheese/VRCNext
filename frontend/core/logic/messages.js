@@ -34,8 +34,12 @@ window.external.receiveMessage(rawMsg => {
                 // VR Overlay (VR only)
                 trigger(vr && chk('setVroAutoStartVR'),
                     () => { if (typeof vroConnect === 'function') vroConnect(); });
+                // Avatar Scaling
+                trigger(vr ? chk('setAsAutoStartVR') : chk('setAsAutoStartDesktop'),
+                    () => { if (!_asConnected) sendToCS({ action: 'asConnect' }); });
                 break;
             }
+            case 'asState': if (typeof handleAsState === 'function') handleAsState(payload); break;
             case 'relayState': setRelayState(payload.running, payload.streams); break;
             case 'imgCacheSize':             updateImgCacheSizeBar(payload.bytes); break;
             case 'imgCacheOptimizeProgress': handleImgCacheOptimizeProgress(payload); break;
@@ -840,6 +844,9 @@ case 'popularWorlds':
             break;
         case 'vroKeybindRecorded':
             handleVroKeybindRecorded(payload);
+            break;
+        case 'vroScaleKeybindRecorded':
+            handleVroScaleKeybindRecorded(payload);
             break;
         case 'vroPlayToastSound':
             playSteamOverlaySound();

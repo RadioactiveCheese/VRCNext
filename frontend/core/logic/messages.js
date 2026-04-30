@@ -466,7 +466,10 @@ window.external.receiveMessage(rawMsg => {
                 avtrdbCollecting(payload.count);
                 break;
             case 'avtrdbReport':
-                addAvtrdbReport(payload.count, payload.enqueued, payload.invalid, payload.ticket, payload.type);
+                addAvtrdbReport(payload.count, payload.enqueued, payload.invalid, payload.ticket, payload.type, 'avtrdb');
+                break;
+            case 'avtrIcuReport':
+                addAvtrdbReport(payload.count, payload.count, 0, null, payload.type, 'avtricu');
                 break;
             case 'vrcSearchResults':
                 renderSearchResults(payload.type, payload.results, payload.offset || 0, payload.hasMore || false);

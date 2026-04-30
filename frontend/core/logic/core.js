@@ -132,7 +132,7 @@ let friendSectionCollapsed = (() => {
 })();
 let avatarsData = [], avatarFavData = [], avatarFilter = 'own', avatarsLoaded = false, currentAvatarId = '';
 let avatarInfoCache = {}; // avtr_XXX -> { id, name, thumbnailImageUrl }
-let avatarSearchResults = [], avatarSearchPage = 0, avatarSearchQuery = '', avatarSearchHasMore = false;
+let avatarSearchResults = [], avatarSearchPage = 0, avatarSearchQuery = '', avatarSearchHasMore = false, avatarSearchDb = 'avtrdb';
 let favAvatarsData = [], favAvatarGroups = [], favAvatarGroupFilter = '';
 let notifications = [], notifPanelOpen = false, myGroups = [], myGroupsLoaded = false;
 let currentInstanceData = null;

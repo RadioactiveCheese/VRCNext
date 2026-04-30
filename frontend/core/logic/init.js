@@ -11,6 +11,10 @@ document.addEventListener('contextmenu', e => e.preventDefault());
 }());
 
 initAllVnSelects();
+(function() {
+    const el = document.getElementById('avatarSearchDbDrop');
+    if (el) { const w = el._vnSelect ? el.parentNode : el; w.style.display = 'none'; }
+}());
 renderWebhookCards([{}, {}, {}, {}]);
 renderLanguageChips();
 renderThemeChips();

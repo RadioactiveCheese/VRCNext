@@ -351,6 +351,10 @@ public class AppSettings
     public bool AvtrdbReportDeleted { get; set; } = true;
     public bool AvtrdbSubmitAvatars { get; set; }
 
+    // Avtr.icu Support
+    public bool AvtrIcuReportDeleted { get; set; } = true;
+    public bool AvtrIcuSubmitAvatars { get; set; }
+
     // Discord Rich Presence — privacy per status
     public bool DpHideInstIdJoinMe  { get; set; }
     public bool DpHideInstIdOnline  { get; set; }

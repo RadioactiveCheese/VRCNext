@@ -87,6 +87,12 @@
     display: flex;
     gap: 4px;
 }
+.vrcn-content-card .cc-badge-db {
+    position: absolute;
+    bottom: 14px;
+    right: 14px;
+    z-index: 3;
+}
 .vrcn-content-card .cc-time-top {
     position: absolute;
     top: 14px;

@@ -103,6 +103,13 @@ public partial class AppShell
     private readonly HashSet<string> _avtrdbSubmittedIds = new();
     private System.Threading.Timer? _avtrdbSubmitTimer;
 
+    private readonly HashSet<string> _reportedToAvtrIcu = new();
+    private readonly List<string> _avtrIcuReportQueue = new();
+    private System.Threading.Timer? _avtrIcuReportTimer;
+    private readonly List<string> _avtrIcuSubmitQueue = new();
+    private readonly HashSet<string> _avtrIcuSubmittedIds = new();
+    private System.Threading.Timer? _avtrIcuSubmitTimer;
+
     private static readonly string _deletedAvatarsPath = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
         "VRCNext", "deleted_avatars.json");
@@ -241,6 +248,111 @@ public partial class AppShell
         catch (Exception ex)
         {
             Invoke(() => SendToJS("log", new { msg = $"[avtrdb] Error: {ex.Message}", color = "err" }));
+        }
+    }
+
+    private void QueueAvtrIcuReport(List<string> ids)
+    {
+        if (!_settings.AvtrIcuReportDeleted) return;
+        _ = Task.Run(async () =>
+        {
+            int added = 0;
+            foreach (var id in ids)
+            {
+                try
+                {
+                    bool exists = await _vrcApi.CheckAvatarExistsAvtrIcuAsync(id);
+                    if (!exists) continue;
+                    lock (_avtrIcuReportQueue)
+                    {
+                        if (_reportedToAvtrIcu.Add(id)) { _avtrIcuReportQueue.Add(id); added++; }
+                    }
+                }
+                catch { }
+                await Task.Delay(500);
+            }
+            if (added > 0)
+            {
+                _avtrIcuReportTimer?.Dispose();
+                _avtrIcuReportTimer = new System.Threading.Timer(_ => _ = Task.Run(FlushAvtrIcuReportQueue), null, 60_000, Timeout.Infinite);
+            }
+        });
+    }
+
+    private async Task FlushAvtrIcuReportQueue()
+    {
+        List<string> batch;
+        lock (_avtrIcuReportQueue)
+        {
+            if (_avtrIcuReportQueue.Count == 0) return;
+            batch = new List<string>(_avtrIcuReportQueue);
+            _avtrIcuReportQueue.Clear();
+        }
+        await SendToAvtrIcu(batch, "deletion");
+    }
+
+    private void QueueAvtrIcuSubmit(string avatarId)
+    {
+        if (!_settings.AvtrIcuSubmitAvatars) return;
+        lock (_avtrIcuSubmitQueue)
+        {
+            if (!_avtrIcuSubmittedIds.Add(avatarId)) return;
+            _avtrIcuSubmitQueue.Add(avatarId);
+        }
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                bool exists = await _vrcApi.CheckAvatarExistsAvtrIcuAsync(avatarId);
+                if (exists)
+                {
+                    lock (_avtrIcuSubmitQueue) _avtrIcuSubmitQueue.Remove(avatarId);
+                    return;
+                }
+                _avtrIcuSubmitTimer?.Dispose();
+                _avtrIcuSubmitTimer = new System.Threading.Timer(_ => _ = Task.Run(FlushAvtrIcuSubmitQueue), null, 60_000, Timeout.Infinite);
+            }
+            catch { }
+        });
+    }
+
+    private async Task FlushAvtrIcuSubmitQueue()
+    {
+        List<string> batch;
+        lock (_avtrIcuSubmitQueue)
+        {
+            if (_avtrIcuSubmitQueue.Count == 0) return;
+            batch = new List<string>(_avtrIcuSubmitQueue);
+            _avtrIcuSubmitQueue.Clear();
+        }
+        await SendToAvtrIcu(batch, "submit");
+    }
+
+    private async Task SendToAvtrIcu(List<string> avatarIds, string reportType = "deletion")
+    {
+        try
+        {
+            using var client = new HttpClient();
+            client.Timeout = TimeSpan.FromSeconds(15);
+            client.DefaultRequestHeaders.TryAddWithoutValidation("User-Agent", AppInfo.UserAgent);
+            var payload = avatarIds.Select(id => new { id }).ToArray();
+            var json = JsonConvert.SerializeObject(payload);
+            var resp = await client.PostAsync("https://avtr.icu/upload-bulk",
+                new StringContent(json, System.Text.Encoding.UTF8, "application/json"));
+            var body = await resp.Content.ReadAsStringAsync();
+            if (resp.IsSuccessStatusCode)
+                Invoke(() =>
+                {
+                    var label = reportType == "submit" ? "Submitted" : "Reported";
+                    SendToJS("log", new { msg = $"[avtr.icu] {label} {avatarIds.Count} avatar(s)", color = "ok" });
+                    SendToJS("avtrIcuReport", new { count = avatarIds.Count, type = reportType });
+                });
+            else
+                Invoke(() => SendToJS("log", new { msg = $"[avtr.icu] Failed: {(int)resp.StatusCode} {body[..Math.Min(200, body.Length)]}", color = "err" }));
+        }
+        catch (Exception ex)
+        {
+            Invoke(() => SendToJS("log", new { msg = $"[avtr.icu] Error: {ex.Message}", color = "err" }));
         }
     }
 
@@ -568,6 +680,7 @@ public partial class AppShell
                 case "vrcSearchAvatars":
                     var avSearchQuery = msg["query"]?.ToString() ?? "";
                     var avSearchPage  = msg["page"]?.Value<int>() ?? 0;
+                    var avSearchDb    = msg["db"]?.ToString() ?? "avtrdb";
                     if (!string.IsNullOrWhiteSpace(avSearchQuery))
                     {
                         _ = Task.Run(async () =>
@@ -575,21 +688,109 @@ public partial class AppShell
                             try
                             {
                                 const int avLimit = 20;
-                                var raw = await _vrcApi.SearchAvatarsAsync(avSearchQuery, avLimit, avSearchPage);
-                                var list = raw.Cast<JObject>().Select(a => new
+                                List<object> list;
+
+                                if (avSearchDb == "avtricu")
                                 {
-                                    id               = a["vrc_id"]?.ToString() ?? a["id"]?.ToString() ?? "",
-                                    name             = a["name"]?.ToString() ?? "",
-                                    thumbnailImageUrl = a["thumbnailImageUrl"]?.ToString() ?? "",
-                                    imageUrl         = ImageCacheHelper.GetAvatarUrl(a["vrc_id"]?.ToString() ?? a["id"]?.ToString(), a["image_url"]?.ToString() ?? a["imageUrl"]?.ToString()),
-                                    authorName       = a["author"]?["name"]?.ToString() ?? a["authorName"]?.ToString() ?? "",
-                                    releaseStatus    = "public",
-                                    description      = a["description"]?.ToString() ?? "",
-                                    unityPackages    = (a["unityPackages"] as JArray ?? new JArray())
-                                        .Select(p => new { platform = p["platform"]?.ToString() ?? "", variant = p["variant"]?.ToString() ?? "" })
-                                        .ToArray(),
-                                    compatibility    = a["compatibility"] as JArray ?? new JArray(),
-                                }).ToList();
+                                    var similarMatch = System.Text.RegularExpressions.Regex.Match(avSearchQuery, @"^similar:\s*(avtr_[\w-]+)$", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+                                    var raw = similarMatch.Success
+                                        ? await _vrcApi.SearchSimilarAvatarsAvtrIcuAsync(similarMatch.Groups[1].Value, avLimit)
+                                        : await _vrcApi.SearchAvatarsAvtrIcuAsync(avSearchQuery, avLimit, avSearchPage * avLimit);
+
+                                    list = raw.Cast<JObject>().Select(a => (object)new
+                                    {
+                                        id                = a["id"]?.ToString() ?? "",
+                                        name              = a["name"]?.ToString() ?? "",
+                                        thumbnailImageUrl = a["thumbnailImageUrl"]?.ToString() ?? "",
+                                        imageUrl          = a["imageUrl"]?.ToString() ?? "",
+                                        authorName        = a["authorName"]?.ToString() ?? "",
+                                        releaseStatus     = "public",
+                                        description       = a["description"]?.ToString() ?? "",
+                                        unityPackages     = Array.Empty<object>(),
+                                        compatibility     = (a["platforms"] as JArray ?? new JArray()).Select(p => p.ToString()).ToArray(),
+                                        sources           = new[] { "avtricu" },
+                                    }).ToList();
+                                }
+                                else if (avSearchDb == "all")
+                                {
+                                    var similarMatch = System.Text.RegularExpressions.Regex.Match(avSearchQuery, @"^similar:\s*(avtr_[\w-]+)$", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+
+                                    Task<JArray> avtrdbTask, avtrIcuTask;
+                                    if (similarMatch.Success)
+                                    {
+                                        var sid = similarMatch.Groups[1].Value;
+                                        avtrdbTask  = _vrcApi.SearchAvatarsAsync(avSearchQuery, avLimit, avSearchPage);
+                                        avtrIcuTask = _vrcApi.SearchSimilarAvatarsAvtrIcuAsync(sid, avLimit);
+                                    }
+                                    else
+                                    {
+                                        avtrdbTask  = _vrcApi.SearchAvatarsAsync(avSearchQuery, avLimit, avSearchPage);
+                                        avtrIcuTask = _vrcApi.SearchAvatarsAvtrIcuAsync(avSearchQuery, avLimit, avSearchPage * avLimit);
+                                    }
+                                    await Task.WhenAll(avtrdbTask, avtrIcuTask);
+
+                                    var dbEntries = avtrdbTask.Result.Cast<JObject>()
+                                        .Select(a => new {
+                                            id                = a["vrc_id"]?.ToString() ?? a["id"]?.ToString() ?? "",
+                                            name              = a["name"]?.ToString() ?? "",
+                                            thumbnailImageUrl = a["thumbnailImageUrl"]?.ToString() ?? "",
+                                            imageUrl          = ImageCacheHelper.GetAvatarUrl(a["vrc_id"]?.ToString() ?? a["id"]?.ToString(), a["image_url"]?.ToString() ?? a["imageUrl"]?.ToString()),
+                                            authorName        = a["author"]?["name"]?.ToString() ?? a["authorName"]?.ToString() ?? "",
+                                            description       = a["description"]?.ToString() ?? "",
+                                            unityPackages     = (a["unityPackages"] as JArray ?? new JArray()).Select(p => new { platform = p["platform"]?.ToString() ?? "", variant = p["variant"]?.ToString() ?? "" }).ToArray(),
+                                            compatibility     = (a["compatibility"] as JArray ?? new JArray()).Select(p => p.ToString()).ToArray(),
+                                        })
+                                        .Where(x => !string.IsNullOrEmpty(x.id))
+                                        .ToList();
+
+                                    var icuEntries = avtrIcuTask.Result.Cast<JObject>()
+                                        .Select(a => new {
+                                            id                = a["id"]?.ToString() ?? "",
+                                            name              = a["name"]?.ToString() ?? "",
+                                            thumbnailImageUrl = a["thumbnailImageUrl"]?.ToString() ?? "",
+                                            imageUrl          = a["imageUrl"]?.ToString() ?? "",
+                                            authorName        = a["authorName"]?.ToString() ?? "",
+                                            description       = a["description"]?.ToString() ?? "",
+                                            compatibility     = (a["platforms"] as JArray ?? new JArray()).Select(p => p.ToString()).ToArray(),
+                                        })
+                                        .Where(x => !string.IsNullOrEmpty(x.id))
+                                        .ToList();
+
+                                    var dbIds  = new HashSet<string>(dbEntries.Select(x => x.id));
+                                    var icuIds = new HashSet<string>(icuEntries.Select(x => x.id));
+
+                                    list = new List<object>();
+                                    foreach (var a in dbEntries)
+                                    {
+                                        var srcs = icuIds.Contains(a.id) ? new[] { "avtrdb", "avtricu" } : new[] { "avtrdb" };
+                                        list.Add(new { a.id, a.name, a.thumbnailImageUrl, a.imageUrl, a.authorName, releaseStatus = "public", a.description, a.unityPackages, a.compatibility, sources = srcs });
+                                    }
+                                    foreach (var a in icuEntries)
+                                    {
+                                        if (!dbIds.Contains(a.id))
+                                            list.Add(new { a.id, a.name, a.thumbnailImageUrl, a.imageUrl, a.authorName, releaseStatus = "public", a.description, unityPackages = Array.Empty<object>(), a.compatibility, sources = new[] { "avtricu" } });
+                                    }
+                                }
+                                else
+                                {
+                                    var raw = await _vrcApi.SearchAvatarsAsync(avSearchQuery, avLimit, avSearchPage);
+                                    list = raw.Cast<JObject>().Select(a => (object)new
+                                    {
+                                        id                = a["vrc_id"]?.ToString() ?? a["id"]?.ToString() ?? "",
+                                        name              = a["name"]?.ToString() ?? "",
+                                        thumbnailImageUrl = a["thumbnailImageUrl"]?.ToString() ?? "",
+                                        imageUrl          = ImageCacheHelper.GetAvatarUrl(a["vrc_id"]?.ToString() ?? a["id"]?.ToString(), a["image_url"]?.ToString() ?? a["imageUrl"]?.ToString()),
+                                        authorName        = a["author"]?["name"]?.ToString() ?? a["authorName"]?.ToString() ?? "",
+                                        releaseStatus     = "public",
+                                        description       = a["description"]?.ToString() ?? "",
+                                        unityPackages     = (a["unityPackages"] as JArray ?? new JArray())
+                                            .Select(p => new { platform = p["platform"]?.ToString() ?? "", variant = p["variant"]?.ToString() ?? "" })
+                                            .ToArray(),
+                                        compatibility     = (a["compatibility"] as JArray ?? new JArray()).Select(p => p.ToString()).ToArray(),
+                                        sources           = new[] { "avtrdb" },
+                                    }).ToList();
+                                }
+
                                 Invoke(() => SendToJS("vrcAvatarSearchResults", new
                                 {
                                     results = list,
@@ -620,6 +821,8 @@ public partial class AppShell
                             // Queue cached deleted IDs for batched report to avtrdb
                             if (_settings.AvtrdbReportDeleted)
                                 QueueAvtrdbReport(cachedDeleted);
+                            if (_settings.AvtrIcuReportDeleted)
+                                _ = Task.Run(() => QueueAvtrIcuReport(cachedDeleted));
                         }
 
                         // Mark IDs as checked IMMEDIATELY to prevent duplicate concurrent checks
@@ -651,6 +854,8 @@ public partial class AppShell
 
                                     if (_settings.AvtrdbReportDeleted)
                                         QueueAvtrdbReport(deleted);
+                                    if (_settings.AvtrIcuReportDeleted)
+                                        _ = Task.Run(() => QueueAvtrIcuReport(deleted));
                                 }
                             });
                         }
@@ -1017,7 +1222,7 @@ public partial class AppShell
                                 name             = avatar["name"]?.ToString()                ?? "",
                                 authorName       = avatar["authorName"]?.ToString()          ?? "",
                                 authorId         = avatar["authorId"]?.ToString()            ?? "",
-                                thumbnailImageUrl = avatar["thumbnailImageUrl"]?.ToString() ?? "",
+                                thumbnailImageUrl = ImageCacheHelper.NormalizeTo512(avatar["thumbnailImageUrl"]?.ToString() ?? ""),
                                 imageUrl         = ImageCacheHelper.GetAvatarUrl(avatar["id"]?.ToString(), avatar["imageUrl"]?.ToString()),
                                 releaseStatus    = avatar["releaseStatus"]?.ToString()       ?? "",
                                 version          = avatar["version"]?.Value<int>()           ?? 0,

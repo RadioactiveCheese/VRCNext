@@ -844,6 +844,77 @@ public class VRChatApiService
         return new JArray();
     }
 
+    public async Task<bool> CheckAvatarExistsAvtrIcuAsync(string avatarId)
+    {
+        var results = await SearchAvatarsAvtrIcuAsync(avatarId, 5, 0);
+        return results.Any(a => a["id"]?.ToString() == avatarId);
+    }
+
+    public async Task<bool> CheckAvatarExistsAvtrdbAsync(string avatarId)
+    {
+        var results = await SearchAvatarsAsync(avatarId, 1);
+        return results.Count > 0 && results.Any(a =>
+            (a["vrc_id"]?.ToString() ?? a["id"]?.ToString() ?? "") == avatarId);
+    }
+
+    public async Task<JArray> SearchSimilarAvatarsAvtrIcuAsync(string avatarId, int n = 20)
+    {
+        var url = $"https://avtr.icu/similar/{Uri.EscapeDataString(avatarId)}?limit={n}";
+
+        using var client = new HttpClient();
+        client.Timeout = TimeSpan.FromSeconds(15);
+        client.DefaultRequestHeaders.TryAddWithoutValidation("User-Agent", UA);
+        client.DefaultRequestHeaders.Accept.ParseAdd("application/json");
+
+        try
+        {
+            Log($"SearchSimilarAvtrIcu: {url}");
+            var resp = await client.GetAsync(url);
+            var body = await resp.Content.ReadAsStringAsync();
+            Log($"SearchSimilarAvtrIcu [{(int)resp.StatusCode}] len={body.Length}");
+
+            if (!resp.IsSuccessStatusCode || string.IsNullOrWhiteSpace(body)) return new JArray();
+
+            var parsed = Newtonsoft.Json.Linq.JToken.Parse(body);
+            if (parsed is JArray arr) return arr;
+        }
+        catch (Exception ex)
+        {
+            Log($"SearchSimilarAvtrIcu exception: {ex.Message}");
+        }
+
+        return new JArray();
+    }
+
+    public async Task<JArray> SearchAvatarsAvtrIcuAsync(string query, int n = 20, int offset = 0)
+    {
+        var url = $"https://avtr.icu/search?search={Uri.EscapeDataString(query)}&limit={n}&offset={offset}";
+
+        using var client = new HttpClient();
+        client.Timeout = TimeSpan.FromSeconds(15);
+        client.DefaultRequestHeaders.TryAddWithoutValidation("User-Agent", UA);
+        client.DefaultRequestHeaders.Accept.ParseAdd("application/json");
+
+        try
+        {
+            Log($"SearchAvatarsAvtrIcu: {url}");
+            var resp = await client.GetAsync(url);
+            var body = await resp.Content.ReadAsStringAsync();
+            Log($"SearchAvatarsAvtrIcu [{(int)resp.StatusCode}] len={body.Length}");
+
+            if (!resp.IsSuccessStatusCode || string.IsNullOrWhiteSpace(body)) return new JArray();
+
+            var parsed = Newtonsoft.Json.Linq.JToken.Parse(body);
+            if (parsed is JArray arr) return arr;
+        }
+        catch (Exception ex)
+        {
+            Log($"SearchAvatarsAvtrIcu exception: {ex.Message}");
+        }
+
+        return new JArray();
+    }
+
     public async Task<JArray> SearchAvatarsByAuthorAsync(string authorId, int n = 50)
     {
         // avtrdb uses query= for all searches including by userId

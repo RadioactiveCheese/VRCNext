@@ -1,35 +1,26 @@
-**2026.20.0**
+**2026.20.1**
 
-**Avatar Scaler**
+**Avatar Search**
 
-Avatar Scaler is a new tool that lets you change your avatar size using the new OSC parameters introduced in the latest VRChat version. It allows scaling between 0.01 meters and 10,000 meters.
+* Added Cute Avatar Search to the trusted Avatar Database list.
+* You can now use either AvtrDB or Avtr.icu to search avatars in the Avatars > Search tab.
+* Added a dropdown that lets you choose between AvtrDB and Avtr.icu.
+* Avatar lookups in instances and user profiles will still use AvtrDB as the main database.
+* Added “Similar Avatars” to the Cute Avatar Search database function inside VRCNext.
+* Added a “Database” badge to avatar cards to show which database was used for the current avatar search.
 
-* Added Avatar Scaler tool.
-* Added option to start Avatar Scaler when launching VRChat in Desktop or VR mode.
-* Added scale slider from 0.01 to 10,000 meters.
-* Added safety settings with a recommended supported range of 0.10 to 100.0 meters.
-* Added keybinds for desktop users.
-* Added scaling speed setting.
+**Settings**
 
-**VR Overlay**
+* Changed “AVTRDB COMMUNITY SUPPORT” to “AVTRDB AND AVTR.ICU COMMUNITY SUPPORT”.
+* The DMCA and deletion system now works with both AvtrDB and Avtr.icu.
+* The avatar report system now works with both AvtrDB and Avtr.icu.
 
-**VR Overlay Redesign**
-* Changed the "Send Invite" button style in the VR Overlay
-* Changed the "Invite" button so it has the text "Invite" instead of an icon to reduce confusion on the user end side.
+**Fixes**
+* Fixed an issue that caused to use /256 Pixels endpoints for avatars instead of the /512 endpoint. This has been fixed now.
 
-Since there are many options in the VR Overlay, we have redesigned it to be more compact.
+**Custom Databases**
 
-* Overlay Notifications
-* Avatar Scaler
-* Water Reminder
-
-These sections now use a compact accordion style and can be opened or collapsed for easier navigation.
-
-**Avatar Scaler**
-
-Added Avatar Scaler to the VR wrist overlay for easy in-VR control.
-
-* Added Avatar Scaler feature.
-* Added Avatar Scaler On/Off setting. When disabled, the tab will not appear in the wrist overlay.
-* Added thumbstick scaling controls with hold keybinds. For example: hold Grip + move the left thumbstick up or down to scale up or down.
-* Added sensitivity slider.
+* VRCNext currently does not support custom databases for various reasons.
+* One reason is that some databases do not have an internal blacklist system to prevent uploads when users do not want their avatars uploaded.
+* Another reason is that some databases are very slow, unresponsive, or have extreme rate limits.
+* Please understand that I will only add databases that meet a high quality standard, include proper blacklist mechanics, and do not have overly aggressive rate limits.

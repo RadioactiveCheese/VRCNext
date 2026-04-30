@@ -889,6 +889,10 @@ public class AuthController
             _core.Settings.AvtrdbReportDeleted = data["avtrdbReportDeleted"]?.Value<bool>() ?? true;
             _core.Settings.AvtrdbSubmitAvatars = data["avtrdbSubmitAvatars"]?.Value<bool>() ?? false;
 
+            // Avtr.icu Support
+            _core.Settings.AvtrIcuReportDeleted = data["avtrIcuReportDeleted"]?.Value<bool>() ?? true;
+            _core.Settings.AvtrIcuSubmitAvatars = data["avtrIcuSubmitAvatars"]?.Value<bool>() ?? false;
+
             // Memory Trim
             _core.Settings.MemoryTrimEnabled = data["memoryTrimEnabled"]?.Value<bool>() ?? false;
             _core.MemTrim.SetEnabled(_core.Settings.MemoryTrimEnabled);

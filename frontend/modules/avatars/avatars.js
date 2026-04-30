@@ -108,7 +108,14 @@ function setAvatarFilter(filter) {
     if (roseArea)   roseArea.style.display   = filter === 'rose'      ? '' : 'none';
     if (searchArea) searchArea.style.display = filter === 'search'    ? '' : 'none';
 
+    const _dbDrop = document.getElementById('avatarSearchDbDrop');
+    if (_dbDrop) {
+        const _dbWrap = _dbDrop._vnSelect ? _dbDrop.parentNode : _dbDrop;
+        _dbWrap.style.display = filter === 'search' ? '' : 'none';
+    }
+
     document.getElementById('avatarCount').textContent = '';
+    const _sc = document.getElementById('avatarSearchCount'); if (_sc) _sc.textContent = '';
 
     const editBtn = document.getElementById('avatarEditModeBtn');
     if (editBtn) editBtn.style.display = filter === 'favorites' ? '' : 'none';
@@ -213,8 +220,8 @@ function _markDeletedAvatars(deletedIds) {
 function _avPlatformBadges(a) {
     let hasPC, hasQuest;
     if (a.compatibility && a.compatibility.length > 0) {
-        // avtrdb.com search results: compatibility = ["pc", "android", "ios"]
-        hasPC    = a.compatibility.includes('pc');
+        // avtrdb: ["pc", "android", "ios"] — avtr.icu: ["standalonewindows", "android"]
+        hasPC    = a.compatibility.includes('pc') || a.compatibility.includes('standalonewindows');
         hasQuest = a.compatibility.includes('android');
     } else {
         // Own / favorite avatars: use unityPackages, exclude auto-generated impostors
@@ -224,6 +231,19 @@ function _avPlatformBadges(a) {
     }
     if (!hasPC && !hasQuest) return '';
     return `<div style="display:flex;gap:3px;">${hasPC ? '<span class="vrcn-badge platform-pc">PC</span>' : ''}${hasQuest ? '<span class="vrcn-badge platform-quest">Quest</span>' : ''}</div>`;
+}
+
+function _avDbBadge(context, a) {
+    if (context !== 'search') return '';
+    const srcs = a.sources || [avatarSearchDb];
+    const hasDb  = srcs.includes('avtrdb');
+    const hasIcu = srcs.includes('avtricu');
+    if (!hasDb && !hasIcu) return '';
+    const badges = [
+        hasDb  ? '<span class="vrcn-badge db-avtrdb">Avtrdb</span>'   : '',
+        hasIcu ? '<span class="vrcn-badge db-avtricu">Avtr.icu</span>' : '',
+    ].join('');
+    return `<div class="cc-badge-db" style="display:flex;gap:3px;">${badges}</div>`;
 }
 
 function renderAvatarCard(a, context) {
@@ -238,6 +258,7 @@ function renderAvatarCard(a, context) {
         <div class="cc-bg" style="${thumbStyle}"></div>
         <div class="cc-scrim"></div>
         <div class="cc-badges-top">${activeBadge}${statusBadge}${_avPlatformBadges(a)}</div>
+        ${_avDbBadge(context, a)}
         <div class="cc-content">
             <div class="cc-name">${esc(a.name || t('avatars.labels.unnamed', 'Unnamed'))}</div>
             <div class="cc-meta">${esc(a.authorName || '')}</div>
@@ -255,6 +276,17 @@ function selectAvatar(avatarId) {
 }
 
 /* === Search === */
+function setAvatarSearchDb(db) {
+    avatarSearchDb = db;
+    avatarSearchPage = 0;
+    avatarSearchResults = [];
+    avatarSearchQuery = '';
+    avatarSearchHasMore = false;
+    const grid = document.getElementById('avatarSearchGrid');
+    if (grid) grid.innerHTML = avatarEmptyMessage('avatars.search.empty_prompt', 'Search for public avatars');
+    document.getElementById('avatarCount').textContent = '';
+}
+
 function doAvatarSearch(loadMore) {
     const q = document.getElementById('avatarSearchInput').value.trim();
     if (!q) return;
@@ -266,7 +298,7 @@ function doAvatarSearch(loadMore) {
     } else {
         avatarSearchPage++;
     }
-    sendToCS({ action: 'vrcSearchAvatars', query: avatarSearchQuery, page: avatarSearchPage });
+    sendToCS({ action: 'vrcSearchAvatars', query: avatarSearchQuery, page: avatarSearchPage, db: avatarSearchDb });
 }
 
 /* === Favorites: group dropdown + header === */

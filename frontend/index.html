@@ -59,7 +59,7 @@
 </head>
 <body>
     <div class="sidebar" id="sidebarEl">
-        <div class="logo"><div class="logo-icon" id="logoIcon">V</div><div class="logo-txt"><div class="logo-text-row"><div class="logo-text">VRCNext</div></div><div class="logo-sub">v2026.19.8</div></div><button class="sb-toggle" onclick="toggleSidebar()" title="Toggle sidebar" data-i18n-title="common.toggle_sidebar"><span class="msi" id="sbIcon">chevron_left</span></button></div>
+        <div class="logo"><div class="logo-icon" id="logoIcon">V</div><div class="logo-txt"><div class="logo-text-row"><div class="logo-text">VRCNext</div></div><div class="logo-sub">v2026.20.0</div></div><button class="sb-toggle" onclick="toggleSidebar()" title="Toggle sidebar" data-i18n-title="common.toggle_sidebar"><span class="msi" id="sbIcon">chevron_left</span></button></div>
         <div class="nav vrcn-scrollbar">
             <button class="nav-btn active" onclick="showTab(0)" data-nav="dashboard"><span class="ni msi">dashboard</span><span class="nl" data-i18n="nav.dashboard">Dashboard</span></button>
             <button class="nav-btn" onclick="showTab(1)"><span class="ni msi">travel_explore</span><span class="nl" data-i18n="nav.worlds">Worlds</span></button>
@@ -446,6 +446,7 @@
                         <button class="vrcn-button sub-tab-btn" id="avatarFilterFav" onclick="setAvatarFilter('favorites')"><span class="msi" style="font-size:16px;">star</span> <span data-i18n="avatars.filters.favorites">Favorites</span></button>
                         <button class="vrcn-button sub-tab-btn" id="avatarFilterRose" onclick="setAvatarFilter('rose')"><span class="msi" style="font-size:16px;">local_florist</span> <span data-i18n="avatars.filters.rose">Rose Database</span></button>
                         <button class="vrcn-button sub-tab-btn" id="avatarFilterSearch" onclick="setAvatarFilter('search')"><span class="msi" style="font-size:16px;">search</span> <span data-i18n="common.search">Search</span></button>
+                        <select id="avatarSearchDbDrop" class="vrcn-dropdown" onchange="setAvatarSearchDb(this.value)" style="min-width:120px;"><option value="avtrdb">Avtrdb</option><option value="avtricu">Avtr.icu</option><option value="all">Search all</option></select>
                         <span id="avatarCount" style="font-size:12px;color:var(--tx3);"></span>
                     </div>
                     <div id="avatarEditBar" style="display:none;align-items:center;gap:6px;flex-wrap:wrap;flex:1;">
@@ -1014,25 +1015,33 @@
                     </div>
 
                     <div class="vrcn-panel-card">
-                        <div class="vrcn-panel-card-header"><span class="msi">database</span> <span data-i18n="settings.avtrdb.title">Avtrdb Community Support</span></div>
+                        <div class="vrcn-panel-card-header"><span class="msi">database</span> <span data-i18n="settings.avtrdb.title">Avatar Avtrdb and Avtr.icu Community Support</span></div>
                         <div class="fd-tabs" style="margin-top:10px;">
                             <button class="fd-tab active" onclick="switchAvtrdbTab('support',this)" data-i18n="settings.avtrdb.tabs.support">Support</button>
                             <button class="fd-tab" onclick="switchAvtrdbTab('reports',this)" data-i18n="settings.avtrdb.tabs.reports">Reports</button>
                         </div>
                         <div id="avtrdbTabSupport">
-                            <div class="set-desc" data-i18n="settings.avtrdb.support.deleted_desc">Help improve the avtrdb avatar database by reporting deleted avatars. When enabled, VRCNext will notify avtrdb whenever you encounter a deleted or DMCA'd avatar. This helps keep the database clean and up to date for everyone.</div>
+                            <div class="set-desc" data-i18n="settings.avtrdb.support.deleted_desc">Help improve the avatar databases by reporting deleted avatars. When enabled, VRCNext will notify the respective database whenever you encounter a deleted or DMCA'd avatar, but only if that avatar exists in that database.</div>
                             <div class="sf-toggle-row">
-                                <span data-i18n="settings.avtrdb.support.deleted_toggle">Report deleted avatars to avtrdb</span>
+                                <span data-i18n="settings.avtrdb.support.deleted_toggle">Report deleted avatars to Avtrdb</span>
                                 <label class="toggle"><input type="checkbox" id="setAvtrdbReport" onchange="autoSave()"><div class="toggle-track"><div class="toggle-knob"></div></div></label>
                             </div>
-                            <div class="set-desc" style="margin-top:14px;" data-i18n="settings.avtrdb.support.submit_desc">Submit new public avatars you encounter in-game to the avtrdb database. When you switch to an avatar that isn't indexed yet, VRCNext will automatically submit it. This helps expand the database and makes more avatars discoverable for everyone.</div>
+                            <div class="sf-toggle-row" style="margin-top:8px;">
+                                <span data-i18n="settings.avtrdb.support.deleted_toggle_icu">Report deleted avatars to Avtr.icu</span>
+                                <label class="toggle"><input type="checkbox" id="setAvtrIcuReport" onchange="autoSave()"><div class="toggle-track"><div class="toggle-knob"></div></div></label>
+                            </div>
+                            <div class="set-desc" style="margin-top:14px;" data-i18n="settings.avtrdb.support.submit_desc">Submit new public avatars you encounter in-game to the avatar databases. When you switch to an avatar that isn't indexed yet, VRCNext will automatically submit it. This helps expand the databases and makes more avatars discoverable for everyone.</div>
                             <div class="sf-toggle-row">
-                                <span data-i18n="settings.avtrdb.support.submit_toggle">Submit new avatars to avtrdb</span>
+                                <span data-i18n="settings.avtrdb.support.submit_toggle">Submit new avatars to Avtrdb</span>
                                 <label class="toggle"><input type="checkbox" id="setAvtrdbSubmit" onchange="autoSave()"><div class="toggle-track"><div class="toggle-knob"></div></div></label>
+                            </div>
+                            <div class="sf-toggle-row" style="margin-top:8px;">
+                                <span data-i18n="settings.avtrdb.support.submit_toggle_icu">Submit new avatars to Avtr.icu</span>
+                                <label class="toggle"><input type="checkbox" id="setAvtrIcuSubmit" onchange="autoSave()"><div class="toggle-track"><div class="toggle-knob"></div></div></label>
                             </div>
                         </div>
                         <div id="avtrdbTabReports" style="display:none;">
-                            <div class="set-desc" style="margin-bottom:10px;" data-i18n="settings.avtrdb.reports.desc">All reports sent to avtrdb during this session. Click a ticket to check its status.</div>
+                            <div class="set-desc" style="margin-bottom:10px;" data-i18n="settings.avtrdb.reports.desc">All reports sent to avatar databases during this session. Avtrdb reports include a ticket link to check status.</div>
                             <div id="avtrdbReportsList"><div class="empty-msg" data-i18n="settings.avtrdb.reports.empty">No reports sent yet this session.</div></div>
                         </div>
                     </div>

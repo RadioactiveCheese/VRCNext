@@ -216,6 +216,8 @@ function saveSettings() {
             twoRenderProcesses: document.getElementById('setPerfRenderProc')?.checked   ?? false,
             avtrdbReportDeleted: document.getElementById('setAvtrdbReport').checked,
             avtrdbSubmitAvatars: document.getElementById('setAvtrdbSubmit').checked,
+            avtrIcuReportDeleted: document.getElementById('setAvtrIcuReport').checked,
+            avtrIcuSubmitAvatars: document.getElementById('setAvtrIcuSubmit').checked,
             dashSectionOrder:  (typeof _dashLayout !== 'undefined') ? _dashLayout.order  : [],
             dashSectionHidden: (typeof _dashLayout !== 'undefined') ? _dashLayout.hidden : []
         }
@@ -492,6 +494,8 @@ function loadSettingsToUI(s) {
     // Avtrdb Support
     document.getElementById('setAvtrdbReport').checked = s.AvtrdbReportDeleted ?? s.avtrdbReportDeleted ?? true;
     document.getElementById('setAvtrdbSubmit').checked = s.AvtrdbSubmitAvatars ?? s.avtrdbSubmitAvatars ?? false;
+    document.getElementById('setAvtrIcuReport').checked = s.AvtrIcuReportDeleted ?? s.avtrIcuReportDeleted ?? true;
+    document.getElementById('setAvtrIcuSubmit').checked = s.AvtrIcuSubmitAvatars ?? s.avtrIcuSubmitAvatars ?? false;
 
     // Memory Trim
     document.getElementById('setMemoryTrimEnabled').checked = s.MemoryTrimEnabled ?? s.memoryTrimEnabled ?? false;
@@ -837,8 +841,8 @@ function avtrdbCollecting(count) {
     renderAvtrdbReports();
 }
 
-function addAvtrdbReport(count, enqueued, invalid, ticket, type) {
-    _avtrdbReports.push({ ts: Date.now(), count, enqueued, invalid, ticket, type: type || 'deletion' });
+function addAvtrdbReport(count, enqueued, invalid, ticket, type, db) {
+    _avtrdbReports.push({ ts: Date.now(), count, enqueued, invalid, ticket, type: type || 'deletion', db: db || 'avtrdb' });
     // Clear collecting state
     _avtrdbCollecting = 0;
     _avtrdbCollectEnd = 0;
@@ -881,13 +885,21 @@ function renderAvtrdbReports() {
         if (r.invalid > 0) {
             summaryParts.push(tf('settings.avtrdb.reports.invalid', { count: r.invalid }, `${r.invalid} invalid`));
         }
+        const isIcu = r.db === 'avtricu';
+        const dbBadge = isIcu
+            ? `<span class="vrcn-badge db-avtricu" style="font-size:10px;flex-shrink:0;">Avtr.icu</span>`
+            : `<span class="vrcn-badge db-avtrdb" style="font-size:10px;flex-shrink:0;">Avtrdb</span>`;
+        const ticketBtn = (!isIcu && r.ticket)
+            ? `<button class="vrcn-button-round" style="font-size:11px;padding:4px 10px;" onclick="sendToCS({action:'openUrl',url:'https://avtrdb.com/check_ticket_status/${esc(r.ticket)}'})">
+            <span class="msi" style="font-size:13px;">open_in_new</span> ${t('settings.avtrdb.reports.ticket', 'Ticket')}
+        </button>`
+            : '';
         return `<div style="display:flex;align-items:center;gap:10px;padding:8px 10px;background:var(--bg-input);border-radius:8px;margin-bottom:6px;">
         <span style="font-size:11px;color:var(--tx3);white-space:nowrap;">${esc(time)}</span>
+        ${dbBadge}
         <span class="vrcn-badge" style="font-size:10px;color:${typeColor};flex-shrink:0;"><span class="msi" style="font-size:10px;">${typeIcon}</span> ${esc(typeLabel)}</span>
         <span style="font-size:12px;color:var(--tx1);flex:1;">${esc(summaryParts.join(', '))}</span>
-        <button class="vrcn-button-round" style="font-size:11px;padding:4px 10px;" onclick="sendToCS({action:'openUrl',url:'https://avtrdb.com/check_ticket_status/${esc(r.ticket)}'})">
-            <span class="msi" style="font-size:13px;">open_in_new</span> ${t('settings.avtrdb.reports.ticket', 'Ticket')}
-        </button>
+        ${ticketBtn}
     </div>`;
     }).join('');
 

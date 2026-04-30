@@ -148,7 +148,7 @@ public partial class AppShell
         _core.IsVrcRunning = RelayController.IsVrcRunning;
         _core.IsSteamVrRunning = RelayController.IsSteamVrRunning;
         _core.DispatchMessage = rawMsg => OnWebMessage(rawMsg);
-        _core.AvtrdbSubmit        = id => QueueAvtrdbSubmit(id);
+        _core.AvtrdbSubmit        = id => { QueueAvtrdbSubmit(id); QueueAvtrIcuSubmit(id); };
         _core.PrefetchSharedContent = () => PrefetchSharedContentAsync();
         _core.LoadPage = path => _window.Load(path);
         _friends = new FriendsController(_core);

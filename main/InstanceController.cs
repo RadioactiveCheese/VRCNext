@@ -1278,7 +1278,9 @@ public class InstanceController
         photoUrl    = !string.IsNullOrEmpty(ev.PhotoPath) ? (_core.GetVirtualMediaUrl?.Invoke(ev.PhotoPath) ?? "") : _core.FixLocalUrl(ev.PhotoUrl),
         userId      = ev.UserId,
         userName    = ev.UserName,
-        userImage   = ResolveWithDiskFallback(ev.UserId, ev.UserImage),
+        userImage   = ev.Type == "avatar_switch"
+            ? ImageCacheHelper.GetAvatarUrl(ev.UserId, ev.UserImage)
+            : ResolveWithDiskFallback(ev.UserId, ev.UserImage),
         meetCount   = ev.Type == "meet_again" ? _core.Timeline.GetMeetAgainCount(ev.UserId) : 0,
         notifId     = ev.NotifId,
         notifType   = ev.NotifType,

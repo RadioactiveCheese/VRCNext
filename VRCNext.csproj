@@ -55,6 +55,11 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Compile Remove="BuildSecrets.cs" />
+    <Compile Include="BuildSecrets.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
   <None Update="voice\**\*">
     <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
   </None>

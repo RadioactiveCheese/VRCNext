@@ -1750,6 +1750,8 @@ public partial class AppShell
                     var calMonth  = msg["month"]?.Value<int>() ?? 0;
                     _ = Task.Run(async () => {
                         var evts = await _vrcApi.GetCalendarEventsAsync(calFilter, calYear, calMonth);
+                        foreach (var ce in evts.OfType<JObject>())
+                            ce["imageUrl"] = ImageCacheHelper.GetEventUrl(ce["id"]?.ToString(), ce["imageUrl"]?.ToString());
                         Invoke(() => SendToJS("vrcCalendarEvents", new { events = evts, filter = calFilter }));
                     });
                     break;
@@ -1769,7 +1771,7 @@ public partial class AppShell
                                 ["description"] = calCached.Description,
                                 ["startsAt"]    = calCached.StartsAt,
                                 ["endsAt"]      = calCached.EndsAt,
-                                ["imageUrl"]    = calCached.ImageUrl,
+                                ["imageUrl"]    = ImageCacheHelper.GetEventUrl(calEvtId, calCached.ImageUrl),
                                 ["accessType"]  = calCached.AccessType,
                                 ["isFollowing"] = calCached.IsFollowing,
                                 ["tags"]        = new JArray(calCached.Tags),
@@ -1791,6 +1793,8 @@ public partial class AppShell
                                     ev["ownerId"]?.ToString() ?? "",
                                     ev["isFollowing"]?.Value<bool>() ?? false);
                             }
+                            if (ev != null)
+                                ev["imageUrl"] = ImageCacheHelper.GetEventUrl(ev["id"]?.ToString() ?? calEvtId, ev["imageUrl"]?.ToString());
                             Invoke(() => SendToJS("vrcCalendarEvent", ev ?? new JObject()));
                         });
                     }

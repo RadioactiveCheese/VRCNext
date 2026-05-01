@@ -335,7 +335,7 @@ public class GroupsController
                                     description = e["description"]?.ToString() ?? "",
                                     startsAt = e["startsAt"]?.ToString() ?? "",
                                     endsAt = e["endsAt"]?.ToString() ?? "",
-                                    imageUrl = ImageCacheHelper.GetGroupUrl(e["id"]?.ToString(), e["imageUrl"]?.ToString()),
+                                    imageUrl = ImageCacheHelper.GetEventUrl(e["id"]?.ToString(), e["imageUrl"]?.ToString()),
                                     accessType = e["accessType"]?.ToString() ?? "",
                                 }),
                                 groupInstances = instances.Select(i => new {

@@ -38,6 +38,7 @@ public static class ImageCacheHelper
         Directory.CreateDirectory(Path.Combine(_baseDir, "Users"));
         Directory.CreateDirectory(Path.Combine(_baseDir, "Badges"));
         Directory.CreateDirectory(Path.Combine(_baseDir, "Files"));
+        Directory.CreateDirectory(Path.Combine(_baseDir, "Events"));
     }
 
     public static string GetWorldUrl(string? worldId, string? imageUrl)
@@ -146,6 +147,21 @@ public static class ImageCacheHelper
         imageUrl = StripLocalhostUrl(imageUrl);
         if (!string.IsNullOrWhiteSpace(badgeId) && !string.IsNullOrWhiteSpace(imageUrl))
             _ = CacheAsync("Badges", badgeId, imageUrl, false);
+        return NormalizeTo512(imageUrl ?? "");
+    }
+
+// Events (Group Events, Calendar Events)
+
+    public static string? GetEventCached(string? eventId)
+        => FindCachedFile("Events", eventId);
+
+    public static string GetEventUrl(string? eventId, string? imageUrl)
+    {
+        var cached = GetEventCached(eventId);
+        if (cached != null) return ToLocalUrl(cached);
+        imageUrl = StripLocalhostUrl(imageUrl);
+        if (!string.IsNullOrWhiteSpace(eventId) && !string.IsNullOrWhiteSpace(imageUrl))
+            _ = CacheAsync("Events", eventId, imageUrl, false);
         return NormalizeTo512(imageUrl ?? "");
     }
 

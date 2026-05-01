@@ -76,7 +76,8 @@ public class GroupsController
             var enrichedForJs = enriched.Select(g => {
                 var jo = JObject.FromObject(g);
                 var gid = jo["id"]?.ToString();
-                jo["iconUrl"] = ImageCacheHelper.GetGroupUrl(gid, jo["iconUrl"]?.ToString());
+                jo["iconUrl"]   = ImageCacheHelper.GetGroupUrl(gid, jo["iconUrl"]?.ToString());
+                jo["bannerUrl"] = ImageCacheHelper.GetGroupBannerUrl(gid, jo["bannerUrl"]?.ToString());
                 return (object)jo;
             }).ToList();
             _core.SendToJS("log", new { msg = $"[GROUPS] {enriched.Count} loaded", color = "sec" });

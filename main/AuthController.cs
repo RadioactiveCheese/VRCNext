@@ -1365,7 +1365,11 @@ public class AuthController
         if (_core.Cache.LoadRaw(CacheHandler.KeyGroups) is JArray groupsArr)
         {
             foreach (var g in groupsArr)
-                if (g is JObject go) go["iconUrl"] = ImageCacheHelper.GetGroupUrl(go["id"]?.ToString(), go["iconUrl"]?.ToString());
+                if (g is JObject go)
+                {
+                    go["iconUrl"]   = ImageCacheHelper.GetGroupUrl(go["id"]?.ToString(), go["iconUrl"]?.ToString());
+                    go["bannerUrl"] = ImageCacheHelper.GetGroupBannerUrl(go["id"]?.ToString(), go["bannerUrl"]?.ToString());
+                }
             _core.SendToJS("vrcMyGroups", groupsArr);
         }
 

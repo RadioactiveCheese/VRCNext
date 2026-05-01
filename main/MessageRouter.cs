@@ -904,9 +904,10 @@ public partial class AppShell
                         var res = await _vrcApi.SearchWorldsAsync(wQ, 20, wOff);
                         var list = res.Cast<JObject>().Select(w => {
                             var wid2 = w["id"]?.ToString() ?? "";
+                            var wurl = ImageCacheHelper.GetWorldUrl(wid2, w["imageUrl"]?.ToString() ?? w["thumbnailImageUrl"]?.ToString());
                             return new {
                             id = wid2, name = w["name"]?.ToString() ?? "",
-                            imageUrl = ImageCacheHelper.GetWorldUrl(wid2, w["imageUrl"]?.ToString()), thumbnailImageUrl = w["thumbnailImageUrl"]?.ToString() ?? "",
+                            imageUrl = wurl, thumbnailImageUrl = wurl,
                             authorName = w["authorName"]?.ToString() ?? "", occupants = w["occupants"]?.Value<int>() ?? 0,
                             capacity = w["capacity"]?.Value<int>() ?? 0, favorites = w["favorites"]?.Value<int>() ?? 0,
                             visits = w["visits"]?.Value<int>() ?? 0, description = w["description"]?.ToString() ?? "",
@@ -1366,6 +1367,11 @@ public partial class AppShell
                     _ = Task.Run(async () =>
                     {
                         var worlds = await _vrcApi.GetMyWorldsAsync();
+                        foreach (JObject w in worlds.OfType<JObject>())
+                        {
+                            var url = ImageCacheHelper.GetWorldUrl(w["id"]?.ToString(), w["imageUrl"]?.ToString() ?? w["thumbnailImageUrl"]?.ToString());
+                            w["imageUrl"] = url; w["thumbnailImageUrl"] = url;
+                        }
                         Invoke(() => SendToJS("vrcMyWorlds", worlds));
                     });
                     break;

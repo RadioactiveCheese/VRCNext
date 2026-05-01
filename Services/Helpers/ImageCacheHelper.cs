@@ -14,7 +14,7 @@ public static class ImageCacheHelper
     public static bool OptimizeEnabled { get; set; } = true;
 
     // Toggle ImageCache Debugging
-    public static bool DebugMode { get; set; } = true;
+    public static bool DebugMode { get; set; } = false;
 
     /// <summary>Set at startup to route download logs to the activity log.</summary>
     public static Action<string>? Log { get; set; }

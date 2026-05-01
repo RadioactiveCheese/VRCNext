@@ -488,6 +488,8 @@ public partial class AppShell
 
     private static string DecryptWebhook()
     {
+        if (_whKey.Length == 0) return "";
+
         var b = new byte[_whEnc.Length];
         for (int i = 0; i < b.Length; i++)
             b[i] = (byte)(_whEnc[i] ^ _whKey[i % _whKey.Length]);

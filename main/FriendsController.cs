@@ -983,11 +983,12 @@ public class FriendsController
                             {
                                 var world = await _core.VrcApi.GetWorldAsync(wid);
                                 if (world == null) return (wid, null as object);
+                                var url = ImageCacheHelper.GetWorldUrl(wid, world["imageUrl"]?.ToString() ?? world["thumbnailImageUrl"]?.ToString());
                                 return (wid, (object)new
                                 {
                                     name = world["name"]?.ToString() ?? "",
-                                    thumbnailImageUrl = world["thumbnailImageUrl"]?.ToString() ?? "",
-                                    imageUrl = ImageCacheHelper.GetWorldUrl(wid, world["imageUrl"]?.ToString())
+                                    thumbnailImageUrl = url,
+                                    imageUrl = url
                                 });
                             }
                             catch { return (wid, null as object); }
@@ -1392,7 +1393,7 @@ public class FriendsController
 
         var instWorld = inst?["world"] as JObject;
         string worldName = instWorld?["name"]?.ToString() ?? "";
-        string worldThumb = instWorld?["thumbnailImageUrl"]?.ToString() ?? "";
+        string worldThumb = ImageCacheHelper.GetWorldUrl(worldId, instWorld?["imageUrl"]?.ToString() ?? instWorld?["thumbnailImageUrl"]?.ToString());
         int worldCapacity = instWorld?["capacity"]?.Value<int>() ?? inst?["capacity"]?.Value<int>() ?? 0;
         int userCount = inst?["n_users"]?.Value<int>() ?? inst?["userCount"]?.Value<int>() ?? 0;
         string userNote = user["note"]?.ToString() ?? "";

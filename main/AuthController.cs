@@ -1215,13 +1215,13 @@ public class AuthController
                 {
                     var wid = w["id"]?.ToString() ?? "";
                     var stats = _core.TimeEngine.GetWorldStats(wid);
-                    var rawWorldImg = w["imageUrl"]?.ToString() ?? "";
+                    var rawWorldImg = ImageCacheHelper.GetWorldUrl(wid, w["imageUrl"]?.ToString() ?? w["thumbnailImageUrl"]?.ToString());
                     allWorlds.Add(new
                     {
                         id                = wid,
                         name              = w["name"]?.ToString() ?? "",
-                        imageUrl          = rawWorldImg, // raw URL stored in FFC — processed on load via GetWorldUrl
-                        thumbnailImageUrl = w["thumbnailImageUrl"]?.ToString() ?? "",
+                        imageUrl          = rawWorldImg,
+                        thumbnailImageUrl = rawWorldImg,
                         authorName        = w["authorName"]?.ToString() ?? "",
                         occupants         = w["occupants"]?.Value<int>()  ?? 0,
                         capacity          = w["capacity"]?.Value<int>()   ?? 0,
@@ -1283,12 +1283,13 @@ public class AuthController
                 if (!perGroup.TryGetValue(g.name, out var groupAvatars)) continue;
                 foreach (var a in groupAvatars)
                 {
+                    var cachedAvImg = ImageCacheHelper.GetAvatarUrl(a["id"]?.ToString(), a["imageUrl"]?.ToString() ?? a["thumbnailImageUrl"]?.ToString());
                     allAvatars.Add(new
                     {
                         id                = a["id"]?.ToString() ?? "",
                         name              = a["name"]?.ToString() ?? "",
-                        imageUrl          = a["imageUrl"]?.ToString() ?? "", // raw URL for FFC
-                        thumbnailImageUrl = a["thumbnailImageUrl"]?.ToString() ?? "",
+                        imageUrl          = cachedAvImg,
+                        thumbnailImageUrl = cachedAvImg,
                         authorName        = a["authorName"]?.ToString() ?? "",
                         releaseStatus     = a["releaseStatus"]?.ToString() ?? "private",
                         favoriteGroup     = g.name,
@@ -1316,18 +1317,21 @@ public class AuthController
         try
         {
             var avatars = await _core.VrcApi.GetOwnAvatarsAsync();
-            var list = avatars.Select(a => new
-            {
-                id                = a["id"]?.ToString() ?? "",
-                name              = a["name"]?.ToString() ?? "",
-                imageUrl          = a["imageUrl"]?.ToString() ?? "", // raw URL for FFC
-                thumbnailImageUrl = a["thumbnailImageUrl"]?.ToString() ?? "",
-                authorName        = a["authorName"]?.ToString() ?? "",
-                releaseStatus     = a["releaseStatus"]?.ToString() ?? "private",
-                description       = a["description"]?.ToString() ?? "",
-                unityPackages     = (a["unityPackages"] as JArray ?? new JArray())
-                    .Select(p => new { platform = p["platform"]?.ToString() ?? "", variant = p["variant"]?.ToString() ?? "" })
-                    .ToArray(),
+            var list = avatars.Select(a => {
+                var cachedAvImg = ImageCacheHelper.GetAvatarUrl(a["id"]?.ToString(), a["imageUrl"]?.ToString() ?? a["thumbnailImageUrl"]?.ToString());
+                return (object)new
+                {
+                    id                = a["id"]?.ToString() ?? "",
+                    name              = a["name"]?.ToString() ?? "",
+                    imageUrl          = cachedAvImg,
+                    thumbnailImageUrl = cachedAvImg,
+                    authorName        = a["authorName"]?.ToString() ?? "",
+                    releaseStatus     = a["releaseStatus"]?.ToString() ?? "private",
+                    description       = a["description"]?.ToString() ?? "",
+                    unityPackages     = (a["unityPackages"] as JArray ?? new JArray())
+                        .Select(p => new { platform = p["platform"]?.ToString() ?? "", variant = p["variant"]?.ToString() ?? "" })
+                        .ToArray(),
+                };
             }).ToList();
             var payload = new { filter = "own", avatars = list, currentAvatarId = _core.VrcApi.CurrentAvatarId ?? "" };
             if (_core.Settings.FfcEnabled) _core.Cache.Save(CacheHandler.KeyAvatars, payload);
@@ -1350,7 +1354,11 @@ public class AuthController
         if (_core.Cache.LoadRaw(CacheHandler.KeyAvatars) is JObject avatarsObj)
         {
             foreach (var a in avatarsObj["avatars"] as JArray ?? new JArray())
-                if (a is JObject ao) ao["imageUrl"] = ImageCacheHelper.GetAvatarUrl(ao["id"]?.ToString(), ao["imageUrl"]?.ToString());
+                if (a is JObject ao)
+                {
+                    ao["imageUrl"] = ImageCacheHelper.GetAvatarUrl(ao["id"]?.ToString(), ao["imageUrl"]?.ToString() ?? ao["thumbnailImageUrl"]?.ToString());
+                    ao["thumbnailImageUrl"] = ao["imageUrl"];
+                }
             _core.SendToJS("vrcAvatars", avatarsObj);
         }
 
@@ -1364,14 +1372,22 @@ public class AuthController
         if (_core.Cache.LoadRaw(CacheHandler.KeyFavWorlds) is JObject favWorldsObj)
         {
             foreach (var grp in favWorldsObj["worlds"] as JArray ?? new JArray())
-                if (grp is JObject wo) wo["imageUrl"] = ImageCacheHelper.GetWorldUrl(wo["id"]?.ToString(), wo["imageUrl"]?.ToString() ?? wo["thumbnailImageUrl"]?.ToString());
+                if (grp is JObject wo)
+                {
+                    wo["imageUrl"] = ImageCacheHelper.GetWorldUrl(wo["id"]?.ToString(), wo["imageUrl"]?.ToString() ?? wo["thumbnailImageUrl"]?.ToString());
+                    wo["thumbnailImageUrl"] = wo["imageUrl"];
+                }
             _core.SendToJS("vrcFavoriteWorlds", favWorldsObj);
         }
 
         if (_core.Cache.LoadRaw(CacheHandler.KeyFavAvatars) is JObject favAvatarsObj)
         {
             foreach (var a in favAvatarsObj["avatars"] as JArray ?? new JArray())
-                if (a is JObject ao) ao["imageUrl"] = ImageCacheHelper.GetAvatarUrl(ao["id"]?.ToString(), ao["imageUrl"]?.ToString());
+                if (a is JObject ao)
+                {
+                    ao["imageUrl"] = ImageCacheHelper.GetAvatarUrl(ao["id"]?.ToString(), ao["imageUrl"]?.ToString() ?? ao["thumbnailImageUrl"]?.ToString());
+                    ao["thumbnailImageUrl"] = ao["imageUrl"];
+                }
             _core.SendToJS("vrcFavoriteAvatars", favAvatarsObj);
         }
 

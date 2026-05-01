@@ -121,7 +121,9 @@ public class InstanceController
                         miRaw.Add((instLoc,
                             inst["worldId"]?.ToString() ?? "",
                             inst["world"]?["name"]?.ToString() ?? "",
-                            inst["world"]?["imageUrl"]?.ToString() ?? inst["world"]?["thumbnailImageUrl"]?.ToString() ?? "",
+                            ImageCacheHelper.GetWorldUrl(
+                                inst["worldId"]?.ToString(),
+                                inst["world"]?["imageUrl"]?.ToString() ?? inst["world"]?["thumbnailImageUrl"]?.ToString()),
                             iType,
                             inst["userCount"]?.Value<int>() ?? 0,
                             inst["capacity"]?.Value<int>() ?? 0,

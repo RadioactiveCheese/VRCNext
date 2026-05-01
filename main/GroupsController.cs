@@ -142,8 +142,9 @@ public class GroupsController
                                 groupIcon = grp?.icon ?? "",
                                 location  = i["location"]?.ToString() ?? "",
                                 worldName = i["world"]?["name"]?.ToString() ?? "",
-                                worldThumb = i["world"]?["thumbnailImageUrl"]?.ToString()
-                                          ?? i["world"]?["imageUrl"]?.ToString() ?? "",
+                                worldThumb = ImageCacheHelper.GetWorldUrl(
+                                    i["world"]?["id"]?.ToString(),
+                                    i["world"]?["imageUrl"]?.ToString() ?? i["world"]?["thumbnailImageUrl"]?.ToString()),
                                 userCount = i["n_users"]?.Value<int>()
                                           ?? i["userCount"]?.Value<int>() ?? 0,
                                 capacity  = i["capacity"]?.Value<int>()

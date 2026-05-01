@@ -479,6 +479,11 @@ public partial class AppShell
                     _ = Task.Run(async () =>
                     {
                         var worlds = await _vrcApi.GetRecentWorldsAsync();
+                        foreach (JObject w in worlds.OfType<JObject>())
+                        {
+                            var url = ImageCacheHelper.GetWorldUrl(w["id"]?.ToString(), w["imageUrl"]?.ToString() ?? w["thumbnailImageUrl"]?.ToString());
+                            w["imageUrl"] = url; w["thumbnailImageUrl"] = url;
+                        }
                         Invoke(() => SendToJS("recentWorlds", new { worlds }));
                     });
                     break;
@@ -487,6 +492,11 @@ public partial class AppShell
                     _ = Task.Run(async () =>
                     {
                         var worlds = await _vrcApi.GetPopularWorldsAsync();
+                        foreach (JObject w in worlds.OfType<JObject>())
+                        {
+                            var url = ImageCacheHelper.GetWorldUrl(w["id"]?.ToString(), w["imageUrl"]?.ToString() ?? w["thumbnailImageUrl"]?.ToString());
+                            w["imageUrl"] = url; w["thumbnailImageUrl"] = url;
+                        }
                         Invoke(() => SendToJS("popularWorlds", new { worlds }));
                     });
                     break;
@@ -495,6 +505,11 @@ public partial class AppShell
                     _ = Task.Run(async () =>
                     {
                         var worlds = await _vrcApi.GetActiveWorldsAsync();
+                        foreach (JObject w in worlds.OfType<JObject>())
+                        {
+                            var url = ImageCacheHelper.GetWorldUrl(w["id"]?.ToString(), w["imageUrl"]?.ToString() ?? w["thumbnailImageUrl"]?.ToString());
+                            w["imageUrl"] = url; w["thumbnailImageUrl"] = url;
+                        }
                         Invoke(() => SendToJS("activeWorlds", new { worlds }));
                     });
                     break;

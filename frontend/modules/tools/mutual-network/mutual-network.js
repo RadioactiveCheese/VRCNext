@@ -94,8 +94,9 @@ class MutualGraph {
 
     /* ── Resize ── */
     resize() {
-        const W = this.canvas.offsetWidth;
-        const H = this.canvas.offsetHeight;
+        const rect = this.canvas.getBoundingClientRect();
+        const W = Math.round(rect.width);
+        const H = Math.round(rect.height);
         if (!W || !H) return;
         if (this.canvas.width === W && this.canvas.height === H) return;
         this.canvas.width  = W;
@@ -516,6 +517,14 @@ class MutualGraph {
         return { x: (cx - this.tx) / this.scale, y: (cy - this.ty) / this.scale };
     }
 
+    _eventToCanvas(e) {
+        const rect = this.canvas.getBoundingClientRect();
+        return {
+            x: (e.clientX - rect.left) * (this.canvas.width / rect.width),
+            y: (e.clientY - rect.top) * (this.canvas.height / rect.height),
+        };
+    }
+
     _hitTest(wx, wy) {
         for (let i = this.nodes.length - 1; i >= 0; i--) {
             const nd = this.nodes[i];
@@ -528,8 +537,7 @@ class MutualGraph {
 
     _onWheel(e) {
         e.preventDefault();
-        const rect = this.canvas.getBoundingClientRect();
-        const mx = e.clientX - rect.left, my = e.clientY - rect.top;
+        const { x: mx, y: my } = this._eventToCanvas(e);
         const factor   = e.deltaY < 0 ? 1.12 : 1 / 1.12;
         const newScale = Math.min(4, Math.max(0.2, this.scale * factor));
         this.tx = mx - (mx - this.tx) * (newScale / this.scale);
@@ -540,21 +548,20 @@ class MutualGraph {
 
     _onMouseDown(e) {
         if (e.button !== 0) return;
-        const rect = this.canvas.getBoundingClientRect();
-        const { x: wx, y: wy } = this._canvasToWorld(e.clientX - rect.left, e.clientY - rect.top);
+        const { x: mx, y: my } = this._eventToCanvas(e);
+        const { x: wx, y: wy } = this._canvasToWorld(mx, my);
         const hit = this._hitTest(wx, wy);
         if (hit >= 0) {
             this.dragging = { type: 'node', idx: hit, ox: wx - this.nodes[hit].x, oy: wy - this.nodes[hit].y };
             this.nodes[hit].pinned = true;
         } else {
-            this.dragging = { type: 'pan', ox: (e.clientX - rect.left) - this.tx, oy: (e.clientY - rect.top) - this.ty };
+            this.dragging = { type: 'pan', ox: mx - this.tx, oy: my - this.ty };
             this.canvas.classList.add('dragging');
         }
     }
 
     _onMouseMove(e) {
-        const rect = this.canvas.getBoundingClientRect();
-        const mx = e.clientX - rect.left, my = e.clientY - rect.top;
+        const { x: mx, y: my } = this._eventToCanvas(e);
         const { x: wx, y: wy } = this._canvasToWorld(mx, my);
 
         if (this.dragging) {
@@ -580,8 +587,8 @@ class MutualGraph {
     }
 
     _onClick(e) {
-        const rect = this.canvas.getBoundingClientRect();
-        const { x: wx, y: wy } = this._canvasToWorld(e.clientX - rect.left, e.clientY - rect.top);
+        const { x: mx, y: my } = this._eventToCanvas(e);
+        const { x: wx, y: wy } = this._canvasToWorld(mx, my);
         const hit = this._hitTest(wx, wy);
         this.selected = (hit >= 0 && hit !== this.selected) ? hit : null;
         this._render();

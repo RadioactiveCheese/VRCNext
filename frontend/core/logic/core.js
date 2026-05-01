@@ -1246,6 +1246,12 @@ function addLog(m, c) {
     // Strip emoji
     m = m.replace(/[\p{Emoji_Presentation}\p{Extended_Pictographic}]/gu, '').trim();
 
+    // Multi-line messages: each line becomes its own row
+    if (m.includes('\n')) {
+        m.split('\n').forEach(line => addLog(line, c));
+        return;
+    }
+
     // Suppress pending REST requests — only show the response line (with → NNN)
     if (/\[REST\] (GET|POST|PUT|DELETE|PATCH) /.test(m) && !/→/.test(m)) return;
 
@@ -1268,7 +1274,7 @@ function addLog(m, c) {
         'INSTANCE': ['INST', 'warn'], 'RELAY': ['RELY', 'ok'],
         'CHATBOX': ['CHAT', 'info'], 'SF': ['SF', 'info'], 'WS': ['WS', 'info'],
     };
-    const _colorParamMap = { ok: ['OK', 'ok'], warn: ['WARN', 'warn'], err: ['ERR', 'err'], sec: ['SEC', 'info'], accent: ['VRC', 'vrc'] };
+    const _colorParamMap = { ok: ['OK', 'ok'], warn: ['WARN', 'warn'], err: ['ERR', 'err'], sec: ['SEC', 'info'], accent: ['VRC', 'vrc'], cmd: ['CMD', 'info'] };
 
     let level = 'INFO', levelCls = 'info', msgBody = m;
 
@@ -1412,6 +1418,15 @@ function playVRChat() {
 // Communication
 function sendToCS(m) {
     window.external.sendMessage(JSON.stringify(m));
+}
+
+function execConsoleCommand(cmd) {
+    cmd = (cmd || '').trim();
+    if (!cmd) return;
+    const input = document.getElementById('consoleInput');
+    if (input) input.value = '';
+    addLog('> ' + cmd, 'cmd');
+    sendToCS({ action: 'consoleCommand', cmd });
 }
 
 function esc(s) {

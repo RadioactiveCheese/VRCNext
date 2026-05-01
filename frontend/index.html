@@ -648,7 +648,13 @@
                         <span class="mini-badge-label" data-i18n="activity.websocket">WebSocket</span>
                     </div>
                 </div>
-                <div class="log-area" id="logArea" style="flex:1;min-height:0;"></div>
+                <div class="log-area" style="flex:1;min-height:0;">
+                    <div id="logArea" class="log-scroll"></div>
+                    <div class="log-input-row">
+                        <span class="log-input-prompt">&gt;</span>
+                        <input id="consoleInput" type="text" class="log-input-field" onkeydown="if(event.key==='Enter')execConsoleCommand(this.value)" autocomplete="off" spellcheck="false">
+                    </div>
+                </div>
                 <div style="display:flex;gap:6px;margin-top:8px;flex-shrink:0;">
                     <button class="vrcn-button" onclick="copyLog()" style="flex:1;justify-content:center;" title="Copy to Clipboard" data-i18n-title="activity.actions.copy_title"><span class="msi" style="font-size:16px;">content_copy</span> <span data-i18n="common.copy">Copy</span></button>
                     <button class="vrcn-button" onclick="sendToCS({action:'openLogFile'})" style="flex:1;justify-content:center;" title="Open current log file" data-i18n-title="activity.actions.open_log_title"><span class="msi" style="font-size:16px;">description</span> <span data-i18n="activity.actions.open_log">Open Log</span></button>

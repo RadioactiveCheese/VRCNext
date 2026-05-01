@@ -246,6 +246,8 @@
 
     // ── Init ──────────────────────────────────────────────────────────────────
     function init() {
+        layer.style.display  = 'none';
+        legend.style.display = 'none';
         document.body.appendChild(layer);
         document.body.appendChild(legend);
         updateLegend();
@@ -258,6 +260,11 @@
         });
         requestAnimationFrame(frame);
     }
+
+    window.setImgCacheDebug = function (enabled) {
+        layer.style.display  = enabled ? '' : 'none';
+        legend.style.display = enabled ? '' : 'none';
+    };
 
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', init);

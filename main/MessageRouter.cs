@@ -600,6 +600,17 @@ public partial class AppShell
                     await _instance.HandleMessage(action, msg);
                     break;
 
+                case "consoleCommand":
+                {
+                    var cmd = msg["cmd"]?.ToString() ?? "";
+                    var result = ConsoleHelper.Execute(cmd);
+                    if (!string.IsNullOrEmpty(result.Text))
+                        SendToJS("consoleOutput", new { text = result.Text, color = result.Color });
+                    if (result.Extra != null && result.ExtraPayload != null)
+                        SendToJS(result.Extra, result.ExtraPayload);
+                    break;
+                }
+
                 case "openLogFile":
                     if (!string.IsNullOrEmpty(_activityLogPath) && File.Exists(_activityLogPath))
                         Process.Start(new ProcessStartInfo(_activityLogPath) { UseShellExecute = true });

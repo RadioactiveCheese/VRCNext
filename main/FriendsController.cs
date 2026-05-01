@@ -257,7 +257,11 @@ public class FriendsController
                             if (cached?["avatars"] is JArray cachedAvtrs)
                             {
                                 foreach (var a in cachedAvtrs)
-                                    if (a is JObject ao) ao["imageUrl"] = ImageCacheHelper.GetAvatarUrl(ao["id"]?.ToString(), ao["imageUrl"]?.ToString());
+                                    if (a is JObject ao)
+                                    {
+                                        ao["imageUrl"] = ImageCacheHelper.GetAvatarUrl(ao["id"]?.ToString(), ao["imageUrl"]?.ToString() ?? ao["thumbnailImageUrl"]?.ToString());
+                                        ao["thumbnailImageUrl"] = ao["imageUrl"];
+                                    }
                                 _core.SendToJS("vrcUserAvatars", new { userId = uid, avatars = cachedAvtrs });
                                 break;
                             }
@@ -268,7 +272,7 @@ public class FriendsController
                         {
                             id                = a["vrc_id"]?.ToString() ?? a["id"]?.ToString() ?? "",
                             name              = a["name"]?.ToString() ?? "",
-                            thumbnailImageUrl = a["thumbnailImageUrl"]?.ToString() ?? "",
+                            thumbnailImageUrl = ImageCacheHelper.GetAvatarUrl(a["vrc_id"]?.ToString() ?? a["id"]?.ToString(), a["image_url"]?.ToString() ?? a["thumbnailImageUrl"]?.ToString() ?? a["imageUrl"]?.ToString()),
                             imageUrl          = ImageCacheHelper.GetAvatarUrl(a["vrc_id"]?.ToString() ?? a["id"]?.ToString(), a["image_url"]?.ToString() ?? a["imageUrl"]?.ToString()),
                             authorName        = a["author"]?["name"]?.ToString() ?? a["authorName"]?.ToString() ?? "",
                             releaseStatus     = "public",

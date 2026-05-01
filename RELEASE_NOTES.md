@@ -1,4 +1,4 @@
-**2026.20.5**
+**2026.20.6**
 
 **Improved Caching System**
 Caching has been updated and it will now always show actual content.
@@ -47,3 +47,4 @@ Content that hasnt been updated will use old cached images.
 * Fixed an issue where updated friend images still showed the old cached image.
 * Fixed an issue where updated event images still showed the old cached image.
 * Fixed an issue where the Live Preview in Custom Chatbox showed 2 squares at the end caused by Custom Lines.
+* Fixed an issue where Timeline events with older avatar images would overwrite the correctly cached newer version, causing avatars to flicker between old and new images.

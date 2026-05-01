@@ -124,7 +124,9 @@ public static class ImageCacheHelper
             if (!string.IsNullOrWhiteSpace(imageUrl) && !string.IsNullOrWhiteSpace(worldId))
             {
                 var normalized = NormalizeTo512(imageUrl);
-                if (GetStoredUrl("Worlds", worldId) == normalized) return ToLocalUrl(cached);
+                var storedUrl  = GetStoredUrl("Worlds", worldId);
+                if (storedUrl == normalized) return ToLocalUrl(cached);
+                if (!IsNewerOrUnknown(normalized, storedUrl)) return ToLocalUrl(cached);
                 _ = CacheAsync("Worlds", worldId, imageUrl, forceRefresh: true);
                 return normalized;
             }
@@ -160,7 +162,9 @@ public static class ImageCacheHelper
             if (!string.IsNullOrWhiteSpace(iconUrl) && !string.IsNullOrWhiteSpace(groupId))
             {
                 var normalized = NormalizeTo512(iconUrl);
-                if (GetStoredUrl("Groups", groupId) == normalized) return ToLocalUrl(cached);
+                var storedUrl  = GetStoredUrl("Groups", groupId);
+                if (storedUrl == normalized) return ToLocalUrl(cached);
+                if (!IsNewerOrUnknown(normalized, storedUrl)) return ToLocalUrl(cached);
                 _ = CacheAsync("Groups", groupId, iconUrl, forceRefresh: true);
                 return normalized;
             }
@@ -180,7 +184,9 @@ public static class ImageCacheHelper
             if (!string.IsNullOrWhiteSpace(bannerUrl) && bannerId != null)
             {
                 var normalized = NormalizeTo512(bannerUrl);
-                if (GetStoredUrl("Groups", bannerId) == normalized) return ToLocalUrl(cached);
+                var storedUrl  = GetStoredUrl("Groups", bannerId);
+                if (storedUrl == normalized) return ToLocalUrl(cached);
+                if (!IsNewerOrUnknown(normalized, storedUrl)) return ToLocalUrl(cached);
                 _ = CacheAsync("Groups", bannerId, bannerUrl, forceRefresh: true);
                 return normalized;
             }
@@ -211,7 +217,9 @@ public static class ImageCacheHelper
             if (!string.IsNullOrWhiteSpace(iconUrl) && !string.IsNullOrWhiteSpace(userId))
             {
                 var normalized = NormalizeTo512(iconUrl);
-                if (GetStoredUrl("Users", userId) == normalized) return ToLocalUrl(cached);
+                var storedUrl  = GetStoredUrl("Users", userId);
+                if (storedUrl == normalized) return ToLocalUrl(cached);
+                if (!IsNewerOrUnknown(normalized, storedUrl)) return ToLocalUrl(cached);
                 _ = CacheAsync("Users", userId, iconUrl, forceRefresh: true);
                 return normalized;
             }
@@ -232,7 +240,9 @@ public static class ImageCacheHelper
             if (!string.IsNullOrWhiteSpace(bannerUrl) && bannerId != null)
             {
                 var normalized = NormalizeTo512(bannerUrl);
-                if (GetStoredUrl("Users", bannerId) == normalized) return ToLocalUrl(cached);
+                var storedUrl  = GetStoredUrl("Users", bannerId);
+                if (storedUrl == normalized) return ToLocalUrl(cached);
+                if (!IsNewerOrUnknown(normalized, storedUrl)) return ToLocalUrl(cached);
                 _ = CacheAsync("Users", bannerId, bannerUrl, forceRefresh: true);
                 return normalized;
             }
@@ -269,7 +279,9 @@ public static class ImageCacheHelper
             if (!string.IsNullOrWhiteSpace(imageUrl) && !string.IsNullOrWhiteSpace(eventId))
             {
                 var normalized = NormalizeTo512(imageUrl);
-                if (GetStoredUrl("Events", eventId) == normalized) return ToLocalUrl(cached);
+                var storedUrl  = GetStoredUrl("Events", eventId);
+                if (storedUrl == normalized) return ToLocalUrl(cached);
+                if (!IsNewerOrUnknown(normalized, storedUrl)) return ToLocalUrl(cached);
                 _ = CacheAsync("Events", eventId, imageUrl, forceRefresh: true);
                 return normalized;
             }
@@ -306,7 +318,9 @@ public static class ImageCacheHelper
             if (!string.IsNullOrWhiteSpace(imageUrl) && !string.IsNullOrWhiteSpace(avatarId))
             {
                 var normalized = NormalizeTo512(imageUrl);
-                if (GetStoredUrl("Avatars", avatarId) == normalized) return ToLocalUrl(cached);
+                var storedUrl  = GetStoredUrl("Avatars", avatarId);
+                if (storedUrl == normalized) return ToLocalUrl(cached);
+                if (!IsNewerOrUnknown(normalized, storedUrl)) return ToLocalUrl(cached);
                 _ = CacheAsync("Avatars", avatarId, imageUrl, forceRefresh: true);
                 return normalized;
             }
@@ -321,6 +335,30 @@ public static class ImageCacheHelper
     // Strip stale localhost URLs — we can't re-download from localhost.
     private static string? StripLocalhostUrl(string? url) =>
         url != null && url.StartsWith("http://localhost:") ? null : url;
+
+    // Extract VRChat file version number from a normalized URL (e.g. .../image/file_xxx/2/512 → 2)
+    private static int ExtractVersion(string? url)
+    {
+        if (string.IsNullOrEmpty(url)) return 0;
+        var marker = "/image/";
+        var i = url.IndexOf(marker, StringComparison.Ordinal);
+        if (i < 0) return 0;
+        var parts = url[(i + marker.Length)..].Split('/');
+        // parts[0] = file_xxx, parts[1] = version, parts[2] = size
+        if (parts.Length >= 2 && int.TryParse(parts[1], out var v)) return v;
+        return 0;
+    }
+
+    // Returns true if incomingUrl is newer than (or same version as) the stored URL.
+    // Prevents old timeline/event URLs from overwriting a newer cached image.
+    private static bool IsNewerOrUnknown(string incomingUrl, string? storedUrl)
+    {
+        if (string.IsNullOrEmpty(storedUrl)) return true;
+        var incomingVer = ExtractVersion(incomingUrl);
+        var storedVer   = ExtractVersion(storedUrl);
+        if (incomingVer == 0 || storedVer == 0) return true;
+        return incomingVer >= storedVer;
+    }
 
     private static Task<string?> CacheAsync(string subdir, string? entityId, string? imageUrl, bool forceRefresh)
     {

@@ -341,6 +341,26 @@
     color: var(--accent);
 }
 
+.tool-doc {
+    color: var(--tx2);
+    font-size: 12px;
+    line-height: 1.6;
+    flex-shrink: 0;
+}
+.tool-doc p {
+    margin: 0 0 8px;
+}
+.tool-doc ul {
+    margin: 0;
+    padding-left: 18px;
+}
+.tool-doc li + li {
+    margin-top: 4px;
+}
+.tool-doc strong {
+    color: var(--tx1);
+}
+
 .vrcn-panel-card-pair {
     display: flex;
     gap: 16px;

@@ -505,6 +505,15 @@
             </div>
             <!-- Tab 5: Custom Chatbox -->
             <div class="tab" id="tab5">
+                <div class="vrcn-panel-card tool-doc" style="margin-bottom:16px;">
+                    <div class="vrcn-panel-card-header"><span class="msi">help</span> Custom Chatbox Documentation</div>
+                    <p><strong>Purpose:</strong> Builds a rotating VRChat OSC chatbox message from local time, current media, playback time, system stats, AFK state, and custom text lines.</p>
+                    <ul>
+                        <li>Enable the modules you want, then start the tool while VRChat OSC is enabled.</li>
+                        <li>Use the preview and character counter to keep the output within VRChat's chatbox limit.</li>
+                        <li>Auto-start options run the tool automatically when VRCNext launches VRChat.</li>
+                    </ul>
+                </div>
                 <div class="vrcn-panel-card status" style="margin-bottom:16px;">
                     <div class="sf-status-row">
                         <div class="sf-status"><span class="sf-dot offline" id="cbDot"></span><span id="cbStatusText" data-i18n="chatbox.status.not_running">Not running</span></div>
@@ -577,6 +586,15 @@
             </div>
             <!-- Tab 6: Media Relay -->
             <div class="tab" id="tab6">
+                <div class="vrcn-panel-card tool-doc" style="margin-bottom:16px;">
+                    <div class="vrcn-panel-card-header"><span class="msi">help</span> Media Relay Documentation</div>
+                    <p><strong>Purpose:</strong> Watches your configured media folders and posts new images or videos to enabled Discord webhook channels.</p>
+                    <ul>
+                        <li>Add watch folders and webhooks in Settings before starting the relay.</li>
+                        <li>Bot name and avatar URL control how relay posts appear in Discord.</li>
+                        <li>The posted files table shows relay history for the current session.</li>
+                    </ul>
+                </div>
                 <div class="vrcn-panel-card status" style="margin-bottom:16px;">
                     <div class="sf-status-row">
                         <div class="sf-status"><span class="sf-dot offline" id="relayDot"></span><span id="relayStatusText" data-i18n="relay.status.not_running">Not running</span></div>
@@ -632,6 +650,14 @@
             </div>
             <!-- Tab 8: Activity Log -->
             <div class="tab" id="tab8">
+                <div class="vrcn-panel-card tool-doc" style="margin-bottom:8px;flex-shrink:0;">
+                    <div class="vrcn-panel-card-header"><span class="msi">help</span> Activity Log Documentation</div>
+                    <p><strong>Purpose:</strong> Shows live VRCNext events, API responses, websocket state, and errors for troubleshooting.</p>
+                    <ul>
+                        <li>Use search to filter visible entries, or Show Full to expand abbreviated messages.</li>
+                        <li>Copy captures the visible log text; Open Log and Open Folder jump to the stored log files.</li>
+                    </ul>
+                </div>
                 <div class="log-header" style="margin-top:0;display:flex;align-items:center;gap:5px;flex-shrink:0;">
                     <div class="search-bar-row" style="margin-bottom:0;flex:1;min-width:120px;max-width:200px;"><span class="msi search-ico">search</span><input id="logSearchInput" type="text" class="vrcn-input" placeholder="Search..." data-i18n-placeholder="logs.search.placeholder" oninput="onLogSearch(this.value)"></div>
                     <button id="logShowFullBtn" class="vrcn-button" onclick="toggleLogShowFull()">Show Full</button>
@@ -1098,6 +1124,15 @@
             <!-- Tab 10: Space Flight -->
             <div class="tab" id="tab10">
                 <div class="sf-layout">
+                    <div class="vrcn-panel-card tool-doc">
+                        <div class="vrcn-panel-card-header"><span class="msi">help</span> Space Flight Documentation</div>
+                        <p><strong>Purpose:</strong> Lets you drag your SteamVR playspace offset with a controller, useful for seated repositioning or controlled movement in VR.</p>
+                        <ul>
+                            <li>Connect while SteamVR is running, then hold the configured drag button on an enabled hand.</li>
+                            <li>Increase Drag Multiplier for larger movement; axis locks prevent movement on specific axes.</li>
+                            <li>Reset returns the current offset to zero.</li>
+                        </ul>
+                    </div>
                     <div class="vrcn-panel-card status">
                         <div class="sf-status-row">
                             <div class="sf-status"><span class="sf-dot offline" id="sfDot"></span><span id="sfStatusText" data-i18n="steamvr.status.not_connected">Not connected</span></div>
@@ -1143,6 +1178,15 @@
             <!-- Tab 11: OSC Tool -->
             <div class="tab" id="tab11" data-windows-only>
                 <div class="sf-layout">
+                    <div class="vrcn-panel-card tool-doc">
+                        <div class="vrcn-panel-card-header"><span class="msi">help</span> OSC Tool Documentation</div>
+                        <p><strong>Purpose:</strong> Connects to VRChat OSC so you can inspect avatar parameters and adjust writable values from VRCNext.</p>
+                        <ul>
+                            <li>Connect, then toggle OSC off and on in VRChat's Action Menu if parameters do not appear.</li>
+                            <li>Search filters the parameter list by name.</li>
+                            <li>Output parameters may require enabling before VRCNext can write to them.</li>
+                        </ul>
+                    </div>
                     <div class="vrcn-panel-card status">
                         <div class="sf-status-row">
                             <div class="sf-status"><span class="sf-dot offline" id="oscDot"></span><span id="oscStatusText" data-i18n="osc.status.not_connected">Not connected</span></div>
@@ -1257,6 +1301,15 @@
             </div>
             <!-- Tab 14: YouTube Fix / VRCVideoCacher -->
             <div class="tab" id="tab14">
+                <div class="vrcn-panel-card tool-doc" style="margin-bottom:16px;">
+                    <div class="vrcn-panel-card-header"><span class="msi">help</span> YouTube Fix Documentation</div>
+                    <p><strong>Purpose:</strong> Runs VRCVideoCacher as a local helper to reduce YouTube playback failures in VRChat worlds.</p>
+                    <ul>
+                        <li>Install or update VRCVideoCacher first, then install the matching browser extension.</li>
+                        <li>Use a throwaway YouTube account for exported cookies.</li>
+                        <li>Start the service before opening YouTube videos in VRChat video players.</li>
+                    </ul>
+                </div>
                 <div class="vrcn-panel-card status" style="margin-bottom:16px;">
                     <div class="sf-status-row">
                         <div class="sf-status"><span class="sf-dot offline" id="vcDot"></span><span id="vcStatusText" data-i18n="youtube_fix.status.not_running">Not running</span></div>
@@ -1319,6 +1372,15 @@
 
             <!-- Tab 15: Mutual Network -->
             <div class="tab" id="tab15">
+                <div class="vrcn-panel-card tool-doc" style="margin-bottom:16px;">
+                    <div class="vrcn-panel-card-header"><span class="msi">help</span> Mutual Network Documentation</div>
+                    <p><strong>Purpose:</strong> Builds an interactive graph of mutual friend connections so you can see social clusters around your account.</p>
+                    <ul>
+                        <li>Drag to pan the graph and scroll to zoom.</li>
+                        <li>Re-Fetch clears cached relationship data and loads the network again.</li>
+                        <li>Reset returns the camera to the default graph view.</li>
+                    </ul>
+                </div>
                 <div class="net-root">
                     <canvas id="netCanvas"></canvas>
                     <div class="net-toolbar">
@@ -1335,6 +1397,15 @@
 
             <!-- Tab 16: Time Spent -->
             <div class="tab" id="tab16">
+                <div class="vrcn-panel-card tool-doc" style="margin-bottom:16px;">
+                    <div class="vrcn-panel-card-header"><span class="msi">help</span> Time Spent Documentation</div>
+                    <p><strong>Purpose:</strong> Summarizes VRChat session history by world or person, based on timeline data collected by VRCNext.</p>
+                    <ul>
+                        <li>Use Worlds or Persons to switch the aggregation mode.</li>
+                        <li>Search filters the current list after data has loaded.</li>
+                        <li>Refresh reloads the statistics from stored session history.</li>
+                    </ul>
+                </div>
                 <div class="ts-root">
                     <div class="ts-header">
                         <div class="ts-tab-btns">
@@ -1372,6 +1443,15 @@
             <!-- Tab 18: Voice Fight -->
             <div class="tab" id="tab18">
                 <div class="sf-layout">
+                    <div class="vrcn-panel-card tool-doc">
+                        <div class="vrcn-panel-card-header"><span class="msi">help</span> Voice Fight Documentation</div>
+                        <p><strong>Purpose:</strong> Listens for spoken keywords and plays matching sound effects through your selected output device.</p>
+                        <ul>
+                            <li>Select input and output devices before starting.</li>
+                            <li>Add sounds with trigger words; recognized speech appears in the Recognized Words panel.</li>
+                            <li>Use Block Words and Stop Command to prevent unwanted triggers and stop playback quickly.</li>
+                        </ul>
+                    </div>
                     <!-- Status -->
                     <div class="vrcn-panel-card status">
                         <div class="sf-status-row">
@@ -1431,6 +1511,15 @@
             <!-- Tab 19: Discord Presence -->
             <div class="tab" id="tab19">
                 <div class="sf-layout">
+                    <div class="vrcn-panel-card tool-doc">
+                        <div class="vrcn-panel-card-header"><span class="msi">help</span> Discord Presence Documentation</div>
+                        <p><strong>Purpose:</strong> Publishes your current VRChat world and status to Discord Rich Presence.</p>
+                        <ul>
+                            <li>Discord must be running before Rich Presence can appear.</li>
+                            <li>Privacy toggles control which details are hidden for each VRChat status.</li>
+                            <li>The preview card shows the presence payload VRCNext is currently sending.</li>
+                        </ul>
+                    </div>
                     <!-- Status card -->
                     <div class="vrcn-panel-card status">
                         <div class="sf-status-row">
@@ -1526,6 +1615,15 @@
             <!-- Tab 20: VR Wrist Overlay -->
             <div class="tab" id="tab20" data-windows-only>
                 <div class="sf-layout">
+                    <div class="vrcn-panel-card tool-doc">
+                        <div class="vrcn-panel-card-header"><span class="msi">help</span> VR Overlay Documentation</div>
+                        <p><strong>Purpose:</strong> Adds a wrist-mounted SteamVR overlay for VRCNext controls, notifications, water reminders, and quick tool toggles.</p>
+                        <ul>
+                            <li>Connect while SteamVR is running, then show the overlay from this page or with your configured keybind.</li>
+                            <li>Attachment, transform, width, and control radius tune where the overlay sits on your hand.</li>
+                            <li>Toast, water, and avatar scaler options are sent live to the overlay when saved.</li>
+                        </ul>
+                    </div>
 
                     <!-- Status card -->
                     <div class="vrcn-panel-card status">
@@ -1897,6 +1995,15 @@
             <!-- Tab 21: Permini -->
             <div class="tab" id="tab21">
                 <div class="sf-layout">
+                    <div class="vrcn-panel-card tool-doc">
+                        <div class="vrcn-panel-card-header"><span class="msi">help</span> Permini Documentation</div>
+                        <p><strong>Purpose:</strong> Automatically responds to invite requests from selected friends when your status and instance permissions allow it.</p>
+                        <ul>
+                            <li>Add friends to the list, then leave VRCNext running while you are in an instance.</li>
+                            <li>Invite-Only instances only work when the requesting friend owns the instance.</li>
+                            <li>Do Not Disturb requests require the requester to use VRCNext because VRChat blocks those requests elsewhere.</li>
+                        </ul>
+                    </div>
                     <div class="vrcn-panel-card">
                         <div class="pm-header">
                             <div class="pm-header-left">
@@ -1927,6 +2034,15 @@
             <!-- Tab 22: Kikitan XD -->
             <div class="tab" id="tab22" data-windows-only>
                 <div class="sf-layout">
+                    <div class="vrcn-panel-card tool-doc">
+                        <div class="vrcn-panel-card-header"><span class="msi">help</span> Kikitan XD Documentation</div>
+                        <p><strong>Purpose:</strong> Converts microphone speech to text, optionally translates it, and can send the result to VRChat through the OSC chatbox.</p>
+                        <ul>
+                            <li>Add a Groq API key, choose your microphone, and set source and target languages.</li>
+                            <li>Noise Gate filters out quiet background audio before recognition.</li>
+                            <li>Disable translation to use speech-to-text only, or disable OSC output to preview locally.</li>
+                        </ul>
+                    </div>
                     <!-- Status / Connect -->
                     <div class="vrcn-panel-card status">
                         <div class="sf-status-row">
@@ -2001,6 +2117,15 @@
             <!-- Tab 23: Event Snipe -->
             <div class="tab" id="tab23">
                 <div class="sf-layout">
+                    <div class="vrcn-panel-card tool-doc">
+                        <div class="vrcn-panel-card-header"><span class="msi">help</span> Event Snipe Documentation</div>
+                        <p><strong>Purpose:</strong> Watches a selected group's instances and alerts you when a matching event instance is found.</p>
+                        <ul>
+                            <li>Select a group, optionally filter by world ID, capacity, and instance access type, then start the watcher.</li>
+                            <li>Leave all access type toggles off to match any access type.</li>
+                            <li>Auto-join attempts to join the first matching instance when one is found.</li>
+                        </ul>
+                    </div>
 
                     <!-- Status -->
                     <div class="vrcn-panel-card status">
@@ -2099,6 +2224,15 @@
             <!-- Tab 24: Avatar Scaling -->
             <div class="tab" id="tab24" data-windows-only>
                 <div class="sf-layout">
+                    <div class="vrcn-panel-card tool-doc">
+                        <div class="vrcn-panel-card-header"><span class="msi">help</span> Avatar Scaling Documentation</div>
+                        <p><strong>Purpose:</strong> Controls your VRChat avatar scale from VRCNext, with optional keybinds and safety limits.</p>
+                        <ul>
+                            <li>Connect while VRChat is running, then adjust the scale slider or use recorded keybinds.</li>
+                            <li>Save Scale between Worlds keeps the chosen scale after world changes.</li>
+                            <li>Safety Settings clamp scale to a safer range when enabled.</li>
+                        </ul>
+                    </div>
 
                     <!-- Status card -->
                     <div class="vrcn-panel-card status">

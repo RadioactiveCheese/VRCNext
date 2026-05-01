@@ -1661,6 +1661,7 @@ public partial class AppShell
                 // Custom Chatbox OSC
                 case "chatboxConfig":
                 case "chatboxStop":
+                case "chatboxDirectSend":
                     _chatboxCtrl.HandleMessage(action, msg);
                     break;
 

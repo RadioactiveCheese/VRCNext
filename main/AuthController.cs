@@ -1277,33 +1277,30 @@ public class AuthController
                 finally { sem.Release(); }
             }));
 
-            var allAvatars = new List<object>();
+            var allAvatarsRaw = new List<object>();
+            var allAvatarsJs  = new List<object>();
             foreach (var g in groupList)
             {
                 if (!perGroup.TryGetValue(g.name, out var groupAvatars)) continue;
                 foreach (var a in groupAvatars)
                 {
-                    var cachedAvImg = ImageCacheHelper.GetAvatarUrl(a["id"]?.ToString(), a["imageUrl"]?.ToString() ?? a["thumbnailImageUrl"]?.ToString());
-                    allAvatars.Add(new
-                    {
-                        id                = a["id"]?.ToString() ?? "",
-                        name              = a["name"]?.ToString() ?? "",
-                        imageUrl          = cachedAvImg,
-                        thumbnailImageUrl = cachedAvImg,
-                        authorName        = a["authorName"]?.ToString() ?? "",
-                        releaseStatus     = a["releaseStatus"]?.ToString() ?? "private",
-                        favoriteGroup     = g.name,
-                        favoriteId        = a["favoriteId"]?.ToString() ?? "",
-                        unityPackages     = (a["unityPackages"] as JArray ?? new JArray())
-                            .Select(p => new { platform = p["platform"]?.ToString() ?? "", variant = p["variant"]?.ToString() ?? "" })
-                            .ToArray(),
-                    });
+                    var rawUrl    = a["imageUrl"]?.ToString() ?? a["thumbnailImageUrl"]?.ToString() ?? "";
+                    var img       = ImageCacheHelper.GetAvatarUrl(a["id"]?.ToString(), rawUrl);
+                    var id        = a["id"]?.ToString() ?? "";
+                    var name      = a["name"]?.ToString() ?? "";
+                    var author    = a["authorName"]?.ToString() ?? "";
+                    var release   = a["releaseStatus"]?.ToString() ?? "private";
+                    var fvrtId    = a["favoriteId"]?.ToString() ?? "";
+                    var pkgs      = (a["unityPackages"] as JArray ?? new JArray())
+                        .Select(p => new { platform = p["platform"]?.ToString() ?? "", variant = p["variant"]?.ToString() ?? "" })
+                        .ToArray();
+                    allAvatarsRaw.Add(new { id, name, imageUrl = rawUrl, thumbnailImageUrl = rawUrl, authorName = author, releaseStatus = release, favoriteGroup = g.name, favoriteId = fvrtId, unityPackages = pkgs });
+                    allAvatarsJs.Add(new  { id, name, imageUrl = img,    thumbnailImageUrl = img,    authorName = author, releaseStatus = release, favoriteGroup = g.name, favoriteId = fvrtId, unityPackages = pkgs });
                 }
             }
 
-            var payload = new { avatars = allAvatars, groups = groupList };
-            if (_core.Settings.FfcEnabled) _core.Cache.Save(CacheHandler.KeyFavAvatars, payload);
-            Invoke(() => _core.SendToJS("vrcFavoriteAvatars", payload));
+            if (_core.Settings.FfcEnabled) _core.Cache.Save(CacheHandler.KeyFavAvatars, new { avatars = allAvatarsRaw, groups = groupList });
+            Invoke(() => _core.SendToJS("vrcFavoriteAvatars", new { avatars = allAvatarsJs, groups = groupList }));
         }
         catch (Exception ex)
         {
@@ -1317,25 +1314,25 @@ public class AuthController
         try
         {
             var avatars = await _core.VrcApi.GetOwnAvatarsAsync();
-            var list = avatars.Select(a => {
-                var cachedAvImg = ImageCacheHelper.GetAvatarUrl(a["id"]?.ToString(), a["imageUrl"]?.ToString() ?? a["thumbnailImageUrl"]?.ToString());
-                return (object)new
-                {
-                    id                = a["id"]?.ToString() ?? "",
-                    name              = a["name"]?.ToString() ?? "",
-                    imageUrl          = cachedAvImg,
-                    thumbnailImageUrl = cachedAvImg,
-                    authorName        = a["authorName"]?.ToString() ?? "",
-                    releaseStatus     = a["releaseStatus"]?.ToString() ?? "private",
-                    description       = a["description"]?.ToString() ?? "",
-                    unityPackages     = (a["unityPackages"] as JArray ?? new JArray())
-                        .Select(p => new { platform = p["platform"]?.ToString() ?? "", variant = p["variant"]?.ToString() ?? "" })
-                        .ToArray(),
-                };
+            // Build with raw CDN URLs so FFC can detect image changes on next load
+            var rawList = avatars.Select(a => new
+            {
+                id                = a["id"]?.ToString() ?? "",
+                name              = a["name"]?.ToString() ?? "",
+                imageUrl          = a["imageUrl"]?.ToString() ?? a["thumbnailImageUrl"]?.ToString() ?? "",
+                thumbnailImageUrl = a["thumbnailImageUrl"]?.ToString() ?? a["imageUrl"]?.ToString() ?? "",
+                authorName        = a["authorName"]?.ToString() ?? "",
+                releaseStatus     = a["releaseStatus"]?.ToString() ?? "private",
+                description       = a["description"]?.ToString() ?? "",
+                unityPackages     = (a["unityPackages"] as JArray ?? new JArray())
+                    .Select(p => new { platform = p["platform"]?.ToString() ?? "", variant = p["variant"]?.ToString() ?? "" })
+                    .ToArray(),
             }).ToList();
-            var payload = new { filter = "own", avatars = list, currentAvatarId = _core.VrcApi.CurrentAvatarId ?? "" };
-            if (_core.Settings.FfcEnabled) _core.Cache.Save(CacheHandler.KeyAvatars, payload);
-            Invoke(() => _core.SendToJS("vrcAvatars", payload));
+            if (_core.Settings.FfcEnabled)
+                _core.Cache.Save(CacheHandler.KeyAvatars, new { filter = "own", avatars = rawList, currentAvatarId = _core.VrcApi.CurrentAvatarId ?? "" });
+            // Send to JS with processed image URLs (disk cache or CDN)
+            var jsList = rawList.Select(a => { var img = ImageCacheHelper.GetAvatarUrl(a.id, a.imageUrl); return new { a.id, a.name, imageUrl = img, thumbnailImageUrl = img, a.authorName, a.releaseStatus, a.description, a.unityPackages }; }).ToList();
+            Invoke(() => _core.SendToJS("vrcAvatars", new { filter = "own", avatars = jsList, currentAvatarId = _core.VrcApi.CurrentAvatarId ?? "" }));
         }
         catch (Exception ex)
         {

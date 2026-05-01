@@ -72,6 +72,9 @@ namespace VRCNext
         private float _ramUsedGB;
         private float _ramTotalGB;
 
+        // Direct send pause
+        private volatile int _pauseUntilTick;
+
         // AFK
         private bool _isAfk;
         private DateTime _afkSince;
@@ -121,7 +124,7 @@ namespace VRCNext
                     if (ShowAfk) UpdateAfkState();
 
                     var text = BuildChatboxText();
-                    if (Enabled && !string.IsNullOrEmpty(text))
+                    if (Enabled && !string.IsNullOrEmpty(text) && Environment.TickCount >= _pauseUntilTick)
                         SendOscChatbox(text, SuppressNotifSound);
 
                     _onUpdate?.Invoke(new {
@@ -391,6 +394,20 @@ namespace VRCNext
             CustomLines = customLines ?? new();
             HideChatboxBackground = hideBackground;
             if (enabled && !was) Start(); else if (!enabled && was) Stop();
+        }
+
+        public void SendDirect(string text)
+        {
+            if (string.IsNullOrEmpty(text)) return;
+            bool ownUdp = _udp == null;
+            if (ownUdp)
+            {
+                _udp = new UdpClient();
+                _udp.Connect(IPAddress.Parse(OSC_IP), OSC_PORT);
+            }
+            SendOscChatbox(text, SuppressNotifSound);
+            if (ownUdp) { _udp?.Close(); _udp = null; }
+            else _pauseUntilTick = Environment.TickCount + 10_000;
         }
 
         public void Dispose() { Stop(); _cts?.Dispose(); }

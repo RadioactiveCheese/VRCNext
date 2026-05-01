@@ -297,7 +297,7 @@ public class InstanceController
                                 {
                                     name             = world["name"]?.ToString() ?? "",
                                     thumbnailImageUrl = world["thumbnailImageUrl"]?.ToString() ?? "",
-                                    imageUrl         = ImageCacheHelper.GetWorldUrl(wid, world["imageUrl"]?.ToString())
+                                    imageUrl         = ImageCacheHelper.GetWorldUrl(wid, world["imageUrl"]?.ToString()),
                                 });
                             }
                             catch { return (wid, null as object); }

@@ -98,6 +98,23 @@ public class ChatboxController : IDisposable
                 _vroCtrl.UpdateToolStates();
                 break;
 
+            case "chatboxDirectSend":
+                {
+                    var text = msg["text"]?.ToString() ?? "";
+                    if (string.IsNullOrEmpty(text)) break;
+                    if (text.Length > 144) text = text[..144];
+                    if (_chatbox != null)
+                    {
+                        _chatbox.SendDirect(text);
+                    }
+                    else
+                    {
+                        var svc = new ChatboxService(_ => { });
+                        svc.SendDirect(text);
+                    }
+                }
+                break;
+
             case "oscConnect":
                 {
                     _osc ??= new OscService(s => Invoke(() => _core.SendToJS("log", new { msg = s, color = "sec" })));

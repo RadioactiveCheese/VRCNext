@@ -1,5 +1,10 @@
 /* Custom Chatbox OSC */
 let _cbLastUpdate = {};
+let _cbChatHistory = [];
+let _cbPauseTimer = null;
+let _cbPauseRemaining = 0;
+const CB_MAX_HISTORY = 100;
+const CB_PAUSE_SECONDS = 10;
 
 function chatboxButtonHtml() {
     return chatboxEnabled
@@ -32,6 +37,7 @@ function syncChatboxToggleUi() {
 function rerenderChatboxTranslations() {
     syncChatboxToggleUi();
     renderChatboxLines();
+    renderChatboxHistory();
     handleChatboxUpdate(_cbLastUpdate || {});
 }
 
@@ -110,7 +116,7 @@ function handleChatboxUpdate(data) {
 
     const previewText = document.getElementById('cbPreviewText');
     const charCount = document.getElementById('cbCharCount');
-    const text = _cbLastUpdate.chatboxText || '';
+    const text = (_cbLastUpdate.chatboxText || '').replace(/[]/g, '');
     if (previewText && charCount) {
         if (text) {
             previewText.textContent = text;
@@ -145,6 +151,62 @@ function handleChatboxUpdate(data) {
         mediaInfo.innerHTML = `<div class="cb-media-idle"><span class="msi" style="font-size:16px;vertical-align:middle;">music_off</span> ${t('chatbox.media.none', 'No media playing')}</div>`;
     }
 }
+
+function sendChatboxDirectMessage() {
+    const inp = document.getElementById('cbChatInput');
+    const text = inp.value.trim();
+    if (!text) return;
+    const limited = text.slice(0, 144);
+    sendToCS({ action: 'chatboxDirectSend', text: limited });
+    const now = new Date();
+    const ts = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    _cbChatHistory.push({ text: limited, ts });
+    if (_cbChatHistory.length > CB_MAX_HISTORY) _cbChatHistory.shift();
+    inp.value = '';
+    updateCbChatCharCount('');
+    renderChatboxHistory();
+    startCbPause();
+}
+
+function updateCbChatCharCount(val) {
+    const el = document.getElementById('cbChatCharCount');
+    if (!el) return;
+    el.textContent = val.length;
+    el.style.color = val.length > 130 ? 'var(--err)' : val.length > 110 ? '#FFA726' : 'var(--tx3)';
+}
+
+function renderChatboxHistory() {
+    const el = document.getElementById('cbChatHistory');
+    if (!el) return;
+    if (_cbChatHistory.length === 0) {
+        el.innerHTML = `<div class="osc-empty">${t('chatbox.live_chat.empty', 'No messages sent yet')}</div>`;
+        return;
+    }
+    el.innerHTML = _cbChatHistory.map(m =>
+        `<div class="msgr-msg msgr-mine">
+            <div class="msgr-bubble">${esc(m.text)}</div>
+            <div class="msgr-time">${esc(m.ts)}</div>
+        </div>`
+    ).join('');
+    el.scrollTop = el.scrollHeight;
+}
+
+function startCbPause() {
+    if (_cbPauseTimer) clearInterval(_cbPauseTimer);
+    _cbPauseRemaining = CB_PAUSE_SECONDS;
+    _updateCbPauseDisplay();
+    _cbPauseTimer = setInterval(() => {
+        _cbPauseRemaining--;
+        _updateCbPauseDisplay();
+        if (_cbPauseRemaining <= 0) {
+            clearInterval(_cbPauseTimer);
+            _cbPauseTimer = null;
+            _updateCbPauseDisplay();
+        }
+    }, 1000);
+}
+
+function _updateCbPauseDisplay() {}
 
 function formatMediaTime(ms) {
     const s = Math.floor(ms / 1000);

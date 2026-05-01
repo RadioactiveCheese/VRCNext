@@ -41,13 +41,19 @@
         popup.style.top = top + 'px';
     }
 
+    const REGION_LABELS = { us: 'US East', use: 'US East', usw: 'US West', eu: 'EU', jp: 'JP', au: 'AU' };
+
+    function parseRegion(loc) {
+        const m = loc.match(/~region\(([^)]+)\)/);
+        const code = m ? m[1].toLowerCase() : 'us';
+        return REGION_LABELS[code] || code.toUpperCase();
+    }
+
     function buildInstanceHtml(f) {
         if (f.presence !== 'game' || !f.location) return '';
         const loc = f.location;
 
         if (loc === 'private') {
-            const { cls, label } = typeof getInstanceBadge === 'function'
-                ? getInstanceBadge('private') : { cls: '', label: 'Invite' };
             return `<div class="fd-group-card"><div class="fd-group-card-info"><div class="fd-group-card-name" style="font-size:11px;color:var(--tx3);">${typeof t === 'function' ? t('profiles.meta.private_instance','Private Instance') : 'Private Instance'}</div></div></div>`;
         }
 
@@ -62,13 +68,15 @@
         const wc = (typeof dashWorldCache !== 'undefined' && dashWorldCache[worldId]) || null;
         const worldName = wc?.name || '';
         const worldThumb = wc?.thumbnailImageUrl || wc?.imageUrl || '';
+        const region = parseRegion(loc);
 
         const safeLoc = loc.replace(/'/g, "\\'");
-        const joiningLabel = typeof t === 'function' ? t('common.joining', 'Joining...') : 'Joining...';
-        const joinLabel = typeof t === 'function' ? t('common.join', 'Join') : 'Join';
         const onclick = instanceType !== 'private'
             ? `onclick="sendToCS({action:'vrcJoinFriend',location:'${safeLoc}'});this.closest('.fd-group-card').style.opacity='0.5';"`
             : '';
+
+        const regionHtml = `<span class="vrcn-badge"><span class="msi" style="font-size:10px;">public</span>${esc(region)}</span>`;
+        const metaHtml = `<div class="fd-group-card-meta"><span class="vrcn-badge ${cls}">${esc(label)}</span>${regionHtml}</div>`;
 
         if (worldName) {
             const thumbHtml = worldThumb
@@ -78,7 +86,7 @@
                 ${thumbHtml}
                 <div class="fd-group-card-info">
                     <div class="fd-group-card-name">${esc(worldName)}</div>
-                    <div class="fd-group-card-meta"><span class="vrcn-badge ${cls}">${esc(label)}</span></div>
+                    ${metaHtml}
                 </div>
             </div>`;
         }
@@ -88,7 +96,7 @@
             <div class="fd-group-icon fd-group-icon-empty"><span class="msi" style="font-size:16px;">travel_explore</span></div>
             <div class="fd-group-card-info">
                 <div class="fd-group-card-name" style="color:var(--tx3);font-size:11px;">${typeof t === 'function' ? t('profiles.meta.in_game','In Game') : 'In Game'}</div>
-                <div class="fd-group-card-meta"><span class="vrcn-badge ${cls}">${esc(label)}</span></div>
+                ${metaHtml}
             </div>
         </div>`;
     }

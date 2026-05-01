@@ -37,6 +37,7 @@ public static class ImageCacheHelper
         Directory.CreateDirectory(Path.Combine(_baseDir, "Avatars"));
         Directory.CreateDirectory(Path.Combine(_baseDir, "Users"));
         Directory.CreateDirectory(Path.Combine(_baseDir, "Badges"));
+        Directory.CreateDirectory(Path.Combine(_baseDir, "Files"));
     }
 
     public static string GetWorldUrl(string? worldId, string? imageUrl)
@@ -145,6 +146,21 @@ public static class ImageCacheHelper
         imageUrl = StripLocalhostUrl(imageUrl);
         if (!string.IsNullOrWhiteSpace(badgeId) && !string.IsNullOrWhiteSpace(imageUrl))
             _ = CacheAsync("Badges", badgeId, imageUrl, false);
+        return NormalizeTo512(imageUrl ?? "");
+    }
+
+// Files (Inventory: Photos, Icons, Emojis, Stickers, Prints, Inventory items)
+
+    public static string? GetFileCached(string? fileId)
+        => FindCachedFile("Files", fileId);
+
+    public static string GetFileUrl(string? fileId, string? imageUrl)
+    {
+        var cached = GetFileCached(fileId);
+        if (cached != null) return ToLocalUrl(cached);
+        imageUrl = StripLocalhostUrl(imageUrl);
+        if (!string.IsNullOrWhiteSpace(fileId) && !string.IsNullOrWhiteSpace(imageUrl))
+            _ = CacheAsync("Files", fileId, imageUrl, false);
         return NormalizeTo512(imageUrl ?? "");
     }
 

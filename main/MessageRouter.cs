@@ -1906,9 +1906,11 @@ public partial class AppShell
                             if (_settings.FfcEnabled && _cache.IsFresh(CacheHandler.KeyInventory, TimeSpan.FromHours(12)))
                             {
                                 var cached = _cache.LoadRaw(CacheHandler.KeyInventory) as JObject;
-                                var cachedSection = cached?["files"]?[invTag];
+                                var cachedSection = cached?["files"]?[invTag] as JArray;
                                 if (cachedSection != null)
                                 {
+                                    foreach (var ci in cachedSection.OfType<JObject>())
+                                        ci["fileUrl"] = ImageCacheHelper.GetFileUrl(ci["id"]?.ToString(), ci["fileUrl"]?.ToString());
                                     Invoke(() => SendToJS("invFiles", new { tag = invTag, files = cachedSection }));
                                     return;
                                 }
@@ -1928,7 +1930,8 @@ public partial class AppShell
                                 var latest = versions.OfType<JObject>()
                                     .LastOrDefault(v => v["status"]?.ToString() == "complete")
                                     ?? versions.OfType<JObject>().LastOrDefault();
-                                var fileUrl = latest?["file"]?["url"]?.ToString() ?? "";
+                                var rawFileUrl = latest?["file"]?["url"]?.ToString() ?? "";
+                                var fileUrl = ImageCacheHelper.GetFileUrl(f["id"]?.ToString(), rawFileUrl);
                                 var versionId = latest?["version"]?.Value<int>() ?? 1;
                                 var sizeBytes = latest?["file"]?["sizeInBytes"]?.Value<long>() ?? 0;
                                 var createdAt = IsoDate(latest?["created_at"] ?? f["created_at"]);
@@ -2088,9 +2091,11 @@ public partial class AppShell
                                 if (_settings.FfcEnabled && _cache.IsFresh(CacheHandler.KeyInventory, TimeSpan.FromHours(12)))
                                 {
                                     var cached = _cache.LoadRaw(CacheHandler.KeyInventory) as JObject;
-                                    var cachedSection = cached?["prints"];
+                                    var cachedSection = cached?["prints"] as JArray;
                                     if (cachedSection != null)
                                     {
+                                        foreach (var ci in cachedSection.OfType<JObject>())
+                                            ci["imageUrl"] = ImageCacheHelper.GetFileUrl(ci["id"]?.ToString(), ci["imageUrl"]?.ToString());
                                         Invoke(() => SendToJS("invPrints", new { prints = cachedSection }));
                                         return;
                                     }
@@ -2100,10 +2105,11 @@ public partial class AppShell
                                 var list = prints.OfType<JObject>().Select(p =>
                                 {
                                     var filesObj = p["files"] as JObject;
-                                    var imageUrl = filesObj?["image"]?.ToString()
+                                    var rawPrintUrl = filesObj?["image"]?.ToString()
                                         ?? p["imageUrl"]?.ToString()
                                         ?? p["thumbnailImageUrl"]?.ToString()
                                         ?? "";
+                                    var imageUrl = ImageCacheHelper.GetFileUrl(p["id"]?.ToString(), rawPrintUrl);
                                     return new
                                     {
                                         id         = p["id"]?.ToString() ?? "",
@@ -2144,9 +2150,12 @@ public partial class AppShell
                             if (_settings.FfcEnabled && _cache.IsFresh(CacheHandler.KeyInventory, TimeSpan.FromHours(12)))
                             {
                                 var cached = _cache.LoadRaw(CacheHandler.KeyInventory) as JObject;
-                                var cachedSection = cached?["inventory"];
+                                var cachedSection = cached?["inventory"] as JObject;
                                 if (cachedSection != null)
                                 {
+                                    if (cachedSection["items"] is JArray invItems)
+                                        foreach (var ci in invItems.OfType<JObject>())
+                                            ci["imageUrl"] = ImageCacheHelper.GetFileUrl(ci["id"]?.ToString(), ci["imageUrl"]?.ToString());
                                     Invoke(() => SendToJS("invInventory", cachedSection));
                                     return;
                                 }
@@ -2159,8 +2168,7 @@ public partial class AppShell
                                 name        = item["name"]?.ToString() ?? "Item",
                                 description = item["description"]?.ToString() ?? "",
                                 itemType    = item["itemType"]?.ToString() ?? "",
-                                imageUrl    = item["imageUrl"]?.ToString()
-                                              ?? item["metadata"]?["imageUrl"]?.ToString() ?? "",
+                                imageUrl    = ImageCacheHelper.GetFileUrl(item["id"]?.ToString(), item["imageUrl"]?.ToString() ?? item["metadata"]?["imageUrl"]?.ToString()),
                                 isArchived  = item["isArchived"]?.Value<bool>() ?? false,
                                 createdAt   = IsoDate(item["created_at"]),
                             }).ToList();

@@ -1924,8 +1924,6 @@ public partial class AppShell
                                 var cachedSection = cached?["files"]?[invTag] as JArray;
                                 if (cachedSection != null)
                                 {
-                                    foreach (var ci in cachedSection.OfType<JObject>())
-                                        ci["fileUrl"] = ImageCacheHelper.GetFileUrl(ci["id"]?.ToString(), ci["fileUrl"]?.ToString());
                                     Invoke(() => SendToJS("invFiles", new { tag = invTag, files = cachedSection }));
                                     return;
                                 }
@@ -1946,7 +1944,7 @@ public partial class AppShell
                                     .LastOrDefault(v => v["status"]?.ToString() == "complete")
                                     ?? versions.OfType<JObject>().LastOrDefault();
                                 var rawFileUrl = latest?["file"]?["url"]?.ToString() ?? "";
-                                var fileUrl = ImageCacheHelper.GetFileUrl(f["id"]?.ToString(), rawFileUrl);
+                                var fileUrl = rawFileUrl;
                                 var versionId = latest?["version"]?.Value<int>() ?? 1;
                                 var sizeBytes = latest?["file"]?["sizeInBytes"]?.Value<long>() ?? 0;
                                 var createdAt = IsoDate(latest?["created_at"] ?? f["created_at"]);
@@ -2109,8 +2107,6 @@ public partial class AppShell
                                     var cachedSection = cached?["prints"] as JArray;
                                     if (cachedSection != null)
                                     {
-                                        foreach (var ci in cachedSection.OfType<JObject>())
-                                            ci["imageUrl"] = ImageCacheHelper.GetFileUrl(ci["id"]?.ToString(), ci["imageUrl"]?.ToString());
                                         Invoke(() => SendToJS("invPrints", new { prints = cachedSection }));
                                         return;
                                     }
@@ -2124,7 +2120,7 @@ public partial class AppShell
                                         ?? p["imageUrl"]?.ToString()
                                         ?? p["thumbnailImageUrl"]?.ToString()
                                         ?? "";
-                                    var imageUrl = ImageCacheHelper.GetFileUrl(p["id"]?.ToString(), rawPrintUrl);
+                                    var imageUrl = rawPrintUrl;
                                     return new
                                     {
                                         id         = p["id"]?.ToString() ?? "",
@@ -2168,9 +2164,6 @@ public partial class AppShell
                                 var cachedSection = cached?["inventory"] as JObject;
                                 if (cachedSection != null)
                                 {
-                                    if (cachedSection["items"] is JArray invItems)
-                                        foreach (var ci in invItems.OfType<JObject>())
-                                            ci["imageUrl"] = ImageCacheHelper.GetFileUrl(ci["id"]?.ToString(), ci["imageUrl"]?.ToString());
                                     Invoke(() => SendToJS("invInventory", cachedSection));
                                     return;
                                 }
@@ -2183,7 +2176,7 @@ public partial class AppShell
                                 name        = item["name"]?.ToString() ?? "Item",
                                 description = item["description"]?.ToString() ?? "",
                                 itemType    = item["itemType"]?.ToString() ?? "",
-                                imageUrl    = ImageCacheHelper.GetFileUrl(item["id"]?.ToString(), item["imageUrl"]?.ToString() ?? item["metadata"]?["imageUrl"]?.ToString()),
+                                imageUrl    = item["imageUrl"]?.ToString() ?? item["metadata"]?["imageUrl"]?.ToString() ?? "",
                                 isArchived  = item["isArchived"]?.Value<bool>() ?? false,
                                 createdAt   = IsoDate(item["created_at"]),
                             }).ToList();

@@ -21,6 +21,8 @@ public static class ImageCacheHelper
     private static readonly ConcurrentDictionary<string, Task<string?>> _downloads = new();
     // Session-scoped path memo: "" = checked, not found; non-empty = full path
     private static readonly ConcurrentDictionary<string, string> _pathCache = new();
+    // Tracks VRChat file_xxx ID per cached entity to detect image changes
+    private static readonly ConcurrentDictionary<string, string> _fileIds = new();
 
 
     private static readonly string[] _imageExtensions = [".jpg", ".png", ".webp", ".gif"];
@@ -37,7 +39,6 @@ public static class ImageCacheHelper
         Directory.CreateDirectory(Path.Combine(_baseDir, "Avatars"));
         Directory.CreateDirectory(Path.Combine(_baseDir, "Users"));
         Directory.CreateDirectory(Path.Combine(_baseDir, "Badges"));
-        Directory.CreateDirectory(Path.Combine(_baseDir, "Files"));
         Directory.CreateDirectory(Path.Combine(_baseDir, "Events"));
     }
 
@@ -120,9 +121,19 @@ public static class ImageCacheHelper
 
     public static string GetUserUrl(string? userId, string? iconUrl)
     {
-        var cached = GetUserCached(userId);
-        if (cached != null) return ToLocalUrl(cached);
         iconUrl = StripLocalhostUrl(iconUrl);
+        var cached = GetUserCached(userId);
+        if (cached != null && !string.IsNullOrWhiteSpace(iconUrl))
+        {
+            var newFid = ExtractFileId(NormalizeTo512(iconUrl));
+            var oldFid = newFid != null ? GetStoredFileId("Users", userId!) : null;
+            // Same image confirmed → serve from disk
+            if (newFid != null && oldFid != null && oldFid == newFid) return ToLocalUrl(cached);
+            // No .fid record OR file ID changed → re-download, return CDN URL immediately
+            _ = CacheAsync("Users", userId, iconUrl, forceRefresh: true);
+            return NormalizeTo512(iconUrl);
+        }
+        if (cached != null) return ToLocalUrl(cached);
         if (!string.IsNullOrWhiteSpace(userId) && !string.IsNullOrWhiteSpace(iconUrl))
             _ = CacheAsync("Users", userId, iconUrl, false);
         return NormalizeTo512(iconUrl ?? "");
@@ -130,10 +141,20 @@ public static class ImageCacheHelper
 
     public static string GetUserBannerUrl(string? userId, string? bannerUrl)
     {
+        bannerUrl = StripLocalhostUrl(bannerUrl);
         var bannerId = userId == null ? null : userId + "_banner";
         var cached = GetUserBannerCached(userId);
+        if (cached != null && !string.IsNullOrWhiteSpace(bannerUrl))
+        {
+            var newFid = ExtractFileId(NormalizeTo512(bannerUrl));
+            var oldFid = newFid != null ? GetStoredFileId("Users", bannerId!) : null;
+            // Same image confirmed → serve from disk
+            if (newFid != null && oldFid != null && oldFid == newFid) return ToLocalUrl(cached);
+            // No .fid record OR file ID changed → re-download, return CDN URL immediately
+            _ = CacheAsync("Users", bannerId, bannerUrl, forceRefresh: true);
+            return NormalizeTo512(bannerUrl);
+        }
         if (cached != null) return ToLocalUrl(cached);
-        bannerUrl = StripLocalhostUrl(bannerUrl);
         if (!string.IsNullOrWhiteSpace(bannerId) && !string.IsNullOrWhiteSpace(bannerUrl))
             _ = CacheAsync("Users", bannerId, bannerUrl, false);
         return NormalizeTo512(bannerUrl ?? "");
@@ -162,21 +183,6 @@ public static class ImageCacheHelper
         imageUrl = StripLocalhostUrl(imageUrl);
         if (!string.IsNullOrWhiteSpace(eventId) && !string.IsNullOrWhiteSpace(imageUrl))
             _ = CacheAsync("Events", eventId, imageUrl, false);
-        return NormalizeTo512(imageUrl ?? "");
-    }
-
-// Files (Inventory: Photos, Icons, Emojis, Stickers, Prints, Inventory items)
-
-    public static string? GetFileCached(string? fileId)
-        => FindCachedFile("Files", fileId);
-
-    public static string GetFileUrl(string? fileId, string? imageUrl)
-    {
-        var cached = GetFileCached(fileId);
-        if (cached != null) return ToLocalUrl(cached);
-        imageUrl = StripLocalhostUrl(imageUrl);
-        if (!string.IsNullOrWhiteSpace(fileId) && !string.IsNullOrWhiteSpace(imageUrl))
-            _ = CacheAsync("Files", fileId, imageUrl, false);
         return NormalizeTo512(imageUrl ?? "");
     }
 
@@ -296,6 +302,12 @@ public static class ImageCacheHelper
         }
 
         _pathCache[$"{subdir}/{entityId}"] = finalPath;
+        var fid = ExtractFileId(fetchUrl);
+        if (fid != null)
+        {
+            _fileIds[$"{subdir}/{entityId}"] = fid;
+            try { File.WriteAllText(Path.Combine(dir, entityId + ".fid"), fid); } catch { }
+        }
         Log?.Invoke($"[IMG] OK {subdir}/{entityId}{ext}");
         _ = Task.Run(TrimIfNeeded);
         return finalPath;
@@ -350,7 +362,7 @@ public static class ImageCacheHelper
         if (!Directory.Exists(_baseDir)) return 0;
         return new DirectoryInfo(_baseDir)
             .GetFiles("*", SearchOption.AllDirectories)
-            .Where(f => !f.Name.EndsWith(".tmp"))
+            .Where(f => !f.Name.EndsWith(".tmp") && !f.Name.EndsWith(".fid"))
             .Sum(f => f.Length);
     }
 
@@ -362,7 +374,7 @@ public static class ImageCacheHelper
         {
             var files = new DirectoryInfo(_baseDir)
                 .GetFiles("*", SearchOption.AllDirectories)
-                .Where(f => !f.Name.EndsWith(".tmp"))
+                .Where(f => !f.Name.EndsWith(".tmp") && !f.Name.EndsWith(".fid"))
                 .OrderBy(f => f.LastWriteTimeUtc)
                 .ToList();
             var total = files.Sum(f => f.Length);
@@ -428,6 +440,36 @@ public static class ImageCacheHelper
         if (url.Contains("/api/1/image/", StringComparison.Ordinal) && url.EndsWith("/256", StringComparison.Ordinal))
             return url[..^3] + "512";
         return url;
+    }
+
+    private static string? ExtractFileId(string? url)
+    {
+        if (string.IsNullOrEmpty(url)) return null;
+        foreach (var marker in new[] { "/image/", "/file/" })
+        {
+            var i = url.IndexOf(marker, StringComparison.Ordinal);
+            if (i < 0) continue;
+            var rest  = url[(i + marker.Length)..];
+            var slash = rest.IndexOf('/');
+            var part  = slash > 0 ? rest[..slash] : rest;
+            if (part.StartsWith("file_", StringComparison.OrdinalIgnoreCase)) return part;
+        }
+        return null;
+    }
+
+    private static string? GetStoredFileId(string subdir, string entityId)
+    {
+        var key = $"{subdir}/{entityId}";
+        if (_fileIds.TryGetValue(key, out var mem)) return mem;
+        var fidPath = Path.Combine(_baseDir, subdir, entityId + ".fid");
+        if (!File.Exists(fidPath)) return null;
+        try
+        {
+            var fid = File.ReadAllText(fidPath).Trim();
+            if (!string.IsNullOrEmpty(fid)) { _fileIds[key] = fid; return fid; }
+        }
+        catch { }
+        return null;
     }
 
     private static void TryDelete(string path)

@@ -22,15 +22,24 @@
         tip.style.left = '-9999px';
         tip.style.top  = '-9999px';
         requestAnimationFrame(() => {
-            const tw = tip.offsetWidth;
-            const th = tip.offsetHeight;
+            const scale = getBodyScale();
+            const tw = tip.offsetWidth * scale;
+            const th = tip.offsetHeight * scale;
             let left = rect.left + rect.width / 2 - tw / 2;
             let top  = rect.bottom + 7;
             if (top + th > window.innerHeight - 8) top = rect.top - th - 7;
             left = Math.max(8, Math.min(left, window.innerWidth - tw - 8));
-            tip.style.left = left + 'px';
-            tip.style.top  = top + 'px';
+            tip.style.left = (left / scale) + 'px';
+            tip.style.top  = (top / scale) + 'px';
         });
+    }
+
+    function getBodyScale() {
+        const transform = getComputedStyle(document.body).transform;
+        if (!transform || transform === 'none') return 1;
+        const matrix = transform.match(/^matrix\(([^,]+)/);
+        const scale = matrix ? parseFloat(matrix[1]) : 1;
+        return Number.isFinite(scale) && scale > 0 ? scale : 1;
     }
 
     document.addEventListener('mouseover', e => {

@@ -13,6 +13,9 @@ public static class ImageCacheHelper
     public static int  LimitGb         { get; set; } = 5;
     public static bool OptimizeEnabled { get; set; } = true;
 
+    // Toggle ImageCache Debugging
+    public static bool DebugMode { get; set; } = true;
+
     /// <summary>Set at startup to route download logs to the activity log.</summary>
     public static Action<string>? Log { get; set; }
     private static readonly ConcurrentDictionary<string, Task<string?>> _downloads = new();
@@ -48,7 +51,8 @@ public static class ImageCacheHelper
     public static string ToLocalUrl(string localPath)
     {
         var rel = Path.GetRelativePath(_baseDir, localPath).Replace('\\', '/');
-        return $"http://localhost:{Port}/imgcache/{rel}";
+        var url = $"http://localhost:{Port}/imgcache/{rel}";
+        return DebugMode ? url + "?src=disk" : url;
     }
 
 // World

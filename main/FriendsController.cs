@@ -257,7 +257,11 @@ public class FriendsController
                             if (cached?["avatars"] is JArray cachedAvtrs)
                             {
                                 foreach (var a in cachedAvtrs)
-                                    if (a is JObject ao) ao["imageUrl"] = ImageCacheHelper.GetAvatarUrl(ao["id"]?.ToString(), ao["imageUrl"]?.ToString());
+                                    if (a is JObject ao)
+                                    {
+                                        ao["imageUrl"] = ImageCacheHelper.GetAvatarUrl(ao["id"]?.ToString(), ao["imageUrl"]?.ToString() ?? ao["thumbnailImageUrl"]?.ToString());
+                                        ao["thumbnailImageUrl"] = ao["imageUrl"];
+                                    }
                                 _core.SendToJS("vrcUserAvatars", new { userId = uid, avatars = cachedAvtrs });
                                 break;
                             }
@@ -268,7 +272,7 @@ public class FriendsController
                         {
                             id                = a["vrc_id"]?.ToString() ?? a["id"]?.ToString() ?? "",
                             name              = a["name"]?.ToString() ?? "",
-                            thumbnailImageUrl = a["thumbnailImageUrl"]?.ToString() ?? "",
+                            thumbnailImageUrl = ImageCacheHelper.GetAvatarUrl(a["vrc_id"]?.ToString() ?? a["id"]?.ToString(), a["image_url"]?.ToString() ?? a["thumbnailImageUrl"]?.ToString() ?? a["imageUrl"]?.ToString()),
                             imageUrl          = ImageCacheHelper.GetAvatarUrl(a["vrc_id"]?.ToString() ?? a["id"]?.ToString(), a["image_url"]?.ToString() ?? a["imageUrl"]?.ToString()),
                             authorName        = a["author"]?["name"]?.ToString() ?? a["authorName"]?.ToString() ?? "",
                             releaseStatus     = "public",
@@ -983,11 +987,12 @@ public class FriendsController
                             {
                                 var world = await _core.VrcApi.GetWorldAsync(wid);
                                 if (world == null) return (wid, null as object);
+                                var url = ImageCacheHelper.GetWorldUrl(wid, world["imageUrl"]?.ToString() ?? world["thumbnailImageUrl"]?.ToString());
                                 return (wid, (object)new
                                 {
                                     name = world["name"]?.ToString() ?? "",
-                                    thumbnailImageUrl = world["thumbnailImageUrl"]?.ToString() ?? "",
-                                    imageUrl = ImageCacheHelper.GetWorldUrl(wid, world["imageUrl"]?.ToString())
+                                    thumbnailImageUrl = url,
+                                    imageUrl = url
                                 });
                             }
                             catch { return (wid, null as object); }
@@ -1392,7 +1397,7 @@ public class FriendsController
 
         var instWorld = inst?["world"] as JObject;
         string worldName = instWorld?["name"]?.ToString() ?? "";
-        string worldThumb = instWorld?["thumbnailImageUrl"]?.ToString() ?? "";
+        string worldThumb = ImageCacheHelper.GetWorldUrl(worldId, instWorld?["imageUrl"]?.ToString() ?? instWorld?["thumbnailImageUrl"]?.ToString());
         int worldCapacity = instWorld?["capacity"]?.Value<int>() ?? inst?["capacity"]?.Value<int>() ?? 0;
         int userCount = inst?["n_users"]?.Value<int>() ?? inst?["userCount"]?.Value<int>() ?? 0;
         string userNote = user["note"]?.ToString() ?? "";

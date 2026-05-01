@@ -1,26 +1,49 @@
-**2026.20.1**
+**2026.20.5**
 
-**Avatar Search**
+**Improved Caching System**
+Caching has been updated and it will now always show actual content.
+Content that hasnt been updated will use old cached images.
 
-* Added Cute Avatar Search to the trusted Avatar Database list.
-* You can now use either AvtrDB or Avtr.icu to search avatars in the Avatars > Search tab.
-* Added a dropdown that lets you choose between AvtrDB and Avtr.icu.
-* Avatar lookups in instances and user profiles will still use AvtrDB as the main database.
-* Added “Similar Avatars” to the Cute Avatar Search database function inside VRCNext.
-* Added a “Database” badge to avatar cards to show which database was used for the current avatar search.
+**OSC Chat**
 
-**Settings**
+* Added a new feature to Custom Chatbox.
+* You can now use Custom Chatbox as a normal chat.
+* A chat window is now available where you can type and send messages. These messages will be shown in VRChat.
+* This can be used in Desktop and VR mode.
+* In VR, it may be a little tricky to use. It is recommended to increase the SteamVR Overlay UI size for easier usage.
+* A wrist overlay tab may be added in the future.
 
-* Changed “AVTRDB COMMUNITY SUPPORT” to “AVTRDB AND AVTR.ICU COMMUNITY SUPPORT”.
-* The DMCA and deletion system now works with both AvtrDB and Avtr.icu.
-* The avatar report system now works with both AvtrDB and Avtr.icu.
+**User Preview**
 
-**Fixes**
-* Fixed an issue that caused to use /256 Pixels endpoints for avatars instead of the /512 endpoint. This has been fixed now.
+* Made the preview modal slightly bigger to provide more space for all UI elements.
+* The preview now shows the number of people in the instance.
+* The preview now shows the server location.
 
-**Custom Databases**
+**Improvements**
 
-* VRCNext currently does not support custom databases for various reasons.
-* One reason is that some databases do not have an internal blacklist system to prevent uploads when users do not want their avatars uploaded.
-* Another reason is that some databases are very slow, unresponsive, or have extreme rate limits.
-* Please understand that I will only add databases that meet a high quality standard, include proper blacklist mechanics, and do not have overly aggressive rate limits.
+* Images in the Rose Database, Inventory, Timeline, Calendar, and Group Events are now properly cached and loaded from disk on subsequent visits instead of being fetched from the network every time.
+* World data is now cached for 24 hours, noticeably reducing the number of network requests made on startup.
+* VRChat’s WebSocket now sends data when a user changes their profile image. Previously, images were only refreshed when the user changed their status. Images are now updated correctly.
+* Redesigned the Custom Chatbox tab to better match the new UI style of the Settings tab.
+* Cleaned up various UI parts of VRCN.
+
+**Activity Log**
+
+* Added a command prompt (`>`) at the bottom of the Activity Log. Type a command and press Enter to run it.
+* Added `/help`, which lists all available commands.
+* Added `/debug img cache true/false`, which shows or hides the image cache debug overlay.
+* The command input is now part of the log panel and is styled like a terminal.
+* Multi-line command output now displays each line on its own row instead of everything on a single line.
+
+**Bug Fixes**
+
+* Fixed an issue where Inventory images, including Photos, Icons, Emojis, Stickers, and Prints, showed as uncached after a restart.
+* Fixed an issue where avatar icons in Timeline avatar-switch events showed the wrong image.
+* Fixed an issue where the image cache debug overlay was always visible on startup, even when it was turned off.
+* Fixed an issue where updated world images still showed the old cached image.
+* Fixed an issue where updated group images still showed the old cached image.
+* Fixed an issue where updated avatar images still showed the old cached image.
+* Fixed an issue where updated user images still showed the old cached image.
+* Fixed an issue where updated friend images still showed the old cached image.
+* Fixed an issue where updated event images still showed the old cached image.
+* Fixed an issue where the Live Preview in Custom Chatbox showed 2 squares at the end caused by Custom Lines.

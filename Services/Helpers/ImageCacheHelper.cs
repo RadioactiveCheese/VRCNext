@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using Microsoft.Data.Sqlite;
 
 namespace VRCNext.Services.Helpers;
 
@@ -8,17 +9,23 @@ public static class ImageCacheHelper
 {
     private static string _baseDir = "";
     private static HttpClient? _http;
+    private static SqliteConnection? _db;
+    private static readonly object _dbLock = new();
 
     public static int  Port            { get; set; } = 49152;
     public static int  LimitGb         { get; set; } = 5;
     public static bool OptimizeEnabled { get; set; } = true;
+
+    // Toggle ImageCache Debugging
+    public static bool DebugMode { get; set; } = false;
 
     /// <summary>Set at startup to route download logs to the activity log.</summary>
     public static Action<string>? Log { get; set; }
     private static readonly ConcurrentDictionary<string, Task<string?>> _downloads = new();
     // Session-scoped path memo: "" = checked, not found; non-empty = full path
     private static readonly ConcurrentDictionary<string, string> _pathCache = new();
-
+    // Last downloaded URL per entity — loaded from SQLite on startup
+    private static readonly ConcurrentDictionary<string, string> _urls = new();
 
     private static readonly string[] _imageExtensions = [".jpg", ".png", ".webp", ".gif"];
 
@@ -34,21 +41,64 @@ public static class ImageCacheHelper
         Directory.CreateDirectory(Path.Combine(_baseDir, "Avatars"));
         Directory.CreateDirectory(Path.Combine(_baseDir, "Users"));
         Directory.CreateDirectory(Path.Combine(_baseDir, "Badges"));
+        Directory.CreateDirectory(Path.Combine(_baseDir, "Events"));
+
+        _InitDb();
     }
 
-    public static string GetWorldUrl(string? worldId, string? imageUrl)
+    private static void _InitDb()
     {
-        var cached = GetWorldCached(worldId);
-        if (cached != null) return ToLocalUrl(cached);
-        imageUrl = StripLocalhostUrl(imageUrl);
-        CacheWorldBackground(worldId, imageUrl);
-        return NormalizeTo512(imageUrl ?? "");
+        _db = new SqliteConnection($"Data Source={Database.DbPath}");
+        _db.Open();
+        using var cmd = _db.CreateCommand();
+        cmd.CommandText = "CREATE TABLE IF NOT EXISTS image_versions (key TEXT PRIMARY KEY, url TEXT NOT NULL);";
+        cmd.ExecuteNonQuery();
+        _LoadUrls();
+    }
+
+    private static void _LoadUrls()
+    {
+        lock (_dbLock)
+        {
+            using var cmd = _db!.CreateCommand();
+            cmd.CommandText = "SELECT key, url FROM image_versions";
+            using var r = cmd.ExecuteReader();
+            while (r.Read())
+                _urls[r.GetString(0)] = r.GetString(1);
+        }
+    }
+
+    private static string? GetStoredUrl(string subdir, string entityId)
+    {
+        var key = $"{subdir}/{entityId}";
+        return _urls.TryGetValue(key, out var url) ? url : null;
+    }
+
+    private static void SaveUrl(string subdir, string entityId, string url)
+    {
+        var key = $"{subdir}/{entityId}";
+        _urls[key] = url;
+        _ = Task.Run(() =>
+        {
+            lock (_dbLock)
+            {
+                if (_db == null) return;
+                using var cmd = _db.CreateCommand();
+                cmd.CommandText = @"
+                    INSERT INTO image_versions (key, url) VALUES ($key, $url)
+                    ON CONFLICT(key) DO UPDATE SET url = $url";
+                cmd.Parameters.AddWithValue("$key", key);
+                cmd.Parameters.AddWithValue("$url", url);
+                cmd.ExecuteNonQuery();
+            }
+        });
     }
 
     public static string ToLocalUrl(string localPath)
     {
         var rel = Path.GetRelativePath(_baseDir, localPath).Replace('\\', '/');
-        return $"http://localhost:{Port}/imgcache/{rel}";
+        var url = $"http://localhost:{Port}/imgcache/{rel}";
+        return DebugMode ? url + "?src=disk" : url;
     }
 
 // World
@@ -63,6 +113,25 @@ public static class ImageCacheHelper
         if (!string.IsNullOrWhiteSpace(worldId) && !string.IsNullOrWhiteSpace(imageUrl))
             _ = CacheWorldAsync(worldId, imageUrl);
         return null;
+    }
+
+    public static string GetWorldUrl(string? worldId, string? imageUrl)
+    {
+        imageUrl = StripLocalhostUrl(imageUrl);
+        var cached = GetWorldCached(worldId);
+        if (cached != null)
+        {
+            if (!string.IsNullOrWhiteSpace(imageUrl) && !string.IsNullOrWhiteSpace(worldId))
+            {
+                var normalized = NormalizeTo512(imageUrl);
+                if (GetStoredUrl("Worlds", worldId) == normalized) return ToLocalUrl(cached);
+                _ = CacheAsync("Worlds", worldId, imageUrl, forceRefresh: true);
+                return normalized;
+            }
+            return ToLocalUrl(cached);
+        }
+        CacheWorldBackground(worldId, imageUrl);
+        return NormalizeTo512(imageUrl ?? "");
     }
 
 // Groups
@@ -84,23 +153,44 @@ public static class ImageCacheHelper
 
     public static string GetGroupUrl(string? groupId, string? iconUrl)
     {
-        var cached = GetGroupCached(groupId);
-        if (cached != null) return ToLocalUrl(cached);
         iconUrl = StripLocalhostUrl(iconUrl);
+        var cached = GetGroupCached(groupId);
+        if (cached != null)
+        {
+            if (!string.IsNullOrWhiteSpace(iconUrl) && !string.IsNullOrWhiteSpace(groupId))
+            {
+                var normalized = NormalizeTo512(iconUrl);
+                if (GetStoredUrl("Groups", groupId) == normalized) return ToLocalUrl(cached);
+                _ = CacheAsync("Groups", groupId, iconUrl, forceRefresh: true);
+                return normalized;
+            }
+            return ToLocalUrl(cached);
+        }
         CacheGroupBackground(groupId, iconUrl);
         return NormalizeTo512(iconUrl ?? "");
     }
 
     public static string GetGroupBannerUrl(string? groupId, string? bannerUrl)
     {
+        bannerUrl = StripLocalhostUrl(bannerUrl);
         var bannerId = string.IsNullOrWhiteSpace(groupId) ? null : groupId + "_banner";
         var cached   = FindCachedFile("Groups", bannerId);
-        if (cached != null) return ToLocalUrl(cached);
-        bannerUrl = StripLocalhostUrl(bannerUrl);
+        if (cached != null)
+        {
+            if (!string.IsNullOrWhiteSpace(bannerUrl) && bannerId != null)
+            {
+                var normalized = NormalizeTo512(bannerUrl);
+                if (GetStoredUrl("Groups", bannerId) == normalized) return ToLocalUrl(cached);
+                _ = CacheAsync("Groups", bannerId, bannerUrl, forceRefresh: true);
+                return normalized;
+            }
+            return ToLocalUrl(cached);
+        }
         if (!string.IsNullOrWhiteSpace(bannerId) && !string.IsNullOrWhiteSpace(bannerUrl))
             _ = CacheAsync("Groups", bannerId, bannerUrl, false);
         return NormalizeTo512(bannerUrl ?? "");
     }
+
 // Users
 
     public static string? GetUserCached(string? userId)
@@ -114,9 +204,19 @@ public static class ImageCacheHelper
 
     public static string GetUserUrl(string? userId, string? iconUrl)
     {
-        var cached = GetUserCached(userId);
-        if (cached != null) return ToLocalUrl(cached);
         iconUrl = StripLocalhostUrl(iconUrl);
+        var cached = GetUserCached(userId);
+        if (cached != null)
+        {
+            if (!string.IsNullOrWhiteSpace(iconUrl) && !string.IsNullOrWhiteSpace(userId))
+            {
+                var normalized = NormalizeTo512(iconUrl);
+                if (GetStoredUrl("Users", userId) == normalized) return ToLocalUrl(cached);
+                _ = CacheAsync("Users", userId, iconUrl, forceRefresh: true);
+                return normalized;
+            }
+            return ToLocalUrl(cached);
+        }
         if (!string.IsNullOrWhiteSpace(userId) && !string.IsNullOrWhiteSpace(iconUrl))
             _ = CacheAsync("Users", userId, iconUrl, false);
         return NormalizeTo512(iconUrl ?? "");
@@ -124,14 +224,25 @@ public static class ImageCacheHelper
 
     public static string GetUserBannerUrl(string? userId, string? bannerUrl)
     {
+        bannerUrl = StripLocalhostUrl(bannerUrl);
         var bannerId = userId == null ? null : userId + "_banner";
         var cached = GetUserBannerCached(userId);
-        if (cached != null) return ToLocalUrl(cached);
-        bannerUrl = StripLocalhostUrl(bannerUrl);
+        if (cached != null)
+        {
+            if (!string.IsNullOrWhiteSpace(bannerUrl) && bannerId != null)
+            {
+                var normalized = NormalizeTo512(bannerUrl);
+                if (GetStoredUrl("Users", bannerId) == normalized) return ToLocalUrl(cached);
+                _ = CacheAsync("Users", bannerId, bannerUrl, forceRefresh: true);
+                return normalized;
+            }
+            return ToLocalUrl(cached);
+        }
         if (!string.IsNullOrWhiteSpace(bannerId) && !string.IsNullOrWhiteSpace(bannerUrl))
             _ = CacheAsync("Users", bannerId, bannerUrl, false);
         return NormalizeTo512(bannerUrl ?? "");
     }
+
 // Badges
 
     public static string GetBadgeUrl(string? badgeId, string? imageUrl)
@@ -141,6 +252,31 @@ public static class ImageCacheHelper
         imageUrl = StripLocalhostUrl(imageUrl);
         if (!string.IsNullOrWhiteSpace(badgeId) && !string.IsNullOrWhiteSpace(imageUrl))
             _ = CacheAsync("Badges", badgeId, imageUrl, false);
+        return NormalizeTo512(imageUrl ?? "");
+    }
+
+// Events (Group Events, Calendar Events)
+
+    public static string? GetEventCached(string? eventId)
+        => FindCachedFile("Events", eventId);
+
+    public static string GetEventUrl(string? eventId, string? imageUrl)
+    {
+        imageUrl = StripLocalhostUrl(imageUrl);
+        var cached = GetEventCached(eventId);
+        if (cached != null)
+        {
+            if (!string.IsNullOrWhiteSpace(imageUrl) && !string.IsNullOrWhiteSpace(eventId))
+            {
+                var normalized = NormalizeTo512(imageUrl);
+                if (GetStoredUrl("Events", eventId) == normalized) return ToLocalUrl(cached);
+                _ = CacheAsync("Events", eventId, imageUrl, forceRefresh: true);
+                return normalized;
+            }
+            return ToLocalUrl(cached);
+        }
+        if (!string.IsNullOrWhiteSpace(eventId) && !string.IsNullOrWhiteSpace(imageUrl))
+            _ = CacheAsync("Events", eventId, imageUrl, false);
         return NormalizeTo512(imageUrl ?? "");
     }
 
@@ -163,22 +299,32 @@ public static class ImageCacheHelper
 
     public static string GetAvatarUrl(string? avatarId, string? imageUrl)
     {
-        var cached = GetAvatarCached(avatarId);
-        if (cached != null) return ToLocalUrl(cached);
         imageUrl = StripLocalhostUrl(imageUrl);
+        var cached = GetAvatarCached(avatarId);
+        if (cached != null)
+        {
+            if (!string.IsNullOrWhiteSpace(imageUrl) && !string.IsNullOrWhiteSpace(avatarId))
+            {
+                var normalized = NormalizeTo512(imageUrl);
+                if (GetStoredUrl("Avatars", avatarId) == normalized) return ToLocalUrl(cached);
+                _ = CacheAsync("Avatars", avatarId, imageUrl, forceRefresh: true);
+                return normalized;
+            }
+            return ToLocalUrl(cached);
+        }
         CacheAvatarBackground(avatarId, imageUrl);
         return NormalizeTo512(imageUrl ?? "");
     }
+
 // Core
 
-    // Strip stale localhost URLs — file was deleted but FFC still has old localhost URL.
-    // We can't re-download from localhost, and we've lost the original VRChat URL.
+    // Strip stale localhost URLs — we can't re-download from localhost.
     private static string? StripLocalhostUrl(string? url) =>
         url != null && url.StartsWith("http://localhost:") ? null : url;
 
     private static Task<string?> CacheAsync(string subdir, string? entityId, string? imageUrl, bool forceRefresh)
     {
-        imageUrl = StripLocalhostUrl(imageUrl); // Never try to download from localhost
+        imageUrl = StripLocalhostUrl(imageUrl);
         if (string.IsNullOrWhiteSpace(entityId) || string.IsNullOrWhiteSpace(imageUrl) || _http == null)
             return Task.FromResult<string?>(null);
         if (PermafailHelper.IsPermafailed(NormalizeTo512(imageUrl), "Image"))
@@ -191,13 +337,16 @@ public static class ImageCacheHelper
         }
 
         var key = $"{subdir}/{entityId}";
-        return _downloads.GetOrAdd(key, _ =>
+
+        // forceRefresh: remove any in-flight task so new URL download always starts fresh
+        if (forceRefresh) _downloads.TryRemove(key, out _);
+
+        return _downloads.GetOrAdd(key, _key =>
         {
             var task = DownloadAsync(subdir, entityId, imageUrl, forceRefresh);
-            // Remove from in-flight map when done, regardless of outcome
             return task.ContinueWith(t =>
             {
-                _downloads.TryRemove(key, out Task<string?>? _);
+                _downloads.TryRemove(key, out _);
                 return t.Status == TaskStatus.RanToCompletion ? t.Result : null;
             }, TaskContinuationOptions.ExecuteSynchronously);
         });
@@ -260,10 +409,12 @@ public static class ImageCacheHelper
         }
 
         _pathCache[$"{subdir}/{entityId}"] = finalPath;
+        SaveUrl(subdir, entityId, fetchUrl);
         Log?.Invoke($"[IMG] OK {subdir}/{entityId}{ext}");
         _ = Task.Run(TrimIfNeeded);
         return finalPath;
     }
+
 // Helpers
     private static string? FindCachedFile(string subdir, string? entityId)
     {
@@ -378,17 +529,15 @@ public static class ImageCacheHelper
     // Converts VRC Url to CDN 512 Endpoints
     public static string NormalizeTo512(string url)
     {
-        // /api/1/file/file_xxx/{version}/file try and getting /api/1/image/file_xxx/{version}/512
         const string filePrefix = "/api/1/file/";
         var fi = url.IndexOf(filePrefix, StringComparison.Ordinal);
         if (fi >= 0)
         {
-            var rest  = url[(fi + filePrefix.Length)..]; // "file_xxx/{version}/file" should work
+            var rest  = url[(fi + filePrefix.Length)..];
             var parts = rest.Split('/');
             if (parts.Length >= 3 && parts[0].StartsWith("file_", StringComparison.OrdinalIgnoreCase))
                 return $"https://api.vrchat.cloud/api/1/image/{parts[0]}/{parts[1]}/512";
         }
-        // /api/1/image/.../256 the normalize if needed /512 - very hacky way lol
         if (url.Contains("/api/1/image/", StringComparison.Ordinal) && url.EndsWith("/256", StringComparison.Ordinal))
             return url[..^3] + "512";
         return url;

@@ -479,6 +479,11 @@ public partial class AppShell
                     _ = Task.Run(async () =>
                     {
                         var worlds = await _vrcApi.GetRecentWorldsAsync();
+                        foreach (JObject w in worlds.OfType<JObject>())
+                        {
+                            var url = ImageCacheHelper.GetWorldUrl(w["id"]?.ToString(), w["imageUrl"]?.ToString() ?? w["thumbnailImageUrl"]?.ToString());
+                            w["imageUrl"] = url; w["thumbnailImageUrl"] = url;
+                        }
                         Invoke(() => SendToJS("recentWorlds", new { worlds }));
                     });
                     break;
@@ -487,6 +492,11 @@ public partial class AppShell
                     _ = Task.Run(async () =>
                     {
                         var worlds = await _vrcApi.GetPopularWorldsAsync();
+                        foreach (JObject w in worlds.OfType<JObject>())
+                        {
+                            var url = ImageCacheHelper.GetWorldUrl(w["id"]?.ToString(), w["imageUrl"]?.ToString() ?? w["thumbnailImageUrl"]?.ToString());
+                            w["imageUrl"] = url; w["thumbnailImageUrl"] = url;
+                        }
                         Invoke(() => SendToJS("popularWorlds", new { worlds }));
                     });
                     break;
@@ -495,6 +505,11 @@ public partial class AppShell
                     _ = Task.Run(async () =>
                     {
                         var worlds = await _vrcApi.GetActiveWorldsAsync();
+                        foreach (JObject w in worlds.OfType<JObject>())
+                        {
+                            var url = ImageCacheHelper.GetWorldUrl(w["id"]?.ToString(), w["imageUrl"]?.ToString() ?? w["thumbnailImageUrl"]?.ToString());
+                            w["imageUrl"] = url; w["thumbnailImageUrl"] = url;
+                        }
                         Invoke(() => SendToJS("activeWorlds", new { worlds }));
                     });
                     break;
@@ -584,6 +599,17 @@ public partial class AppShell
                 case "vrcRemoveMyInstance":
                     await _instance.HandleMessage(action, msg);
                     break;
+
+                case "consoleCommand":
+                {
+                    var cmd = msg["cmd"]?.ToString() ?? "";
+                    var result = ConsoleHelper.Execute(cmd);
+                    if (!string.IsNullOrEmpty(result.Text))
+                        SendToJS("consoleOutput", new { text = result.Text, color = result.Color });
+                    if (result.Extra != null && result.ExtraPayload != null)
+                        SendToJS(result.Extra, result.ExtraPayload);
+                    break;
+                }
 
                 case "openLogFile":
                     if (!string.IsNullOrEmpty(_activityLogPath) && File.Exists(_activityLogPath))
@@ -701,8 +727,8 @@ public partial class AppShell
                                     {
                                         id                = a["id"]?.ToString() ?? "",
                                         name              = a["name"]?.ToString() ?? "",
-                                        thumbnailImageUrl = a["thumbnailImageUrl"]?.ToString() ?? "",
-                                        imageUrl          = a["imageUrl"]?.ToString() ?? "",
+                                        thumbnailImageUrl = ImageCacheHelper.GetAvatarUrl(a["id"]?.ToString(), a["thumbnailImageUrl"]?.ToString() ?? a["imageUrl"]?.ToString()),
+                                        imageUrl          = ImageCacheHelper.GetAvatarUrl(a["id"]?.ToString(), a["imageUrl"]?.ToString() ?? a["thumbnailImageUrl"]?.ToString()),
                                         authorName        = a["authorName"]?.ToString() ?? "",
                                         releaseStatus     = "public",
                                         description       = a["description"]?.ToString() ?? "",
@@ -733,7 +759,7 @@ public partial class AppShell
                                         .Select(a => new {
                                             id                = a["vrc_id"]?.ToString() ?? a["id"]?.ToString() ?? "",
                                             name              = a["name"]?.ToString() ?? "",
-                                            thumbnailImageUrl = a["thumbnailImageUrl"]?.ToString() ?? "",
+                                            thumbnailImageUrl = ImageCacheHelper.GetAvatarUrl(a["vrc_id"]?.ToString() ?? a["id"]?.ToString(), a["image_url"]?.ToString() ?? a["thumbnailImageUrl"]?.ToString() ?? a["imageUrl"]?.ToString()),
                                             imageUrl          = ImageCacheHelper.GetAvatarUrl(a["vrc_id"]?.ToString() ?? a["id"]?.ToString(), a["image_url"]?.ToString() ?? a["imageUrl"]?.ToString()),
                                             authorName        = a["author"]?["name"]?.ToString() ?? a["authorName"]?.ToString() ?? "",
                                             description       = a["description"]?.ToString() ?? "",
@@ -747,8 +773,8 @@ public partial class AppShell
                                         .Select(a => new {
                                             id                = a["id"]?.ToString() ?? "",
                                             name              = a["name"]?.ToString() ?? "",
-                                            thumbnailImageUrl = a["thumbnailImageUrl"]?.ToString() ?? "",
-                                            imageUrl          = a["imageUrl"]?.ToString() ?? "",
+                                            thumbnailImageUrl = ImageCacheHelper.GetAvatarUrl(a["id"]?.ToString(), a["thumbnailImageUrl"]?.ToString() ?? a["imageUrl"]?.ToString()),
+                                            imageUrl          = ImageCacheHelper.GetAvatarUrl(a["id"]?.ToString(), a["imageUrl"]?.ToString() ?? a["thumbnailImageUrl"]?.ToString()),
                                             authorName        = a["authorName"]?.ToString() ?? "",
                                             description       = a["description"]?.ToString() ?? "",
                                             compatibility     = (a["platforms"] as JArray ?? new JArray()).Select(p => p.ToString()).ToArray(),
@@ -778,7 +804,7 @@ public partial class AppShell
                                     {
                                         id                = a["vrc_id"]?.ToString() ?? a["id"]?.ToString() ?? "",
                                         name              = a["name"]?.ToString() ?? "",
-                                        thumbnailImageUrl = a["thumbnailImageUrl"]?.ToString() ?? "",
+                                        thumbnailImageUrl = ImageCacheHelper.GetAvatarUrl(a["vrc_id"]?.ToString() ?? a["id"]?.ToString(), a["image_url"]?.ToString() ?? a["thumbnailImageUrl"]?.ToString() ?? a["imageUrl"]?.ToString()),
                                         imageUrl          = ImageCacheHelper.GetAvatarUrl(a["vrc_id"]?.ToString() ?? a["id"]?.ToString(), a["image_url"]?.ToString() ?? a["imageUrl"]?.ToString()),
                                         authorName        = a["author"]?["name"]?.ToString() ?? a["authorName"]?.ToString() ?? "",
                                         releaseStatus     = "public",
@@ -803,6 +829,21 @@ public partial class AppShell
                                 Invoke(() => SendToJS("log", new { msg = $"Avatar search error: {ex.Message}", color = "err" }));
                             }
                         });
+                    }
+                    break;
+
+                case "vrcCacheAvatarBatch":
+                    if (msg["avatars"] is JArray batchArr)
+                    {
+                        var mapping = new Dictionary<string, string>();
+                        foreach (var item in batchArr.OfType<JObject>())
+                        {
+                            var bid  = item["id"]?.ToString();
+                            var bUrl = item["imageUrl"]?.ToString();
+                            if (!string.IsNullOrEmpty(bid))
+                                mapping[bid] = ImageCacheHelper.GetAvatarUrl(bid, bUrl);
+                        }
+                        SendToJS("vrcAvatarBatchCached", mapping);
                     }
                     break;
 
@@ -889,9 +930,10 @@ public partial class AppShell
                         var res = await _vrcApi.SearchWorldsAsync(wQ, 20, wOff);
                         var list = res.Cast<JObject>().Select(w => {
                             var wid2 = w["id"]?.ToString() ?? "";
+                            var wurl = ImageCacheHelper.GetWorldUrl(wid2, w["imageUrl"]?.ToString() ?? w["thumbnailImageUrl"]?.ToString());
                             return new {
                             id = wid2, name = w["name"]?.ToString() ?? "",
-                            imageUrl = ImageCacheHelper.GetWorldUrl(wid2, w["imageUrl"]?.ToString()), thumbnailImageUrl = w["thumbnailImageUrl"]?.ToString() ?? "",
+                            imageUrl = wurl, thumbnailImageUrl = wurl,
                             authorName = w["authorName"]?.ToString() ?? "", occupants = w["occupants"]?.Value<int>() ?? 0,
                             capacity = w["capacity"]?.Value<int>() ?? 0, favorites = w["favorites"]?.Value<int>() ?? 0,
                             visits = w["visits"]?.Value<int>() ?? 0, description = w["description"]?.ToString() ?? "",
@@ -1222,8 +1264,8 @@ public partial class AppShell
                                 name             = avatar["name"]?.ToString()                ?? "",
                                 authorName       = avatar["authorName"]?.ToString()          ?? "",
                                 authorId         = avatar["authorId"]?.ToString()            ?? "",
-                                thumbnailImageUrl = ImageCacheHelper.NormalizeTo512(avatar["thumbnailImageUrl"]?.ToString() ?? ""),
-                                imageUrl         = ImageCacheHelper.GetAvatarUrl(avatar["id"]?.ToString(), avatar["imageUrl"]?.ToString()),
+                                thumbnailImageUrl = ImageCacheHelper.GetAvatarUrl(avatar["id"]?.ToString(), avatar["thumbnailImageUrl"]?.ToString() ?? avatar["imageUrl"]?.ToString()),
+                                imageUrl         = ImageCacheHelper.GetAvatarUrl(avatar["id"]?.ToString(), avatar["imageUrl"]?.ToString() ?? avatar["thumbnailImageUrl"]?.ToString()),
                                 releaseStatus    = avatar["releaseStatus"]?.ToString()       ?? "",
                                 version          = avatar["version"]?.Value<int>()           ?? 0,
                                 created_at       = avatar["created_at"]?.ToString()          ?? "",
@@ -1351,6 +1393,11 @@ public partial class AppShell
                     _ = Task.Run(async () =>
                     {
                         var worlds = await _vrcApi.GetMyWorldsAsync();
+                        foreach (JObject w in worlds.OfType<JObject>())
+                        {
+                            var url = ImageCacheHelper.GetWorldUrl(w["id"]?.ToString(), w["imageUrl"]?.ToString() ?? w["thumbnailImageUrl"]?.ToString());
+                            w["imageUrl"] = url; w["thumbnailImageUrl"] = url;
+                        }
                         Invoke(() => SendToJS("vrcMyWorlds", worlds));
                     });
                     break;
@@ -1614,6 +1661,7 @@ public partial class AppShell
                 // Custom Chatbox OSC
                 case "chatboxConfig":
                 case "chatboxStop":
+                case "chatboxDirectSend":
                     _chatboxCtrl.HandleMessage(action, msg);
                     break;
 
@@ -1714,6 +1762,8 @@ public partial class AppShell
                     var calMonth  = msg["month"]?.Value<int>() ?? 0;
                     _ = Task.Run(async () => {
                         var evts = await _vrcApi.GetCalendarEventsAsync(calFilter, calYear, calMonth);
+                        foreach (var ce in evts.OfType<JObject>())
+                            ce["imageUrl"] = ImageCacheHelper.GetEventUrl(ce["id"]?.ToString(), ce["imageUrl"]?.ToString());
                         Invoke(() => SendToJS("vrcCalendarEvents", new { events = evts, filter = calFilter }));
                     });
                     break;
@@ -1733,7 +1783,7 @@ public partial class AppShell
                                 ["description"] = calCached.Description,
                                 ["startsAt"]    = calCached.StartsAt,
                                 ["endsAt"]      = calCached.EndsAt,
-                                ["imageUrl"]    = calCached.ImageUrl,
+                                ["imageUrl"]    = ImageCacheHelper.GetEventUrl(calEvtId, calCached.ImageUrl),
                                 ["accessType"]  = calCached.AccessType,
                                 ["isFollowing"] = calCached.IsFollowing,
                                 ["tags"]        = new JArray(calCached.Tags),
@@ -1755,6 +1805,8 @@ public partial class AppShell
                                     ev["ownerId"]?.ToString() ?? "",
                                     ev["isFollowing"]?.Value<bool>() ?? false);
                             }
+                            if (ev != null)
+                                ev["imageUrl"] = ImageCacheHelper.GetEventUrl(ev["id"]?.ToString() ?? calEvtId, ev["imageUrl"]?.ToString());
                             Invoke(() => SendToJS("vrcCalendarEvent", ev ?? new JObject()));
                         });
                     }
@@ -1870,7 +1922,7 @@ public partial class AppShell
                             if (_settings.FfcEnabled && _cache.IsFresh(CacheHandler.KeyInventory, TimeSpan.FromHours(12)))
                             {
                                 var cached = _cache.LoadRaw(CacheHandler.KeyInventory) as JObject;
-                                var cachedSection = cached?["files"]?[invTag];
+                                var cachedSection = cached?["files"]?[invTag] as JArray;
                                 if (cachedSection != null)
                                 {
                                     Invoke(() => SendToJS("invFiles", new { tag = invTag, files = cachedSection }));
@@ -1892,7 +1944,8 @@ public partial class AppShell
                                 var latest = versions.OfType<JObject>()
                                     .LastOrDefault(v => v["status"]?.ToString() == "complete")
                                     ?? versions.OfType<JObject>().LastOrDefault();
-                                var fileUrl = latest?["file"]?["url"]?.ToString() ?? "";
+                                var rawFileUrl = latest?["file"]?["url"]?.ToString() ?? "";
+                                var fileUrl = rawFileUrl;
                                 var versionId = latest?["version"]?.Value<int>() ?? 1;
                                 var sizeBytes = latest?["file"]?["sizeInBytes"]?.Value<long>() ?? 0;
                                 var createdAt = IsoDate(latest?["created_at"] ?? f["created_at"]);
@@ -2052,7 +2105,7 @@ public partial class AppShell
                                 if (_settings.FfcEnabled && _cache.IsFresh(CacheHandler.KeyInventory, TimeSpan.FromHours(12)))
                                 {
                                     var cached = _cache.LoadRaw(CacheHandler.KeyInventory) as JObject;
-                                    var cachedSection = cached?["prints"];
+                                    var cachedSection = cached?["prints"] as JArray;
                                     if (cachedSection != null)
                                     {
                                         Invoke(() => SendToJS("invPrints", new { prints = cachedSection }));
@@ -2064,10 +2117,11 @@ public partial class AppShell
                                 var list = prints.OfType<JObject>().Select(p =>
                                 {
                                     var filesObj = p["files"] as JObject;
-                                    var imageUrl = filesObj?["image"]?.ToString()
+                                    var rawPrintUrl = filesObj?["image"]?.ToString()
                                         ?? p["imageUrl"]?.ToString()
                                         ?? p["thumbnailImageUrl"]?.ToString()
                                         ?? "";
+                                    var imageUrl = rawPrintUrl;
                                     return new
                                     {
                                         id         = p["id"]?.ToString() ?? "",
@@ -2108,7 +2162,7 @@ public partial class AppShell
                             if (_settings.FfcEnabled && _cache.IsFresh(CacheHandler.KeyInventory, TimeSpan.FromHours(12)))
                             {
                                 var cached = _cache.LoadRaw(CacheHandler.KeyInventory) as JObject;
-                                var cachedSection = cached?["inventory"];
+                                var cachedSection = cached?["inventory"] as JObject;
                                 if (cachedSection != null)
                                 {
                                     Invoke(() => SendToJS("invInventory", cachedSection));
@@ -2123,8 +2177,7 @@ public partial class AppShell
                                 name        = item["name"]?.ToString() ?? "Item",
                                 description = item["description"]?.ToString() ?? "",
                                 itemType    = item["itemType"]?.ToString() ?? "",
-                                imageUrl    = item["imageUrl"]?.ToString()
-                                              ?? item["metadata"]?["imageUrl"]?.ToString() ?? "",
+                                imageUrl    = item["imageUrl"]?.ToString() ?? item["metadata"]?["imageUrl"]?.ToString() ?? "",
                                 isArchived  = item["isArchived"]?.Value<bool>() ?? false,
                                 createdAt   = IsoDate(item["created_at"]),
                             }).ToList();

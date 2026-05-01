@@ -309,6 +309,10 @@
 }
 
 .fd-group-card-meta {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 4px;
     font-size: 10px;
     color: var(--tx3);
     margin-top: 1px;

@@ -121,7 +121,9 @@ public class InstanceController
                         miRaw.Add((instLoc,
                             inst["worldId"]?.ToString() ?? "",
                             inst["world"]?["name"]?.ToString() ?? "",
-                            inst["world"]?["imageUrl"]?.ToString() ?? inst["world"]?["thumbnailImageUrl"]?.ToString() ?? "",
+                            ImageCacheHelper.GetWorldUrl(
+                                inst["worldId"]?.ToString(),
+                                inst["world"]?["imageUrl"]?.ToString() ?? inst["world"]?["thumbnailImageUrl"]?.ToString()),
                             iType,
                             inst["userCount"]?.Value<int>() ?? 0,
                             inst["capacity"]?.Value<int>() ?? 0,
@@ -295,7 +297,7 @@ public class InstanceController
                                 {
                                     name             = world["name"]?.ToString() ?? "",
                                     thumbnailImageUrl = world["thumbnailImageUrl"]?.ToString() ?? "",
-                                    imageUrl         = ImageCacheHelper.GetWorldUrl(wid, world["imageUrl"]?.ToString())
+                                    imageUrl         = ImageCacheHelper.GetWorldUrl(wid, world["imageUrl"]?.ToString()),
                                 });
                             }
                             catch { return (wid, null as object); }
@@ -1276,7 +1278,9 @@ public class InstanceController
         photoUrl    = !string.IsNullOrEmpty(ev.PhotoPath) ? (_core.GetVirtualMediaUrl?.Invoke(ev.PhotoPath) ?? "") : _core.FixLocalUrl(ev.PhotoUrl),
         userId      = ev.UserId,
         userName    = ev.UserName,
-        userImage   = ResolveWithDiskFallback(ev.UserId, ev.UserImage),
+        userImage   = ev.Type == "avatar_switch"
+            ? ImageCacheHelper.GetAvatarUrl(ev.UserId, ev.UserImage)
+            : ResolveWithDiskFallback(ev.UserId, ev.UserImage),
         meetCount   = ev.Type == "meet_again" ? _core.Timeline.GetMeetAgainCount(ev.UserId) : 0,
         notifId     = ev.NotifId,
         notifType   = ev.NotifType,

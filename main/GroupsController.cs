@@ -76,7 +76,8 @@ public class GroupsController
             var enrichedForJs = enriched.Select(g => {
                 var jo = JObject.FromObject(g);
                 var gid = jo["id"]?.ToString();
-                jo["iconUrl"] = ImageCacheHelper.GetGroupUrl(gid, jo["iconUrl"]?.ToString());
+                jo["iconUrl"]   = ImageCacheHelper.GetGroupUrl(gid, jo["iconUrl"]?.ToString());
+                jo["bannerUrl"] = ImageCacheHelper.GetGroupBannerUrl(gid, jo["bannerUrl"]?.ToString());
                 return (object)jo;
             }).ToList();
             _core.SendToJS("log", new { msg = $"[GROUPS] {enriched.Count} loaded", color = "sec" });
@@ -142,8 +143,9 @@ public class GroupsController
                                 groupIcon = grp?.icon ?? "",
                                 location  = i["location"]?.ToString() ?? "",
                                 worldName = i["world"]?["name"]?.ToString() ?? "",
-                                worldThumb = i["world"]?["thumbnailImageUrl"]?.ToString()
-                                          ?? i["world"]?["imageUrl"]?.ToString() ?? "",
+                                worldThumb = ImageCacheHelper.GetWorldUrl(
+                                    i["world"]?["id"]?.ToString(),
+                                    i["world"]?["imageUrl"]?.ToString() ?? i["world"]?["thumbnailImageUrl"]?.ToString()),
                                 userCount = i["n_users"]?.Value<int>()
                                           ?? i["userCount"]?.Value<int>() ?? 0,
                                 capacity  = i["capacity"]?.Value<int>()
@@ -333,7 +335,7 @@ public class GroupsController
                                     description = e["description"]?.ToString() ?? "",
                                     startsAt = e["startsAt"]?.ToString() ?? "",
                                     endsAt = e["endsAt"]?.ToString() ?? "",
-                                    imageUrl = ImageCacheHelper.GetGroupUrl(e["id"]?.ToString(), e["imageUrl"]?.ToString()),
+                                    imageUrl = ImageCacheHelper.GetEventUrl(e["id"]?.ToString(), e["imageUrl"]?.ToString()),
                                     accessType = e["accessType"]?.ToString() ?? "",
                                 }),
                                 groupInstances = instances.Select(i => new {

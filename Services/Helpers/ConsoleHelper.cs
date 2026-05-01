@@ -1,0 +1,49 @@
+namespace VRCNext.Services.Helpers;
+
+public static class ConsoleHelper
+{
+    public record Result(string Text, string Color, string? Extra = null, object? ExtraPayload = null);
+
+    public static Result Execute(string input)
+    {
+        var parts = input.Trim().Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        if (parts.Length == 0) return new("", "info");
+
+        switch (parts[0].ToLowerInvariant())
+        {
+            case "/help":
+                return new(HelpText, "info");
+
+            case "/debug":
+                if (parts.Length >= 4
+                    && parts[1].Equals("img",   StringComparison.OrdinalIgnoreCase)
+                    && parts[2].Equals("cache", StringComparison.OrdinalIgnoreCase)
+                    && bool.TryParse(parts[3], out var val))
+                {
+                    ImageCacheHelper.DebugMode = val;
+                    return new(
+                        $"Image cache debug: {(val ? "ON" : "OFF")}",
+                        val ? "ok" : "warn",
+                        "debugImgCacheState",
+                        new { enabled = val }
+                    );
+                }
+                return new("Usage: /debug img cache <true/false>", "err");
+
+            default:
+                return new($"Unknown command: '{parts[0]}'. Type /help for available commands.", "err");
+        }
+    }
+
+    private const string HelpText =
+        "Commands:\n" +
+        "\n" +
+        "Help:\n" +
+        "  /help\n" +
+        "  Shows all commands\n" +
+        "\n" +
+        "Debugging:\n" +
+        "  /debug img cache <true/false>\n" +
+        "  Shows an overlay on all images.\n" +
+        "  Green = cached (disk). Red = not cached (CDN/API). Orange = WebView cache.";
+}

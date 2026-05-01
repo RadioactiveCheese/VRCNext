@@ -4,8 +4,47 @@
     margin-top: 10px;
     background: var(--bg-card);
     border-radius: 10px;
-    padding: 10px 0;
+    padding: 10px 0 0;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
+.log-scroll {
+    flex: 1;
+    min-height: 0;
     overflow-y: auto;
+    padding-bottom: 4px;
+}
+
+.log-input-row {
+    display: flex;
+    align-items: center;
+    padding: 5px 14px 8px;
+    border-top: 1px solid rgba(255,255,255,.05);
+    flex-shrink: 0;
+}
+
+.log-input-prompt {
+    color: var(--tx3);
+    font-family: 'Consolas', 'Courier New', monospace;
+    font-size: 11px;
+    user-select: none;
+    margin-right: 6px;
+    flex-shrink: 0;
+}
+
+.log-input-field {
+    flex: 1;
+    min-width: 0;
+    background: transparent;
+    border: none;
+    outline: none;
+    color: var(--tx2);
+    font-family: 'Consolas', 'Courier New', monospace;
+    font-size: 11px;
+    caret-color: var(--tx2);
+    padding: 0;
 }
 
 .li-f {

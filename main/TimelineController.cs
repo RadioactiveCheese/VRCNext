@@ -498,7 +498,11 @@ public class TimelineController
                     if (av != null)
                     {
                         var img = av["thumbnailImageUrl"]?.ToString() ?? av["imageUrl"]?.ToString() ?? "";
-                        if (!string.IsNullOrEmpty(img)) fetchedAvatarImgs[aid] = img;
+                        if (!string.IsNullOrEmpty(img))
+                        {
+                            fetchedAvatarImgs[aid] = img;
+                            ImageCacheHelper.CacheAvatarBackground(aid, img);
+                        }
                     }
                     await Task.Delay(250);
                 }

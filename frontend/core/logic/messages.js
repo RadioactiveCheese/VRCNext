@@ -44,6 +44,10 @@ window.external.receiveMessage(rawMsg => {
             case 'imgCacheSize':             updateImgCacheSizeBar(payload.bytes); break;
             case 'imgCacheOptimizeProgress': handleImgCacheOptimizeProgress(payload); break;
             case 'log': addLog(payload.msg, payload.color); break;
+            case 'consoleOutput': addLog(payload.text, payload.color); break;
+            case 'debugImgCacheState':
+                if (typeof setImgCacheDebug === 'function') setImgCacheDebug(payload.enabled);
+                break;
             case 'toast': showToast(payload.ok, payload.msg); break;
             case 'showCrashModal': showCrashModal(payload); break;
             case 'wsStatus': {
@@ -452,6 +456,9 @@ window.external.receiveMessage(rawMsg => {
                 else avatarSearchResults = [...avatarSearchResults, ...(payload.results || [])];
                 avatarSearchHasMore = payload.hasMore || false;
                 renderSearchGrid();
+                break;
+            case 'vrcAvatarBatchCached':
+                if (typeof onRoseDbBatchCached === 'function') onRoseDbBatchCached(payload);
                 break;
             case 'vrcUserAvatars':
                 renderFdUserAvatars(payload);

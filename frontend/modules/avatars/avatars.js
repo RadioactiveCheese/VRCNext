@@ -791,6 +791,7 @@ function loadRoseDatabase(forceRefresh) {
         .then(data => {
             roseDbData   = data.community_avatars || [];
             roseDbLoaded = true;
+            sendToCS({ action: 'vrcCacheAvatarBatch', avatars: roseDbData.map(a => ({ id: a.avatar_id, imageUrl: a.avatar_image_url })) });
             filterRoseDb();
         })
         .catch(() => {
@@ -842,8 +843,16 @@ function _roseTagBadge(rawTag) {
     return `<span class="vrcn-badge" style="background:${bg};color:${s.color};border:${s.border};">${esc(s.label)}</span>`;
 }
 
+function onRoseDbBatchCached(mapping) {
+    roseDbData.forEach(a => {
+        const url = mapping[a.avatar_id];
+        if (url) a._cachedThumb = url;
+    });
+    if (avatarFilter === 'rose') filterRoseDb();
+}
+
 function renderRoseAvatarCard(a) {
-    const thumb  = a.avatar_image_url || '';
+    const thumb  = a._cachedThumb || a.avatar_image_url || '';
     const aid    = jsq(a.avatar_id || '');
     const isFav  = favAvatarsData.some(f => f.id === a.avatar_id);
     const thumbStyle = thumb ? `background-image:url('${cssUrl(thumb)}')` : '';

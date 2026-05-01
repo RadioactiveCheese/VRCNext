@@ -821,6 +821,21 @@ public partial class AppShell
                     }
                     break;
 
+                case "vrcCacheAvatarBatch":
+                    if (msg["avatars"] is JArray batchArr)
+                    {
+                        var mapping = new Dictionary<string, string>();
+                        foreach (var item in batchArr.OfType<JObject>())
+                        {
+                            var bid  = item["id"]?.ToString();
+                            var bUrl = item["imageUrl"]?.ToString();
+                            if (!string.IsNullOrEmpty(bid))
+                                mapping[bid] = ImageCacheHelper.GetAvatarUrl(bid, bUrl);
+                        }
+                        SendToJS("vrcAvatarBatchCached", mapping);
+                    }
+                    break;
+
                 case "vrcCheckAvatars":
                 {
                     var ids = msg["ids"]?.ToObject<string[]>();

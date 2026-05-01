@@ -453,6 +453,9 @@ window.external.receiveMessage(rawMsg => {
                 avatarSearchHasMore = payload.hasMore || false;
                 renderSearchGrid();
                 break;
+            case 'vrcAvatarBatchCached':
+                if (typeof onRoseDbBatchCached === 'function') onRoseDbBatchCached(payload);
+                break;
             case 'vrcUserAvatars':
                 renderFdUserAvatars(payload);
                 break;

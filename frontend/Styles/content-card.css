@@ -346,6 +346,28 @@
     font-size: 12px;
     line-height: 1.6;
     flex-shrink: 0;
+    cursor: pointer;
+}
+.tool-doc .vrcn-panel-card-header::after {
+    content: 'expand_more';
+    font-family: 'Material Symbols Rounded';
+    font-weight: normal;
+    font-style: normal;
+    font-size: 18px;
+    line-height: 1;
+    margin-left: auto;
+    color: var(--tx3);
+    transition: transform 0.2s ease;
+}
+.tool-doc.collapsed .vrcn-panel-card-header {
+    margin-bottom: 0;
+}
+.tool-doc.collapsed .vrcn-panel-card-header::after {
+    transform: rotate(-90deg);
+}
+.tool-doc.collapsed p,
+.tool-doc.collapsed ul {
+    display: none;
 }
 .tool-doc p {
     margin: 0 0 8px;

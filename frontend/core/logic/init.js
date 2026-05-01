@@ -1,6 +1,11 @@
 /* === Init === */
 document.addEventListener('contextmenu', e => e.preventDefault());
 
+document.addEventListener('click', e => {
+    const docCard = e.target.closest('.tool-doc');
+    if (docCard) docCard.classList.toggle('collapsed');
+});
+
 // Restore nav group collapsed states (default: collapsed)
 (function() {
     document.querySelectorAll('.nav-group[id]').forEach(group => {

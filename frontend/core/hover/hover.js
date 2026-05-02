@@ -22,12 +22,24 @@
         tip.style.left = '-9999px';
         tip.style.top  = '-9999px';
         requestAnimationFrame(() => {
+            const matrix = new DOMMatrixReadOnly(getComputedStyle(document.body).transform);
+            const zoom = matrix.a || 1;
+            const viewW = window.innerWidth / zoom;
+            const viewH = window.innerHeight / zoom;
+            const tipRect = {
+                left: rect.left / zoom,
+                top: rect.top / zoom,
+                right: rect.right / zoom,
+                bottom: rect.bottom / zoom,
+                width: rect.width / zoom,
+                height: rect.height / zoom,
+            };
             const tw = tip.offsetWidth;
             const th = tip.offsetHeight;
-            let left = rect.left + rect.width / 2 - tw / 2;
-            let top  = rect.bottom + 7;
-            if (top + th > window.innerHeight - 8) top = rect.top - th - 7;
-            left = Math.max(8, Math.min(left, window.innerWidth - tw - 8));
+            let left = tipRect.left + tipRect.width / 2 - tw / 2;
+            let top  = tipRect.bottom + 7;
+            if (top + th > viewH - 8) top = tipRect.top - th - 7;
+            left = Math.max(8, Math.min(left, viewW - tw - 8));
             tip.style.left = left + 'px';
             tip.style.top  = top + 'px';
         });

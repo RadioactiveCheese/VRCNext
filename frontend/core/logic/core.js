@@ -625,16 +625,251 @@ function getPageTitle(i) {
         t('page.permini', 'Permini'),
         t('page.kikitan_xd', 'Kikitan XD'),
         t('page.event_snipe', 'Event Snipe'),
+        t('page.avatar_scaling', 'Avatar Scaling'),
     ][i] ?? '';
 }
 
-function updateCurrentPageTitle() {
+const TOOL_INFO = {
+    5: {
+        title: 'tool_info.custom_chatbox.title',
+        titleFallback: 'Custom Chatbox',
+        purpose: 'tool_info.custom_chatbox.purpose',
+        purposeFallback: 'Builds a rotating VRChat OSC chatbox message from local time, current media, playback time, system stats, AFK state, and custom text lines.',
+        bullets: [
+            ['tool_info.custom_chatbox.modules', 'Enable the modules you want, then start the tool while VRChat OSC is enabled.'],
+            ['tool_info.custom_chatbox.preview', 'Use the preview and character counter to keep the output within VRChat\'s chatbox limit.'],
+            ['tool_info.custom_chatbox.autostart', 'Auto-start options run the tool automatically when VRCNext launches VRChat.'],
+        ],
+    },
+    6: {
+        title: 'tool_info.media_relay.title',
+        titleFallback: 'Media Relay',
+        purpose: 'tool_info.media_relay.purpose',
+        purposeFallback: 'Watches your configured media folders and posts new images or videos to enabled Discord webhook channels.',
+        bullets: [
+            ['tool_info.media_relay.setup', 'Add watch folders and webhooks in Settings before starting the relay.'],
+            ['tool_info.media_relay.identity', 'Bot name and avatar URL control how relay posts appear in Discord.'],
+            ['tool_info.media_relay.history', 'The posted files table shows relay history for the current session.'],
+        ],
+    },
+    8: {
+        title: 'tool_info.activity_log.title',
+        titleFallback: 'Activity Log',
+        purpose: 'tool_info.activity_log.purpose',
+        purposeFallback: 'Shows live VRCNext events, API responses, websocket state, and errors for troubleshooting.',
+        bullets: [
+            ['tool_info.activity_log.filter', 'Use search to filter visible entries, or Show Full to expand abbreviated messages.'],
+            ['tool_info.activity_log.export', 'Copy captures the visible log text; Open Log and Open Folder jump to the stored log files.'],
+        ],
+    },
+    10: {
+        title: 'tool_info.space_flight.title',
+        titleFallback: 'Space Flight',
+        purpose: 'tool_info.space_flight.purpose',
+        purposeFallback: 'Lets you drag your SteamVR playspace offset with a controller, useful for seated repositioning or controlled movement in VR.',
+        bullets: [
+            ['tool_info.space_flight.connect', 'Connect while SteamVR is running, then hold the configured drag button on an enabled hand.'],
+            ['tool_info.space_flight.tuning', 'Increase Drag Multiplier for larger movement; axis locks prevent movement on specific axes.'],
+            ['tool_info.space_flight.reset', 'Reset returns the current offset to zero.'],
+        ],
+    },
+    11: {
+        title: 'tool_info.osc_tool.title',
+        titleFallback: 'OSC Tool',
+        purpose: 'tool_info.osc_tool.purpose',
+        purposeFallback: 'Connects to VRChat OSC so you can inspect avatar parameters and adjust writable values from VRCNext.',
+        bullets: [
+            ['tool_info.osc_tool.connect', 'Connect, then toggle OSC off and on in VRChat\'s Action Menu if parameters do not appear.'],
+            ['tool_info.osc_tool.search', 'Search filters the parameter list by name.'],
+            ['tool_info.osc_tool.output', 'Output parameters may require enabling before VRCNext can write to them.'],
+        ],
+    },
+    14: {
+        title: 'tool_info.youtube_fix.title',
+        titleFallback: 'YouTube Fix',
+        purpose: 'tool_info.youtube_fix.purpose',
+        purposeFallback: 'Runs VRCVideoCacher as a local helper to reduce YouTube playback failures in VRChat worlds.',
+        bullets: [
+            ['tool_info.youtube_fix.install', 'Install or update VRCVideoCacher first, then install the matching browser extension.'],
+            ['tool_info.youtube_fix.cookies', 'Use a throwaway YouTube account for exported cookies.'],
+            ['tool_info.youtube_fix.start', 'Start the service before opening YouTube videos in VRChat video players.'],
+        ],
+    },
+    15: {
+        title: 'tool_info.mutual_network.title',
+        titleFallback: 'Mutual Network',
+        purpose: 'tool_info.mutual_network.purpose',
+        purposeFallback: 'Builds an interactive graph of mutual friend connections so you can see social clusters around your account.',
+        bullets: [
+            ['tool_info.mutual_network.pan_zoom', 'Drag to pan the graph and scroll to zoom.'],
+            ['tool_info.mutual_network.refetch', 'Re-Fetch clears cached relationship data and loads the network again.'],
+            ['tool_info.mutual_network.reset', 'Reset returns the camera to the default graph view.'],
+        ],
+    },
+    16: {
+        title: 'tool_info.time_spent.title',
+        titleFallback: 'Time Spent',
+        purpose: 'tool_info.time_spent.purpose',
+        purposeFallback: 'Summarizes VRChat session history by world or person, based on timeline data collected by VRCNext.',
+        bullets: [
+            ['tool_info.time_spent.mode', 'Use Worlds or Persons to switch the aggregation mode.'],
+            ['tool_info.time_spent.search', 'Search filters the current list after data has loaded.'],
+            ['tool_info.time_spent.refresh', 'Refresh reloads the statistics from stored session history.'],
+        ],
+    },
+    18: {
+        title: 'tool_info.voice_fight.title',
+        titleFallback: 'Voice Fight',
+        purpose: 'tool_info.voice_fight.purpose',
+        purposeFallback: 'Listens for spoken keywords and plays matching sound effects through your selected output device.',
+        bullets: [
+            ['tool_info.voice_fight.devices', 'Select input and output devices before starting.'],
+            ['tool_info.voice_fight.triggers', 'Add sounds with trigger words; recognized speech appears in the Recognized Words panel.'],
+            ['tool_info.voice_fight.safety', 'Use Block Words and Stop Command to prevent unwanted triggers and stop playback quickly.'],
+        ],
+    },
+    19: {
+        title: 'tool_info.discord_presence.title',
+        titleFallback: 'Discord Presence',
+        purpose: 'tool_info.discord_presence.purpose',
+        purposeFallback: 'Publishes your current VRChat world and status to Discord Rich Presence.',
+        bullets: [
+            ['tool_info.discord_presence.discord', 'Discord must be running before Rich Presence can appear.'],
+            ['tool_info.discord_presence.privacy', 'Privacy toggles control which details are hidden for each VRChat status.'],
+            ['tool_info.discord_presence.preview', 'The preview card shows the presence payload VRCNext is currently sending.'],
+        ],
+    },
+    20: {
+        title: 'tool_info.vr_overlay.title',
+        titleFallback: 'VR Overlay',
+        purpose: 'tool_info.vr_overlay.purpose',
+        purposeFallback: 'Adds a wrist-mounted SteamVR overlay for VRCNext controls, notifications, water reminders, and quick tool toggles.',
+        bullets: [
+            ['tool_info.vr_overlay.connect', 'Connect while SteamVR is running, then show the overlay from this page or with your configured keybind.'],
+            ['tool_info.vr_overlay.position', 'Attachment, transform, width, and control radius tune where the overlay sits on your hand.'],
+            ['tool_info.vr_overlay.sync', 'Toast, water, and avatar scaler options are sent live to the overlay when saved.'],
+        ],
+    },
+    21: {
+        title: 'tool_info.permini.title',
+        titleFallback: 'Permini',
+        purpose: 'tool_info.permini.purpose',
+        purposeFallback: 'Automatically responds to invite requests from selected friends when your status and instance permissions allow it.',
+        bullets: [
+            ['tool_info.permini.add', 'Add friends to the list, then leave VRCNext running while you are in an instance.'],
+            ['tool_info.permini.invite_only', 'Invite-Only instances only work when the requesting friend owns the instance.'],
+            ['tool_info.permini.dnd', 'Do Not Disturb requests require the requester to use VRCNext because VRChat blocks those requests elsewhere.'],
+        ],
+    },
+    22: {
+        title: 'tool_info.kikitan_xd.title',
+        titleFallback: 'Kikitan XD',
+        purpose: 'tool_info.kikitan_xd.purpose',
+        purposeFallback: 'Converts microphone speech to text, optionally translates it, and can send the result to VRChat through the OSC chatbox.',
+        bullets: [
+            ['tool_info.kikitan_xd.setup', 'Add a Groq API key, choose your microphone, and set source and target languages.'],
+            ['tool_info.kikitan_xd.noise_gate', 'Noise Gate filters out quiet background audio before recognition.'],
+            ['tool_info.kikitan_xd.output', 'Disable translation to use speech-to-text only, or disable OSC output to preview locally.'],
+        ],
+    },
+    23: {
+        title: 'tool_info.event_snipe.title',
+        titleFallback: 'Event Snipe',
+        purpose: 'tool_info.event_snipe.purpose',
+        purposeFallback: 'Watches a selected group\'s instances and alerts you when a matching event instance is found.',
+        bullets: [
+            ['tool_info.event_snipe.filters', 'Select a group, optionally filter by world ID, capacity, and instance access type, then start the watcher.'],
+            ['tool_info.event_snipe.access', 'Leave all access type toggles off to match any access type.'],
+            ['tool_info.event_snipe.autojoin', 'Auto-join attempts to join the first matching instance when one is found.'],
+        ],
+    },
+    24: {
+        title: 'tool_info.avatar_scaling.title',
+        titleFallback: 'Avatar Scaling',
+        purpose: 'tool_info.avatar_scaling.purpose',
+        purposeFallback: 'Controls your VRChat avatar scale from VRCNext, with optional keybinds and safety limits.',
+        bullets: [
+            ['tool_info.avatar_scaling.connect', 'Connect while VRChat is running, then adjust the scale slider or use recorded keybinds.'],
+            ['tool_info.avatar_scaling.save', 'Save Scale between Worlds keeps the chosen scale after world changes.'],
+            ['tool_info.avatar_scaling.safety', 'Safety Settings clamp scale to a safer range when enabled.'],
+        ],
+    },
+};
+
+function getCurrentTabIndex() {
     const activeTab = document.querySelector('.tab.active');
-    if (!activeTab) return;
-    const match = activeTab.id.match(/^tab(\d+)$/);
-    if (!match) return;
+    const match = activeTab?.id?.match(/^tab(\d+)$/);
+    return match ? parseInt(match[1], 10) : null;
+}
+
+function updateToolInfoButton(tabIndex = getCurrentTabIndex()) {
+    const btn = document.getElementById('pageInfoBtn');
+    if (!btn) return;
+    const hasInfo = tabIndex !== null && !!TOOL_INFO[tabIndex];
+    btn.style.display = hasInfo ? 'inline-flex' : 'none';
+    btn.setAttribute('aria-hidden', hasInfo ? 'false' : 'true');
+    btn.setAttribute('title', t('tool_info.button_title', 'About this page'));
+}
+
+function renderToolInfoModalContent(tabIndex) {
+    const info = TOOL_INFO[tabIndex];
+    if (!info) return '';
+    const title = esc(t(info.title, info.titleFallback));
+    const purposeLabel = esc(t('tool_info.purpose_label', 'Purpose'));
+    const purpose = esc(t(info.purpose, info.purposeFallback));
+    const bullets = info.bullets
+        .map(([key, fallback]) => `<li>${esc(t(key, fallback))}</li>`)
+        .join('');
+    return `
+        <div class="modal-icon tool-info-icon"><span class="msi">info</span></div>
+        <div class="modal-title">${title}</div>
+        <div class="tool-info-purpose"><strong>${purposeLabel}:</strong> ${purpose}</div>
+        <ul class="tool-info-list">${bullets}</ul>
+        <div class="modal-btns tool-info-actions">
+            <button class="vrcn-button-round" onclick="closeToolInfoModal()">${esc(t('common.close', 'Close'))}</button>
+        </div>`;
+}
+
+function openToolInfoModal() {
+    const tabIndex = getCurrentTabIndex();
+    if (tabIndex === null || !TOOL_INFO[tabIndex]) return;
+    closeToolInfoModal();
+    const overlay = document.createElement('div');
+    overlay.className = 'modal-overlay';
+    overlay.id = 'toolInfoModal';
+    overlay.onclick = event => { if (event.target === overlay) closeToolInfoModal(); };
+    overlay.innerHTML = `<div class="modal-box tool-info-modal">${renderToolInfoModalContent(tabIndex)}</div>`;
+    overlay.dataset.tabIndex = String(tabIndex);
+    document.body.appendChild(overlay);
+    const handler = event => {
+        if (event.key === 'Escape') closeToolInfoModal();
+    };
+    document.addEventListener('keydown', handler);
+    overlay._kh = handler;
+}
+
+function refreshToolInfoModalTranslations() {
+    const overlay = document.getElementById('toolInfoModal');
+    if (!overlay) return;
+    const tabIndex = parseInt(overlay.dataset.tabIndex || '', 10);
+    const box = overlay.querySelector('.tool-info-modal');
+    if (box && TOOL_INFO[tabIndex]) box.innerHTML = renderToolInfoModalContent(tabIndex);
+}
+
+function closeToolInfoModal() {
+    const overlay = document.getElementById('toolInfoModal');
+    if (!overlay) return;
+    if (overlay._kh) document.removeEventListener('keydown', overlay._kh);
+    overlay.remove();
+}
+
+function updateCurrentPageTitle() {
+    const tabIndex = getCurrentTabIndex();
+    if (tabIndex === null) return;
     const pageTitle = document.getElementById('pageTitle');
-    if (pageTitle) pageTitle.textContent = getPageTitle(parseInt(match[1], 10));
+    if (pageTitle) pageTitle.textContent = getPageTitle(tabIndex);
+    updateToolInfoButton(tabIndex);
+    refreshToolInfoModalTranslations();
 }
 
 function renderThemeChips() {

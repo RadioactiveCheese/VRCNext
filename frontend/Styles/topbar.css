@@ -15,6 +15,15 @@
     overflow: visible;
 }
 
+.topbar-title-group {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+    flex: 1 1 auto;
+    overflow: hidden;
+}
+
 .topbar-title {
     font-size: 17px;
     font-weight: 700;
@@ -24,6 +33,32 @@
     overflow: hidden;
     white-space: nowrap;
     text-overflow: ellipsis;
+}
+
+.topbar-info-btn {
+    width: 30px;
+    height: 22px;
+    flex: 0 0 30px;
+    display: flex;
+    border-radius: 12px;
+    border: 1px solid color-mix(in srgb, var(--tx2) 35%, transparent);
+    background: rgba(65,80,110,.1);
+    color: var(--tx2);
+    cursor: pointer;
+    align-items: center;
+    justify-content: center;
+    transition: background .15s ease, border-color .15s ease, color .15s ease, box-shadow .15s ease;
+}
+
+.topbar-info-btn:hover {
+    background: var(--bg-hover);
+    border-color: color-mix(in srgb, var(--accent) 45%, transparent);
+    color: var(--tx0);
+}
+
+.topbar-info-btn .msi {
+    font-size: 14px;
+    line-height: 1;
 }
 
 .win-controls {

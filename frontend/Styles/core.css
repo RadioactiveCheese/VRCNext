@@ -59,3 +59,39 @@
     max-height: 0;
     opacity: 0;
 }
+
+.tool-info-modal {
+    max-width: 480px;
+}
+
+.tool-info-icon {
+    background: color-mix(in srgb, var(--accent) 16%, transparent);
+    color: var(--accent-lt);
+}
+
+.tool-info-purpose {
+    color: var(--tx2);
+    font-size: 13px;
+    line-height: 1.5;
+    margin-bottom: 12px;
+}
+
+.tool-info-purpose strong {
+    color: var(--tx1);
+}
+
+.tool-info-list {
+    color: var(--tx2);
+    font-size: 13px;
+    line-height: 1.5;
+    margin: 0 0 18px;
+    padding-left: 18px;
+}
+
+.tool-info-list li + li {
+    margin-top: 6px;
+}
+
+.tool-info-actions {
+    margin-top: 4px;
+}

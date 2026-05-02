@@ -100,7 +100,10 @@
 
     <div class="main">
         <div class="topbar" id="winDrag">
-            <span class="topbar-title" id="pageTitle" data-i18n="page.dashboard">Dashboard</span>
+            <div class="topbar-title-group">
+                <span class="topbar-title" id="pageTitle" data-i18n="page.dashboard">Dashboard</span>
+                <button class="topbar-info-btn" id="pageInfoBtn" onclick="openToolInfoModal()" title="About this page" data-i18n-title="tool_info.button_title" style="display:none;"><span class="msi">info</span></button>
+            </div>
             <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;">
                 <div class="mini-badge vrcplus" id="badgeVrcPlus" style="display:none;"><span class="mini-badge-label">VRC+</span></div>
                 <div class="mini-badge vcredits" id="badgeVrcCredits" style="display:none;"><span class="mini-badge-label" id="badgeVrcCreditsLabel">V 0</span></div>
